@@ -12,6 +12,7 @@ dependencies = [
     "alembic>=1.13",
     "psycopg[binary]>=3.2",
     "httpx>=0.27",
+    "beautifulsoup4>=4.15.0",
 ]
 
 [dependency-groups]

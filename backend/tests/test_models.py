@@ -26,9 +26,15 @@ def test_phase1_tables_registered() -> None:
 
 def test_opportunities_has_canonical_columns() -> None:
     columns = {c.name for c in Base.metadata.tables["opportunities"].columns}
-    assert {"slug", "company_id", "title", "apply_url", "deadline", "status", "search_tsv"}.issubset(
-        columns
-    )
+    assert {
+        "slug",
+        "company_id",
+        "title",
+        "apply_url",
+        "deadline",
+        "status",
+        "search_tsv",
+    }.issubset(columns)
 
 
 def test_raw_listings_dedup_uniqueness_constraint_exists() -> None:
