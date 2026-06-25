@@ -21,3 +21,22 @@ def classify_category(title: str) -> str:
     if _INTERNSHIP_PATTERN.search(title):
         return "internship"
     return "job"
+
+
+def normalize_title(title: str) -> str:
+    """Lowercased, whitespace-collapsed title for dedup blocking/trigram matching (Doc 03 sec 7)."""
+    return re.sub(r"\s+", " ", title).strip().lower()
+
+
+_COMPANY_SUFFIX_PATTERN = re.compile(
+    r"\b(inc|incorporated|corp|corporation|co|company|ltd|limited|llc|llp|plc|gmbh|sa|ag)\.?$",
+    re.IGNORECASE,
+)
+
+
+def normalize_company_name(name: str) -> str:
+    """Lowercased, legal-suffix-stripped company name for dedup blocking (Doc 03 sec 7, Doc 04 sec 9.1)."""
+    collapsed = re.sub(r"\s+", " ", name).strip().lower()
+    stripped = _COMPANY_SUFFIX_PATTERN.sub("", collapsed).strip()
+    stripped = stripped.rstrip(",.")
+    return stripped or collapsed

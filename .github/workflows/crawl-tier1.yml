@@ -1,0 +1,37 @@
+name: Crawl Tier 1
+
+# Tier 1 = every 1-2h (Doc 04 sec 2). Starting at 2h; tighten once real
+# volume/cost data justifies it (Doc 02 sec 5 - scale by measured trigger).
+on:
+  schedule:
+    - cron: "0 */2 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: crawl-tier1
+  cancel-in-progress: false
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Run Tier-1 crawl
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: uv run python -m crawlers.runner --tier 1
