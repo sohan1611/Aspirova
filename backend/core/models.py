@@ -20,7 +20,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import CITEXT, JSONB, TSVECTOR, UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(DeclarativeBase):
@@ -63,6 +63,8 @@ class Company(Base):
     logo_url: Mapped[str | None] = mapped_column(Text)
     is_dream_eligible: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
     created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
+
+    opportunities: Mapped[list["Opportunity"]] = relationship(back_populates="company")
 
     __table_args__ = (
         Index(
@@ -130,6 +132,8 @@ class Opportunity(Base):
     search_tsv: Mapped[str | None] = mapped_column(TSVECTOR)
     created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
     updated_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
+
+    company: Mapped["Company | None"] = relationship(back_populates="opportunities")
 
     __table_args__ = (
         Index("ix_opportunities_search_tsv", "search_tsv", postgresql_using="gin"),
