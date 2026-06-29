@@ -14,7 +14,13 @@ concurrency:
 jobs:
   crawl:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Generous margin: this network path (GH Actions -> Supabase pooler) has
+    # shown meaningfully higher and more variable latency than a local
+    # connection - confirmed by direct measurement, not assumed. 12
+    # companies each individually bounded by core/db.py's connect/keepalive/
+    # statement timeouts should never need this long, but the margin costs
+    # nothing on a 2h schedule and avoids a slow-but-real run being killed.
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: backend
