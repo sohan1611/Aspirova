@@ -40,4 +40,10 @@ jobs:
       - name: Run Tier-1 crawl
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # Python block-buffers stdout when it's not a TTY (i.e. always, in
+          # CI) - confirmed live: every print() across all 12 companies
+          # appeared in one burst near the end of an 18-minute run instead
+          # of incrementally, making it look like a multi-minute silent hang
+          # when the real-time picture was just hidden, not absent.
+          PYTHONUNBUFFERED: "1"
         run: uv run python -m crawlers.runner --tier 1

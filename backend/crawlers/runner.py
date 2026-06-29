@@ -89,10 +89,27 @@ def crawl_greenhouse_company(
                 _opportunity, is_new = ingest_normalized_listing(
                     session, source_id, company.id, raw, normalized
                 )
+                # Commit per listing, not once at the end of the loop: a
+                # failed statement aborts the WHOLE transaction in Postgres,
+                # and every subsequent command on it fails identically until
+                # something rolls back - confirmed live, one real failure
+                # cascaded into 262/483 and 129/217 "errors" on two boards
+                # that were actually one root cause each. Per-listing commits
+                # mean a later failure can only ever cost that one listing,
+                # never the ones already safely committed before it.
+                session.commit()
                 if is_new:
                     result["new_opps"] += 1
-            except Exception:
+            except Exception as exc:
+                try:
+                    session.rollback()
+                except Exception:
+                    pass
                 result["errors"] += 1
+                print(
+                    f"    listing error ({raw.external_id}): {type(exc).__name__}: {exc}",
+                    flush=True,
+                )
 
         if fingerprint is not None:
             if state is None:
@@ -131,13 +148,22 @@ def crawl_greenhouse_company(
             session.rollback()
         except Exception:
             pass
-        print(f"WARNING: failed to record crawl_runs for {company_slug}: {exc}")
+        print(f"WARNING: failed to record crawl_runs for {company_slug}: {exc}", flush=True)
 
     return result
 
 
 def run_tier(tier: int) -> None:
     engine = make_engine()
+
+    # Gather the (source_id, company_id) work list with one short-lived
+    # session, then process each company with its OWN fresh session below -
+    # not one session shared across all 12 companies. A connection that goes
+    # bad partway through company N would otherwise carry its damaged state
+    # into every company after it, not just N; a fresh session per company
+    # means a bad connection costs at most one company; the next gets a
+    # clean slate (Doc 04 sec 7 - per-source isolation, extended to cover
+    # connection health, not just exceptions).
     with Session(engine) as session:
         sources = session.scalars(
             select(models.Source).where(
@@ -145,29 +171,35 @@ def run_tier(tier: int) -> None:
             )
         ).all()
 
+        jobs: list[tuple[int, str]] = []
         for source in sources:
             if source.adapter_key != "greenhouse":
                 continue  # Phase 1: only the Greenhouse adapter exists
-
             companies = session.scalars(
                 select(models.Company).where(models.Company.ats_type == "greenhouse")
             ).all()
+            jobs.extend((source.id, company.slug) for company in companies)
 
-            for company in companies:
+    for source_id, company_slug in jobs:
+        with Session(engine) as session:
+            source = session.get(models.Source, source_id)
+            company = session.scalar(
+                select(models.Company).where(models.Company.slug == company_slug)
+            )
+            try:
+                result = crawl_greenhouse_company(session, source, company)
+            except Exception as exc:
+                # Last-resort safety net: crawl_greenhouse_company already
+                # catches its own failures, but per-source isolation (Doc
+                # 04 sec 7) must hold even against a bug in that handling
+                # itself - one company can never take down the batch.
                 try:
-                    result = crawl_greenhouse_company(session, source, company)
-                except Exception as exc:
-                    # Last-resort safety net: crawl_greenhouse_company already
-                    # catches its own failures, but per-source isolation (Doc
-                    # 04 sec 7) must hold even against a bug in that handling
-                    # itself - one company can never take down the batch.
-                    try:
-                        session.rollback()
-                    except Exception:
-                        pass
-                    print(f"ERROR: {company.slug} crawl raised unexpectedly: {exc}")
-                    continue
-                print(f"{company.slug}: {result}")
+                    session.rollback()
+                except Exception:
+                    pass
+                print(f"ERROR: {company_slug} crawl raised unexpectedly: {exc}", flush=True)
+                continue
+            print(f"{company_slug}: {result}", flush=True)
 
 
 def main() -> None:
