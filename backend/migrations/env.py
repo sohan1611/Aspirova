@@ -1,11 +1,11 @@
 from logging.config import fileConfig
 
-from sqlalchemy import create_engine
 from sqlalchemy import pool
 
 from alembic import context
 
 from core.config import get_settings
+from core.db import make_engine
 from core.models import Base
 
 # this is the Alembic Config object, which provides
@@ -41,7 +41,7 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode against the real database."""
-    connectable = create_engine(get_settings().database_url, poolclass=pool.NullPool)
+    connectable = make_engine(poolclass=pool.NullPool)
 
     with connectable.connect() as connection:
         context.configure(connection=connection, target_metadata=target_metadata)

@@ -19,11 +19,11 @@ import argparse
 import hashlib
 from datetime import datetime, timezone
 
-from sqlalchemy import create_engine, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from core import models
-from core.config import get_settings
+from core.db import make_engine
 from crawlers.greenhouse import GreenhouseAdapter
 from pipeline.ingest import ingest_normalized_listing
 
@@ -137,7 +137,7 @@ def crawl_greenhouse_company(
 
 
 def run_tier(tier: int) -> None:
-    engine = create_engine(get_settings().database_url)
+    engine = make_engine()
     with Session(engine) as session:
         sources = session.scalars(
             select(models.Source).where(

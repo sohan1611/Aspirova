@@ -8,10 +8,10 @@ without verifying it first, and remove any that start 404ing.
 Idempotent - safe to re-run. Usage: uv run python -m scripts.seed_companies
 """
 
-from sqlalchemy import create_engine, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from core.config import get_settings
+from core.db import make_engine
 from core.models import Company, Source
 
 # (board_token, company_name, domain) - verified live against
@@ -33,7 +33,7 @@ GREENHOUSE_COMPANIES = [
 
 
 def seed() -> None:
-    engine = create_engine(get_settings().database_url)
+    engine = make_engine()
     with Session(engine) as session:
         source = session.scalar(select(Source).where(Source.slug == "greenhouse"))
         if source is None:

@@ -9,18 +9,18 @@ shared state).
 """
 
 import pytest
-from sqlalchemy import create_engine, func, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from core import models
 from core.adapters import NormalizedListing, RawListing
-from core.config import get_settings
+from core.db import make_engine
 from pipeline.ingest import ingest_normalized_listing
 
 
 @pytest.fixture
 def db_session():
-    engine = create_engine(get_settings().database_url)
+    engine = make_engine()
     connection = engine.connect()
     transaction = connection.begin()
     session = Session(bind=connection)
