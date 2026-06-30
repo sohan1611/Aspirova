@@ -83,33 +83,57 @@ def crawl_greenhouse_company(
             session.commit()
             return result  # change-detection skip: nothing changed since last crawl
 
+        # Commit every BATCH_SIZE listings, not once per company (the
+        # original bug) and not once per listing (the first fix). Per-
+        # listing commits are correct but were measured live to be far too
+        # slow on this network path: one 484-listing company alone consumed
+        # most of a 25-minute job, because each commit is a full-durability
+        # round-trip and round-trip count - not server processing time - is
+        # what's actually slow here. A failed listing now rolls back only
+        # its own batch (still-uncommitted listings earlier in the SAME
+        # batch are lost too, not just the failed one), not the whole
+        # company - an acceptable, self-healing tradeoff: ingest is
+        # idempotent, so anything lost just gets reprocessed on the next
+        # 2-hour scheduled crawl, never duplicated or silently dropped.
+        BATCH_SIZE = 25
+        since_last_commit = 0
+        # new_opps is counted as "pending" until its batch actually commits,
+        # not the moment ingest_normalized_listing returns - otherwise a
+        # later failure in the SAME uncommitted batch rolls back an earlier
+        # listing's DB row while result["new_opps"] had already counted it,
+        # silently overcounting.
+        pending_new_opps = 0
+
         for raw in raw_listings:
             try:
                 normalized = adapter.parse(raw)
                 _opportunity, is_new = ingest_normalized_listing(
                     session, source_id, company.id, raw, normalized
                 )
-                # Commit per listing, not once at the end of the loop: a
-                # failed statement aborts the WHOLE transaction in Postgres,
-                # and every subsequent command on it fails identically until
-                # something rolls back - confirmed live, one real failure
-                # cascaded into 262/483 and 129/217 "errors" on two boards
-                # that were actually one root cause each. Per-listing commits
-                # mean a later failure can only ever cost that one listing,
-                # never the ones already safely committed before it.
-                session.commit()
+                since_last_commit += 1
                 if is_new:
-                    result["new_opps"] += 1
+                    pending_new_opps += 1
+                if since_last_commit >= BATCH_SIZE:
+                    session.commit()
+                    result["new_opps"] += pending_new_opps
+                    since_last_commit = 0
+                    pending_new_opps = 0
             except Exception as exc:
                 try:
                     session.rollback()
                 except Exception:
                     pass
+                since_last_commit = 0
+                pending_new_opps = 0
                 result["errors"] += 1
                 print(
                     f"    listing error ({raw.external_id}): {type(exc).__name__}: {exc}",
                     flush=True,
                 )
+
+        if since_last_commit > 0:
+            session.commit()
+            result["new_opps"] += pending_new_opps
 
         if fingerprint is not None:
             if state is None:

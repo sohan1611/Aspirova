@@ -23,47 +23,60 @@ from crawlers import runner
 from pipeline.ingest import ingest_normalized_listing as real_ingest_normalized_listing
 
 
-class _FakeAdapter:
-    requires_browser = False
-    source_slug = "greenhouse"
+def _make_fake_adapter_class(listing_count: int) -> type:
+    class _FakeAdapter:
+        requires_browser = False
+        source_slug = "greenhouse"
 
-    def __init__(self, board_token: str, company_name: str) -> None:
-        self.board_token = board_token
-        self.company_name = company_name
+        def __init__(self, board_token: str, company_name: str) -> None:
+            self.board_token = board_token
+            self.company_name = company_name
 
-    def fetch(self) -> list[RawListing]:
-        return [
-            RawListing(
+        def fetch(self) -> list[RawListing]:
+            return [
+                RawListing(
+                    source_slug="greenhouse",
+                    external_id=str(i),
+                    source_url=f"https://fake.test/{i}",
+                    content_hash=f"hash-{i}",
+                    raw_payload={"id": str(i)},
+                )
+                for i in range(1, listing_count + 1)
+            ]
+
+        def parse(self, raw: RawListing) -> NormalizedListing:
+            return NormalizedListing(
                 source_slug="greenhouse",
-                external_id=eid,
-                source_url=f"https://fake.test/{eid}",
-                content_hash=f"hash-{eid}",
-                raw_payload={"id": eid},
+                external_id=raw.external_id,
+                source_url=raw.source_url,
+                title=f"Fake Job {raw.external_id}",
+                company_name=self.company_name,
+                description_raw="fake description",
+                apply_url=raw.source_url,
             )
-            for eid in ("1", "2", "3")
-        ]
 
-    def parse(self, raw: RawListing) -> NormalizedListing:
-        return NormalizedListing(
-            source_slug="greenhouse",
-            external_id=raw.external_id,
-            source_url=raw.source_url,
-            title=f"Fake Job {raw.external_id}",
-            company_name=self.company_name,
-            description_raw="fake description",
-            apply_url=raw.source_url,
-        )
+        def health(self) -> str:
+            return "ok"
 
-    def health(self) -> str:
-        return "ok"
+    return _FakeAdapter
 
 
-def _ingest_with_forced_db_failure_on_listing_2(session, source_id, company_id, raw, normalized):
-    if raw.external_id == "2":
-        # A real DB-level error - this is what actually aborts the Postgres
-        # transaction, which is the condition the original bug depended on.
-        session.execute(text("SELECT 1/0"))
-    return real_ingest_normalized_listing(session, source_id, company_id, raw, normalized)
+_FakeAdapter = _make_fake_adapter_class(3)
+
+
+def _make_forced_failure_ingest(fail_on_external_id: str):
+    def _ingest(session, source_id, company_id, raw, normalized):
+        if raw.external_id == fail_on_external_id:
+            # A real DB-level error - this is what actually aborts the
+            # Postgres transaction, which is the condition the original bug
+            # depended on.
+            session.execute(text("SELECT 1/0"))
+        return real_ingest_normalized_listing(session, source_id, company_id, raw, normalized)
+
+    return _ingest
+
+
+_ingest_with_forced_db_failure_on_listing_2 = _make_forced_failure_ingest("2")
 
 
 @pytest.fixture
@@ -124,6 +137,16 @@ def seeded(db_session: Session):
 
 
 def test_one_bad_listing_does_not_cascade_fail_the_rest(db_session, seeded, monkeypatch):
+    """Listings are committed in batches (BATCH_SIZE=25), not one at a time
+    - a real GitHub Actions run showed per-listing commits were far too
+    slow under this network's latency (one 484-listing company alone
+    consumed most of a 25-minute job). With only 3 fake listings here, none
+    of them reach the batch threshold, so listing 1 and listing 2 are both
+    still uncommitted when listing 2 fails - rolling back listing 1's work
+    too (the intentional batch-blast-radius tradeoff), while listing 3 (a
+    fresh, uncontaminated transaction after the rollback) survives via the
+    trailing commit. The key regression being guarded against is that the
+    failure does NOT cascade past its own batch into listing 3."""
     source, company = seeded
     monkeypatch.setattr(runner, "GreenhouseAdapter", _FakeAdapter)
     monkeypatch.setattr(
@@ -133,7 +156,7 @@ def test_one_bad_listing_does_not_cascade_fail_the_rest(db_session, seeded, monk
     result = runner.crawl_greenhouse_company(db_session, source, company)
 
     assert result["errors"] == 1
-    assert result["new_opps"] == 2
+    assert result["new_opps"] == 1
     assert result["listings_found"] == 3
 
     titles = set(
@@ -141,4 +164,32 @@ def test_one_bad_listing_does_not_cascade_fail_the_rest(db_session, seeded, monk
             select(models.Opportunity.title).where(models.Opportunity.company_id == company.id)
         ).all()
     )
-    assert titles == {"Fake Job 1", "Fake Job 3"}
+    assert titles == {"Fake Job 3"}
+
+
+def test_failure_in_a_later_batch_does_not_roll_back_an_earlier_committed_batch(
+    db_session, seeded, monkeypatch
+):
+    """The actual guarantee that matters at scale: BATCH_SIZE=25, so with 27
+    listings, listings 1-25 commit as a batch BEFORE listing 26 fails.
+    Losing listing 26 on failure is the accepted tradeoff; losing the
+    already-committed batch of 1-25 would be the cascading bug returning at
+    a larger scale, which is exactly what this guards against. Listing 27
+    starts a fresh batch after the failure and is expected to succeed too,
+    via the trailing commit after the loop."""
+    source, company = seeded
+    monkeypatch.setattr(runner, "GreenhouseAdapter", _make_fake_adapter_class(27))
+    monkeypatch.setattr(runner, "ingest_normalized_listing", _make_forced_failure_ingest("26"))
+
+    result = runner.crawl_greenhouse_company(db_session, source, company)
+
+    assert result["errors"] == 1
+    assert result["new_opps"] == 26  # listings 1-25 (batch 1) + 27 (trailing commit)
+    assert result["listings_found"] == 27
+
+    titles = set(
+        db_session.scalars(
+            select(models.Opportunity.title).where(models.Opportunity.company_id == company.id)
+        ).all()
+    )
+    assert titles == {f"Fake Job {i}" for i in range(1, 26)} | {"Fake Job 27"}
