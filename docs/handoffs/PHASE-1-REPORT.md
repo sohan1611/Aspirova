@@ -1,6 +1,6 @@
 # PHASE 1 REPORT — Foundation & Ingestion Core
 
-*From: Lead Engineer (Claude Sonnet) · To: Chief Architect (Opus) · Status: COMPLETE pending one open decision (§6)*
+*From: Lead Engineer (Claude Sonnet) · To: Chief Architect (Opus) · Status: COMPLETE — backend deployed and measured (§6); frontend deployment in progress*
 
 ---
 
@@ -73,19 +73,42 @@ The first live GitHub Actions crawl hung for the full 15-minute job timeout, twi
 
 **Honest residual uncertainty**: the *exact* root cause of the GH-Actions-to-Supabase-pooler latency/instability itself (vs. local) is not fully explained — likely network distance/variance (GitHub's US-based runners to a Mumbai pooler) compounded by Supabase free-tier pooler characteristics, but not root-caused to a single definitive mechanism. The system is now resilient *to* it (bounded timeouts, no cascading, batched round-trips, per-company isolation), which is the actually-achievable goal — full elimination of cross-continent network variance is not.
 
-**VERIFICATION RUN — CONFIRMED (2026-06-30):** run 28420810872, with all fixes (§4 #5 and #6) in place, **completed successfully: 12m45s, all 12 companies `status: success`, ~2,321 listings scanned, 36 new opportunities, 2 errors total** (DB now holds 2,409 opportunities, 100% with provenance). The investigation is closed: the crawler reliably completes on GitHub Actions. Two caveats remain, both logged for follow-up rather than treated as solved: (a) **12m45s is latency-bound and uncomfortably near the 25-min timeout** — Phase 2's added sources (Lever/Ashby/aggregator, 3–5× the company count) *will* exceed it, so the set-based bulk-operation refactor (Topology ADR "Lever 1") is required before that scaling; (b) the **2 errors are genuine `opportunities_slug_key` unique-violation collisions** (2 of ~2,321 listings) — gracefully handled (logged, batch rolled back, crawl continued), but a real minor slug-generation/dedup edge case worth a dedicated investigation (likely two genuinely-distinct same-company listings producing the same slug base; the per-listing hash suffix should make this near-impossible, so the collision path needs to be understood, not just suppressed).
+**VERIFICATION RUN — CONFIRMED (2026-06-30):** run 28420810872, with all fixes (§4 #5 and #6) in place, **completed successfully: 12m45s, all 12 companies `status: success`, ~2,321 listings scanned, 36 new opportunities, 2 errors total** (DB now holds 2,409 opportunities, 100% with provenance). The investigation is closed: the crawler reliably completes on GitHub Actions. One caveat remains open: **12m45s is latency-bound and uncomfortably near the 25-min timeout** — Phase 2's added sources (Lever/Ashby/aggregator, 3–5× the company count) *will* exceed it, so the set-based bulk-operation refactor (Topology ADR "Lever 1") is required before that scaling. The second caveat — 2 `opportunities_slug_key` collisions — **is now fixed and regression-tested** (see §4a below).
 
-**p95 latency caveat carried over from Step 8, now reinforced**: all local API latency measurements are from this dev machine to Supabase (Mumbai), not from a co-located Render deployment. Doc 02 already anticipated this — real production p95 should be measured fresh once actually deployed.
+**p95 latency caveat carried over from Step 8**: resolved — see §6, real production p95 is now measured.
 
 ---
 
-## 6. Open question for the architect — the one thing actually blocking Phase-1 closure
+## 4a. Bug found and fixed after this report's original close (2026-06-30, same day, Sonnet)
 
-**Render and Vercel deployment has not happened.** Every acceptance criterion above has been verified via local dev servers + GitHub Actions (the crawler specifically is designed to run there regardless of where the API lives), but the **API is not running on Render and the frontend is not running on Vercel** — no `render.yaml`/Vercel project exists yet. This means:
-- The literal "~$7–10/mo" cost criterion is currently **$0** (nothing billed) rather than verified-at-$7-10.
-- The "production" read-path latency (Render co-located with Supabase) has never actually been measured — only local-machine-to-Supabase, which Doc 02 already flagged as unrepresentative.
+**`opportunities_slug_key` collision** (the 2 errors noted above): root cause traced precisely - when a previously-ingested listing's content changes (e.g. its location is edited) but the title doesn't, the deterministic slug stays byte-identical to the existing opportunity's, while the old code's exact-location dedup filter correctly refused to self-match the changed listing and tried to `INSERT` a duplicate. Fixed in `pipeline/ingest.py` with an identity fast-path (re-link via the `(source_id, external_id)` link on `raw_listings` instead of re-running dedup) plus a slug-lookup safety net for the rarer case where `raw_listings` has been pruned but the opportunity persists. Verified both regression tests actually catch the bug: reverted the fix, confirmed both failed reproducing the exact production `IntegrityError`, restored the fix, confirmed both pass. Full suite: 54/54 passing. Commit `51ce4e8`.
 
-This wasn't skipped by oversight — creating cloud accounts and deploying infrastructure is exactly the kind of action this build process has consistently asked before taking (same posture as the GitHub secret and Supabase credential moments earlier in this build). **Decision needed:** deploy now to fully close Phase 1's literal cost/latency criteria, or treat "built, tested, and crawler-verified on GitHub Actions" as sufficient to close Phase 1 and fold actual deployment into Phase 2 (which already covers "production-ready platform")?
+---
+
+## 6. Render + Vercel deployment — EXECUTED (2026-06-30)
+
+Per the architect's [Topology & Deploy ADR](TOPOLOGY-AND-DEPLOY-DECISION.md): deploy now, minimal and reversible, sole purpose = measure real production read-path p95. Done:
+
+- **Backend live on Render**: `https://aspirova-api.onrender.com`, region Singapore (no Mumbai region exists on Render), Starter plan ($7/mo). Deployed via committed `render.yaml` Blueprint (commit `1bab3f0`). `/health` confirms `env: production`, reading Render's dashboard env vars correctly (not a local `.env`).
+- **Functional verification**: `/feed`, `/search`, `/opportunity/{slug}` all return real data from the live Supabase Mumbai DB through Render-Singapore — confirms the cross-region DB connection works correctly in production, not just locally/from GitHub Actions.
+- **Frontend on Vercel**: not yet deployed as of this entry — next step.
+
+### Real production p95 — the number that decides Lever 2
+
+Measured against the live `aspirova-api.onrender.com`, n=30 per endpoint, with a connection-reusing client (a first pass using a fresh `curl` process per request measured p50 ~530-558ms / p95 ~590-748ms — discarded as a methodology artifact: each fresh process pays its own TLS handshake to Render, which isn't what we want to measure; re-run with a persistent `httpx.Client` to isolate that out):
+
+| Endpoint | p50 | p95 | max |
+|---|---:|---:|---:|
+| `/feed` (no filters) | 357ms | 388ms | 478ms |
+| `/feed` (category filter) | 320ms | 370ms | 373ms |
+| `/search` (FTS) | 330ms | 380ms | 501ms |
+| `/opportunity/{slug}` | 335ms | 361ms | 362ms |
+
+**Verdict: p95 sits at 361-388ms across all four endpoints — modestly over the 300ms target (roughly 20-30% over), and roughly 2x the local-machine-direct-to-Supabase numbers from Step 8 (p50 165-200ms).** Not catastrophic, but a consistent, real signal in the same direction across every endpoint, not an outlier.
+
+**Honest methodology caveat**: this measurement is from the testing machine, through the public internet, to Render-Singapore, to Supabase-Mumbai, and back - it is *not* an isolated measurement of just the Render→Supabase hop (that would require server-side instrumentation, e.g. timing the DB round-trip inside the request handler and returning it separately, which was not built here to keep this deploy minimal per the ADR). The testing machine's own network position adds unknown overhead on top of the Render→Supabase leg specifically. That said, this end-to-end number is arguably *more* representative of real user experience than an isolated DB-hop number would be, since a real user's request also has to travel the public internet to reach Render in the first place.
+
+**This leans toward, but does not conclusively prove,** the case for Lever 2 (Singapore region consolidation: Supabase `ap-southeast-1` + Render Singapore) being worth pursuing - p95 is over target, consistently, but not by a wide margin, and the measurement isn't fully isolated to the hop that consolidation would actually fix. Recommend the architect treat this as suggestive evidence to weigh, not a binding trigger on its own - a cleaner server-side-instrumented measurement would sharpen the call if the decision is close.
 
 ---
 
