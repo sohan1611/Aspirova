@@ -1,6 +1,6 @@
 # PHASE 1 REPORT — Foundation & Ingestion Core
 
-*From: Lead Engineer (Claude Sonnet) · To: Chief Architect (Opus) · Status: COMPLETE — backend deployed and measured (§6); frontend deployment in progress*
+*From: Lead Engineer (Claude Sonnet) · To: Chief Architect (Opus) · Status: COMPLETE — backend (Render) + frontend (Vercel) both live, CORS fixed, full production auth+bookmark flow verified (§6)*
 
 ---
 
@@ -91,7 +91,9 @@ Per the architect's [Topology & Deploy ADR](TOPOLOGY-AND-DEPLOY-DECISION.md): de
 
 - **Backend live on Render**: `https://aspirova-api.onrender.com`, region Singapore (no Mumbai region exists on Render), Starter plan ($7/mo). Deployed via committed `render.yaml` Blueprint (commit `1bab3f0`). `/health` confirms `env: production`, reading Render's dashboard env vars correctly (not a local `.env`).
 - **Functional verification**: `/feed`, `/search`, `/opportunity/{slug}` all return real data from the live Supabase Mumbai DB through Render-Singapore — confirms the cross-region DB connection works correctly in production, not just locally/from GitHub Actions.
-- **Frontend on Vercel**: not yet deployed as of this entry — next step.
+- **Frontend live on Vercel**: `https://aspirova.vercel.app`, Hobby (free) tier, deployed via Vercel's Git import (monorepo root directory set to `frontend`). `NEXT_PUBLIC_*` env vars set on the Production+Preview scope before the first build, avoiding a wasted broken deploy. SSR confirmed working against the live backend: real `<title>`/meta description/og:title per opportunity, real opportunity count (2,423) rendered server-side, real apply links pointing at the actual source (e.g. GitLab's Greenhouse board), not Aspirova.
+- **CORS fixed**: `CORS_ORIGINS` on Render updated to include `https://aspirova.vercel.app` (was still `http://localhost:3000` immediately after the backend deploy, which would have silently blocked every client-side browser request - e.g. the bookmark button - while server-side SSR fetches kept working fine, since CORS is a browser-only mechanism). Verified via a CORS preflight check: `access-control-allow-origin` was absent before the fix (confirmed the real block, not assumed) and present after.
+- **Full production auth + bookmark flow verified live** (not just locally): created a real confirmed Supabase Auth user via the Admin API, signed in for a real session token, and ran the complete cycle against `aspirova-api.onrender.com` - `GET /bookmarks` (empty) → `POST /bookmarks/{slug}` (204) → `GET /bookmarks` (shows it) → `DELETE /bookmarks/{slug}` (204) → `GET /bookmarks` (empty again) → invalid token correctly rejected (401) → test user cleaned up. This closes the Phase-1 "stranger can search→open→sign up→bookmark" acceptance criterion against the actual deployed stack, not a local approximation of it.
 
 ### Real production p95 — the number that decides Lever 2
 
@@ -114,7 +116,7 @@ Measured against the live `aspirova-api.onrender.com`, n=30 per endpoint, with a
 
 ## 7. HARD RULES self-check (Doc 08 §3)
 
-- [x] No crawler/Playwright code path runs on the Render web dyno (nothing is even deployed to Render yet; crawler only ever runs via GH Actions or local dev invocation)
+- [x] No crawler/Playwright code path runs on the Render web dyno (Render runs only `api.main:app`, per `render.yaml`'s start command; crawler only ever runs via GH Actions or local dev invocation - confirmed live, the deployed Render service has never executed crawler code)
 - [x] No Playwright at all in Phase 1 — confirmed via dependency grep
 - [x] Outbound `apply_url`/`source_url` stored + displayed; no mirroring — confirmed live on real pages
 - [x] One canonical opp per real opportunity; provenance preserved; writes idempotent — confirmed via tests + live data (2,348/2,348 with provenance)
@@ -128,8 +130,8 @@ Measured against the live `aspirova-api.onrender.com`, n=30 per endpoint, with a
 
 | Budget item | Target | Actual |
 |---|---|---|
-| Infra | ~$7–10/mo | $0 (undeployed — see §6) |
-| Read path p95 | <300ms | 215–380ms locally (network-path caveat, §5) |
+| Infra | ~$7–10/mo | **$7/mo** (Render Starter; Vercel Hobby + Supabase free + GH Actions free = $0) — on target |
+| Read path p95 | <300ms | **361–388ms live production** (§6) — modestly over target, see Lever-2 discussion |
 | AI on hot path | none | none — confirmed, no AI code exists yet (Phase 3 concern) |
 
 ---
