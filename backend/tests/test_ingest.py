@@ -243,3 +243,101 @@ def test_same_title_same_location_does_merge(db_session, seeded):
 
     assert is_new_2 is False
     assert opp_2.id == opp_1.id
+
+
+def test_listing_location_change_does_not_cause_slug_collision(db_session, seeded):
+    """Regression test for a real production bug (GH Actions run
+    28420810872, 2 of ~2,321 listings): a previously-ingested listing whose
+    location changes in place, with its content_hash also changing, must
+    update the existing opportunity via the (source_id, external_id)
+    identity link on raw_listings - never fall through to dedup (whose
+    exact-location filter correctly refuses to self-match a listing whose
+    location just changed) and attempt to INSERT a new opportunity at the
+    same deterministic slug."""
+    source_a, _source_b, company = seeded
+
+    raw_v1 = _raw("job-1", "https://acme.example/jobs/1", content_hash="hash-v1")
+    norm_v1 = _normalized(
+        "Senior Solutions Architect", "https://acme.example/jobs/1", location="Remote, US"
+    )
+    opp_v1, is_new_v1 = ingest_normalized_listing(
+        db_session, source_a.id, company.id, raw_v1, norm_v1
+    )
+    db_session.flush()
+    assert is_new_v1 is True
+
+    raw_v2 = _raw("job-1", "https://acme.example/jobs/1", content_hash="hash-v2")
+    norm_v2 = _normalized(
+        "Senior Solutions Architect",
+        "https://acme.example/jobs/1",
+        location="Remote, US; Remote, Canada",
+    )
+    opp_v2, is_new_v2 = ingest_normalized_listing(
+        db_session, source_a.id, company.id, raw_v2, norm_v2
+    )
+    db_session.flush()
+
+    assert is_new_v2 is False
+    assert opp_v2.id == opp_v1.id
+    assert opp_v2.location == "Remote, US; Remote, Canada"
+
+    opp_count = db_session.scalar(
+        select(func.count())
+        .select_from(models.Opportunity)
+        .where(models.Opportunity.company_id == company.id)
+    )
+    assert opp_count == 1
+
+
+def test_pruned_raw_listing_soft_merges_via_slug_instead_of_failing(db_session, seeded):
+    """Regression test for the second variant of the same bug: if
+    raw_listings is pruned (Doc 03 sec 8 retention) but the opportunity it
+    created persists, a re-crawled listing with the same external_id has no
+    raw_row to identity-match through - the deterministic slug must still
+    be honored as a merge key instead of raising opportunities_slug_key."""
+    source_a, _source_b, company = seeded
+
+    raw_v1 = _raw("job-1", "https://acme.example/jobs/1", content_hash="hash-v1")
+    norm_v1 = _normalized(
+        "Senior Solutions Architect", "https://acme.example/jobs/1", location="Remote, US"
+    )
+    opp_v1, _ = ingest_normalized_listing(db_session, source_a.id, company.id, raw_v1, norm_v1)
+    db_session.flush()
+
+    # Simulate raw_listings retention pruning: null the (nullable) FK first
+    # - a real pruning job must do the same, since opportunity_sources ->
+    # raw_listings has no ON DELETE CASCADE - then delete the raw_row,
+    # keeping the opportunity it created.
+    db_session.execute(
+        models.OpportunitySource.__table__.update()
+        .where(models.OpportunitySource.opportunity_id == opp_v1.id)
+        .values(raw_listing_id=None)
+    )
+    db_session.execute(
+        models.RawListing.__table__.delete().where(
+            models.RawListing.source_id == source_a.id,
+            models.RawListing.external_id == "job-1",
+        )
+    )
+    db_session.flush()
+
+    raw_v2 = _raw("job-1", "https://acme.example/jobs/1", content_hash="hash-v2")
+    norm_v2 = _normalized(
+        "Senior Solutions Architect",
+        "https://acme.example/jobs/1",
+        location="Remote, US; Remote, Canada",
+    )
+    opp_v2, is_new_v2 = ingest_normalized_listing(
+        db_session, source_a.id, company.id, raw_v2, norm_v2
+    )
+    db_session.flush()
+
+    assert is_new_v2 is False
+    assert opp_v2.id == opp_v1.id
+
+    opp_count = db_session.scalar(
+        select(func.count())
+        .select_from(models.Opportunity)
+        .where(models.Opportunity.company_id == company.id)
+    )
+    assert opp_count == 1
