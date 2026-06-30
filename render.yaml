@@ -1,0 +1,41 @@
+# Render Blueprint for the Aspirova FastAPI backend.
+#
+# Region: Singapore - Render has no Mumbai/India region; Singapore is the
+# closest to the Supabase project (aws-1-ap-south-1) at ~100-150ms
+# (Topology & Deploy ADR, docs/handoffs/TOPOLOGY-AND-DEPLOY-DECISION.md).
+# This deploy is a deliberate, reversible MEASUREMENT of real production
+# read-path p95 over that hop - not a "Phase 1 shipped" milestone.
+#
+# Plan: starter (paid, ~$7/mo), not free - the free tier spins down after
+# 15min idle with a ~1min cold start, which makes a live demo worse than
+# none.
+#
+# Secrets (DATABASE_URL, SUPABASE_*) are marked sync: false - set them in
+# the Render dashboard only, never commit them here (Doc 08: no secrets in
+# code/config files).
+
+services:
+  - type: web
+    name: aspirova-api
+    runtime: python
+    region: singapore
+    plan: starter
+    rootDir: backend
+    buildCommand: pip install uv && uv sync --frozen
+    startCommand: uv run uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
+      - key: ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
