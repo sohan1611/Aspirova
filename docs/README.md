@@ -82,5 +82,8 @@ The full rationale and rejected alternatives live in the relevant docs. This is 
 | 2026-06-25 | **Pricing (SUPERSEDES earlier ₹25/₹30):** Pro Lite ₹39/mo · ₹399/yr; Pro ₹49/mo · ₹499/yr. Annual = ~15% off (Pro Lite saves ₹69, Pro saves ₹89). Annual is the default checkout option (Doc 06) | **Binding** |
 | 2026-06-25 | FX assumption corrected to ₹95 = $1 across the canon; blended ARPPU ₹47.5/mo; break-even ~1,000 users at 3% conversion (Doc 06) | **Binding** |
 | 2026-06-25 | Aspirova is currently a **project (build), not a live product**; profit is a reference model, not the immediate goal | **Binding** |
+| 2026-06-30 | Deploy read path now as a **minimal, reversible measurement** — Render **Singapore** ($7 Starter) + Vercel Hobby, Supabase stays Mumbai; purpose = real production p95 + portfolio artifact, NOT "Phase 1 shipped" ([Topology & Deploy ADR](handoffs/TOPOLOGY-AND-DEPLOY-DECISION.md)) | **Binding** |
+| 2026-06-30 | Crawler **set-based bulk-operation** refactor required **before Phase 2 scales source count** (root cause of slow GH-Actions→Mumbai crawls is round-trip count × link latency, not commit frequency); non-blocking for the deploy | **Binding** |
+| 2026-06-30 | Render has **no Mumbai region** (Singapore is closest, ~120ms to Mumbai DB); strategic direction is **consolidate compute + DB in Singapore**, but gated on the measured p95, not assumed | **Proposed — measure first** |
 
 > Engineers: do not contradict a **Binding** row without an architect-approved amendment.
