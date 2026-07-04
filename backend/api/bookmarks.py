@@ -1,6 +1,5 @@
 """POST/DELETE /bookmarks + GET /bookmarks - the one authenticated surface
-in Phase 1. BLOCKED ON CREDENTIALS: depends on api/auth.py, untested
-against a real Supabase session as of this writing."""
+in Phase 1."""
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -10,8 +9,35 @@ from api.auth import get_current_user
 from api.deps import get_db
 from api.schemas import OpportunityListItem
 from core import models
+from core.config import get_settings
+from core.ratelimit import check_rate_limit
+from core.redis_client import get_redis
 
 router = APIRouter()
+
+
+async def enforce_bookmark_write_limit(
+    user: models.User = Depends(get_current_user),
+) -> models.User:
+    """Per-user write limit (Doc handoffs/PHASE-2-HANDOFF.md sec 11.4) -
+    enforced here, as a route dependency, rather than in the global ASGI
+    middleware: it needs the *authenticated* user, which only exists after
+    get_current_user has already run."""
+    settings = get_settings()
+    result = await check_rate_limit(
+        get_redis(),
+        bucket="bookmark_write",
+        identifier=str(user.id),
+        max_requests=settings.rate_limit_user_bookmark_write_per_minute,
+        window_seconds=60,
+    )
+    if not result.allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many requests",
+            headers={"Retry-After": str(result.retry_after_seconds)},
+        )
+    return user
 
 
 def _get_opportunity_or_404(db: Session, slug: str) -> models.Opportunity:
@@ -25,7 +51,7 @@ def _get_opportunity_or_404(db: Session, slug: str) -> models.Opportunity:
 def add_bookmark(
     opportunity_slug: str,
     db: Session = Depends(get_db),
-    user: models.User = Depends(get_current_user),
+    user: models.User = Depends(enforce_bookmark_write_limit),
 ) -> None:
     opportunity = _get_opportunity_or_404(db, opportunity_slug)
     existing = db.get(models.Bookmark, (user.id, opportunity.id))
@@ -38,7 +64,7 @@ def add_bookmark(
 def remove_bookmark(
     opportunity_slug: str,
     db: Session = Depends(get_db),
-    user: models.User = Depends(get_current_user),
+    user: models.User = Depends(enforce_bookmark_write_limit),
 ) -> None:
     opportunity = _get_opportunity_or_404(db, opportunity_slug)
     existing = db.get(models.Bookmark, (user.id, opportunity.id))
