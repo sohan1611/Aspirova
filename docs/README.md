@@ -89,5 +89,6 @@ The full rationale and rejected alternatives live in the relevant docs. This is 
 | 2026-06-30 | **Lever-2 ruling:** do NOT migrate Supabase to Singapore yet. Production p95 is over target + variable but not isolated to the DB hop. Phase 2 adds server-side `X-DB-Time-Ms` instrumentation + Upstash read-caching first; migrate only if the *isolated* DB-hop p95 is over budget | **Binding** |
 | 2026-06-30 | **Lever-1 (crawler set-based bulk ops) is a hard precondition** inside Phase 2 — must land before Lever/Ashby/aggregator adapters, else the ~12m45s crawl blows the 25-min timeout at 3-5× the source count | **Binding** |
 | 2026-06-30 | Rate limiting on the public API is **urgent Phase-2 work**, not deferrable — the API is already public and unthrottled over a $7 Render + free pooler | **Binding** |
+| 2026-07-05 | **Part 2.1 rulings** (see [PHASE-2-HANDOFF §11](handoffs/PHASE-2-HANDOFF.md)): rate limiter **fails open**; per-IP keys on `X-Forwarded-For` (not the Render proxy IP); cache invalidation = short TTL backstop **+** crawler-driven version-bump (never SCAN/DEL), TTL-only acceptable if crawler→Upstash is deferred; limits/TTLs are **config, not code**; cache check runs before `get_db`; rate-limit/cache middleware sit inside CORS | **Binding** |
 
 > Engineers: do not contradict a **Binding** row without an architect-approved amendment.

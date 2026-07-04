@@ -143,5 +143,53 @@ Razorpay account (test-mode keys first), Resend account + verified sending domai
 
 ---
 
+## 11. Part 2.1 build addendum — binding rulings (2026-07-05)
+
+*Issued by the Chief Architect after reading the current code (`api/main.py`, `core/config.py`, `api/{feed,search,opportunity,auth,bookmarks}.py`, `api/deps.py`, `crawlers/runner.py`). These pin the decisions the §5 table row left open so Part 2.1 is buildable without a review bounce. They are **Binding** (Decision-log row of the same date). Sonnet may refine numbers; the **mechanisms** below are not optional.*
+
+**Readiness verdict:** the seams are clean and nothing structural blocks the part — the work is decisions, not missing infrastructure. Build to these.
+
+### 11.1 Cache invalidation is cross-process — design for it explicitly
+Ingest runs **only** on GitHub Actions (`runner.py` docstring; Doc 02 §3.3 hard rule), so the web dyno never learns when data changed. "Invalidate on ingest" therefore cannot be a call inside a request handler.
+- **Ruling:** a short TTL is the mandatory correctness backstop; a **cache-version bump** is the best-effort fast-invalidation on top. Cache keys are prefixed with a version integer read from Upstash (e.g. `feed:v{ver}:{normalized_qs}`, `search:v{ver}:{q,page,limit}`, `opp:v{ver}:{slug}`). The crawler does **one** `INCR aspirova:cache:ver` at the end of any run that changed data (`new_opps > 0` or the board fingerprint moved). Old keys become unreachable and expire via TTL. **O(1); never SCAN/DEL** over the keyspace.
+- **If** wiring Upstash creds into the crawler (GH Actions secrets) is judged out of 2.1 scope, **ship TTL-only** and defer the version-bump — with a 2-hour crawl cadence, sub-minute staleness is immaterial and TTL fully bounds correctness. Do not block 2.1 on it.
+- **Manual prereq (flag it):** the version-bump path needs `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` as GitHub Actions secrets, not just Render env.
+
+### 11.2 Fail-open, always
+If Upstash is unreachable on the **rate-limit** path, **allow** the request and emit a log line + an alert counter — do not 503. Availability beats protection for a public read API on a $7 dyno; the DB's `statement_timeout` (Doc: `core/db.py`) + pooler cap are the backstop. On the **cache** path, a backend error falls through to the DB — a cache outage must never turn a read into a 500.
+
+### 11.3 Client identity behind Render's proxy
+Per-IP limits key on the **first hop of `X-Forwarded-For`**, never `request.client.host` (which is Render's proxy — that would collapse every user into one bucket and throttle the whole world at once). Trust XFF **only** because we know we sit behind Render's proxy; document that trust boundary in the code. Per-user limits key on `user.id` from `get_current_user`; unauthenticated requests fall back to the IP key.
+
+### 11.4 Limits and TTLs are configuration, not code
+Env-driven, same ethos as "plans are data." Initial values (Sonnet may tune, but they live in config from day one):
+
+| Surface | Initial limit |
+|---|---|
+| `/feed`, `/search` (per IP) | 60 req / min |
+| `/opportunity/{slug}` (per IP) | 120 req / min |
+| bookmark writes `POST`/`DELETE` (per user) | 30 req / min |
+| read-cache TTL | 45 s |
+
+Use the **Upstash Python SDK** (`upstash-redis` + `upstash-ratelimit`, REST-based — no persistent TCP from Render) with an atomic fixed/sliding window. Do **not** hand-roll `INCR`/`EXPIRE` (race-prone).
+
+### 11.5 Middleware ordering + response contract
+- The cache check MUST run **before** the `get_db` dependency opens a session, so a hit does **zero** DB work — the §5 "serves without a DB query" check depends on this. Implement the read cache as middleware or a dependency ordered ahead of the session, not inside the handler after `get_db` already ran.
+- Rate-limit + cache layers sit **inside** CORS, so a `429` or a cached response still carries CORS headers (otherwise the browser masks it).
+- `429` responses carry `Retry-After` and a JSON body.
+- Design so Part 2.3's `X-Total-Time-Ms` / `X-DB-Time-Ms` middleware layers cleanly on top; a cache hit still reports timing (with `X-DB-Time-Ms ≈ 0`).
+
+### 11.6 Pre-flight before per-user limits
+`api/auth.py` and `api/bookmarks.py` still carry stale `BLOCKED ON CREDENTIALS — untested` docstrings, though the Phase-1 review reports the sign-up→bookmark flow verified live. Before layering per-user limits on `get_current_user`, **confirm auth works end-to-end** against the real Supabase creds now in `.env`, and clear the stale docstrings.
+
+### 11.7 Updated "Done" check for Part 2.1 (supersedes the §5 table row)
+1. A burst above the window returns `429` with `Retry-After`.
+2. A repeated `/feed` (and `/search`) request serves from cache with **zero** DB round-trips — proven via `X-DB-Time-Ms ≈ 0` (Part 2.3) or a query-counter assertion in a test.
+3. With Upstash forced unreachable, the API still serves reads (**fail-open**, covered by a test).
+4. Per-IP keying is correct behind a simulated `X-Forwarded-For`: two client IPs get two buckets; a single proxy IP does **not** collapse all users into one.
+5. p95 is re-measured **after** caching and recorded — the Lever-2 input (§4).
+
+---
+
 ## Definition of done for Phase 2
 Free/Pro-Lite/Pro are live with data-driven gating and working Razorpay (test-mode) monthly+annual checkout; dream-company alerts and a daily digest actually send; the crawler ingests from ≥3 ATS + 1 aggregator on a bulk-op pipeline that finishes well under the timeout; the now-public API is rate-limited and cached; real data is backed up and a restore is proven; the isolated DB-hop latency number is in hand to settle Lever 2 — and every §8 gate holds. Then write the Phase-2 Report and stop; the user pings Opus for review and the Phase-3 (AI) handoff.
