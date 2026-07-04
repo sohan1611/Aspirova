@@ -85,5 +85,9 @@ The full rationale and rejected alternatives live in the relevant docs. This is 
 | 2026-06-30 | Deploy read path now as a **minimal, reversible measurement** — Render **Singapore** ($7 Starter) + Vercel Hobby, Supabase stays Mumbai; purpose = real production p95 + portfolio artifact, NOT "Phase 1 shipped" ([Topology & Deploy ADR](handoffs/TOPOLOGY-AND-DEPLOY-DECISION.md)) | **Binding** |
 | 2026-06-30 | Crawler **set-based bulk-operation** refactor required **before Phase 2 scales source count** (root cause of slow GH-Actions→Mumbai crawls is round-trip count × link latency, not commit frequency); non-blocking for the deploy | **Binding** |
 | 2026-06-30 | Render has **no Mumbai region** (Singapore is closest, ~120ms to Mumbai DB); strategic direction is **consolidate compute + DB in Singapore**, but gated on the measured p95, not assumed | **Proposed — measure first** |
+| 2026-06-30 | **Phase 1 PASSES architect review** (crawler + deployment + auth flow all verified live; no blocking defects). Build phases 1-2 done; Phase 2 (build phases 3-4) issued via [PHASE-2-HANDOFF.md](handoffs/PHASE-2-HANDOFF.md) | **Binding** |
+| 2026-06-30 | **Lever-2 ruling:** do NOT migrate Supabase to Singapore yet. Production p95 is over target + variable but not isolated to the DB hop. Phase 2 adds server-side `X-DB-Time-Ms` instrumentation + Upstash read-caching first; migrate only if the *isolated* DB-hop p95 is over budget | **Binding** |
+| 2026-06-30 | **Lever-1 (crawler set-based bulk ops) is a hard precondition** inside Phase 2 — must land before Lever/Ashby/aggregator adapters, else the ~12m45s crawl blows the 25-min timeout at 3-5× the source count | **Binding** |
+| 2026-06-30 | Rate limiting on the public API is **urgent Phase-2 work**, not deferrable — the API is already public and unthrottled over a $7 Render + free pooler | **Binding** |
 
 > Engineers: do not contradict a **Binding** row without an architect-approved amendment.
