@@ -29,6 +29,16 @@ class Settings(BaseSettings):
     rate_limit_user_bookmark_write_per_minute: int = 30
     read_cache_ttl_seconds: int = 45
 
+    # Independent nightly backup (Doc 03 sec 8/9) - S3-compatible object
+    # storage, so this works unchanged against either Cloudflare R2 or
+    # Backblaze B2 (the user's choice, Doc handoffs/PHASE-2-HANDOFF.md sec
+    # 10); just point the endpoint at whichever one is created. Blank =
+    # not configured yet.
+    backup_s3_endpoint_url: str = ""
+    backup_s3_access_key_id: str = ""
+    backup_s3_secret_access_key: str = ""
+    backup_s3_bucket: str = ""
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

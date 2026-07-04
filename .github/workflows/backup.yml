@@ -1,0 +1,59 @@
+name: Nightly Backup
+
+# Independent nightly pg_dump -> S3-compatible object storage (Doc 03 sec
+# 8/9: "never rely solely on the provider"). Off-peak and offset from the
+# Tier-1 crawl's :00/:02h cron so it never competes for the free Supabase
+# pooler's connection slots.
+on:
+  schedule:
+    - cron: "17 19 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: nightly-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Pinned to postgresql-client-16 via the official PGDG apt repo,
+      # NOT ubuntu-latest's default "postgresql-client" package - verified
+      # live while building this workflow that ubuntu-latest's default
+      # resolves to 17.x, and a 17.x pg_dump emits a `SET
+      # transaction_timeout = 0;` preamble command (a GUC only added in
+      # Postgres 17) that an older server's pg_restore rejects as
+      # "unrecognized configuration parameter", failing the very restore
+      # this backup exists for. Pinning below 17 avoids the client ever
+      # emitting a setting an older restore target doesn't understand yet.
+      - name: Install PostgreSQL 16 client tools
+        run: |
+          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/postgresql.gpg
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-16
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Run nightly backup
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BACKUP_S3_ENDPOINT_URL: ${{ secrets.BACKUP_S3_ENDPOINT_URL }}
+          BACKUP_S3_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+          BACKUP_S3_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+          BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+        run: uv run python -m scripts.backup_db
