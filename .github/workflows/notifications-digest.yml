@@ -1,0 +1,41 @@
+name: Daily Digest
+
+# Once daily (Doc 02 sec 3.6: "one daily digest email per free user, not
+# per-opportunity") - off-peak, clear of the Tier-1 crawl's :00/:02h cron
+# and the nightly backup's 19:17 UTC slot.
+on:
+  schedule:
+    - cron: "30 3 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: notifications-digest
+  cancel-in-progress: false
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Send daily digests
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
+          PYTHONUNBUFFERED: "1"
+        run: uv run python -m scripts.notification_worker --digest

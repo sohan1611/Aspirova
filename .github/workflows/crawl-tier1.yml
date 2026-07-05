@@ -47,3 +47,18 @@ jobs:
           # when the real-time picture was just hidden, not absent.
           PYTHONUNBUFFERED: "1"
         run: uv run python -m crawlers.runner --tier 1
+
+      # Post-ingest instant dream-company alerts (Doc handoffs/
+      # PHASE-2-HANDOFF.md sec 5) - a separate step in the SAME run rather
+      # than code wired into crawlers/runner.py itself: it works off a
+      # lookback window on opportunities.first_seen_at (pipeline/
+      # notifications.py), not opportunity IDs threaded through the
+      # crawl's return value, so it stays correct even if this step is
+      # ever rerun independently or the crawl step's job is retried.
+      - name: Send instant dream-company alerts
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
+          PYTHONUNBUFFERED: "1"
+        run: uv run python -m scripts.notification_worker --instant-alerts

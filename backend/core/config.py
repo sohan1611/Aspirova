@@ -47,6 +47,14 @@ class Settings(BaseSettings):
     razorpay_key_secret: str = ""
     razorpay_webhook_secret: str = ""
 
+    # Resend (Doc 02 sec 3.6, Doc handoffs/PHASE-2-HANDOFF.md sec 5) -
+    # sending domain needs SPF/DKIM/DMARC verified in the Resend dashboard
+    # first (Doc handoffs/PHASE-2-HANDOFF.md sec 10, manual prerequisite).
+    # Blank = the notification worker logs + records a 'failed' row per
+    # skipped send instead of silently no-oping, so gaps are visible.
+    resend_api_key: str = ""
+    resend_from_email: str = ""
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

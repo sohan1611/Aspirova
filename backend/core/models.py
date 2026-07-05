@@ -279,6 +279,28 @@ class DreamCompany(Base):
     )
 
 
+class Notification(Base):
+    """Log + dedup of every notification sent (Doc 03 sec 4.3) - the
+    (user_id, type, sent_at) index backs both frequency caps (has this
+    user already gotten a digest today?) and suppression (has this exact
+    user+opportunity instant alert already gone out?)."""
+
+    __tablename__ = "notifications"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    type: Mapped[str] = mapped_column(Text, nullable=False)
+    opportunity_id: Mapped[int | None] = mapped_column(ForeignKey("opportunities.id"))
+    channel: Mapped[str] = mapped_column(Text, server_default="email")
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    sent_at: Mapped[datetime | None] = mapped_column()
+    meta: Mapped[dict | None] = mapped_column()
+
+    __table_args__ = (Index("ix_notifications_user_type_sent", "user_id", "type", "sent_at"),)
+
+
 class CrawlRun(Base):
     """Operational observability for every crawl (Doc 03 5.1, Doc 04 sec 7)."""
 
