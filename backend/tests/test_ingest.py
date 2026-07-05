@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from core import models
 from core.adapters import NormalizedListing, RawListing
 from core.db import make_engine
-from pipeline.ingest import ingest_normalized_listing
+from pipeline.ingest import ingest_one, load_board_state
 
 
 @pytest.fixture
@@ -71,6 +71,21 @@ def _normalized(
     )
 
 
+def _ingest(
+    db_session: Session,
+    source_id: int,
+    company_id: int | None,
+    raw: RawListing,
+    normalized: NormalizedListing,
+) -> tuple[models.Opportunity, bool]:
+    """Loads a fresh board_state before each call, simulating what
+    production actually does: crawlers/runner.py loads board_state once
+    per company crawl, and every call site below represents a separate
+    crawl of that board (Doc handoffs/PHASE-2-HANDOFF.md sec 2/5)."""
+    board_state = load_board_state(db_session, source_id, company_id)
+    return ingest_one(db_session, board_state, source_id, company_id, raw, normalized)
+
+
 def test_same_job_from_two_sources_merges_into_one_opportunity(db_session, seeded):
     """Cross-source merge requires a near-exact title match at the current
     threshold (0.90) - by design, Phase 1 with one source only needs to
@@ -80,13 +95,13 @@ def test_same_job_from_two_sources_merges_into_one_opportunity(db_session, seede
 
     raw_a = _raw("job-1", "https://acme.example/jobs/1")
     norm_a = _normalized("Software Engineering Intern", "https://acme.example/jobs/1")
-    opp_a, is_new_a = ingest_normalized_listing(db_session, source_a.id, company.id, raw_a, norm_a)
+    opp_a, is_new_a = _ingest(db_session, source_a.id, company.id, raw_a, norm_a)
     db_session.flush()
     assert is_new_a is True
 
     raw_b = _raw("ext-job-1", "https://aggregator.example/acme/1")
     norm_b = _normalized("Software Engineering Intern", "https://aggregator.example/acme/1")
-    opp_b, is_new_b = ingest_normalized_listing(db_session, source_b.id, company.id, raw_b, norm_b)
+    opp_b, is_new_b = _ingest(db_session, source_b.id, company.id, raw_b, norm_b)
     db_session.flush()
 
     assert is_new_b is False
@@ -111,9 +126,9 @@ def test_full_rerun_creates_zero_duplicates(db_session, seeded):
     raw = _raw("job-1", "https://acme.example/jobs/1")
     norm = _normalized("Software Engineering Intern", "https://acme.example/jobs/1")
 
-    opp1, is_new1 = ingest_normalized_listing(db_session, source_a.id, company.id, raw, norm)
+    opp1, is_new1 = _ingest(db_session, source_a.id, company.id, raw, norm)
     db_session.flush()
-    opp2, is_new2 = ingest_normalized_listing(db_session, source_a.id, company.id, raw, norm)
+    opp2, is_new2 = _ingest(db_session, source_a.id, company.id, raw, norm)
     db_session.flush()
 
     assert is_new1 is True
@@ -145,12 +160,12 @@ def test_distinct_roles_at_same_company_do_not_merge(db_session, seeded):
 
     raw_1 = _raw("job-1", "https://acme.example/jobs/1")
     norm_1 = _normalized("Backend Engineer", "https://acme.example/jobs/1")
-    opp_1, _ = ingest_normalized_listing(db_session, source_a.id, company.id, raw_1, norm_1)
+    opp_1, _ = _ingest(db_session, source_a.id, company.id, raw_1, norm_1)
     db_session.flush()
 
     raw_2 = _raw("job-2", "https://acme.example/jobs/2")
     norm_2 = _normalized("Frontend Engineer", "https://acme.example/jobs/2")
-    opp_2, is_new_2 = ingest_normalized_listing(db_session, source_a.id, company.id, raw_2, norm_2)
+    opp_2, is_new_2 = _ingest(db_session, source_a.id, company.id, raw_2, norm_2)
     db_session.flush()
 
     assert is_new_2 is True
@@ -163,7 +178,7 @@ def test_updated_content_refreshes_existing_opportunity_without_duplicating(db_s
     norm_v1 = _normalized(
         "Software Engineering Intern", "https://acme.example/jobs/1", description="Short."
     )
-    opp_v1, _ = ingest_normalized_listing(db_session, source_a.id, company.id, raw_v1, norm_v1)
+    opp_v1, _ = _ingest(db_session, source_a.id, company.id, raw_v1, norm_v1)
     db_session.flush()
 
     raw_v2 = _raw("job-1", "https://acme.example/jobs/1", content_hash="hash-v2")
@@ -172,7 +187,7 @@ def test_updated_content_refreshes_existing_opportunity_without_duplicating(db_s
         "https://acme.example/jobs/1",
         description="A much longer, richer description than before.",
     )
-    opp_v2, is_new = ingest_normalized_listing(db_session, source_a.id, company.id, raw_v2, norm_v2)
+    opp_v2, is_new = _ingest(db_session, source_a.id, company.id, raw_v2, norm_v2)
     db_session.flush()
 
     assert is_new is False
@@ -199,9 +214,7 @@ def test_same_title_different_location_does_not_merge(db_session, seeded):
     norm_de = _normalized(
         "Senior Solutions Architect", "https://acme.example/jobs/de", location="Remote, Germany"
     )
-    opp_de, is_new_de = ingest_normalized_listing(
-        db_session, source_a.id, company.id, raw_de, norm_de
-    )
+    opp_de, is_new_de = _ingest(db_session, source_a.id, company.id, raw_de, norm_de)
     db_session.flush()
 
     raw_in = _raw("job-in", "https://acme.example/jobs/in")
@@ -210,9 +223,7 @@ def test_same_title_different_location_does_not_merge(db_session, seeded):
         "https://acme.example/jobs/in",
         location="Remote, India",
     )
-    opp_in, is_new_in = ingest_normalized_listing(
-        db_session, source_a.id, company.id, raw_in, norm_in
-    )
+    opp_in, is_new_in = _ingest(db_session, source_a.id, company.id, raw_in, norm_in)
     db_session.flush()
 
     assert is_new_de is True
@@ -231,14 +242,14 @@ def test_same_title_same_location_does_merge(db_session, seeded):
     norm_1 = _normalized(
         "Senior Solutions Architect", "https://acme.example/jobs/de-1", location="Remote, Germany"
     )
-    opp_1, _ = ingest_normalized_listing(db_session, source_a.id, company.id, raw_1, norm_1)
+    opp_1, _ = _ingest(db_session, source_a.id, company.id, raw_1, norm_1)
     db_session.flush()
 
     raw_2 = _raw("job-de-2", "https://acme.example/jobs/de-2")
     norm_2 = _normalized(
         "Senior Solutions Architect", "https://acme.example/jobs/de-2", location="Remote, Germany"
     )
-    opp_2, is_new_2 = ingest_normalized_listing(db_session, source_a.id, company.id, raw_2, norm_2)
+    opp_2, is_new_2 = _ingest(db_session, source_a.id, company.id, raw_2, norm_2)
     db_session.flush()
 
     assert is_new_2 is False
@@ -260,9 +271,7 @@ def test_listing_location_change_does_not_cause_slug_collision(db_session, seede
     norm_v1 = _normalized(
         "Senior Solutions Architect", "https://acme.example/jobs/1", location="Remote, US"
     )
-    opp_v1, is_new_v1 = ingest_normalized_listing(
-        db_session, source_a.id, company.id, raw_v1, norm_v1
-    )
+    opp_v1, is_new_v1 = _ingest(db_session, source_a.id, company.id, raw_v1, norm_v1)
     db_session.flush()
     assert is_new_v1 is True
 
@@ -272,9 +281,7 @@ def test_listing_location_change_does_not_cause_slug_collision(db_session, seede
         "https://acme.example/jobs/1",
         location="Remote, US; Remote, Canada",
     )
-    opp_v2, is_new_v2 = ingest_normalized_listing(
-        db_session, source_a.id, company.id, raw_v2, norm_v2
-    )
+    opp_v2, is_new_v2 = _ingest(db_session, source_a.id, company.id, raw_v2, norm_v2)
     db_session.flush()
 
     assert is_new_v2 is False
@@ -301,7 +308,7 @@ def test_pruned_raw_listing_soft_merges_via_slug_instead_of_failing(db_session, 
     norm_v1 = _normalized(
         "Senior Solutions Architect", "https://acme.example/jobs/1", location="Remote, US"
     )
-    opp_v1, _ = ingest_normalized_listing(db_session, source_a.id, company.id, raw_v1, norm_v1)
+    opp_v1, _ = _ingest(db_session, source_a.id, company.id, raw_v1, norm_v1)
     db_session.flush()
 
     # Simulate raw_listings retention pruning: null the (nullable) FK first
@@ -327,9 +334,7 @@ def test_pruned_raw_listing_soft_merges_via_slug_instead_of_failing(db_session, 
         "https://acme.example/jobs/1",
         location="Remote, US; Remote, Canada",
     )
-    opp_v2, is_new_v2 = ingest_normalized_listing(
-        db_session, source_a.id, company.id, raw_v2, norm_v2
-    )
+    opp_v2, is_new_v2 = _ingest(db_session, source_a.id, company.id, raw_v2, norm_v2)
     db_session.flush()
 
     assert is_new_v2 is False

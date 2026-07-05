@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 from core import models
 from core.db import make_engine
 from crawlers.greenhouse import GreenhouseAdapter
-from pipeline.ingest import ingest_normalized_listing
+from pipeline.ingest import ingest_one, load_board_state
 
 
 def _board_fingerprint(raw_listings: list) -> str:
@@ -83,6 +83,16 @@ def crawl_greenhouse_company(
             session.commit()
             return result  # change-detection skip: nothing changed since last crawl
 
+        # One bulk read of this board's existing raw_listings + this
+        # company's opportunities/provenance (Doc handoffs/
+        # PHASE-2-HANDOFF.md sec 2/5, "Lever 1") - replaces what used to be
+        # ~4 of the ~5 per-listing round trips inside ingest_one() with
+        # in-memory dict lookups. Reloaded after any rollback below, since
+        # a rollback can leave it referencing pending objects (new
+        # opportunities/raw_listings from earlier in the same uncommitted
+        # batch) that just became invalid/detached.
+        board_state = load_board_state(session, source_id, company.id)
+
         # Commit every BATCH_SIZE listings, not once per company (the
         # original bug) and not once per listing (the first fix). Per-
         # listing commits are correct but were measured live to be far too
@@ -107,8 +117,8 @@ def crawl_greenhouse_company(
         for raw in raw_listings:
             try:
                 normalized = adapter.parse(raw)
-                _opportunity, is_new = ingest_normalized_listing(
-                    session, source_id, company.id, raw, normalized
+                _opportunity, is_new = ingest_one(
+                    session, board_state, source_id, company.id, raw, normalized
                 )
                 since_last_commit += 1
                 if is_new:
@@ -121,6 +131,16 @@ def crawl_greenhouse_company(
             except Exception as exc:
                 try:
                     session.rollback()
+                except Exception:
+                    pass
+                # See the board_state comment above - a rollback can leave
+                # it holding invalid/detached objects from this same
+                # uncommitted batch. Reload fresh rather than risk a later
+                # listing touching one; if the connection itself is what
+                # broke, this raises too and is caught the same way,
+                # exactly like every other per-listing failure here.
+                try:
+                    board_state = load_board_state(session, source_id, company.id)
                 except Exception:
                     pass
                 since_last_commit = 0
@@ -205,7 +225,13 @@ def run_tier(tier: int) -> None:
             jobs.extend((source.id, company.slug) for company in companies)
 
     for source_id, company_slug in jobs:
-        with Session(engine) as session:
+        # expire_on_commit=False: board_state (loaded once per company in
+        # crawl_greenhouse_company) holds ORM objects across several batch
+        # commits within this same company's crawl - without this, each
+        # commit would expire them, and the next listing that touches one
+        # would pay a lazy-reload round trip, quietly clawing back the
+        # round trips this refactor exists to eliminate.
+        with Session(engine, expire_on_commit=False) as session:
             source = session.get(models.Source, source_id)
             company = session.scalar(
                 select(models.Company).where(models.Company.slug == company_slug)

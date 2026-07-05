@@ -20,7 +20,7 @@ from core import models
 from core.adapters import NormalizedListing, RawListing
 from core.db import make_engine
 from crawlers import runner
-from pipeline.ingest import ingest_normalized_listing as real_ingest_normalized_listing
+from pipeline.ingest import ingest_one as real_ingest_one
 
 
 def _make_fake_adapter_class(listing_count: int) -> type:
@@ -65,13 +65,13 @@ _FakeAdapter = _make_fake_adapter_class(3)
 
 
 def _make_forced_failure_ingest(fail_on_external_id: str):
-    def _ingest(session, source_id, company_id, raw, normalized):
+    def _ingest(session, board_state, source_id, company_id, raw, normalized):
         if raw.external_id == fail_on_external_id:
             # A real DB-level error - this is what actually aborts the
             # Postgres transaction, which is the condition the original bug
             # depended on.
             session.execute(text("SELECT 1/0"))
-        return real_ingest_normalized_listing(session, source_id, company_id, raw, normalized)
+        return real_ingest_one(session, board_state, source_id, company_id, raw, normalized)
 
     return _ingest
 
@@ -149,9 +149,7 @@ def test_one_bad_listing_does_not_cascade_fail_the_rest(db_session, seeded, monk
     failure does NOT cascade past its own batch into listing 3."""
     source, company = seeded
     monkeypatch.setattr(runner, "GreenhouseAdapter", _FakeAdapter)
-    monkeypatch.setattr(
-        runner, "ingest_normalized_listing", _ingest_with_forced_db_failure_on_listing_2
-    )
+    monkeypatch.setattr(runner, "ingest_one", _ingest_with_forced_db_failure_on_listing_2)
 
     result = runner.crawl_greenhouse_company(db_session, source, company)
 
@@ -179,7 +177,7 @@ def test_failure_in_a_later_batch_does_not_roll_back_an_earlier_committed_batch(
     via the trailing commit after the loop."""
     source, company = seeded
     monkeypatch.setattr(runner, "GreenhouseAdapter", _make_fake_adapter_class(27))
-    monkeypatch.setattr(runner, "ingest_normalized_listing", _make_forced_failure_ingest("26"))
+    monkeypatch.setattr(runner, "ingest_one", _make_forced_failure_ingest("26"))
 
     result = runner.crawl_greenhouse_company(db_session, source, company)
 
