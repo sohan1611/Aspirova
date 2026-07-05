@@ -27,21 +27,22 @@ jobs:
         with:
           python-version: "3.12"
 
-      # Pinned to postgresql-client-16 via the official PGDG apt repo,
-      # NOT ubuntu-latest's default "postgresql-client" package - verified
-      # live while building this workflow that ubuntu-latest's default
-      # resolves to 17.x, and a 17.x pg_dump emits a `SET
-      # transaction_timeout = 0;` preamble command (a GUC only added in
-      # Postgres 17) that an older server's pg_restore rejects as
-      # "unrecognized configuration parameter", failing the very restore
-      # this backup exists for. Pinning below 17 avoids the client ever
-      # emitting a setting an older restore target doesn't understand yet.
-      - name: Install PostgreSQL 16 client tools
+      # Pinned to postgresql-client-17 via the official PGDG apt repo,
+      # matching the real production Supabase server version (17.6,
+      # confirmed live in the 2026-07-05 real-backup drill - see
+      # handoffs/PART-2.2-RESTORE-DRILL.md addendum). This was previously
+      # pinned to 16 based on an untested assumption; that pin would have
+      # made every real nightly run fail outright, since pg_dump refuses to
+      # dump from a server *newer* than its own major version ("aborting
+      # because of server version mismatch"). pg_dump can only dump
+      # *older* servers than itself, never newer ones - so the client must
+      # track the server version, not stay conservatively behind it.
+      - name: Install PostgreSQL 17 client tools
         run: |
           sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
           curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/postgresql.gpg
           sudo apt-get update
-          sudo apt-get install -y postgresql-client-16
+          sudo apt-get install -y postgresql-client-17
 
       - name: Install uv
         run: pip install uv

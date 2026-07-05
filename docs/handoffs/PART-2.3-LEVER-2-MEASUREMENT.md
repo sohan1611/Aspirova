@@ -60,8 +60,43 @@ leans toward **not** treating Lever-2 (Singapore consolidation) as urgent
 right now — but the actual go/no-go call is the architect's, not
 engineering's, per the standing role model.
 
+## Addendum: post-Upstash cached p95 (2026-07-05)
+
+Upstash Redis went live in production (manual prerequisite closed — see
+[PHASE-2-CLOSEOUT.md](PHASE-2-CLOSEOUT.md)). Re-measured with caching
+active (n=30/endpoint, same methodology, same client):
+
+| Endpoint | X-Total-Time-Ms p50 / p95 / max | X-DB-Time-Ms p50 / p95 / max |
+|---|---|---|
+| `/feed?limit=20` | 7.1 / 8.1 / 338.0 ms | 0.0 / 0.0 / 260.1 ms |
+| `/search?q=software+engineer` | 7.0 / 7.9 / 1635.2 ms | 0.0 / 0.0 / 1556.0 ms |
+| `/opportunity/{slug}` | 7.2 / 8.1 / 205.1 ms | 0.0 / 0.0 / 128.9 ms |
+
+**Cached p95 is 7.9-8.1ms** across all three endpoints — a ~97% reduction
+from the uncached 192-293ms p95 above. `X-DB-Time-Ms` p95 is 0.00ms,
+empirically confirming cache hits skip the DB entirely (sec 11.7's own
+acceptance check). The occasional high `max` per endpoint is a genuine
+cache miss (first request for that exact query string, or a 45s TTL
+expiry) still paying the full uncached DB-hop cost — expected, not a
+regression, and consistent with the 45s TTL design (Doc handoffs/
+PHASE-2-HANDOFF.md sec 11.1).
+
+This closes the loop on Lever-2: the DB hop was already not urgent before
+caching (total p95 under the 300ms target including it); with caching
+live, the typical-case p95 is now an order of magnitude under target.
+**Reaffirms: do not migrate Supabase to Singapore** — there is no
+remaining latency problem for caching or a DB move to solve.
+
 ## Re-running this yourself
 
 ```bash
 uv run python -m scripts.measure_latency --n 30
 ```
+
+Note: `/feed` and `/search` share the `feed_search` rate-limit bucket
+(60/min per IP, sec 11.4). Running the default n=30 for both back-to-back
+in one process now trips a real 429 partway through `/search` (30 feed +
+30 search + 1 slug-lookup = 61 requests in the same 60s window) - this is
+correct enforcement, not a bug, but means a clean single-process run of
+the full script needs either a lower `--n`, or the two buckets measured in
+separate windows (as done above for this addendum).

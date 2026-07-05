@@ -62,6 +62,52 @@ and adjust `postgresql-client-16` in `backup.yml` if needed — 16 was chosen as
 a safe default (works against 15/16/17 targets), not a confirmed match to your
 specific project.
 
+## Addendum: real production drill confirms server is Postgres 17, client pin corrected (2026-07-05/06)
+
+With R2 credentials live, ran the real thing (not synthetic data this time,
+with explicit user authorization for both the production `pg_dump` and the
+local restore of that real dump — Doc 08's production-read gate) in a Docker
+worker matching the GH Actions environment exactly:
+
+1. `uv run python -m scripts.backup_db` against the **real production**
+   `DATABASE_URL` — succeeded, uploaded `daily/aspirova-2026-07-05.dump` +
+   `weekly/aspirova-2026-W27.dump` (today rolled a weekly snapshot too) to
+   the **real** Cloudflare R2 bucket. Confirmed present via a real
+   `list_objects_v2` call (19,117,020 bytes each).
+2. **First attempt used `postgresql-client-16`** (matching the then-current
+   `backup.yml` pin) and failed immediately: `pg_dump: error: aborting
+   because of server version mismatch: server version: 17.6, pg_dump
+   version: 16.14`. This is the **opposite direction** of the version-skew
+   bug found in the original drill above — `pg_dump` refuses outright to
+   dump from a server *newer* than its own major version (it can only dump
+   *older* servers, never newer ones). **This means the "safe default" of
+   client 16 was actually wrong and would have failed every real nightly
+   backup run in production** — this was never exercised before because
+   every prior drill used synthetic Docker Postgres instances, never the
+   real Supabase server.
+3. **Fixed:** installed `postgresql-client-17` instead (matching the real
+   confirmed server version, 17.6) — `backup.yml` corrected accordingly.
+   Re-ran the backup: succeeded.
+4. Restored the real dump into a throwaway **Postgres 17** container
+   (matching the source, for a realistic same-version disaster-recovery
+   scenario). `pg_restore` reported 254 ignored errors — every one of them
+   Supabase-managed infrastructure noise (`supabase_vault` extension,
+   `anon`/`authenticated`/`service_role`/`supabase_*` roles, `auth`/
+   `extensions`/`realtime`/`storage`/`vault`/`graphql` schema grants) that
+   simply don't exist in a vanilla Postgres container — none touched the
+   application's own `public` schema.
+5. Verified all 17 tables restored, and compared row counts against real
+   production (COUNT-only queries, no PII) for every application table:
+   `sources` 4, `companies` 111, `opportunities` 2996, `raw_listings` 3033,
+   `users` 1, `bookmarks` 0, `plans` 5, `subscriptions` 0,
+   `dream_companies` 0, `notifications` 0 — **exact match on every table**.
+6. Tore down both containers immediately after verification, removing the
+   local copy of real production data from the machine.
+
+**Confirmed: the real Supabase Postgres server is 17.6.** `backup.yml` now
+pins `postgresql-client-17` (was 16). Manual prerequisite (R2 bucket +
+credentials) is now fully closed — see [PHASE-2-CLOSEOUT.md](PHASE-2-CLOSEOUT.md).
+
 ## Running the drill again yourself
 
 ```bash
