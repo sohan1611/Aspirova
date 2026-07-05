@@ -12,8 +12,10 @@ from collections.abc import Generator
 from sqlalchemy.orm import Session, sessionmaker
 
 from core.db import make_engine
+from core.db_timing import instrument
 
 _engine = make_engine(pool_pre_ping=True)
+instrument(_engine)
 SessionLocal = sessionmaker(bind=_engine)
 
 

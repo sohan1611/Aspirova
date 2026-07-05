@@ -1,9 +1,10 @@
-"""ASGI middleware for the public read surfaces: per-IP rate limiting and a
-short-TTL read cache (Doc handoffs/PHASE-2-HANDOFF.md sec 11).
+"""ASGI middleware for the public read surfaces: per-IP rate limiting, a
+short-TTL read cache, and latency instrumentation (Doc handoffs/
+PHASE-2-HANDOFF.md sec 11 and sec 3/6).
 
-Both are registered in api/main.py BEFORE CORSMiddleware is added -
+All three are registered in api/main.py BEFORE CORSMiddleware is added -
 Starlette makes the LAST-added middleware the outermost one, so that
-ordering keeps CORS wrapping both of these. A 429 or a cached response
+ordering keeps CORS wrapping everything else. A 429 or a cached response
 must still pass through CORS on its way out, or the browser treats it as a
 CORS failure and hides the real status/body from the caller entirely.
 
@@ -13,9 +14,16 @@ dependency, specifically so a hit never reaches api/deps.get_db - the
 cache being resolved before FastAPI's dependency injection (and therefore
 the DB session) ever runs. Middleware wraps the whole router, so this holds
 regardless of where a dependency would otherwise sit in a route's chain.
+
+TimingMiddleware wraps RateLimit and Cache (added after both, before CORS -
+same ordering rule) so X-Total-Time-Ms/X-DB-Time-Ms land on every response,
+including a 429 and a cache hit - a cache hit's X-DB-Time-Ms should come
+back near zero, which is the empirical proof of the "no DB query" claim
+above, not just an assertion of it.
 """
 
 import logging
+import time
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
@@ -23,6 +31,7 @@ from starlette.responses import JSONResponse, Response
 
 from core.cache import build_cache_key, cache_get, cache_set
 from core.config import get_settings
+from core.db_timing import end_request, start_request
 from core.ratelimit import check_rate_limit
 from core.redis_client import get_redis
 
@@ -130,3 +139,22 @@ class ReadCacheMiddleware(BaseHTTPMiddleware):
             media_type=response.media_type or "application/json",
             headers=headers,
         )
+
+
+class TimingMiddleware(BaseHTTPMiddleware):
+    """X-Total-Time-Ms / X-DB-Time-Ms on every response (Doc handoffs/
+    PHASE-2-HANDOFF.md sec 3/6) - the Lever-2 migration decision needs the
+    DB hop isolated from total request time, not conflated with compute or
+    the rate-limit/cache checks this wraps."""
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        token = start_request()
+        total_start = time.perf_counter()
+        try:
+            response = await call_next(request)
+        finally:
+            db_ms = end_request(token)
+        total_ms = (time.perf_counter() - total_start) * 1000
+        response.headers["X-Total-Time-Ms"] = f"{total_ms:.2f}"
+        response.headers["X-DB-Time-Ms"] = f"{db_ms:.2f}"
+        return response
