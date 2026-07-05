@@ -221,6 +221,64 @@ class Bookmark(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
 
 
+class Plan(Base):
+    """The single source of feature gating (Doc 03 sec 4.1, Doc 08 sec 1:
+    'MUST drive plan gating from plans.features via a single can(user,
+    feature) helper'). Prices are stored in paise (integer), never a
+    float, to avoid rounding errors (Doc 06 sec 1)."""
+
+    __tablename__ = "plans"
+
+    id: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
+    key: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    price_paise: Mapped[int] = mapped_column(Integer, nullable=False)
+    billing: Mapped[str | None] = mapped_column(Text)
+    features: Mapped[dict] = mapped_column(nullable=False)
+    # Populated once the matching Razorpay-side Plan object exists
+    # (scripts/setup_razorpay_plans.py) - null for the free plan, which
+    # never goes through Razorpay at all.
+    razorpay_plan_id: Mapped[str | None] = mapped_column(Text)
+
+
+class Subscription(Base):
+    """A user's subscription to a plan (Doc 03 sec 4.1). status mirrors
+    Razorpay's subscription lifecycle: 'active'|'past_due'|'canceled'|
+    'trialing' - updated only by the Razorpay webhook handler
+    (api/payments.py), never guessed client-side."""
+
+    __tablename__ = "subscriptions"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    plan_id: Mapped[int] = mapped_column(SmallInteger, ForeignKey("plans.id"), nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    razorpay_sub_id: Mapped[str | None] = mapped_column(Text, unique=True)
+    current_period_end: Mapped[datetime | None] = mapped_column()
+    created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
+
+    __table_args__ = (Index("ix_subscriptions_user_status", "user_id", "status"),)
+
+
+class DreamCompany(Base):
+    """A user's tracked company for instant alerts (Doc 03 sec 4.2),
+    limited per plan via plans.features.dream_companies_limit + can()."""
+
+    __tablename__ = "dream_companies"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "company_id", name="uq_dream_companies_user_company"),
+    )
+
+
 class CrawlRun(Base):
     """Operational observability for every crawl (Doc 03 5.1, Doc 04 sec 7)."""
 

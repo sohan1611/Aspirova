@@ -70,6 +70,14 @@ class OpportunityDetail(OpportunityListItem):
         )
 
 
+class DreamCompanyItem(BaseModel):
+    company: CompanySummary
+
+    @classmethod
+    def from_company(cls, company: "models.Company") -> "DreamCompanyItem":
+        return cls(company=CompanySummary.model_validate(company))
+
+
 class FeedResponse(BaseModel):
     items: list[OpportunityListItem]
     total: int

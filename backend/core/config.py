@@ -39,6 +39,14 @@ class Settings(BaseSettings):
     backup_s3_secret_access_key: str = ""
     backup_s3_bucket: str = ""
 
+    # Razorpay (Doc 02 sec 3.9, Doc handoffs/PHASE-2-HANDOFF.md sec 6) -
+    # test-mode keys first (Doc handoffs/PHASE-2-HANDOFF.md sec 2: "never
+    # auto-charge or auto-create live billing"). Blank = payments routes
+    # fail closed with a clear error, never silently accept a checkout.
+    razorpay_key_id: str = ""
+    razorpay_key_secret: str = ""
+    razorpay_webhook_secret: str = ""
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
