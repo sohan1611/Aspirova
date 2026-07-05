@@ -37,12 +37,28 @@ jobs:
       # because of server version mismatch"). pg_dump can only dump
       # *older* servers than itself, never newer ones - so the client must
       # track the server version, not stay conservatively behind it.
+      #
+      # ubuntu-latest ships a pg_dump 16 binary already on PATH (baked into
+      # the runner image, not installed by this workflow) - installing
+      # postgresql-client-17 via apt does NOT override it, since PGDG
+      # version-suffixed packages install to /usr/lib/postgresql/<ver>/bin/,
+      # never to /usr/bin/ directly. Confirmed live: the first real
+      # workflow_dispatch run after this pin still resolved `pg_dump` to
+      # 16.14 despite postgresql-client-17 installing cleanly. Prepending
+      # the versioned bin dir to $GITHUB_PATH makes it win for every later
+      # step in this job, including the actual backup script.
       - name: Install PostgreSQL 17 client tools
         run: |
           sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
           curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/postgresql.gpg
           sudo apt-get update
           sudo apt-get install -y postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Verify pg_dump resolves to 17
+        run: |
+          which pg_dump
+          pg_dump --version
 
       - name: Install uv
         run: pip install uv

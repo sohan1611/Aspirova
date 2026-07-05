@@ -108,6 +108,35 @@ worker matching the GH Actions environment exactly:
 pins `postgresql-client-17` (was 16). Manual prerequisite (R2 bucket +
 credentials) is now fully closed — see [PHASE-2-CLOSEOUT.md](PHASE-2-CLOSEOUT.md).
 
+## Addendum 2: real GitHub Actions run caught a second, environment-specific bug (2026-07-06)
+
+With `BACKUP_S3_*` added to GitHub Actions secrets, triggered the real
+`Nightly Backup` workflow (`workflow_dispatch`, user-authorized) to prove it
+works in the actual CI environment, not just the local Docker drill above.
+
+**First real run failed** with the exact same error the local drill had
+already fixed: `pg_dump: error: aborting because of server version
+mismatch: server version: 17.6, pg_dump version: 16.14` — even though the
+workflow's "Install PostgreSQL 17 client tools" step had already run
+`apt-get install -y postgresql-client-17` successfully. Root cause:
+**`ubuntu-latest` ships a `pg_dump` 16 binary already on `PATH`, baked into
+the runner image itself**, not installed by this workflow. PGDG's
+version-suffixed packages (`postgresql-client-17`) install their binaries
+to `/usr/lib/postgresql/17/bin/`, never to `/usr/bin/` directly — so
+installing the correct package doesn't override which `pg_dump` the shell
+actually finds; the pre-existing image binary still wins by `PATH` order.
+This didn't show up in the local Docker drill (Addendum above) because a
+vanilla `ubuntu:24.04` container has no such pre-baked binary to compete
+with.
+
+**Fixed:** `backup.yml` now appends `/usr/lib/postgresql/17/bin` to
+`$GITHUB_PATH` right after the apt install, so it's first on `PATH` for
+every subsequent step in the job (including the actual backup script) —
+plus a small `Verify pg_dump resolves to 17` step that fails loudly if this
+ever regresses, instead of failing deep inside a stack trace.
+
+**Next: re-run the real workflow after this fix to confirm.**
+
 ## Running the drill again yourself
 
 ```bash
