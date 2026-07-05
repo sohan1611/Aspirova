@@ -12,13 +12,14 @@ what the original bug depended on, and a test that only raises in Python
 would pass even without the fix.
 """
 
+import uuid
+
 import pytest
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from core import models
 from core.adapters import NormalizedListing, RawListing
-from core.db import make_engine
 from crawlers import runner
 from pipeline.ingest import ingest_one as real_ingest_one
 
@@ -80,14 +81,14 @@ _ingest_with_forced_db_failure_on_listing_2 = _make_forced_failure_ingest("2")
 
 
 @pytest.fixture
-def db_session():
+def db_session(engine):
     # NOT the rollback-wrapped-transaction pattern used elsewhere (e.g.
     # test_ingest.py) - that pattern assumes the code under test never
     # commits/rolls back itself. crawl_company_board commits and rolls
     # back per listing by design (that IS the fix being tested), which
     # conflicts with an externally-imposed outer transaction. Use a real
-    # session and clean up explicitly instead.
-    engine = make_engine()
+    # session (bound to the shared session-scoped engine, tests/conftest.py)
+    # and clean up explicitly instead.
     session = Session(engine)
     try:
         yield session
@@ -97,11 +98,21 @@ def db_session():
 
 @pytest.fixture
 def seeded(db_session: Session):
+    # Unique slugs per test run (Doc handoffs/PHASE-2-HANDOFF.md sec 2/5,
+    # Part 2.8) - the old hardcoded "test-isolation-x"/"test-isolation-co-x"
+    # meant an interrupted run (killed, crashed, CI cancellation) that never
+    # reached the `finally` cleanup below would leave a row behind with
+    # that exact slug, and the very next run's INSERT would then fail on
+    # sources.slug's/companies.slug's unique constraint - permanently
+    # wedging the suite until someone manually deleted the residue. A fresh
+    # uuid suffix means an orphaned row from an interrupted run is just
+    # harmless residue, never a collision.
+    unique = uuid.uuid4().hex[:12]
     source = models.Source(
-        slug="test-isolation-x", name="Test Greenhouse", type="ats", crawl_tier=1
+        slug=f"test-isolation-{unique}", name="Test Greenhouse", type="ats", crawl_tier=1
     )
     company = models.Company(
-        slug="test-isolation-co-x",
+        slug=f"test-isolation-co-{unique}",
         name="Isolation Test Co",
         name_normalized="isolation test co",
         ats_type="greenhouse",

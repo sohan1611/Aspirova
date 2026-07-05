@@ -9,13 +9,11 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from core import models
-from core.db import make_engine
 from pipeline.company_resolution import resolve_company
 
 
 @pytest.fixture
-def db_session():
-    engine = make_engine()
+def db_session(engine):
     connection = engine.connect()
     transaction = connection.begin()
     session = Session(bind=connection)

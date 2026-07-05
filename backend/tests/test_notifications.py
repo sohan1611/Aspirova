@@ -15,13 +15,11 @@ from sqlalchemy.orm import Session
 
 import pipeline.notifications as notifications_module
 from core import models
-from core.db import make_engine
 from pipeline.notifications import send_daily_digests, send_instant_alerts
 
 
 @pytest.fixture
-def db_session():
-    engine = make_engine()
+def db_session(engine):
     connection = engine.connect()
     transaction = connection.begin()
     session = Session(bind=connection)

@@ -13,13 +13,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from core import models
-from core.db import make_engine
 from core.gating import can, get_features
 
 
 @pytest.fixture
-def db_session():
-    engine = make_engine()
+def db_session(engine):
     connection = engine.connect()
     transaction = connection.begin()
     session = Session(bind=connection)

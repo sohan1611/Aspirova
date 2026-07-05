@@ -18,14 +18,12 @@ from api.deps import get_db
 from api.main import app
 from core import models
 from core.config import get_settings
-from core.db import make_engine
 
 TEST_WEBHOOK_SECRET = "test-webhook-secret-not-real"
 
 
 @pytest.fixture
-def db_session():
-    engine = make_engine()
+def db_session(engine):
     connection = engine.connect()
     transaction = connection.begin()
     session = Session(bind=connection)

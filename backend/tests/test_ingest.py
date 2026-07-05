@@ -14,13 +14,11 @@ from sqlalchemy.orm import Session
 
 from core import models
 from core.adapters import NormalizedListing, RawListing
-from core.db import make_engine
 from pipeline.ingest import ingest_one, load_board_state
 
 
 @pytest.fixture
-def db_session():
-    engine = make_engine()
+def db_session(engine):
     connection = engine.connect()
     transaction = connection.begin()
     session = Session(bind=connection)

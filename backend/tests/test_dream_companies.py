@@ -17,12 +17,10 @@ from api.auth import get_current_user
 from api.deps import get_db
 from api.main import app
 from core import models
-from core.db import make_engine
 
 
 @pytest.fixture
-def db_session():
-    engine = make_engine()
+def db_session(engine):
     connection = engine.connect()
     transaction = connection.begin()
     session = Session(bind=connection)
