@@ -1,4 +1,6 @@
-"""Seed verified Greenhouse companies (Doc 04 sec 11: onboarding playbook).
+"""Seed verified companies across all registered ATS adapters (Doc 04 sec
+11: onboarding playbook; Doc handoffs/PHASE-2-HANDOFF.md sec 5, Part 2.5
+adds Lever + Ashby to the original Greenhouse-only seed).
 
 Board tokens are DATA, never hardcoded in adapter code - this script is the
 one place new ATS-covered companies get added. Every token below was checked
@@ -31,49 +33,111 @@ GREENHOUSE_COMPANIES = [
     ("gitlab", "GitLab", "gitlab.com"),
 ]
 
+# (board_token, company_name, domain) - verified live against
+# https://api.lever.co/v0/postings/{token}?mode=json
+LEVER_COMPANIES = [
+    ("weride", "WeRide", "weride.ai"),
+    ("angellist", "AngelList", "angellist.com"),
+    ("wealthfront", "Wealthfront", "wealthfront.com"),
+]
+
+# (board_token, company_name, domain) - verified live against
+# https://api.ashbyhq.com/posting-api/job-board/{token}
+ASHBY_COMPANIES = [
+    ("linear", "Linear", "linear.app"),
+    ("notion", "Notion", "notion.so"),
+    ("ashby", "Ashby", "ashbyhq.com"),
+]
+
+# adapter_key -> (source slug/name/base_url, company list)
+_ADAPTER_SOURCES: dict[str, tuple[str, str, str, list[tuple[str, str, str]]]] = {
+    "greenhouse": (
+        "greenhouse",
+        "Greenhouse",
+        "https://boards-api.greenhouse.io",
+        GREENHOUSE_COMPANIES,
+    ),
+    "lever": ("lever", "Lever", "https://api.lever.co", LEVER_COMPANIES),
+    "ashby": ("ashby", "Ashby", "https://api.ashbyhq.com", ASHBY_COMPANIES),
+}
+
+# Aggregator sources (Doc 04 sec 1: best-effort tier) have no fixed
+# per-company list - crawl_aggregator resolves/creates each listing's
+# Company row dynamically (pipeline/company_resolution.py) - so they're
+# seeded as a bare Source row only, separately from _ADAPTER_SOURCES.
+_AGGREGATOR_SOURCES: dict[str, tuple[str, str, str]] = {
+    "remoteok": ("remoteok", "RemoteOK", "https://remoteok.com"),
+}
+
 
 def seed() -> None:
     engine = make_engine()
     with Session(engine) as session:
-        source = session.scalar(select(Source).where(Source.slug == "greenhouse"))
-        if source is None:
-            source = Source(
-                slug="greenhouse",
-                name="Greenhouse",
-                type="ats",
-                base_url="https://boards-api.greenhouse.io",
-                crawl_tier=1,
-                adapter_key="greenhouse",
-            )
-            session.add(source)
-            print("created source: greenhouse")
-        else:
-            print("source already exists: greenhouse")
+        total_created, total_updated = 0, 0
 
-        created, updated = 0, 0
-        for board_token, name, domain in GREENHOUSE_COMPANIES:
-            slug = board_token
-            company = session.scalar(select(Company).where(Company.slug == slug))
-            if company is None:
+        for adapter_key, (slug, name, base_url, companies) in _ADAPTER_SOURCES.items():
+            source = session.scalar(select(Source).where(Source.slug == slug))
+            if source is None:
+                source = Source(
+                    slug=slug,
+                    name=name,
+                    type="ats",
+                    base_url=base_url,
+                    crawl_tier=1,
+                    adapter_key=adapter_key,
+                )
+                session.add(source)
+                print(f"created source: {slug}")
+            else:
+                print(f"source already exists: {slug}")
+
+            for board_token, company_name, domain in companies:
+                # Bare board_token, matching the already-seeded Greenhouse
+                # companies exactly (Doc 08: never change an existing
+                # identifier scheme without a real migration) - a
+                # namespaced slug would silently duplicate every company
+                # already seeded in production instead of updating it,
+                # since this script's own idempotency depends on the slug
+                # it looks up matching what's already there.
+                company_slug = board_token
+                company = session.scalar(select(Company).where(Company.slug == company_slug))
+                if company is None:
+                    session.add(
+                        Company(
+                            slug=company_slug,
+                            name=company_name,
+                            name_normalized=company_name.lower(),
+                            domain=domain,
+                            ats_type=adapter_key,
+                            ats_board_id=board_token,
+                        )
+                    )
+                    total_created += 1
+                else:
+                    company.ats_type = adapter_key
+                    company.ats_board_id = board_token
+                    company.domain = domain
+                    total_updated += 1
+
+        for adapter_key, (slug, name, base_url) in _AGGREGATOR_SOURCES.items():
+            source = session.scalar(select(Source).where(Source.slug == slug))
+            if source is None:
                 session.add(
-                    Company(
+                    Source(
                         slug=slug,
                         name=name,
-                        name_normalized=name.lower(),
-                        domain=domain,
-                        ats_type="greenhouse",
-                        ats_board_id=board_token,
+                        type="aggregator",
+                        base_url=base_url,
+                        crawl_tier=1,
+                        adapter_key=adapter_key,
                     )
                 )
-                created += 1
+                print(f"created source: {slug}")
             else:
-                company.ats_type = "greenhouse"
-                company.ats_board_id = board_token
-                company.domain = domain
-                updated += 1
+                print(f"source already exists: {slug}")
 
         session.commit()
-        print(f"companies: {created} created, {updated} updated")
+        print(f"companies: {total_created} created, {total_updated} updated")
 
 
 if __name__ == "__main__":

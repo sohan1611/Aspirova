@@ -83,7 +83,7 @@ _ingest_with_forced_db_failure_on_listing_2 = _make_forced_failure_ingest("2")
 def db_session():
     # NOT the rollback-wrapped-transaction pattern used elsewhere (e.g.
     # test_ingest.py) - that pattern assumes the code under test never
-    # commits/rolls back itself. crawl_greenhouse_company commits and rolls
+    # commits/rolls back itself. crawl_company_board commits and rolls
     # back per listing by design (that IS the fix being tested), which
     # conflicts with an externally-imposed outer transaction. Use a real
     # session and clean up explicitly instead.
@@ -148,10 +148,9 @@ def test_one_bad_listing_does_not_cascade_fail_the_rest(db_session, seeded, monk
     trailing commit. The key regression being guarded against is that the
     failure does NOT cascade past its own batch into listing 3."""
     source, company = seeded
-    monkeypatch.setattr(runner, "GreenhouseAdapter", _FakeAdapter)
     monkeypatch.setattr(runner, "ingest_one", _ingest_with_forced_db_failure_on_listing_2)
 
-    result = runner.crawl_greenhouse_company(db_session, source, company)
+    result = runner.crawl_company_board(db_session, source, company, _FakeAdapter)
 
     assert result["errors"] == 1
     assert result["new_opps"] == 1
@@ -176,10 +175,9 @@ def test_failure_in_a_later_batch_does_not_roll_back_an_earlier_committed_batch(
     starts a fresh batch after the failure and is expected to succeed too,
     via the trailing commit after the loop."""
     source, company = seeded
-    monkeypatch.setattr(runner, "GreenhouseAdapter", _make_fake_adapter_class(27))
     monkeypatch.setattr(runner, "ingest_one", _make_forced_failure_ingest("26"))
 
-    result = runner.crawl_greenhouse_company(db_session, source, company)
+    result = runner.crawl_company_board(db_session, source, company, _make_fake_adapter_class(27))
 
     assert result["errors"] == 1
     assert result["new_opps"] == 26  # listings 1-25 (batch 1) + 27 (trailing commit)

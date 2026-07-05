@@ -1,0 +1,86 @@
+[
+  {
+    "additionalPlain": "What Happens Next:\n\nWe’ll take a few weeks to review all applications. If we’d like to move forward with you, we’ll reach out to arrange the next steps, which may include an online assessment, a call with a recruiter, and 3 interviews with your future colleagues to better inform our decision.\n\nDuring the interview process, we aim to learn more about your skills, experiences, and motivators. Many of our questions will focus on understanding how you might operate here at WeRide. Please note that, due to the high volume of applications we receive, we’re unable to offer individual feedback during the interview process.\n\nWe recognize that interviewing for a new role is significant, and we appreciate you considering WeRide as the next step in your career. Our Recruiting Team is here to support you throughout the interview process. Come join us and apply today!\n\n\nAt WeRide, interns collaborate with industry leaders on impactful projects that drive meaningful results for the company. You'll apply your knowledge while gaining opportunities to expand your skill set. Our 12-week/ 3-month internship program begins in May or June 2026. Successful candidates must be available to work in the office five days a week. Interns will receive 1-on-1 mentorship, hands-on training, and engage in fun team-building activities as well as interactive workshops, enhancing both professional and personal growth.\n\n",
+    "additional": "<div>What Happens Next:</div><div><br></div><div>We’ll take a few weeks to review all applications. If we’d like to move forward with you, we’ll reach out to arrange the next steps, which may include an online assessment, a call with a recruiter, and 3 interviews with your future colleagues to better inform our decision.</div><div><br></div><div>During the interview process, we aim to learn more about your skills, experiences, and motivators. Many of our questions will focus on understanding how you might operate here at WeRide. Please note that, due to the high volume of applications we receive, we’re unable to offer individual feedback during the interview process.</div><div><br></div><div>We recognize that interviewing for a new role is significant, and we appreciate you considering WeRide as the next step in your career. Our Recruiting Team is here to support you throughout the interview process. Come join us and apply today!</div><div><br></div><div>At <a href=\"https://www.weride.ai/\">WeRide</a>, interns collaborate with industry leaders on impactful projects that drive meaningful results for the company. You'll apply your knowledge while gaining opportunities to expand your skill set. Our 12-week/ 3-month internship program begins in May or June 2026. Successful candidates must be available to work in the office five days a week. Interns will receive 1-on-1 mentorship, hands-on training, and engage in fun team-building activities as well as interactive workshops, enhancing both professional and personal growth.</div><div><br></div>",
+    "categories": {
+      "commitment": "Intern",
+      "location": "San Jose, CA",
+      "team": "Campus Recruiting",
+      "allLocations": [
+        "San Jose, CA"
+      ]
+    },
+    "createdAt": 1759858007006,
+    "descriptionPlain": "WeRide is a leading, commercial-stage global company that develops autonomous driving technologies from Level 2 to Level 4. It offers an all-rounded product mix of Robotaxi, Robobus, Robosweeper, Robovan and Advanced Driving Solution to provide services. WeRide aims to develop safe and reliable driverless solutions to make our mobility and transportation safer, more affordable, and accessible. \n\n\nIn our internship program, you will:\nJoin one of our teams, such as Perception, Prediction, Planning and Control, Mapping and Localization, Simulation, and Infrastructure.\nBe expected to be an equal contributor on teams of world-class engineers to develop and implement software for our next version of autonomous driving solution.\nLearn various technical skills through different projects.\n",
+    "description": "<div>WeRide is a leading, commercial-stage global company that develops autonomous driving technologies from Level 2 to Level 4. It offers an all-rounded product mix of Robotaxi, Robobus, Robosweeper, Robovan and Advanced Driving Solution to provide services. WeRide aims to develop safe and reliable driverless solutions to make our mobility and transportation safer, more affordable, and accessible.&nbsp;</div><div><br></div><div><b>In our internship program, you will:</b></div><div>Join one of our teams, such as Perception, Prediction, Planning and Control, Mapping and Localization, Simulation, and Infrastructure.</div><div>Be expected to be an equal contributor on teams of world-class engineers to develop and implement software for our next version of autonomous driving solution.</div><div>Learn various technical skills through different projects.</div>",
+    "id": "c7652fd5-65d8-443d-ab4c-5b450acac77d",
+    "lists": [
+      {
+        "text": "Requirements:",
+        "content": "<li>Develop innovative machine learning solutions to tackle key problems in autonomous driving, including computer vision, behavior prediction, planning, mapping, and localization.</li><li>Implement and optimize models for deployment across a wide range of WeRide vehicles.</li><li>Analyze simulation and real-world road test data to identify and resolve issues in motion planning, behavior prediction, and vehicle control.</li><li>Collaborate with cross-functional teams to ensure seamless integration of machine learning models and algorithms into autonomous systems.</li>"
+      },
+      {
+        "text": "Qualifications: ",
+        "content": "<li>Currently pursuing a PhD degree in Robotics, Computer Science, Machine Learning, or related field, with an expected graduation date before the end of 2027.</li><li>Proficient in C++ and/or Python with knowledge of its latest features.</li><li>Strong understanding of machine learning approaches and algorithms, including but not limited to NLP, computer vision, reconstruction algorithms, image generation, or multi-modal models. </li><li>Strong analytical and problem-solving skills.</li><li>Excellent communication, and cross-functional team collaboration abilities. </li><li>Passion for innovation in the autonomous vehicle industry.</li>"
+      }
+    ],
+    "salaryRange": {
+      "min": 40,
+      "max": 60,
+      "currency": "USD",
+      "interval": "per-hour-wage"
+    },
+    "text": "2026 Summer Intern - PhD",
+    "country": "US",
+    "workplaceType": "onsite",
+    "opening": "<div>WeRide is a leading, commercial-stage global company that develops autonomous driving technologies from Level 2 to Level 4. It offers an all-rounded product mix of Robotaxi, Robobus, Robosweeper, Robovan and Advanced Driving Solution to provide services. WeRide aims to develop safe and reliable driverless solutions to make our mobility and transportation safer, more affordable, and accessible.&nbsp;</div>",
+    "openingPlain": "WeRide is a leading, commercial-stage global company that develops autonomous driving technologies from Level 2 to Level 4. It offers an all-rounded product mix of Robotaxi, Robobus, Robosweeper, Robovan and Advanced Driving Solution to provide services. WeRide aims to develop safe and reliable driverless solutions to make our mobility and transportation safer, more affordable, and accessible. \n",
+    "descriptionBody": "<div><b>In our internship program, you will:</b></div><div>Join one of our teams, such as Perception, Prediction, Planning and Control, Mapping and Localization, Simulation, and Infrastructure.</div><div>Be expected to be an equal contributor on teams of world-class engineers to develop and implement software for our next version of autonomous driving solution.</div><div>Learn various technical skills through different projects.</div>",
+    "descriptionBodyPlain": "In our internship program, you will:\nJoin one of our teams, such as Perception, Prediction, Planning and Control, Mapping and Localization, Simulation, and Infrastructure.\nBe expected to be an equal contributor on teams of world-class engineers to develop and implement software for our next version of autonomous driving solution.\nLearn various technical skills through different projects.\n",
+    "hostedUrl": "https://jobs.lever.co/weride/c7652fd5-65d8-443d-ab4c-5b450acac77d",
+    "applyUrl": "https://jobs.lever.co/weride/c7652fd5-65d8-443d-ab4c-5b450acac77d/apply"
+  },
+  {
+    "additionalPlain": "WeRide.ai offers competitive salary depending on the experience. Employee benefits include:\nPremium Medical, Dental and Vision Plan (No cost from employees or their families)\nFree Daily Breakfast, Lunch and Dinner\nPaid vacations and holidays\n401K plan\n",
+    "additional": "<div><a class=\"postings-link\" href=\"http://weride.ai/\">WeRide.ai</a>&nbsp;offers competitive salary depending on the experience. Employee benefits include:</div><div>Premium Medical, Dental and Vision Plan (No cost from employees or their families)</div><div>Free Daily Breakfast, Lunch and Dinner</div><div>Paid vacations and holidays</div><div>401K plan</div>",
+    "categories": {
+      "commitment": "Full-time",
+      "location": "San Jose, CA",
+      "team": "Software Engineering",
+      "allLocations": [
+        "San Jose, CA"
+      ]
+    },
+    "createdAt": 1547696817397,
+    "descriptionPlain": "Established in 2017, WeRide (NASDAQ: WRD) is a leading global commercial-stage company that develops autonomous driving technologies from Level 2 to Level 4. WeRide is the only tech company in the world that holds driverless permits in China, the UAE, Singapore and the US, conducting autonomous driving R&D, tests and operations in over 30 cities of 10 countries around the world. WeRide has operated a self-driving fleet for more than 2,200 days.\n\n\nThis position will be responsible for debugging software, hardware and system issues on autonomous vehicles; managing system release; and developing tools to improve efficiency of incident triage.\n\n\n",
+    "description": "<div>Established in 2017, WeRide (NASDAQ: WRD) is a leading global commercial-stage company that develops autonomous driving technologies from Level 2 to Level 4. WeRide is the only tech company in the world that holds driverless permits in China, the UAE, Singapore and the US, conducting autonomous driving R&amp;D, tests and operations in over 30 cities of 10 countries around the world. WeRide has operated a self-driving fleet for more than 2,200 days.</div><div><br></div><div>This position will be responsible for debugging software, hardware and system issues on autonomous vehicles; managing system release; and developing tools to improve efficiency of incident triage.</div>\n<div>&nbsp;</div>\n<div>&nbsp;</div>",
+    "id": "82955de9-485d-4db0-8fd9-1c018489fc8d",
+    "lists": [
+      {
+        "text": "What you will do:",
+        "content": "\n<li>Role Responsibilities:</li>\n\n<div><strong><u>System Bringup &amp; Deployment</u></strong></div>\n<div>&nbsp;</div>\n\n<li>Deploy and integrate autonomous driving software onto vehicle platforms and embedded computing systems.</li>\n<li>Validate system functionality after fleet deployment and ADV delivery, including Linux/Bash-based debugging on embedded systems.</li>\n<li>Report, document and track fleet issues and drive cross-team effort to solve them.</li>\n\n<div>&nbsp;</div>\n<div><strong><u>Incident Triage &amp; Quality Assurance</u></strong></div>\n<div>&nbsp;</div>\n\n<li>Perform incident triage and root-cause analysis with a strong understanding of data flow in robotics systems.</li>\n<li>Investigate and debug issues across the stack, including C++ code, Linux system issues, and hardware failures, and recommend mitigation or corrective actions.</li>\n<li>Integrate and validate the full autonomy stack, including Perception, Planning &amp; Control (PNC), and hardware.</li>\n<li>Contribute to quality assurance processes and continuous improvement of system stability and safety.</li>\n\n<div>&nbsp;</div>\n<div><strong><u>Sensor &amp; System Calibration</u></strong></div>\n<div>&nbsp;</div>\n\n<li>Calibrate and validate sensors, including cameras, LiDAR, IMU, and GNSS.</li>\n<li>Understand vehicle, world, and sensor coordinate systems.</li>\n<li>Support control-related calibration to ensure stable and predictable vehicle behavior.</li>\n\n<div>&nbsp;</div>\n<div><strong><u>Cross-Team Collaboration</u></strong></div>\n<div>&nbsp;</div>\n\n<li>Support technical demos and pilot deployments, delivering on-demand technical demonstrations and stakeholder communication with strong ownership.</li>\n<li>Quickly resolve issues during demos or provide timely mitigation solutions when needed.</li>\n<li>Collaborate closely with AI, Robotics, and Operations teams.</li>\n<li>Clearly communicate technical findings and deployment status across teams.</li>\n"
+      },
+      {
+        "text": "Requirements:",
+        "content": "\n<li>Bachelor’s degree in Mechanical Engineering, Computer Engineering, or a related field</li>\n<li>Experience with sensors (e.g. IMU, lidar, camera, odometry, radar)</li>\n<li>Experience with ROS-based software development for robotic systems</li>\n<li>Hands-on experience with robot simulators or other robot frameworks</li>\n<li>Enthusiasm to understand a complex system and its various components</li>\n\n<div>&nbsp;</div>"
+      }
+    ],
+    "salaryRange": {
+      "min": 90000,
+      "max": 120000,
+      "currency": "USD",
+      "interval": "per-year-salary"
+    },
+    "salaryDescription": "<div>Your base pay is one part of your total compensation package. For this position, the reasonably expected pay range is between $90,000 - $120,000 for the level at which this job has been scoped. Your base pay will depend on several factors, including your experience, qualifications, education, location, and skills. In the event that you are considered for a different level, a higher or lower pay range would apply. This position is also eligible for an annual performance bonus, equity, and a competitive benefits package.</div>",
+    "salaryDescriptionPlain": "Your base pay is one part of your total compensation package. For this position, the reasonably expected pay range is between $90,000 - $120,000 for the level at which this job has been scoped. Your base pay will depend on several factors, including your experience, qualifications, education, location, and skills. In the event that you are considered for a different level, a higher or lower pay range would apply. This position is also eligible for an annual performance bonus, equity, and a competitive benefits package.\n",
+    "text": "Application Engineer",
+    "country": "US",
+    "workplaceType": "onsite",
+    "opening": "<div>Established in 2017, WeRide (NASDAQ: WRD) is a leading global commercial-stage company that develops autonomous driving technologies from Level 2 to Level 4. WeRide is the only tech company in the world that holds driverless permits in China, the UAE, Singapore and the US, conducting autonomous driving R&amp;D, tests and operations in over 30 cities of 10 countries around the world. WeRide has operated a self-driving fleet for more than 2,200 days.</div>",
+    "openingPlain": "Established in 2017, WeRide (NASDAQ: WRD) is a leading global commercial-stage company that develops autonomous driving technologies from Level 2 to Level 4. WeRide is the only tech company in the world that holds driverless permits in China, the UAE, Singapore and the US, conducting autonomous driving R&D, tests and operations in over 30 cities of 10 countries around the world. WeRide has operated a self-driving fleet for more than 2,200 days.\n",
+    "descriptionBody": "<div>This position will be responsible for debugging software, hardware and system issues on autonomous vehicles; managing system release; and developing tools to improve efficiency of incident triage.</div>\n<div>&nbsp;</div>\n<div>&nbsp;</div>",
+    "descriptionBodyPlain": "This position will be responsible for debugging software, hardware and system issues on autonomous vehicles; managing system release; and developing tools to improve efficiency of incident triage.\n\n\n",
+    "hostedUrl": "https://jobs.lever.co/weride/82955de9-485d-4db0-8fd9-1c018489fc8d",
+    "applyUrl": "https://jobs.lever.co/weride/82955de9-485d-4db0-8fd9-1c018489fc8d/apply"
+  }
+]

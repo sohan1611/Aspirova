@@ -1,7 +1,13 @@
-"""Greenhouse ATS adapter - the first and primary source per the ATS-first
-crawling strategy (Doc 04 sec 1). One adapter class, parameterized by board
-token, covers every Greenhouse company (Doc 04 sec 11) - board tokens are
-DATA (companies.ats_board_id), never hardcoded here.
+"""Ashby ATS adapter (Doc handoffs/PHASE-2-HANDOFF.md sec 5, Part 2.5) -
+the third ATS source per the ATS-first crawling strategy (Doc 04 sec 1).
+Same shape as GreenhouseAdapter/LeverAdapter (Doc 04 sec 11): the
+ingestion pipeline never changes, only the adapter.
+
+Ashby's public JSON endpoint
+(`api.ashbyhq.com/posting-api/job-board/{token}`) is the cleanest of the
+three sources so far: plain-text description AND a direct `isRemote`
+boolean, no location-string heuristics needed to infer it (contrast
+crawlers/greenhouse.py's substring-matching fallback).
 """
 
 from datetime import datetime
@@ -10,18 +16,16 @@ from typing import Literal
 import httpx
 
 from core.adapters import NormalizedListing, RawListing
-from crawlers.common import USER_AGENT
-from crawlers.common import content_hash as _content_hash
-from crawlers.common import extract_text as _extract_text
+from crawlers.common import USER_AGENT, content_hash
 from pipeline.normalize import classify_category
 
 
-class GreenhouseAdapter:
-    """SourceAdapter for one company's Greenhouse job board.
-    Instantiate per company (Doc 04 sec 11): GreenhouseAdapter(board_token=..., company_name=...).
+class AshbyAdapter:
+    """SourceAdapter for one company's Ashby job board.
+    Instantiate per company: AshbyAdapter(board_token=..., company_name=...).
     """
 
-    source_slug = "greenhouse"
+    source_slug = "ashby"
     requires_browser = False
 
     def __init__(self, board_token: str, company_name: str, timeout: float = 15.0) -> None:
@@ -31,7 +35,7 @@ class GreenhouseAdapter:
         self._last_health: Literal["ok", "degraded", "broken"] = "ok"
 
     def fetch(self) -> list[RawListing]:
-        url = f"https://boards-api.greenhouse.io/v1/boards/{self.board_token}/jobs?content=true"
+        url = f"https://api.ashbyhq.com/posting-api/job-board/{self.board_token}"
         try:
             response = self._client.get(url)
         except httpx.RequestError:
@@ -51,9 +55,9 @@ class GreenhouseAdapter:
         return [
             RawListing(
                 source_slug=self.source_slug,
-                external_id=str(job["id"]),
-                source_url=job["absolute_url"],
-                content_hash=_content_hash(job),
+                external_id=job["id"],
+                source_url=job["jobUrl"],
+                content_hash=content_hash(job),
                 raw_payload=job,
             )
             for job in jobs
@@ -61,13 +65,11 @@ class GreenhouseAdapter:
 
     def parse(self, raw: RawListing) -> NormalizedListing:
         job = raw.raw_payload
-        location_name = (job.get("location") or {}).get("name")
-        description_raw = _extract_text(job.get("content"))
         title = job["title"]
 
         posted_at: datetime | None = None
-        if job.get("updated_at"):
-            posted_at = datetime.fromisoformat(job["updated_at"])
+        if job.get("publishedAt"):
+            posted_at = datetime.fromisoformat(job["publishedAt"])
 
         return NormalizedListing(
             source_slug=self.source_slug,
@@ -75,11 +77,11 @@ class GreenhouseAdapter:
             source_url=raw.source_url,
             title=title,
             company_name=self.company_name,
-            location=location_name,
-            is_remote=bool(location_name and "remote" in location_name.lower()),
+            location=job.get("location"),
+            is_remote=job.get("isRemote"),
             category=classify_category(title),
-            description_raw=description_raw,
-            apply_url=job["absolute_url"],
+            description_raw=job.get("descriptionPlain") or "",
+            apply_url=job["jobUrl"],
             posted_at=posted_at,
             deadline=None,
             deadline_confidence="unknown",
