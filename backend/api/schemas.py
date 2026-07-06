@@ -3,6 +3,7 @@ responses - the canonical opportunity page links to the real source, never
 mirrors it (Doc 01 sec 7 R1, Doc 04 sec 10)."""
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -29,6 +30,7 @@ class OpportunityListItem(BaseModel):
     deadline_confidence: str
     posted_at: datetime | None
     last_seen_at: datetime
+    is_hidden: bool
 
     @classmethod
     def from_model(cls, o: "models.Opportunity") -> "OpportunityListItem":
@@ -43,6 +45,7 @@ class OpportunityListItem(BaseModel):
             deadline_confidence=o.deadline_confidence,
             posted_at=o.posted_at,
             last_seen_at=o.last_seen_at,
+            is_hidden=o.is_hidden,
         )
 
 
@@ -59,13 +62,25 @@ class MatchItem(BaseModel):
     score: float
 
 
+class ReopenEstimateSchema(BaseModel):
+    window: str
+    basis: Literal["historical", "curated"]
+    note: str
+
+
 class OpportunityDetail(OpportunityListItem):
     description_raw: str
     summary: str | None
     apply_url: str
+    reopen_estimate: ReopenEstimateSchema | None = None
 
     @classmethod
-    def from_model(cls, o: "models.Opportunity") -> "OpportunityDetail":
+    def from_model(
+        cls,
+        o: "models.Opportunity",
+        *,
+        reopen_estimate: ReopenEstimateSchema | None = None,
+    ) -> "OpportunityDetail":
         return cls(
             slug=o.slug,
             title=o.title,
@@ -77,9 +92,11 @@ class OpportunityDetail(OpportunityListItem):
             deadline_confidence=o.deadline_confidence,
             posted_at=o.posted_at,
             last_seen_at=o.last_seen_at,
+            is_hidden=o.is_hidden,
             description_raw=o.description_raw or "",
             summary=o.summary,
             apply_url=o.apply_url,
+            reopen_estimate=reopen_estimate,
         )
 
 

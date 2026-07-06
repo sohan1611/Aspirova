@@ -6,8 +6,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from api.deps import get_db
-from api.schemas import OpportunityDetail
+from api.schemas import OpportunityDetail, ReopenEstimateSchema
 from core import models
+from pipeline.reopen import reopen_estimate
 
 router = APIRouter()
 
@@ -21,4 +22,13 @@ def get_opportunity(slug: str, db: Session = Depends(get_db)) -> OpportunityDeta
     )
     if opportunity is None:
         raise HTTPException(status_code=404, detail="Opportunity not found")
-    return OpportunityDetail.from_model(opportunity)
+
+    estimate = reopen_estimate(db, opportunity)
+    estimate_schema = None
+    if estimate is not None:
+        estimate_schema = ReopenEstimateSchema(
+            window=estimate.window,
+            basis=estimate.basis,
+            note=estimate.note,
+        )
+    return OpportunityDetail.from_model(opportunity, reopen_estimate=estimate_schema)
