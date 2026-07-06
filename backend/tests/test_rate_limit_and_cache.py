@@ -12,6 +12,8 @@ other and with test_api.py's unrelated /feed calls (which run with no real
 Redis configured and therefore always fail open, per sec 11.2).
 """
 
+import pytest
+import upstash_ratelimit.limiter as upstash_limiter
 from sqlalchemy import event
 
 from api import middleware
@@ -21,6 +23,12 @@ from core.config import get_settings
 from fastapi.testclient import TestClient
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def freeze_rate_limit_time(monkeypatch) -> None:
+    """Keep every request in a test within the same fixed-window bucket."""
+    monkeypatch.setattr(upstash_limiter, "now_ms", lambda: 1_750_000_000_000)
 
 
 class FakeAsyncRedis:

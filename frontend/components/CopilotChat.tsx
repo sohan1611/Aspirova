@@ -54,7 +54,7 @@ export default function CopilotChat() {
           Career Copilot
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Ask focused career questions grounded in Aspirova&apos;s opportunities and your profile.
+          Ask focused career questions grounded in Aspirova&apos;s opportunities.
         </p>
       </div>
 
@@ -298,7 +298,7 @@ function SignedOutCard() {
         <MessageCircle className="mx-auto size-8 text-primary" aria-hidden="true" />
         <CardTitle className="text-xl">Sign in to use Career Copilot</CardTitle>
         <CardDescription>
-          Use your Aspirova account to ask questions grounded in opportunities and your profile.
+          Use your Aspirova account to ask questions grounded in Aspirova&apos;s opportunities.
         </CardDescription>
       </CardHeader>
       <CardFooter className="justify-center">
