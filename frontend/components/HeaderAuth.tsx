@@ -16,9 +16,10 @@ import { useSession } from "@/lib/useSession";
  * Structural home for auth in the header (Part 3.3): signed-in state stays
  * inline (already compact - just email + sign out), but the signed-out
  * form moves behind a dialog instead of living directly in the header.
- * AuthWidget's own internal presentation (labels, inline validation,
- * loading/error/success states) is intentionally untouched here - that
- * redesign is Part 3.6's job.
+ * The dialog title/description stays mode-agnostic ("Welcome", not
+ * "Sign in") because AuthWidget owns its own sign-in/sign-up toggle state
+ * internally (Part 3.6) - a static "Sign in to Aspirova" title would
+ * contradict itself once the user switches to the sign-up view.
  */
 export default function HeaderAuth() {
   const session = useSession();
@@ -34,9 +35,10 @@ export default function HeaderAuth() {
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Sign in to Aspirova</DialogTitle>
+          <DialogTitle>Welcome to Aspirova</DialogTitle>
           <DialogDescription>
-            Track opportunities and get alerts on the companies you care about.
+            Sign in or create an account to track opportunities and get
+            alerts on the companies you care about.
           </DialogDescription>
         </DialogHeader>
         <AuthWidget />
