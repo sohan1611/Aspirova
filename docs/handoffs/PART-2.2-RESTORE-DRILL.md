@@ -135,7 +135,12 @@ every subsequent step in the job (including the actual backup script) —
 plus a small `Verify pg_dump resolves to 17` step that fails loudly if this
 ever regresses, instead of failing deep inside a stack trace.
 
-**Next: re-run the real workflow after this fix to confirm.**
+**Re-ran the real workflow after the fix — succeeded.** `which pg_dump`
+resolved to `/usr/lib/postgresql/17/bin/pg_dump` (17.10); the real
+production backup uploaded `daily/aspirova-2026-07-05.dump` +
+`weekly/aspirova-2026-W27.dump` to the real R2 bucket, entirely within the
+actual GitHub Actions environment (not simulated). The nightly cron
+(`17 19 * * *` UTC) is now confirmed working end-to-end, unattended.
 
 ## Running the drill again yourself
 
