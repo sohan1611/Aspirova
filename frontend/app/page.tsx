@@ -1,5 +1,4 @@
 import Link from "next/link";
-import AuthWidget from "@/components/AuthWidget";
 import OpportunityCard from "@/components/OpportunityCard";
 import SearchFilters from "@/components/SearchFilters";
 import { getFeed, searchOpportunities } from "@/lib/api";
@@ -33,14 +32,6 @@ export default async function HomePage({ searchParams }: PageProps) {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Aspirova</h1>
-          <p className="text-sm text-gray-500">Every opportunity. One place.</p>
-        </div>
-        <AuthWidget />
-      </div>
-
       <div className="mb-6">
         <SearchFilters />
       </div>
