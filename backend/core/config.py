@@ -15,6 +15,17 @@ class Settings(BaseSettings):
     supabase_service_key: str = ""
     cors_origins: str = "http://localhost:3000"
 
+    # AI providers (Doc 05, Doc handoffs/PHASE-3-HANDOFF.md Part 1).
+    # Blank keys select the deterministic local stub: no network call, no
+    # spend, and no hard failure. Model/runtime controls stay env-driven.
+    anthropic_api_key: str = ""
+    openai_api_key: str = ""
+    ai_generation_model: str = "claude-haiku-4-5"
+    ai_embedding_model: str = "text-embedding-3-small"
+    ai_embedding_dim: int = 1536
+    ai_max_output_tokens: int = 512
+    ai_daily_usd_cap: float = 2.0
+
     # Upstash Redis REST API (rate limiting + read cache - Doc
     # handoffs/PHASE-2-HANDOFF.md sec 11). Blank = not configured yet, which
     # every caller must treat as "fail open" (sec 11.2), never as an error.

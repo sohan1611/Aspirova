@@ -11,6 +11,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -19,6 +20,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
+from pgvector.sqlalchemy import Vector
 from sqlalchemy.dialects.postgresql import CITEXT, JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -130,6 +132,8 @@ class Opportunity(Base):
     last_seen_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
     # Populated by a DB trigger (title + company + summary + description), not the ORM. See migration.
     search_tsv: Mapped[str | None] = mapped_column(TSVECTOR)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(1536))
+    embedding_model: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
     updated_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
 
@@ -299,6 +303,40 @@ class Notification(Base):
     meta: Mapped[dict | None] = mapped_column()
 
     __table_args__ = (Index("ix_notifications_user_type_sent", "user_id", "type", "sent_at"),)
+
+
+class AiUsage(Base):
+    """One row per generation or embedding call, including local stub calls."""
+
+    __tablename__ = "ai_usage"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
+    feature: Mapped[str] = mapped_column(Text, nullable=False)
+    model: Mapped[str] = mapped_column(Text, nullable=False)
+    input_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    output_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    est_cost: Mapped[float] = mapped_column(Float, nullable=False)
+    ok: Mapped[bool] = mapped_column(Boolean, nullable=False)
+
+
+class ResumeProfile(Base):
+    """A cached resume embedding; matching itself never calls a generation model."""
+
+    __tablename__ = "resume_profiles"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    embedding: Mapped[list[float]] = mapped_column(Vector(1536), nullable=False)
+    embedding_model: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "version", name="uq_resume_profiles_user_version"),
+    )
 
 
 class CrawlRun(Base):
