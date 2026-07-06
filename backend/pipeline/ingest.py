@@ -38,7 +38,7 @@ import hashlib
 import re
 from dataclasses import dataclass, field
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from core import models
@@ -186,6 +186,14 @@ def ingest_one(
             opportunity.is_remote = normalized.is_remote
             opportunity.deadline = normalized.deadline
             opportunity.deadline_confidence = normalized.deadline_confidence
+            opportunity.summary = None
+            opportunity.embedding = None
+            opportunity.embedding_model = None
+            session.execute(
+                delete(models.OpportunityTag).where(
+                    models.OpportunityTag.opportunity_id == opportunity.id
+                )
+            )
 
         opportunity.last_seen_at = func.now()
         raw_row.processed = True
