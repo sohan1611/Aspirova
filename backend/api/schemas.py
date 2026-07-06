@@ -46,6 +46,19 @@ class OpportunityListItem(BaseModel):
         )
 
 
+class ResumeUploadRequest(BaseModel):
+    resume_text: str
+
+
+class ResumeUploadResponse(BaseModel):
+    version: int
+
+
+class MatchItem(BaseModel):
+    opportunity: OpportunityListItem
+    score: float
+
+
 class OpportunityDetail(OpportunityListItem):
     description_raw: str
     summary: str | None
