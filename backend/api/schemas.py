@@ -5,7 +5,7 @@ mirrors it (Doc 01 sec 7 R1, Doc 04 sec 10)."""
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from core import models
 
@@ -60,6 +60,31 @@ class ResumeUploadResponse(BaseModel):
 class MatchItem(BaseModel):
     opportunity: OpportunityListItem
     score: float
+
+
+class CopilotRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=2_000)
+
+    @field_validator("message")
+    @classmethod
+    def message_must_not_be_blank(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("message must not be blank")
+        return normalized
+
+
+class CopilotSource(BaseModel):
+    slug: str
+    title: str
+    company: str | None
+
+
+class CopilotResponse(BaseModel):
+    answer: str
+    sources: list[CopilotSource]
+    cached: bool
+    degraded: bool
 
 
 class ReopenEstimateSchema(BaseModel):
