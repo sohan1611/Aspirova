@@ -39,3 +39,10 @@ export interface SearchResponse {
   total: number;
   query: string;
 }
+
+export interface PlanPublic {
+  key: string;
+  price_paise: number;
+  billing: "monthly" | "annual" | null;
+  features: Record<string, boolean | number | string | null>;
+}

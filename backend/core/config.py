@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     rate_limit_ip_feed_search_per_minute: int = 60
     rate_limit_ip_opportunity_per_minute: int = 120
     rate_limit_user_bookmark_write_per_minute: int = 30
+    rate_limit_ip_waitlist_per_minute: int = 5
     read_cache_ttl_seconds: int = 45
 
     # Independent nightly backup (Doc 03 sec 8/9) - S3-compatible object
@@ -54,6 +55,13 @@ class Settings(BaseSettings):
     # skipped send instead of silently no-oping, so gaps are visible.
     resend_api_key: str = ""
     resend_from_email: str = ""
+
+    # Pricing-page waitlist (Doc handoffs/PHASE-2.5-HANDOFF.md sec 3.7) -
+    # the honest Razorpay dummy: no checkout, just a founder notification
+    # via the existing Resend seam. Blank = signups are accepted (still
+    # return ok to the visitor - never surface an internal delivery gap on
+    # a public marketing page) but logged instead of emailed.
+    waitlist_notify_email: str = ""
 
     @property
     def cors_origins_list(self) -> list[str]:

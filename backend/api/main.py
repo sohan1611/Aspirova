@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api import bookmarks, dream_companies, feed, opportunity, payments, search
+from api import bookmarks, dream_companies, feed, opportunity, payments, plans, search, waitlist
 from api.middleware import RateLimitMiddleware, ReadCacheMiddleware, TimingMiddleware
 from core.config import get_settings
 
@@ -33,6 +33,8 @@ app.include_router(opportunity.router)
 app.include_router(bookmarks.router)
 app.include_router(dream_companies.router)
 app.include_router(payments.router)
+app.include_router(plans.router)
+app.include_router(waitlist.router)
 
 
 @app.get("/health")

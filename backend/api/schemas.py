@@ -89,3 +89,25 @@ class SearchResponse(BaseModel):
     items: list[OpportunityListItem]
     total: int
     query: str
+
+
+class PlanPublic(BaseModel):
+    """Public projection of `plans` for the pricing page (Doc handoffs/
+    PHASE-2.5-HANDOFF.md sec 3.7) - price_paise/features are read-only
+    data here, no gating logic; `can()` remains the single gating seam
+    server-side."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    key: str
+    price_paise: int
+    billing: str | None
+    features: dict
+
+
+class WaitlistSignupRequest(BaseModel):
+    email: str
+
+
+class WaitlistSignupResponse(BaseModel):
+    ok: bool = True

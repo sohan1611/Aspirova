@@ -1,4 +1,10 @@
-import type { FeedResponse, OpportunityDetail, OpportunityListItem, SearchResponse } from "./types";
+import type {
+  FeedResponse,
+  OpportunityDetail,
+  OpportunityListItem,
+  PlanPublic,
+  SearchResponse,
+} from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -66,4 +72,19 @@ export async function getBookmarks(accessToken: string): Promise<OpportunityList
   });
   if (!res.ok) throw new Error(`Failed to load bookmarks: ${res.status}`);
   return res.json();
+}
+
+export async function getPlans(): Promise<PlanPublic[]> {
+  const res = await fetch(`${API_URL}/plans`, { next: { revalidate: 300 } });
+  if (!res.ok) throw new Error(`Failed to load plans: ${res.status}`);
+  return res.json();
+}
+
+export async function joinWaitlist(email: string): Promise<void> {
+  const res = await fetch(`${API_URL}/waitlist`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) throw new Error(`Failed to join waitlist: ${res.status}`);
 }
