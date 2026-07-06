@@ -1,4 +1,4 @@
-import { Clock, MapPin } from "lucide-react";
+import { CalendarClock, Clock, MapPin } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -96,6 +96,27 @@ export default async function OpportunityPage({ params }: PageProps) {
           <Clock className="h-4 w-4 shrink-0" />
           Deadline: {new Date(opportunity.deadline).toLocaleDateString()}
           {opportunity.deadline_confidence !== "explicit" ? " (estimated)" : ""}
+        </div>
+      )}
+
+      {opportunity.reopen_estimate && (
+        <div className="mt-4 flex items-start gap-2 text-sm">
+          <CalendarClock
+            className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <div>
+            <p className="font-medium text-foreground">
+              Reopen estimate: Typically opens {opportunity.reopen_estimate.window}
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {opportunity.reopen_estimate.note} This is an estimate based on{" "}
+              {opportunity.reopen_estimate.basis === "historical"
+                ? "past openings"
+                : "curated information"}
+              .
+            </p>
+          </div>
         </div>
       )}
 

@@ -19,6 +19,7 @@ export interface OpportunityListItem {
   deadline_confidence: "explicit" | "inferred" | "unknown";
   posted_at: string | null;
   last_seen_at: string;
+  is_hidden: boolean;
 }
 
 export interface MatchItem {
@@ -30,6 +31,24 @@ export interface OpportunityDetail extends OpportunityListItem {
   description_raw: string;
   summary: string | null;
   apply_url: string;
+  reopen_estimate?: {
+    window: string;
+    basis: "historical" | "curated";
+    note: string;
+  } | null;
+}
+
+export interface CopilotSource {
+  slug: string;
+  company: string | null;
+  title: string;
+}
+
+export interface CopilotResponse {
+  answer: string;
+  sources: CopilotSource[];
+  cached: boolean;
+  degraded: boolean;
 }
 
 export interface FeedResponse {

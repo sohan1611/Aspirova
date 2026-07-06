@@ -17,6 +17,12 @@ export default function AppHeader() {
               Matches
             </Link>
             <Link
+              href="/copilot"
+              className="text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Copilot
+            </Link>
+            <Link
               href="/pricing"
               className="text-muted-foreground transition-colors hover:text-foreground"
             >

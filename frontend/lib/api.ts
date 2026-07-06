@@ -1,4 +1,5 @@
 import type {
+  CopilotResponse,
   FeedResponse,
   MatchItem,
   OpportunityDetail,
@@ -22,6 +23,19 @@ export function isProFeatureRequiredError(
   error: unknown,
 ): error is ProFeatureRequiredError {
   return error instanceof ProFeatureRequiredError;
+}
+
+export class RateLimitedError extends Error {
+  readonly status = 429;
+
+  constructor() {
+    super("Daily Copilot limit reached.");
+    this.name = "RateLimitedError";
+  }
+}
+
+export function isRateLimitedError(error: unknown): error is RateLimitedError {
+  return error instanceof RateLimitedError;
 }
 
 function throwResumeApiError(res: Response, action: string): never {
@@ -121,6 +135,25 @@ export async function getResumeMatches(
     cache: "no-store",
   });
   if (!res.ok) throwResumeApiError(res, "Failed to load resume matches");
+  return res.json();
+}
+
+export async function askCopilot(
+  message: string,
+  accessToken: string,
+): Promise<CopilotResponse> {
+  const res = await fetch(`${API_URL}/copilot`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ message }),
+  });
+
+  if (res.status === 403) throw new ProFeatureRequiredError();
+  if (res.status === 429) throw new RateLimitedError();
+  if (!res.ok) throw new Error(`Failed to ask Copilot: ${res.status}`);
   return res.json();
 }
 

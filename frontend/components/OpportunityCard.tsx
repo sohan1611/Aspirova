@@ -25,14 +25,17 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
 
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="truncate font-semibold text-card-foreground group-hover:text-primary">
+          <h3 className="min-w-0 flex-1 truncate font-semibold text-card-foreground group-hover:text-primary">
             {item.title}
           </h3>
-          {item.category && (
-            <Badge variant="secondary" className="shrink-0">
-              {CATEGORY_LABEL[item.category] ?? item.category}
-            </Badge>
-          )}
+          <div className="flex shrink-0 flex-wrap justify-end gap-1">
+            {item.is_hidden && <Badge variant="outline">Hidden gem</Badge>}
+            {item.category && (
+              <Badge variant="secondary">
+                {CATEGORY_LABEL[item.category] ?? item.category}
+              </Badge>
+            )}
+          </div>
         </div>
 
         <p className="mt-0.5 truncate text-sm text-muted-foreground">
