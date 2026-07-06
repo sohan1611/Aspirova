@@ -25,7 +25,9 @@ export default function AuthWidget() {
   if (session) {
     return (
       <div className="flex items-center gap-3 text-sm">
-        <span className="text-muted-foreground">{session.user.email}</span>
+        <span className="hidden max-w-48 truncate text-muted-foreground md:inline">
+          {session.user.email}
+        </span>
         <Button variant="outline" size="sm" onClick={() => supabase.auth.signOut()}>
           Sign out
         </Button>

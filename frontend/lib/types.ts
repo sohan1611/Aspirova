@@ -21,6 +21,11 @@ export interface OpportunityListItem {
   last_seen_at: string;
 }
 
+export interface MatchItem {
+  opportunity: OpportunityListItem;
+  score: number;
+}
+
 export interface OpportunityDetail extends OpportunityListItem {
   description_raw: string;
   summary: string | null;

@@ -1,5 +1,6 @@
 import type {
   FeedResponse,
+  MatchItem,
   OpportunityDetail,
   OpportunityListItem,
   PlanPublic,
@@ -7,6 +8,26 @@ import type {
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+export class ProFeatureRequiredError extends Error {
+  readonly status = 403;
+
+  constructor() {
+    super("Resume Match requires a Pro plan.");
+    this.name = "ProFeatureRequiredError";
+  }
+}
+
+export function isProFeatureRequiredError(
+  error: unknown,
+): error is ProFeatureRequiredError {
+  return error instanceof ProFeatureRequiredError;
+}
+
+function throwResumeApiError(res: Response, action: string): never {
+  if (res.status === 403) throw new ProFeatureRequiredError();
+  throw new Error(`${action}: ${res.status}`);
+}
 
 export interface FeedParams {
   category?: "internship" | "job";
@@ -71,6 +92,35 @@ export async function getBookmarks(accessToken: string): Promise<OpportunityList
     cache: "no-store",
   });
   if (!res.ok) throw new Error(`Failed to load bookmarks: ${res.status}`);
+  return res.json();
+}
+
+export async function uploadResume(
+  resumeText: string,
+  accessToken: string,
+): Promise<{ version: number }> {
+  const res = await fetch(`${API_URL}/resume`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ resume_text: resumeText }),
+  });
+  if (!res.ok) throwResumeApiError(res, "Failed to upload resume");
+  return res.json();
+}
+
+export async function getResumeMatches(
+  accessToken: string,
+  limit = 20,
+): Promise<MatchItem[]> {
+  const search = new URLSearchParams({ limit: String(limit) });
+  const res = await fetch(`${API_URL}/resume/matches?${search.toString()}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: "no-store",
+  });
+  if (!res.ok) throwResumeApiError(res, "Failed to load resume matches");
   return res.json();
 }
 
