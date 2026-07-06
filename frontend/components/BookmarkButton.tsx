@@ -1,6 +1,8 @@
 "use client";
 
+import { Bookmark, BookmarkCheck } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { addBookmark, getBookmarks, removeBookmark } from "@/lib/api";
 import { useSession } from "@/lib/useSession";
 
@@ -17,7 +19,7 @@ export default function BookmarkButton({ slug }: { slug: string }) {
   }, [session, slug]);
 
   if (!session) {
-    return <span className="text-sm text-gray-500">Sign in to bookmark</span>;
+    return <span className="text-sm text-muted-foreground">Sign in to bookmark</span>;
   }
 
   async function toggle() {
@@ -37,14 +39,14 @@ export default function BookmarkButton({ slug }: { slug: string }) {
   }
 
   return (
-    <button
+    <Button
+      variant={bookmarked ? "secondary" : "outline"}
       onClick={toggle}
       disabled={loading}
-      className={`rounded border px-3 py-2 text-sm transition-colors ${
-        bookmarked ? "bg-black text-white" : "hover:bg-gray-100"
-      }`}
+      aria-pressed={bookmarked}
     >
-      {bookmarked ? "Bookmarked ✓" : "Bookmark"}
-    </button>
+      {bookmarked ? <BookmarkCheck /> : <Bookmark />}
+      {bookmarked ? "Bookmarked" : "Bookmark"}
+    </Button>
   );
 }
