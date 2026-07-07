@@ -13,7 +13,7 @@ features - there is always a fallback, never a KeyError.
 
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from core import models
@@ -42,6 +42,11 @@ def get_features(db: Session, user: "models.User | None") -> dict:
         .where(
             models.Subscription.user_id == user.id,
             models.Subscription.status.in_(("active", "trialing")),
+            or_(
+                models.Subscription.razorpay_sub_id.isnot(None),
+                models.Subscription.current_period_end.is_(None),
+                models.Subscription.current_period_end > func.now(),
+            ),
         )
         .order_by(models.Subscription.created_at.desc())
         .limit(1)

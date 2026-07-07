@@ -66,6 +66,24 @@ class ResumeUploadResponse(BaseModel):
     version: int
 
 
+ReferralClaimReason = Literal["ok", "already_referred", "self_referral", "unknown_code"]
+
+
+class ReferralMeResponse(BaseModel):
+    invite_code: str
+    referral_count: int
+    reward_active_until: datetime | None
+
+
+class ReferralClaimRequest(BaseModel):
+    code: str = Field(min_length=1, max_length=64)
+
+
+class ReferralClaimResponse(BaseModel):
+    referred: bool
+    reason: ReferralClaimReason
+
+
 class MatchItem(BaseModel):
     opportunity: OpportunityListItem
     score: float
