@@ -107,11 +107,13 @@ def test_companies_returns_active_company_counts_ordered(
     assert isinstance(body, list)
     assert all(set(item.keys()) == {"slug", "name", "active_count"} for item in body)
 
+    # Collation-independent global invariant: counts are non-increasing. The
+    # endpoint's name tiebreak among equal counts uses the DB collation, which
+    # won't match a Python string sort over arbitrary real prod companies, so
+    # don't assert the tiebreak here (the seeded-fixture check below covers
+    # correctness + relative order of this test's own data).
     for current, next_item in zip(body, body[1:]):
-        assert current["active_count"] > next_item["active_count"] or (
-            current["active_count"] == next_item["active_count"]
-            and current["name"] <= next_item["name"]
-        )
+        assert current["active_count"] >= next_item["active_count"]
 
     seeded_slugs = {
         high_count_company.slug,
