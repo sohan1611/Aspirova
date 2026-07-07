@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import BookmarkButton from "@/components/BookmarkButton";
 import CompanyFavicon from "@/components/CompanyFavicon";
+import ShareButton from "@/components/ShareButton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getOpportunity } from "@/lib/api";
@@ -208,6 +209,7 @@ export default async function OpportunityPage({ params }: PageProps) {
             </a>
           </Button>
           <BookmarkButton slug={opportunity.slug} />
+          <ShareButton slug={opportunity.slug} />
         </div>
 
         <article className="mt-8 leading-relaxed whitespace-pre-wrap text-foreground">
