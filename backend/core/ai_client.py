@@ -14,7 +14,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from core.config import get_settings
+from core.config import Settings, get_settings
 from core.models import AiUsage
 
 logger = logging.getLogger(__name__)
@@ -30,6 +30,17 @@ class GenerationResult:
 def _estimated_tokens(text: str) -> int:
     """Cheap deterministic approximation for stub accounting only."""
     return (len(text) + 3) // 4
+
+
+def _generation_cost(settings: Settings, input_tokens: int, output_tokens: int) -> float:
+    return (
+        input_tokens / 1_000_000 * settings.ai_generation_input_usd_per_mtok
+        + output_tokens / 1_000_000 * settings.ai_generation_output_usd_per_mtok
+    )
+
+
+def _embedding_cost(settings: Settings, input_tokens: int) -> float:
+    return input_tokens / 1_000_000 * settings.ai_embedding_input_usd_per_mtok
 
 
 def _generation_input(
@@ -145,7 +156,7 @@ def generate(
         model=settings.ai_generation_model,
         input_tokens=result.input_tokens,
         output_tokens=result.output_tokens,
-        est_cost=0.0,
+        est_cost=_generation_cost(settings, result.input_tokens, result.output_tokens),
         ok=True,
     )
     return result
@@ -213,7 +224,7 @@ def embed(session: Session, texts: list[str], *, feature: str) -> list[list[floa
         model=settings.ai_embedding_model,
         input_tokens=input_tokens,
         output_tokens=0,
-        est_cost=0.0,
+        est_cost=_embedding_cost(settings, input_tokens),
         ok=True,
     )
     return vectors
