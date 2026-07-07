@@ -48,6 +48,12 @@ jobs:
           PYTHONUNBUFFERED: "1"
         run: uv run python -m crawlers.runner --tier 1
 
+      - name: Recompute hidden opportunities
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONUNBUFFERED: "1"
+        run: uv run python -m scripts.compute_hidden
+
       # Post-ingest instant dream-company alerts (Doc handoffs/
       # PHASE-2-HANDOFF.md sec 5) - a separate step in the SAME run rather
       # than code wired into crawlers/runner.py itself: it works off a

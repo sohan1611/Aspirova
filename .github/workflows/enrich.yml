@@ -1,0 +1,44 @@
+name: Career Enrichment
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Maximum opportunities to enrich"
+        required: false
+        default: "100"
+  # schedule deliberately deferred until a manual go-live cost dry-run (enrich_worker --limit 20) confirms per-opportunity spend.
+  # schedule:
+  #   - cron: "0 4 * * *"
+
+concurrency:
+  group: enrich
+  cancel-in-progress: false
+
+jobs:
+  enrich:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Enrich career opportunities
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PYTHONUNBUFFERED: "1"
+        run: uv run python -m scripts.enrich_worker --limit ${{ inputs.limit }}
