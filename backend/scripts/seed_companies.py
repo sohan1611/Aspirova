@@ -116,7 +116,9 @@ def seed() -> None:
                 # already seeded in production instead of updating it,
                 # since this script's own idempotency depends on the slug
                 # it looks up matching what's already there.
-                company_slug = board_token
+                # Public slug is lowercased for a consistent URL/slug scheme;
+                # ats_board_id below keeps the exact provider identifier.
+                company_slug = board_token.lower()
                 company = session.scalar(select(Company).where(Company.slug == company_slug))
                 if company is None:
                     session.add(
