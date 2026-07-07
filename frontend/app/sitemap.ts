@@ -10,6 +10,7 @@ const STATIC_ROUTES = [
   "/internships",
   "/remote",
   "/jobs",
+  "/companies",
 ] as const;
 
 export const revalidate = 300;

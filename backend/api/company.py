@@ -1,14 +1,42 @@
 """Company landing-page endpoint for SSR company opportunity pages."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session, joinedload
 
 from api.deps import get_db
-from api.schemas import CompanyPage, CompanySummary, OpportunityListItem
+from api.schemas import (
+    CompanyListItem,
+    CompanyPage,
+    CompanySummary,
+    OpportunityListItem,
+)
 from core import models
 
 router = APIRouter()
+
+
+@router.get("/companies", response_model=list[CompanyListItem])
+def list_companies(db: Session = Depends(get_db)) -> list[CompanyListItem]:
+    rows = db.execute(
+        select(
+            models.Company.slug,
+            models.Company.name,
+            func.count(models.Opportunity.id).label("active_count"),
+        )
+        .join(
+            models.Opportunity,
+            (models.Opportunity.company_id == models.Company.id)
+            & (models.Opportunity.status == "active"),
+        )
+        .group_by(models.Company.id)
+        .order_by(desc("active_count"), models.Company.name.asc())
+    ).all()
+
+    return [
+        CompanyListItem(slug=slug, name=name, active_count=active_count)
+        for slug, name, active_count in rows
+    ]
 
 
 @router.get("/company/{slug}", response_model=CompanyPage)

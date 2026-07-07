@@ -22,6 +22,9 @@ export default function AppFooter() {
           <Link className="text-muted-foreground hover:text-foreground" href="/jobs">
             Jobs
           </Link>
+          <Link className="text-muted-foreground hover:text-foreground" href="/companies">
+            Companies
+          </Link>
         </nav>
         <p className="mt-6 text-xs text-muted-foreground">
           © {new Date().getFullYear()} Aspirova. Built by a student, for students.

@@ -19,6 +19,12 @@ class CompanySummary(BaseModel):
     logo_url: str | None = None
 
 
+class CompanyListItem(BaseModel):
+    slug: str
+    name: str
+    active_count: int
+
+
 class SitemapOpportunity(BaseModel):
     slug: str
     last_seen_at: datetime
