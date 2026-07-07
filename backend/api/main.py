@@ -11,6 +11,7 @@ from api import (
     plans,
     resume,
     search,
+    sitemap,
     waitlist,
 )
 from api.middleware import RateLimitMiddleware, ReadCacheMiddleware, TimingMiddleware
@@ -47,6 +48,7 @@ app.include_router(dream_companies.router)
 app.include_router(resume.router)
 app.include_router(payments.router)
 app.include_router(plans.router)
+app.include_router(sitemap.router)
 app.include_router(waitlist.router)
 
 

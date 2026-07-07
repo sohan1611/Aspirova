@@ -43,9 +43,20 @@ _IP_RATE_LIMITED_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("/search", "feed_search", "rate_limit_ip_feed_search_per_minute"),
     ("/opportunity/", "opportunity", "rate_limit_ip_opportunity_per_minute"),
     ("/plans", "opportunity", "rate_limit_ip_opportunity_per_minute"),
+    (
+        "/sitemap-opportunities",
+        "opportunity",
+        "rate_limit_ip_opportunity_per_minute",
+    ),
 )
 
-_CACHEABLE_PREFIXES = ("/feed", "/search", "/opportunity/", "/plans")
+_CACHEABLE_PREFIXES = (
+    "/feed",
+    "/search",
+    "/opportunity/",
+    "/plans",
+    "/sitemap-opportunities",
+)
 
 
 def client_ip(request: Request) -> str:
