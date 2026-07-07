@@ -20,7 +20,11 @@ jobs:
     # companies each individually bounded by core/db.py's connect/keepalive/
     # statement timeouts should never need this long, but the margin costs
     # nothing on a 2h schedule and avoids a slow-but-real run being killed.
-    timeout-minutes: 25
+    # SmartRecruiters currently adds ~18 min/crawl because its adapter fetches
+    # per-posting detail endpoints every crawl; the board fingerprint is computed
+    # after fetch(). This intentionally generous margin can drop back down after
+    # the tracked lazy/only-changed detail-fetch follow-up lands.
+    timeout-minutes: 40
     defaults:
       run:
         working-directory: backend
