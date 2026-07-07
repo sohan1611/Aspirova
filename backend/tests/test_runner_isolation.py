@@ -113,8 +113,10 @@ def seeded(db_session: Session):
     )
     company = models.Company(
         slug=f"test-isolation-co-{unique}",
-        name="Isolation Test Co",
-        name_normalized="isolation test co",
+        # Unique per-run name: opportunity slugs are derived from the company
+        # name, so this keeps them unique across concurrent runs on a shared DB.
+        name=f"Isolation Test Co {unique}",
+        name_normalized=f"isolation test co {unique}",
         ats_type="greenhouse",
         ats_board_id="fake-board",
     )
