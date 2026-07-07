@@ -1,4 +1,5 @@
 import type {
+  CompanyListItem,
   CompanyPage,
   CopilotResponse,
   FeedResponse,
@@ -98,6 +99,12 @@ export async function getCompanyPage(
   });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Failed to load company: ${res.status}`);
+  return res.json();
+}
+
+export async function getCompanies(): Promise<CompanyListItem[]> {
+  const res = await fetch(`${API_URL}/companies`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Failed to load companies: ${res.status}`);
   return res.json();
 }
 

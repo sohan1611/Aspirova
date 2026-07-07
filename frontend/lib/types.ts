@@ -8,6 +8,12 @@ export interface CompanySummary {
   logo_url: string | null;
 }
 
+export interface CompanyListItem {
+  slug: string;
+  name: string;
+  active_count: number;
+}
+
 export interface OpportunityListItem {
   slug: string;
   title: string;
