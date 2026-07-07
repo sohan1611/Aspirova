@@ -78,3 +78,14 @@ export interface PlanPublic {
   billing: "monthly" | "annual" | null;
   features: Record<string, boolean | number | string | null>;
 }
+
+export interface ReferralMe {
+  invite_code: string;
+  referral_count: number;
+  reward_active_until: string | null;
+}
+
+export interface ReferralClaimResult {
+  referred: boolean;
+  reason: string;
+}
