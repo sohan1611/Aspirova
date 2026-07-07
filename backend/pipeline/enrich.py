@@ -158,3 +158,40 @@ def enrich_pending(session: Session, *, limit: int) -> dict[str, object]:
         "enriched": enriched,
         "stopped_over_budget": stopped_over_budget,
     }
+
+
+def backfill_embeddings(session: Session, *, limit: int) -> dict[str, object]:
+    """Embed a bounded backlog without running generation enrichment."""
+    settings = get_settings()
+    if not settings.openai_api_key:
+        return {"skipped": True, "embedded": 0, "reason": "no embedding key"}
+
+    opportunities = session.scalars(
+        select(models.Opportunity)
+        .where(models.Opportunity.embedding.is_(None))
+        .order_by(models.Opportunity.id)
+        .limit(max(limit, 0))
+    ).all()
+
+    embedded = 0
+    stopped_over_budget = False
+    for opportunity in opportunities:
+        if is_over_budget(session):
+            stopped_over_budget = True
+            break
+        try:
+            text = ((opportunity.title or "") + "\n" + (opportunity.description_raw or ""))[:28000]
+            vector = ai_client.embed(session, [text], feature="backfill.embedding")[0]
+            opportunity.embedding = vector
+            opportunity.embedding_model = settings.ai_embedding_model
+            session.commit()
+            embedded += 1
+        except Exception:
+            session.rollback()
+            raise
+
+    return {
+        "skipped": False,
+        "embedded": embedded,
+        "stopped_over_budget": stopped_over_budget,
+    }

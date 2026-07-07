@@ -24,7 +24,10 @@ class Settings(BaseSettings):
     ai_embedding_model: str = "text-embedding-3-small"
     ai_embedding_dim: int = 1536
     ai_max_output_tokens: int = 512
-    ai_daily_usd_cap: float = 2.0
+    ai_daily_usd_cap: float = 0.45
+    ai_generation_input_usd_per_mtok: float = 1.0
+    ai_generation_output_usd_per_mtok: float = 5.0
+    ai_embedding_input_usd_per_mtok: float = 0.02
 
     # Upstash Redis REST API (rate limiting + read cache - Doc
     # handoffs/PHASE-2-HANDOFF.md sec 11). Blank = not configured yet, which

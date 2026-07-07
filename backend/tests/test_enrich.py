@@ -10,7 +10,7 @@ import pipeline.enrich as enrich_module
 from core import models
 from core.ai_client import GenerationResult
 from core.config import get_settings
-from pipeline.enrich import enrich_opportunity, enrich_pending
+from pipeline.enrich import backfill_embeddings, enrich_opportunity, enrich_pending
 
 
 @pytest.fixture
@@ -143,3 +143,49 @@ def test_enrich_pending_stops_early_over_budget(db_session: Session, monkeypatch
     assert calls.count("enrich.summary") == 1
     assert calls.count("enrich.tags") == 1
     assert calls.count("enrich.embedding") == 1
+
+
+def test_backfill_embeddings_skips_without_embedding_key(db_session: Session) -> None:
+    opportunity = _make_opportunity(db_session)
+
+    result = backfill_embeddings(db_session, limit=10)
+
+    assert result == {"skipped": True, "embedded": 0, "reason": "no embedding key"}
+    assert opportunity.embedding is None
+    assert opportunity.embedding_model is None
+
+
+def test_backfill_embeddings_embeds_only_missing_embeddings(
+    db_session: Session, monkeypatch
+) -> None:
+    missing_one = _make_opportunity(db_session)
+    existing = _make_opportunity(db_session)
+    missing_two = _make_opportunity(db_session)
+    missing_two.description_raw = "x" * 30050
+    existing_vector = [0.25] * get_settings().ai_embedding_dim
+    existing.embedding = existing_vector
+    existing.embedding_model = "existing-model"
+    db_session.flush()
+    calls: list[str] = []
+
+    def fake_embed(session, texts, *, feature):
+        calls.extend(texts)
+        assert feature == "backfill.embedding"
+        return [[0.5] * get_settings().ai_embedding_dim for _text in texts]
+
+    monkeypatch.setattr(get_settings(), "openai_api_key", "test-key")
+    monkeypatch.setattr(enrich_module.ai_client, "embed", fake_embed)
+    monkeypatch.setattr(enrich_module, "is_over_budget", lambda session: False)
+
+    result = backfill_embeddings(db_session, limit=10)
+
+    assert result == {"skipped": False, "embedded": 2, "stopped_over_budget": False}
+    assert missing_one.embedding_model == get_settings().ai_embedding_model
+    assert missing_two.embedding_model == get_settings().ai_embedding_model
+    assert len(missing_one.embedding) == get_settings().ai_embedding_dim
+    assert len(missing_two.embedding) == get_settings().ai_embedding_dim
+    assert existing.embedding_model == "existing-model"
+    assert existing.embedding is not None
+    assert list(existing.embedding) == existing_vector
+    assert len(calls) == 2
+    assert all(len(text) <= 28000 for text in calls)
