@@ -2,13 +2,25 @@ import type { MetadataRoute } from "next";
 
 const SITE_URL = "https://aspirova.vercel.app";
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-const STATIC_ROUTES = ["/", "/pricing", "/resume", "/copilot"] as const;
+const STATIC_ROUTES = [
+  "/",
+  "/pricing",
+  "/resume",
+  "/copilot",
+  "/internships",
+  "/remote",
+  "/jobs",
+] as const;
 
 export const revalidate = 300;
 
 interface SitemapOpportunity {
   slug: string;
   last_seen_at: string;
+}
+
+interface SitemapCompany {
+  slug: string;
 }
 
 type SitemapEntry = MetadataRoute.Sitemap[number];
@@ -29,6 +41,16 @@ async function fetchSitemapOpportunities(): Promise<SitemapOpportunity[]> {
   return response.json();
 }
 
+async function fetchSitemapCompanies(): Promise<SitemapCompany[]> {
+  const response = await fetch(`${API_URL}/sitemap-companies`, {
+    next: { revalidate: 300 },
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to load sitemap companies: ${response.status}`);
+  }
+  return response.json();
+}
+
 function lastModifiedFrom(value: string): Date | undefined {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? undefined : date;
@@ -36,10 +58,16 @@ function lastModifiedFrom(value: string): Date | undefined {
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let opportunities: SitemapOpportunity[] = [];
+  let companies: SitemapCompany[] = [];
   try {
     opportunities = await fetchSitemapOpportunities();
   } catch {
     opportunities = [];
+  }
+  try {
+    companies = await fetchSitemapCompanies();
+  } catch {
+    companies = [];
   }
 
   return [
@@ -55,6 +83,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           entry.lastModified = lastModified;
         }
         return entry;
+      }),
+    ...companies
+      .filter((company) => company.slug)
+      .map((company): SitemapEntry => {
+        return {
+          url: `${SITE_URL}/companies/${encodeURIComponent(company.slug)}`,
+        };
       }),
   ];
 }

@@ -58,6 +58,14 @@ export interface FeedResponse {
   limit: number;
 }
 
+export interface CompanyPage {
+  company: CompanySummary;
+  items: OpportunityListItem[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export interface SearchResponse {
   items: OpportunityListItem[];
   total: number;

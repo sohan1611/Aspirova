@@ -1,4 +1,5 @@
 import type {
+  CompanyPage,
   CopilotResponse,
   FeedResponse,
   MatchItem,
@@ -81,6 +82,20 @@ export async function getOpportunity(slug: string): Promise<OpportunityDetail | 
   });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Failed to load opportunity: ${res.status}`);
+  return res.json();
+}
+
+export async function getCompanyPage(
+  slug: string,
+  page = 1,
+  limit = 20,
+): Promise<CompanyPage | null> {
+  const search = new URLSearchParams({ page: String(page), limit: String(limit) });
+  const res = await fetch(`${API_URL}/company/${encodeURIComponent(slug)}?${search.toString()}`, {
+    cache: "no-store",
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Failed to load company: ${res.status}`);
   return res.json();
 }
 

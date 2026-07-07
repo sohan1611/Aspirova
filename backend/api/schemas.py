@@ -24,6 +24,10 @@ class SitemapOpportunity(BaseModel):
     last_seen_at: datetime
 
 
+class SitemapCompany(BaseModel):
+    slug: str
+
+
 class OpportunityListItem(BaseModel):
     slug: str
     title: str
@@ -139,6 +143,14 @@ class DreamCompanyItem(BaseModel):
 
 
 class FeedResponse(BaseModel):
+    items: list[OpportunityListItem]
+    total: int
+    page: int
+    limit: int
+
+
+class CompanyPage(BaseModel):
+    company: CompanySummary
     items: list[OpportunityListItem]
     total: int
     page: int
