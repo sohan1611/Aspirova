@@ -28,6 +28,7 @@ from crawlers.ashby import AshbyAdapter
 from crawlers.greenhouse import GreenhouseAdapter
 from crawlers.lever import LeverAdapter
 from crawlers.remoteok import RemoteOkAdapter
+from crawlers.smartrecruiters import SmartRecruitersAdapter
 from pipeline.company_resolution import resolve_company
 from pipeline.ingest import ingest_one, load_board_state
 
@@ -39,6 +40,7 @@ ATS_ADAPTERS: dict[str, type] = {
     "greenhouse": GreenhouseAdapter,
     "lever": LeverAdapter,
     "ashby": AshbyAdapter,
+    "smartrecruiters": SmartRecruitersAdapter,
 }
 
 # adapter_key -> adapter class, for aggregator sources (Doc 04 sec 1: a

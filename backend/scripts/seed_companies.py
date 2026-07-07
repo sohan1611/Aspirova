@@ -49,6 +49,17 @@ ASHBY_COMPANIES = [
     ("ashby", "Ashby", "ashbyhq.com"),
 ]
 
+# (board_token, company_name, domain) - verified live against
+# https://api.smartrecruiters.com/v1/companies/{identifier}/postings
+SMARTRECRUITERS_COMPANIES = [
+    ("Wise", "Wise", "wise.com"),
+    ("WesternDigital", "Western Digital", "westerndigital.com"),
+    ("UniversalMusicGroup", "Universal Music Group", "universalmusic.com"),
+]
+
+# BoschGroup (4667) and DeliveryHero (1110) are verified-available but held out
+# for now to bound crawl duration until async/lazy detail fetch is added.
+
 # adapter_key -> (source slug/name/base_url, company list)
 _ADAPTER_SOURCES: dict[str, tuple[str, str, str, list[tuple[str, str, str]]]] = {
     "greenhouse": (
@@ -59,6 +70,12 @@ _ADAPTER_SOURCES: dict[str, tuple[str, str, str, list[tuple[str, str, str]]]] = 
     ),
     "lever": ("lever", "Lever", "https://api.lever.co", LEVER_COMPANIES),
     "ashby": ("ashby", "Ashby", "https://api.ashbyhq.com", ASHBY_COMPANIES),
+    "smartrecruiters": (
+        "smartrecruiters",
+        "SmartRecruiters",
+        "https://api.smartrecruiters.com",
+        SMARTRECRUITERS_COMPANIES,
+    ),
 }
 
 # Aggregator sources (Doc 04 sec 1: best-effort tier) have no fixed
