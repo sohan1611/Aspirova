@@ -1,0 +1,402 @@
+{
+  "postings": [
+    {
+      "id": "744000136175358",
+      "name": "Risk & Controls Testing Lead",
+      "uuid": "488a283c-1451-4551-b53c-17f859791493",
+      "jobId": "ab3dd203-4210-4dd9-b8af-b094c3f1fe12",
+      "jobAdId": "0f23ccb3-68fa-4634-b207-5e61180c1fd6",
+      "defaultJobAd": true,
+      "refNumber": "R9220",
+      "company": {
+        "name": "Wise",
+        "identifier": "Wise"
+      },
+      "location": {
+        "city": "Hyderabad",
+        "country": "in",
+        "address": "Table Space Suites, Raheja Mindspace, Building 4, HITEC City",
+        "postalCode": "500081",
+        "remote": false,
+        "hybrid": false,
+        "fullLocation": "Hyderabad, , India"
+      },
+      "customField": [
+        {
+          "fieldId": "65d3d0e0d37044292ef9549b",
+          "fieldLabel": "Job Profile",
+          "valueId": "8e8c11dbcc56100151ca9d2ecd440000",
+          "valueLabel": "Finance Lead - JP101003"
+        },
+        {
+          "fieldId": "65cea5ac287e8d0651481809",
+          "fieldLabel": "Time Type",
+          "valueId": "d2f4dafccd5101059b6cf09e12278400",
+          "valueLabel": "Full time"
+        },
+        {
+          "fieldId": "65d3d06b2865b46cfa4f0ec3",
+          "fieldLabel": "Worker Sub Type",
+          "valueId": "046034784a4d016f1889ba8863278f0d",
+          "valueLabel": "Permanent"
+        },
+        {
+          "fieldId": "65d3d141c86c2f3257de414c",
+          "fieldLabel": "Cost Center Hierarchy",
+          "valueId": "6d8f1bd75a7001c8c01c3f31c712581c",
+          "valueLabel": "Finance"
+        },
+        {
+          "fieldId": "658553f79a81b00900831a80",
+          "fieldLabel": "Brands",
+          "valueId": "default",
+          "valueLabel": "Wise"
+        },
+        {
+          "fieldId": "65d3d0374c34974b271801f9",
+          "fieldLabel": "Management Level",
+          "valueId": "e82698b9419501dd6959b9d6f100d810",
+          "valueLabel": "7"
+        },
+        {
+          "fieldId": "65d3d151a5d3185b4341a7ab",
+          "fieldLabel": "Cost Center",
+          "valueId": "8890eade8abe10019759d3d497db0000",
+          "valueLabel": "Finance Treasury Risk & Controls"
+        },
+        {
+          "fieldId": "65d3d0a7d37044292ef9549a",
+          "fieldLabel": "Job Family",
+          "valueId": "2224c5d91ef910014e58f8f393960000",
+          "valueLabel": "Finance Specialists"
+        },
+        {
+          "fieldId": "COUNTRY",
+          "fieldLabel": "Country/Region",
+          "valueId": "in",
+          "valueLabel": "India"
+        },
+        {
+          "fieldId": "65d3d05c735007771b14e932",
+          "fieldLabel": "Worker Type",
+          "valueId": "EE",
+          "valueLabel": "Wiser"
+        },
+        {
+          "fieldId": "65d90823f2e6436af25814c2",
+          "fieldLabel": "Job Ad Salary Range",
+          "valueLabel": " -   "
+        },
+        {
+          "fieldId": "65d3d0926435ba43bdb089ac",
+          "fieldLabel": "Job Family Group",
+          "valueId": "cf8ed98297e201710f9a70edb9007e14",
+          "valueLabel": "Finance"
+        },
+        {
+          "fieldId": "65cec407735007771b14e92d",
+          "fieldLabel": "Company",
+          "valueId": "8928081b6a9e014945dcd4299c012074",
+          "valueLabel": "Wise Payments India Private Limited"
+        },
+        {
+          "fieldId": "65d9080b4aa2f46927dfc1f3",
+          "fieldLabel": "WD Target Hire Date",
+          "valueLabel": "2026-07-01"
+        }
+      ],
+      "releasedDate": "2026-07-07T08:58:44.777Z",
+      "creator": {
+        "name": "",
+        "avatarUrl": ""
+      },
+      "postingUrl": "https://jobs.smartrecruiters.com/Wise/744000136175358-risk-controls-testing-lead",
+      "applyUrl": "https://jobs.smartrecruiters.com/Wise/744000136175358-risk-controls-testing-lead?oga=true",
+      "referralUrl": "https://jobs.smartrecruiters.com/external-referrals/company/Wise/publication/488a283c-1451-4551-b53c-17f859791493?dcr_ci=Wise",
+      "jobAd": {
+        "sections": {
+          "companyDescription": {
+            "title": "Company Description",
+            "text": "<p>Wise is a global technology company, building the best way to move and manage the world’s money.<br>\n<strong>Min fees. Max ease. Full speed.</strong></p><p>Whether people and businesses are sending money to another country, spending abroad, or making and receiving international payments, Wise is on a mission to make their lives easier and save them money.</p><p>As part of our team, you will be helping us create an entirely new network for the world's money.<br>\n<strong>For everyone, everywhere.</strong></p><p>More about <strong><a href=\"https://wise.jobs/our-mission\" rel=\"noopener noreferrer\" target=\"_blank\">our mission</a></strong> and <strong><a href=\"https://wise.jobs/what-we-offer\" rel=\"noopener noreferrer\" target=\"_blank\">what we offer</a></strong>.</p>"
+          },
+          "jobDescription": {
+            "title": "Job Description",
+            "text": "<p><strong>About the team (Finance Risk &amp; Control)</strong></p><p>Finance Risk &amp; Control partners with Finance and the wider business to strengthen the control environment, support SOX compliance, and improve how risks and controls are designed, operated and evidenced. We’re a distributed team across the UK and Estonia, and we’re building a SOX testing hub in Hyderabad to increase consistency, quality and scalability of our testing programme.</p><p><strong>What you’ll be doing (responsibilities)</strong></p><p>Own the SOX business process controls testing programme (end-to-end)</p><ul><li>Build and run the annual and interim testing plan across all in-scope business process controls.</li><li>Plan when testing occurs and ensure sequencing reflects process dependencies, change activity, and auditor timelines.</li><li>Deliver both Design Effectiveness and Operating Effectiveness testing to a consistently high standard.</li></ul><p>Methodology, quality, and audit readiness</p><ul><li>Own and continuously improve the testing methodology, templates, sampling guidance, and evidence standards.</li><li>Perform QA reviews to ensure testing is complete, well-documented, and auditor-ready.</li><li>Ensure consistent conclusions and a strong “why” behind pass/fail outcomes.</li></ul><p>Auditor partnership and external reporting</p><ul><li>Be a key interface for the external auditor on business process testing: align approach, share results, coordinate walkthroughs/re-performance support, and respond to questions efficiently.</li><li>Present testing outcomes clearly in governance packs and formal forums.</li></ul><p>Manage external resources / co-sourcing</p><ul><li>Manage external testing resources: onboarding to Wise methodology, allocation, progress tracking, and quality/performance oversight.</li><li>Ensure external capacity reduces bottlenecks without creating rework or inconsistencies.</li></ul><p>Issue management and remediation governance</p><ul><li>Oversee how issues are agreed (severity, impact, root cause) and ensure remediation plans are practical, measurable, and owned.</li><li>Track progress and coordinate re-testing / closure requirements.</li></ul><p>Minimise burden on the business</p><ul><li>Build a low-friction evidence request process and smart scheduling to reduce disruption for process owners.</li><li>Drive clarity and predictability: stakeholders know what’s needed, when, and why.</li></ul><p>Build the Hyderabad testing capability</p><ul><li>This is the first testing hire in Hyderabad; you’ll help build the operating model and then hire/lead a team of 6+ testers.</li><li>Coach and develop the team; embed standards, consistency, and stakeholder partnership.</li><li>Integrate day-to-day delivery with the UK/Estonia Finance Risk &amp; Control team.</li></ul><p>Innovation: AI/data-enabled testing in BAU</p><ul><li>Identify opportunities to use AI and analytics to improve coverage, speed, and quality (e.g., evidence extraction, population testing, exception flagging).</li><li>Implement in a controlled, explainable way that auditors and internal stakeholders can rely on.</li></ul><p>Themes, insights, and SOX capability-building</p><ul><li>Identify trends across testing results and recommend improvements (control design, execution, monitoring, evidence).</li><li>Help build SOX understanding across the business through guidance, coaching and practical support.</li></ul>"
+          },
+          "qualifications": {
+            "title": "Qualifications",
+            "text": "<p><strong>What you’ll bring (requirements)</strong></p><p>Essential</p><ul><li>Strong SOX/ICFR testing experience across business process controls (DE + OE).</li><li>Deep understanding of controls testing methodology, sampling, evidence expectations, and audit standards.</li><li>Proven experience running a testing programme end-to-end (planning → fieldwork → QA → issues → reporting).</li><li>Experience managing/coordinating co-sourced or external testing teams and driving quality.</li><li>Strong stakeholder management and ability to influence remediation outcomes.</li><li>Excellent written documentation skills and governance-ready communication.</li></ul><p>Nice to have</p><ul><li>Experience building/scaling a testing function or controls centre of excellence.</li><li>Fintech/high-growth/regulated environment experience.</li><li>Experience with continuous controls monitoring, data analytics, or AI-enabled assurance/testing.</li><li>Experience working across time zones and distributed teams.</li></ul><p>How we work / Level 7 expectations</p><ul><li>Sets direction for a programme area and raises the bar for quality and consistency.</li><li>Operates independently, makes sound risk-based judgments, and escalates early with options.</li><li>Balances rigour with pragmatism—delivers SOX compliance without unnecessary complexity.</li><li>Builds trusted relationships across Finance and the business.</li></ul><p>Key stakeholders</p><p>Process Owners, Control Owners, Finance teams, Tech/data partners (as needed for automation), External auditors, UK &amp; Estonia Finance Risk &amp; Control.</p>"
+          },
+          "additionalInformation": {
+            "title": "Additional Information",
+            "text": "<div sr-tagline=\"\"></div><p>For everyone, everywhere. We're people building money without borders&#xa0; — without judgement or prejudice, too. We believe teams are strongest when they are diverse, equitable and inclusive.</p><p>We're proud to have a truly international team, and we celebrate our differences.<br>\nInclusive teams help us live our values and make sure every Wiser feels respected, empowered to contribute towards our mission and able to progress in their careers.</p><p>If you want to find out more about what it's like to work at Wise visit&#xa0;<a href=\"https://www.wise.jobs/\" rel=\"noopener noreferrer\" target=\"_blank\">Wise.Jobs</a>.</p><p>Keep up to date with life at Wise by following us on&#xa0;<a href=\"https://www.linkedin.com/company/1769571/\" rel=\"noopener noreferrer\" target=\"_blank\">LinkedIn</a>&#xa0;and&#xa0;<a href=\"https://www.instagram.com/wisecareers/\" rel=\"noopener noreferrer\" target=\"_blank\">Instagram</a>.</p>"
+          }
+        }
+      },
+      "compensation": {
+        "min": 0,
+        "max": 0,
+        "currency": "INR",
+        "period": "YEARLY"
+      },
+      "active": true,
+      "visibility": "PUBLIC",
+      "industry": {
+        "id": "financial_services",
+        "label": "Financial Services"
+      },
+      "function": {
+        "id": "finance",
+        "label": "Finance"
+      },
+      "experienceLevel": {
+        "id": "mid_senior_level",
+        "label": "Mid-Senior Level"
+      },
+      "typeOfEmployment": {
+        "id": "permanent",
+        "label": "Full-time"
+      },
+      "language": {
+        "code": "en",
+        "label": "English",
+        "labelNative": "English (US)"
+      }
+    },
+    {
+      "id": "744000134928819",
+      "name": "Senior Development Engineer – Photonic Devices / VCSEL Epitaxy (m/f/d)",
+      "uuid": "1806701b-bbe5-4547-9e0c-a6f584b8e29a",
+      "jobId": "f900098a-2df2-49f1-a05f-c44c56029785",
+      "jobAdId": "85698ed2-47ee-44fb-8415-5b2e8683f7f3",
+      "defaultJobAd": true,
+      "refNumber": "REF32795H",
+      "company": {
+        "name": "Western Digital",
+        "identifier": "WesternDigital"
+      },
+      "location": {
+        "city": "Ulm",
+        "region": "BW",
+        "country": "de",
+        "postalCode": "89",
+        "remote": true,
+        "hybrid": false,
+        "latitude": "48.4010822",
+        "longitude": "9.987607599999999",
+        "fullLocation": "Ulm, BW, Germany"
+      },
+      "customField": [
+        {
+          "fieldId": "606f52f879838c3f1a5df578",
+          "fieldLabel": "Brands",
+          "valueId": "default",
+          "valueLabel": "Western Digital"
+        },
+        {
+          "fieldId": "COUNTRY",
+          "fieldLabel": "Country/Region",
+          "valueId": "de",
+          "valueLabel": "Germany"
+        },
+        {
+          "fieldId": "607069e34bb1b86edc4b1150",
+          "fieldLabel": "Job Profile",
+          "valueId": "107892",
+          "valueLabel": "R&D Engineer 3, R&D Engineering - 107892"
+        },
+        {
+          "fieldId": "60706c0fab6dab4d36f48132",
+          "fieldLabel": "Company",
+          "valueId": "CO_WD Western Digital (Deutschland) GmbH",
+          "valueLabel": "DE-Western Digital Deutschland GmbH--CO_WD Western Digital (Deutschland) GmbH"
+        },
+        {
+          "fieldId": "625777e42ea6bf323c991b94",
+          "fieldLabel": "Positions",
+          "valueId": "P-NP",
+          "valueLabel": "New Position--P-NP"
+        },
+        {
+          "fieldId": "60706a574748e43c47b1856e",
+          "fieldLabel": "Business Function",
+          "valueId": "R&D Engineering",
+          "valueLabel": "R&D Engineering"
+        },
+        {
+          "fieldId": "60706ba04748e43c47b18571",
+          "fieldLabel": "Work Location",
+          "valueId": "LOC_WDT_DEU-LMS13 Office",
+          "valueLabel": "Germany-Ulm-LMS13 Office--LOC_WDT_DEU-LMS13 Office"
+        },
+        {
+          "fieldId": "607066faab6dab4d36f48130",
+          "fieldLabel": "Requisition Type",
+          "valueId": "edd04c5e-d442-47f4-b232-6e2ca77f34a6",
+          "valueLabel": "(DO NOT USE) Pipeline - Professional"
+        }
+      ],
+      "releasedDate": "2026-06-30T04:49:23.995Z",
+      "creator": {
+        "name": "",
+        "avatarUrl": ""
+      },
+      "postingUrl": "https://jobs.smartrecruiters.com/WesternDigital/744000134928819-senior-development-engineer-photonic-devices-vcsel-epitaxy-m-f-d-",
+      "applyUrl": "https://jobs.smartrecruiters.com/WesternDigital/744000134928819-senior-development-engineer-photonic-devices-vcsel-epitaxy-m-f-d-?oga=true",
+      "referralUrl": "https://jobs.smartrecruiters.com/external-referrals/company/WesternDigital/publication/1806701b-bbe5-4547-9e0c-a6f584b8e29a?dcr_ci=WesternDigital",
+      "jobAd": {
+        "sections": {
+          "companyDescription": {
+            "title": "Company Description",
+            "text": "<p>WD is building the infrastructure behind the AI-driven data economy.</p><p>As AI scales, so does data. Every interaction, every model, every system generates data that must be stored, managed, and made accessible over time. That’s where we come in.</p><p>We combine deep engineering expertise with global-scale manufacturing to deliver the storage systems that make AI possible, powering hyperscale data centers, cloud platforms, and enterprise infrastructure worldwide.</p><p>This isn’t theoretical work. It’s real systems, at real scale, people solving some of the hardest challenges in technology today.</p><p>We’re looking for people&#xa0;who want to build, solve, and operate at that level.</p><p>Join us and let’s shape the future of data.</p>"
+          },
+          "jobDescription": {
+            "title": "Job Description",
+            "text": "<p><strong>The Senior Development Engineer will drive the design and optimization of epitaxial stacks for VCSEL and related photonic device structures. The role focuses on translating device‑level requirements into robust epitaxial designs, using advanced semiconductor physics and numerical simulations to guide development and optimize performance, yield, and reliability. This position is ideal for someone with a strong academic and/or R&amp;D background in semiconductor physics and photonic devices who wants to work at the interface of epitaxy, device design, and product development.&#xa0;</strong></p><p><strong>Key Responsibilities</strong></p><ul><li>Design and simulate epitaxial layer stacks for VCSEL and other photonic device structures&#xa0;to meet optical, electrical, and thermal device requirements.</li><li>Develop and refine device and epitaxy simulation models&#xa0;(e.g., optical cavity / mode simulations, carrier transport, thermal behavior) to support architecture decisions.</li><li>Translate system and device requirements&#xa0;into epitaxial specifications (materials, layer sequences, thicknesses, doping profiles).</li><li>Work closely with epitaxy, process, and device characterization teams to:</li></ul><p><strong>Define experiments and DOEs. Interpret measurement and reliability data. Iterate designs based on feedback from wafer- and device‑level results.</strong></p><ul><li>Contribute to device architecture and development strategies, including roadmaps for performance, reliability, and manufacturability improvements.</li><li>Analyze and correlate simulation, epitaxial, and device performance data&#xa0;to identify root causes and optimization paths.</li><li>Prepare and present technical reports, design reviews, and development status updates&#xa0;for internal stakeholders.</li><li>Collaborate in a multi‑disciplinary, international R&amp;D environment, coordinating with colleagues across different locations and time zones (with substantial overlap to EU working hours).</li><li>Mentor junior engineers and students in topics such as semiconductor device physics, simulation methodology, and data analysis.</li></ul>"
+          },
+          "qualifications": {
+            "title": "Qualifications",
+            "text": "<ul><li>PhD&#xa0;in Materials Science, Physics, Electrical Engineering, or a closely related field.</li><li>Extensive professional experience with a strong record of sustained impact and increasing responsibility in R&amp;D or applied academic research, ideally including collaboration with industry partners or participation in translational initiatives.</li><li>Solid track record in semiconductor devices, preferably in photonic devices&#xa0;such as lasers, LEDs, or VCSELs.</li><li>Deep understanding of semiconductor physics, including:</li></ul><p><strong>Heterostructures and quantum wells. Optical cavities and resonant structures. Carrier transport, recombination mechanisms, and thermal effects.</strong></p><ul><li><strong>Experience with device or epitaxial stack simulations, for example:</strong></li></ul><p><strong>Optical mode / cavity simulations. Electronic band structure and carrier confinement. Thermal / electro‑thermal simulations.</strong></p><ul><li>Strong ability to interpret experimental data (e.g., I‑V, L‑I, spectral, far‑field, lifetime/reliability data) and connect results to physical mechanisms and design choices.</li><li>Fluent English&#xa0;(spoken and written), with the ability to write clear technical documentation and present complex topics to a mixed audience.</li><li>Ability and willingness to work at least partially in EU time zones&#xa0;to ensure effective collaboration with European teams.</li></ul>"
+          },
+          "additionalInformation": {
+            "title": "Additional Information",
+            "text": "<p>Western Digital thrives on the power and potential of diversity. As a global company, we believe the most effective way to embrace the diversity of our customers and communities is to mirror it from within. We believe the fusion of various perspectives results in the best outcomes for our employees, our company, our customers, and the world around us. We are committed to an inclusive environment where every individual can thrive through a sense of belonging, respect and contribution.</p><p>Western Digital is committed to offering opportunities to applicants with disabilities and ensuring all candidates can successfully navigate our careers website and our hiring process. Please contact us at <a href=\"mailto:jobs.accommodations@wdc.com\" rel=\"noopener noreferrer\">jobs.accommodations@wdc.com</a> to advise us of your accommodation request. In your email, please include a description of the specific accommodation you are requesting as well as the job title and requisition number of the position for which you are applying.</p><p>#LI-JS1</p><div sr-tagline=\"\"></div><p>WD thrives on the power and potential of diversity. As a global company, we believe the most effective way to embrace the diversity of our customers and communities is to mirror it from within. We believe the fusion of various perspectives results in the best outcomes for our employees, our company, our customers, and the world around us. We are committed to an inclusive environment where every individual can thrive through a sense of belonging, respect and contribution.</p><p>WD is committed to offering opportunities to applicants with disabilities and ensuring all candidates can successfully navigate our careers website and our hiring process. Please contact us at&#xa0;<a href=\"mailto:staffingsupport@wdc.com\" rel=\"noopener noreferrer\">jobs.accommodations@wdc.com</a>&#xa0;to advise us of your accommodation request. In your email, please include a description of the specific accommodation you are requesting as well as the job title and requisition number of the position for which you are applying.</p><p><strong>Notice To Candidates: </strong>Please be aware that WD and its subsidiaries will never request payment as a condition for applying for a position or receiving an offer of employment. Should you encounter any such requests, please report it immediately to&#xa0;<a href=\"https://secure.ethicspoint.com/domain/media/en/gui/48999/index.html\" rel=\"noopener noreferrer\">WD Ethics Helpline</a>&#xa0;or email <a href=\"mailto:compliance@wdc.com\" rel=\"noopener noreferrer\">compliance@wdc.com</a>.</p>"
+          }
+        }
+      },
+      "active": true,
+      "visibility": "PUBLIC",
+      "industry": {
+        "id": "computer_hardware",
+        "label": "Computer Hardware"
+      },
+      "function": {
+        "id": "engineering",
+        "label": "Engineering"
+      },
+      "experienceLevel": {
+        "id": "mid_senior_level",
+        "label": "Mid-Senior Level"
+      },
+      "typeOfEmployment": {
+        "id": "permanent",
+        "label": "Full-time"
+      },
+      "language": {
+        "code": "en",
+        "label": "English",
+        "labelNative": "English (US)"
+      }
+    },
+    {
+      "id": "744000133907678",
+      "name": "Sr. Manager",
+      "uuid": "267d47c7-29af-4c8f-a19d-c112895329df",
+      "jobId": "98046ec5-df31-450d-88c2-ec312f81c151",
+      "jobAdId": "2132a049-8eb1-4bef-bc4c-13b6d21c05e3",
+      "defaultJobAd": true,
+      "refNumber": "REF97395W",
+      "company": {
+        "name": "Visa",
+        "identifier": "Visa"
+      },
+      "location": {
+        "city": "Austin",
+        "region": "TX",
+        "country": "us",
+        "remote": false,
+        "hybrid": false,
+        "latitude": "30.267153",
+        "longitude": "-97.7430608",
+        "fullLocation": "Austin, TX, United States"
+      },
+      "customField": [
+        {
+          "fieldId": "COUNTRY",
+          "fieldLabel": "Country/Region",
+          "valueId": "us",
+          "valueLabel": "United States"
+        },
+        {
+          "fieldId": "5bd89e45b1f60b7aea922c5b",
+          "fieldLabel": "Visa Inc. or Visa in Europe job?",
+          "valueId": "3a568048-d1c9-4741-be56-36b4f3addff7",
+          "valueLabel": "Visa Inc."
+        },
+        {
+          "fieldId": "58914413e4b04f807e6ee84f",
+          "fieldLabel": "Brands",
+          "valueId": "default",
+          "valueLabel": "Visa"
+        },
+        {
+          "fieldId": "57ac0c81e4b06e7ab19310e1",
+          "fieldLabel": "Job Family Group",
+          "valueId": "TEC",
+          "valueLabel": "Engineering and Technology"
+        },
+        {
+          "fieldId": "58b7e4d1e4b0885c92cd9895",
+          "fieldLabel": "Department",
+          "valueId": "868639",
+          "valueLabel": "Software Development/Engineering"
+        }
+      ],
+      "releasedDate": "2026-06-24T10:00:11.853Z",
+      "creator": {
+        "name": "",
+        "avatarUrl": ""
+      },
+      "postingUrl": "https://jobs.smartrecruiters.com/Visa/744000133907678-sr-manager",
+      "applyUrl": "https://jobs.smartrecruiters.com/Visa/744000133907678-sr-manager?oga=true",
+      "referralUrl": "https://jobs.smartrecruiters.com/external-referrals/company/Visa/publication/267d47c7-29af-4c8f-a19d-c112895329df?dcr_ci=Visa",
+      "jobAd": {
+        "sections": {
+          "companyDescription": {
+            "title": "Company Description",
+            "text": ""
+          },
+          "jobDescription": {
+            "title": "Job Description",
+            "text": ""
+          },
+          "qualifications": {
+            "title": "Qualifications",
+            "text": ""
+          },
+          "additionalInformation": {
+            "title": "Additional Information",
+            "text": "<p>All your information will be kept confidential according to EEO guidelines.</p>"
+          }
+        }
+      },
+      "active": true,
+      "visibility": "PUBLIC",
+      "industry": {
+        "id": "it_and_services",
+        "label": "Information Technology And Services"
+      },
+      "function": {
+        "id": "engineering",
+        "label": "Engineering"
+      },
+      "department": {
+        "id": 868639,
+        "label": "Software Development/Engineering"
+      },
+      "experienceLevel": {
+        "id": "mid_senior_level",
+        "label": "Mid-Senior Level"
+      },
+      "typeOfEmployment": {
+        "id": "permanent",
+        "label": "Full-time"
+      },
+      "language": {
+        "code": "en",
+        "label": "English",
+        "labelNative": "English (US)"
+      }
+    }
+  ]
+}
