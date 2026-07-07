@@ -17,6 +17,12 @@ export default function AppHeader() {
               Matches
             </Link>
             <Link
+              href="/referral"
+              className="text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Invite
+            </Link>
+            <Link
               href="/copilot"
               className="text-muted-foreground transition-colors hover:text-foreground"
             >

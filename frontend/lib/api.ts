@@ -6,6 +6,8 @@ import type {
   OpportunityDetail,
   OpportunityListItem,
   PlanPublic,
+  ReferralClaimResult,
+  ReferralMe,
   SearchResponse,
 } from "./types";
 
@@ -150,6 +152,31 @@ export async function getResumeMatches(
     cache: "no-store",
   });
   if (!res.ok) throwResumeApiError(res, "Failed to load resume matches");
+  return res.json();
+}
+
+export async function getReferralMe(accessToken: string): Promise<ReferralMe> {
+  const res = await fetch(`${API_URL}/referral/me`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`Failed to load referral profile: ${res.status}`);
+  return res.json();
+}
+
+export async function claimReferral(
+  code: string,
+  accessToken: string,
+): Promise<ReferralClaimResult> {
+  const res = await fetch(`${API_URL}/referral/claim`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ code }),
+  });
+  if (!res.ok) throw new Error(`Failed to claim referral: ${res.status}`);
   return res.json();
 }
 
