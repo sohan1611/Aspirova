@@ -7,6 +7,7 @@ scripts/seed_plans.py has already been run against the target DB (see the
 """
 
 import uuid
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import select
@@ -113,6 +114,55 @@ def test_lapsed_subscription_does_not_grant_paid_features(
 
 def test_trialing_subscription_grants_paid_features(db_session, plans, user) -> None:
     db_session.add(models.Subscription(user_id=user.id, plan_id=plans["pro"].id, status="trialing"))
+    db_session.flush()
+
+    assert can(db_session, user, "copilot") is True
+
+
+def test_expired_comp_subscription_does_not_grant_paid_features(db_session, plans, user) -> None:
+    db_session.add(
+        models.Subscription(
+            user_id=user.id,
+            plan_id=plans["pro_lite"].id,
+            status="active",
+            razorpay_sub_id=None,
+            current_period_end=datetime.now(timezone.utc) - timedelta(days=1),
+        )
+    )
+    db_session.flush()
+
+    assert can(db_session, user, "instant_alerts") is False
+    assert can(db_session, user, "dream_companies_limit") == 1
+
+
+def test_future_comp_subscription_grants_paid_features(db_session, plans, user) -> None:
+    db_session.add(
+        models.Subscription(
+            user_id=user.id,
+            plan_id=plans["pro_lite"].id,
+            status="active",
+            razorpay_sub_id=None,
+            current_period_end=datetime.now(timezone.utc) + timedelta(days=1),
+        )
+    )
+    db_session.flush()
+
+    assert can(db_session, user, "instant_alerts") is True
+    assert can(db_session, user, "copilot") is False
+
+
+def test_razorpay_subscription_with_past_period_still_grants_paid_features(
+    db_session, plans, user
+) -> None:
+    db_session.add(
+        models.Subscription(
+            user_id=user.id,
+            plan_id=plans["pro"].id,
+            status="active",
+            razorpay_sub_id=f"sub_gating_{uuid.uuid4().hex}",
+            current_period_end=datetime.now(timezone.utc) - timedelta(days=1),
+        )
+    )
     db_session.flush()
 
     assert can(db_session, user, "copilot") is True

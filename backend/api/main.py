@@ -10,6 +10,7 @@ from api import (
     opportunity,
     payments,
     plans,
+    referral,
     resume,
     search,
     sitemap,
@@ -50,6 +51,7 @@ app.include_router(dream_companies.router)
 app.include_router(resume.router)
 app.include_router(payments.router)
 app.include_router(plans.router)
+app.include_router(referral.router)
 app.include_router(sitemap.router)
 app.include_router(waitlist.router)
 

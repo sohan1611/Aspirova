@@ -206,6 +206,7 @@ class User(Base):
         UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
     )
     email: Mapped[str] = mapped_column(CITEXT, unique=True, nullable=False)
+    invite_code: Mapped[str | None] = mapped_column(Text, unique=True)
     display_name: Mapped[str | None] = mapped_column(Text)
     college: Mapped[str | None] = mapped_column(Text)
     graduation_year: Mapped[int | None] = mapped_column(SmallInteger)
