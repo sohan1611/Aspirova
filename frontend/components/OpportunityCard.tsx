@@ -19,7 +19,7 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
   return (
     <Link
       href={`/opportunity/${item.slug}`}
-      className="group flex gap-3 rounded-lg border border-border bg-card p-4 shadow-xs transition-[transform,box-shadow,border-color] duration-200 ease-premium hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      className="group flex h-full gap-3 rounded-lg border border-border bg-card p-4 shadow-xs transition-[transform,box-shadow,border-color] duration-200 ease-premium hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
       <CompanyFavicon company={item.company} />
 
