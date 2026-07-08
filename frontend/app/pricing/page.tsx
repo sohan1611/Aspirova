@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import PricingPlans from "@/components/PricingPlans";
 import { getPlans } from "@/lib/api";
 import type { PlanPublic } from "@/lib/types";
@@ -73,6 +74,7 @@ export const metadata: Metadata = {
 };
 
 export default async function PricingPage() {
+  const paymentsEnabled = process.env.NEXT_PUBLIC_PAYMENTS_ENABLED === "true";
   let plans: PlanPublic[];
   try {
     plans = await getPlans();
@@ -82,6 +84,9 @@ export default async function PricingPage() {
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-12">
+      {paymentsEnabled && (
+        <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
+      )}
       <div className="text-center">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">
           Simple, honest pricing
@@ -93,7 +98,7 @@ export default async function PricingPage() {
       </div>
 
       <div className="mt-10">
-        <PricingPlans plans={plans} />
+        <PricingPlans plans={plans} paymentsEnabled={paymentsEnabled} />
       </div>
     </main>
   );

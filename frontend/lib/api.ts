@@ -212,6 +212,18 @@ export async function getPlans(): Promise<PlanPublic[]> {
   return res.json();
 }
 
+export async function createCheckout(
+  planKey: string,
+  accessToken: string,
+): Promise<{ razorpay_subscription_id: string; razorpay_key_id: string }> {
+  const res = await fetch(`${API_URL}/payments/checkout/${encodeURIComponent(planKey)}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error(`Failed to start checkout: ${res.status}`);
+  return res.json();
+}
+
 export async function joinWaitlist(email: string): Promise<void> {
   const res = await fetch(`${API_URL}/waitlist`, {
     method: "POST",
