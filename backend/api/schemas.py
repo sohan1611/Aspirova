@@ -47,6 +47,24 @@ class OpportunityListItem(BaseModel):
     last_seen_at: datetime
     is_hidden: bool
 
+    @field_validator("location")
+    @classmethod
+    def _clean_location(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        seen: set[str] = set()
+        parts: list[str] = []
+        for raw in value.split(","):
+            segment = raw.strip()
+            if not segment:
+                continue
+            key = segment.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            parts.append(segment)
+        return ", ".join(parts) or None
+
     @classmethod
     def from_model(cls, o: "models.Opportunity") -> "OpportunityListItem":
         return cls(
