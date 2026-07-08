@@ -1,5 +1,6 @@
 import { SearchX } from "lucide-react";
 import Link from "next/link";
+import FeedViewControls from "@/components/FeedViewControls";
 import OpportunityCard from "@/components/OpportunityCard";
 import SearchFilters from "@/components/SearchFilters";
 import { Button } from "@/components/ui/button";
@@ -12,14 +13,23 @@ interface PageProps {
     category?: string;
     remote?: string;
     page?: string;
+    cols?: string;
+    rows?: string;
   }>;
 }
 
-const LIMIT = 20;
+const COLS_MD: Record<number, string> = {
+  1: "md:grid-cols-1",
+  2: "md:grid-cols-2",
+  3: "md:grid-cols-3",
+};
 
 export default async function HomePage({ searchParams }: PageProps) {
   const params = await searchParams;
   const page = Math.max(1, Number(params.page ?? "1") || 1);
+  const cols = Math.min(3, Math.max(1, Number(params.cols ?? "2") || 2));
+  const rows = Math.min(20, Math.max(5, Number(params.rows ?? "10") || 10));
+  const LIMIT = cols * rows;
 
   const data = params.q
     ? await searchOpportunities(params.q, page, LIMIT)
@@ -33,15 +43,18 @@ export default async function HomePage({ searchParams }: PageProps) {
   const totalPages = Math.max(1, Math.ceil(data.total / LIMIT));
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
+    <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="mb-6">
         <SearchFilters />
       </div>
 
-      <p className="mb-3 text-sm text-muted-foreground">{data.total} opportunities</p>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">{data.total} opportunities</p>
+        <FeedViewControls cols={cols} rows={rows} />
+      </div>
 
       {data.items.length > 0 ? (
-        <div className="space-y-3">
+        <div className={`grid grid-cols-1 gap-4 ${COLS_MD[cols]}`}>
           {data.items.map((item) => (
             <OpportunityCard key={item.slug} item={item} />
           ))}
