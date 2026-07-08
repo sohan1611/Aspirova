@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import type { PlanPublic } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import SubscribeButton from "./SubscribeButton";
 import WaitlistForm from "./WaitlistForm";
 
 const FEATURE_LABELS: [string, (v: unknown) => string | null][] = [
@@ -45,7 +46,13 @@ interface Tier {
   annual?: PlanPublic;
 }
 
-export default function PricingPlans({ plans }: { plans: PlanPublic[] }) {
+export default function PricingPlans({
+  plans,
+  paymentsEnabled,
+}: {
+  plans: PlanPublic[];
+  paymentsEnabled: boolean;
+}) {
   const [billing, setBilling] = useState<"monthly" | "annual">("annual");
 
   const byKey = Object.fromEntries(plans.map((p) => [p.key, p]));
@@ -122,6 +129,12 @@ export default function PricingPlans({ plans }: { plans: PlanPublic[] }) {
                   <Button variant="outline" className="w-full" disabled>
                     Included today
                   </Button>
+                ) : paymentsEnabled ? (
+                  <SubscribeButton
+                    planKey={plan.key}
+                    planLabel={tier.name}
+                    highlight={tier.highlight}
+                  />
                 ) : (
                   <WaitlistForm planLabel={tier.name} highlight={tier.highlight} />
                 )}

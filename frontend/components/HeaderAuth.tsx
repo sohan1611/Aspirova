@@ -1,5 +1,6 @@
 "use client";
 
+import type { ComponentProps } from "react";
 import AuthWidget from "@/components/AuthWidget";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +13,13 @@ import {
 } from "@/components/ui/dialog";
 import { useSession } from "@/lib/useSession";
 
+interface HeaderAuthProps {
+  triggerLabel?: string;
+  triggerClassName?: string;
+  triggerVariant?: ComponentProps<typeof Button>["variant"];
+  triggerSize?: ComponentProps<typeof Button>["size"];
+}
+
 /**
  * Structural home for auth in the header (Part 3.3): signed-in state stays
  * inline (already compact - just email + sign out), but the signed-out
@@ -21,7 +29,12 @@ import { useSession } from "@/lib/useSession";
  * internally (Part 3.6) - a static "Sign in to Aspirova" title would
  * contradict itself once the user switches to the sign-up view.
  */
-export default function HeaderAuth() {
+export default function HeaderAuth({
+  triggerLabel = "Sign in",
+  triggerClassName,
+  triggerVariant,
+  triggerSize = "sm",
+}: HeaderAuthProps = {}) {
   const session = useSession();
 
   if (session) {
@@ -31,7 +44,9 @@ export default function HeaderAuth() {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button size="sm">Sign in</Button>
+        <Button size={triggerSize} variant={triggerVariant} className={triggerClassName}>
+          {triggerLabel}
+        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
