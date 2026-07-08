@@ -52,7 +52,14 @@ export default function AuthWidget() {
       const { error } =
         mode === "signin"
           ? await supabase.auth.signInWithPassword({ email, password })
-          : await supabase.auth.signUp({ email, password });
+          : await supabase.auth.signUp({
+              email,
+              password,
+              options: {
+                emailRedirectTo:
+                  typeof window !== "undefined" ? window.location.origin : undefined,
+              },
+            });
 
       if (error) {
         setFormError(error.message);
