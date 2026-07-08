@@ -36,6 +36,12 @@ from core import models
 from core.email_client import send_email
 from core.gating import can
 
+
+def wants(user: models.User, key: str) -> bool:
+    prefs = user.notification_prefs
+    return not isinstance(prefs, dict) or prefs.get(key) is not False
+
+
 logger = logging.getLogger(__name__)
 
 DIGEST_FREQUENCY_CAP = timedelta(hours=20)
@@ -167,6 +173,8 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
     for user in session.scalars(select(models.User)).all():
         if not can(session, user, "daily_digest"):
             continue
+        if not wants(user, "daily_digest"):
+            continue
         if _already_sent_recently(session, user.id, "digest", cap_since):
             result["skipped_capped"] += 1
             continue
@@ -219,7 +227,11 @@ def send_instant_alerts(session: Session, *, now: datetime | None = None) -> dic
 
     for user_id, opportunity in matches:
         user = session.get(models.User, user_id)
-        if user is None or not can(session, user, "instant_alerts"):
+        if (
+            user is None
+            or not can(session, user, "instant_alerts")
+            or not wants(user, "instant_alerts")
+        ):
             result["skipped_not_eligible"] += 1
             continue
         if _already_alerted(session, user_id, opportunity.id):

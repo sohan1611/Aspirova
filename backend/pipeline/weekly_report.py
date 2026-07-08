@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session, joinedload
 from core import ai_budget, ai_client, email_client, models
 from core.config import get_settings
 from core.gating import can
+from pipeline.notifications import wants
 
 logger = logging.getLogger(__name__)
 
@@ -356,6 +357,9 @@ def send_weekly_reports(session: Session, *, now: datetime | None = None) -> dic
     recipients: list[models.User] = []
     for user in session.scalars(select(models.User)).all():
         if not can(session, user, "weekly_report"):
+            result["skipped_ineligible"] += 1
+            continue
+        if not wants(user, "weekly_report"):
             result["skipped_ineligible"] += 1
             continue
         if _already_sent_this_week(session, user.id, current):
