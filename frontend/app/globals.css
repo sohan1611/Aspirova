@@ -63,8 +63,8 @@
   --card-foreground: #2b2420;
   --popover: #fbf8f0;
   --popover-foreground: #2b2420;
-  --primary: #60294e;
-  --primary-foreground: #faf3f7;
+  --primary: #8f6234;
+  --primary-foreground: #fdf9f0;
   --secondary: #e8e1d0;
   --secondary-foreground: #3a322b;
   --muted: #ece4d3;
@@ -75,7 +75,7 @@
   --destructive-foreground: #ffffff;
   --border: #e2d8c4;
   --input: #e2d8c4;
-  --ring: #60294e;
+  --ring: #8f6234;
 }
 
 .dark {
@@ -85,8 +85,8 @@
   --card-foreground: #ece6db;
   --popover: #1b1917;
   --popover-foreground: #ece6db;
-  --primary: #d79ab8;
-  --primary-foreground: #2a1421;
+  --primary: #c99f63;
+  --primary-foreground: #241a0e;
   --secondary: #2f2b27;
   --secondary-foreground: #ece6db;
   --muted: #29251f;
@@ -97,7 +97,7 @@
   --destructive-foreground: #ffffff;
   --border: #35302a;
   --input: #35302a;
-  --ring: #d79ab8;
+  --ring: #c99f63;
 }
 
 /* Mode-dependent tokens are re-exposed here as `inline` so Tailwind treats
