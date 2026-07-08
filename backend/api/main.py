@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api import (
+    account,
     bookmarks,
     company,
     copilot,
@@ -37,11 +38,12 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "DELETE"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["*"],
 )
 
 app.include_router(feed.router)
+app.include_router(account.router)
 app.include_router(search.router)
 app.include_router(opportunity.router)
 app.include_router(company.router)

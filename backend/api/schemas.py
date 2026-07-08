@@ -219,6 +219,64 @@ class PlanPublic(BaseModel):
     features: dict
 
 
+class PlanState(BaseModel):
+    key: str
+    price_paise: int
+    billing: str | None
+    features: dict
+    status: str
+    current_period_end: datetime | None
+
+
+class AccountMe(BaseModel):
+    email: str | None
+    display_name: str | None
+    college: str | None
+    graduation_year: int | None
+    created_at: datetime
+    invite_code: str | None
+    notification_prefs: dict[str, bool]
+    plan: PlanState
+
+
+class AccountUpdate(BaseModel):
+    display_name: str | None = None
+    college: str | None = None
+    graduation_year: int | None = None
+    notification_prefs: dict[str, bool] | None = None
+
+    @field_validator("display_name", "college")
+    @classmethod
+    def clean_profile_text(cls, value: str | None, info) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        if not normalized:
+            return None
+        max_length = 80 if info.field_name == "display_name" else 120
+        if len(normalized) > max_length:
+            raise ValueError(f"{info.field_name} must be at most {max_length} characters")
+        return normalized
+
+    @field_validator("graduation_year")
+    @classmethod
+    def validate_graduation_year(cls, value: int | None) -> int | None:
+        if value is not None and not 2000 <= value <= 2100:
+            raise ValueError("graduation_year must be between 2000 and 2100")
+        return value
+
+    @field_validator("notification_prefs", mode="before")
+    @classmethod
+    def validate_notification_prefs(cls, value):
+        if value is None:
+            return None
+        if not isinstance(value, dict) or any(
+            not isinstance(item_value, bool) for item_value in value.values()
+        ):
+            raise ValueError("notification_prefs values must be bool")
+        return value
+
+
 class WaitlistSignupRequest(BaseModel):
     email: str
 

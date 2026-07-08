@@ -210,6 +210,7 @@ class User(Base):
     display_name: Mapped[str | None] = mapped_column(Text)
     college: Mapped[str | None] = mapped_column(Text)
     graduation_year: Mapped[int | None] = mapped_column(SmallInteger)
+    notification_prefs: Mapped[dict | None] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
     referred_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id")
