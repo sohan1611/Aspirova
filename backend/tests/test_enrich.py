@@ -158,7 +158,7 @@ def test_backfill_embeddings_skips_without_embedding_key(db_session: Session) ->
 def test_backfill_embeddings_embeds_only_missing_embeddings(
     db_session: Session, monkeypatch
 ) -> None:
-    missing_one = _make_opportunity(db_session)
+    _make_opportunity(db_session)  # a second null-embedding opp (unbound; used only for its DB row)
     existing = _make_opportunity(db_session)
     missing_two = _make_opportunity(db_session)
     missing_two.description_raw = "x" * 30050
