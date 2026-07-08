@@ -9,6 +9,7 @@ import hashlib
 import hmac
 import json
 import uuid
+from datetime import datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -100,7 +101,8 @@ def test_valid_signature_activates_a_subscription(client, db_session, plan, user
     )
     db_session.flush()
 
-    body = _subscription_event_body("subscription.activated", razorpay_sub_id)
+    new_period_end = 1735689600  # 2025-01-01T00:00:00Z
+    body = _subscription_event_body("subscription.activated", razorpay_sub_id, new_period_end)
     response = client.post(
         "/payments/webhook",
         content=body,
@@ -108,20 +110,29 @@ def test_valid_signature_activates_a_subscription(client, db_session, plan, user
     )
 
     assert response.status_code == 200
+    assert response.json()["status"] == "ok"
     updated = db_session.query(models.Subscription).filter_by(razorpay_sub_id=razorpay_sub_id).one()
     assert updated.status == "active"
+    assert updated.current_period_end.timestamp() == new_period_end
 
 
-def test_charged_event_refreshes_current_period_end(client, db_session, plan, user) -> None:
+def test_replayed_charged_event_does_not_resurrect_canceled_subscription(
+    client, db_session, plan, user
+) -> None:
     razorpay_sub_id = f"sub_test_{uuid.uuid4().hex[:12]}"
+    current_period_end = datetime.fromtimestamp(1735689600, tz=timezone.utc)
     db_session.add(
         models.Subscription(
-            user_id=user.id, plan_id=plan.id, status="active", razorpay_sub_id=razorpay_sub_id
+            user_id=user.id,
+            plan_id=plan.id,
+            status="canceled",
+            razorpay_sub_id=razorpay_sub_id,
+            current_period_end=current_period_end,
         )
     )
     db_session.flush()
 
-    new_period_end = 1735689600  # 2025-01-01T00:00:00Z
+    new_period_end = 1767225600  # 2026-01-01T00:00:00Z
     body = _subscription_event_body("subscription.charged", razorpay_sub_id, new_period_end)
     response = client.post(
         "/payments/webhook",
@@ -130,8 +141,49 @@ def test_charged_event_refreshes_current_period_end(client, db_session, plan, us
     )
 
     assert response.status_code == 200
+    assert response.json() == {"status": "ignored_terminal", "event": "subscription.charged"}
     updated = db_session.query(models.Subscription).filter_by(razorpay_sub_id=razorpay_sub_id).one()
-    assert updated.current_period_end.timestamp() == new_period_end
+    assert updated.status == "canceled"
+    assert updated.current_period_end.timestamp() == current_period_end.timestamp()
+
+
+def test_current_period_end_only_moves_forward(client, db_session, plan, user) -> None:
+    razorpay_sub_id = f"sub_test_{uuid.uuid4().hex[:12]}"
+    stored_period_end = datetime.fromtimestamp(1735689600, tz=timezone.utc)
+    db_session.add(
+        models.Subscription(
+            user_id=user.id,
+            plan_id=plan.id,
+            status="active",
+            razorpay_sub_id=razorpay_sub_id,
+            current_period_end=stored_period_end,
+        )
+    )
+    db_session.flush()
+
+    older_period_end = 1704067200  # 2024-01-01T00:00:00Z
+    older_body = _subscription_event_body("subscription.charged", razorpay_sub_id, older_period_end)
+    older_response = client.post(
+        "/payments/webhook",
+        content=older_body,
+        headers={"X-Razorpay-Signature": _sign(older_body), "Content-Type": "application/json"},
+    )
+
+    assert older_response.status_code == 200
+    updated = db_session.query(models.Subscription).filter_by(razorpay_sub_id=razorpay_sub_id).one()
+    assert updated.current_period_end.timestamp() == stored_period_end.timestamp()
+
+    newer_period_end = 1767225600  # 2026-01-01T00:00:00Z
+    newer_body = _subscription_event_body("subscription.charged", razorpay_sub_id, newer_period_end)
+    newer_response = client.post(
+        "/payments/webhook",
+        content=newer_body,
+        headers={"X-Razorpay-Signature": _sign(newer_body), "Content-Type": "application/json"},
+    )
+
+    assert newer_response.status_code == 200
+    updated = db_session.query(models.Subscription).filter_by(razorpay_sub_id=razorpay_sub_id).one()
+    assert updated.current_period_end.timestamp() == newer_period_end
 
 
 def test_cancelled_event_marks_subscription_canceled(client, db_session, plan, user) -> None:

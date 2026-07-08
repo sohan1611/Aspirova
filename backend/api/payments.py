@@ -45,6 +45,7 @@ _STATUS_BY_EVENT = {
     "subscription.cancelled": "canceled",
     "subscription.halted": "past_due",
 }
+_TERMINAL_STATUSES = frozenset({"canceled"})
 
 
 def _razorpay_client() -> razorpay.Client:
@@ -138,10 +139,20 @@ async def razorpay_webhook(
         # nothing local to update.
         return {"status": "no_matching_subscription", "razorpay_sub_id": razorpay_sub_id}
 
+    # Razorpay can redeliver and reorder webhooks; do not resurrect a
+    # terminal subscription or rewind the local billing period.
+    if subscription.status in _TERMINAL_STATUSES:
+        return {"status": "ignored_terminal", "event": event}
+
     subscription.status = new_status
     current_end = subscription_entity.get("current_end")
     if current_end:
-        subscription.current_period_end = datetime.fromtimestamp(current_end, tz=timezone.utc)
+        incoming_period_end = datetime.fromtimestamp(current_end, tz=timezone.utc)
+        if (
+            subscription.current_period_end is None
+            or incoming_period_end > subscription.current_period_end
+        ):
+            subscription.current_period_end = incoming_period_end
 
     db.commit()
     return {"status": "ok", "event": event}
