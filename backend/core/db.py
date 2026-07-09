@@ -26,6 +26,10 @@ in a row, with connect_timeout=10 already in place - meaning the hang was
 happening after a successful connection, not during the handshake. Per-
 source isolation (Doc 04 sec 7) cannot hold if one stuck operation can
 consume the entire time budget regardless of which layer it stalls in.
+
+Pool defaults cap each app instance at 10 connections under Supabase's
+15-client session-pooler limit; pre-ping self-heals stale connections
+before checkout, and recycling prevents dead connections from lingering.
 """
 
 from sqlalchemy import create_engine, event
@@ -35,6 +39,10 @@ from core.config import get_settings
 
 CONNECT_TIMEOUT_SECONDS = 10
 STATEMENT_TIMEOUT_MS = 20_000
+
+POOL_SIZE = 5
+MAX_OVERFLOW = 5
+POOL_RECYCLE_SECONDS = 300
 
 DEFAULT_CONNECT_ARGS = {
     "connect_timeout": CONNECT_TIMEOUT_SECONDS,
@@ -47,7 +55,18 @@ DEFAULT_CONNECT_ARGS = {
 
 def make_engine(**kwargs) -> Engine:
     connect_args = {**DEFAULT_CONNECT_ARGS, **kwargs.pop("connect_args", {})}
-    engine = create_engine(get_settings().database_url, connect_args=connect_args, **kwargs)
+    pool_kwargs = {
+        "pool_pre_ping": True,
+        "pool_size": POOL_SIZE,
+        "max_overflow": MAX_OVERFLOW,
+        "pool_recycle": POOL_RECYCLE_SECONDS,
+    }
+    if "poolclass" in kwargs:
+        pool_kwargs.pop("pool_size")
+        pool_kwargs.pop("max_overflow")
+        pool_kwargs.pop("pool_recycle")
+    pool_kwargs.update(kwargs)
+    engine = create_engine(get_settings().database_url, connect_args=connect_args, **pool_kwargs)
 
     @event.listens_for(engine, "connect")
     def _set_statement_timeout(dbapi_connection, _connection_record) -> None:
