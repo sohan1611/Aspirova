@@ -4,7 +4,7 @@ import Wordmark from "@/components/Wordmark";
 export default function AppFooter() {
   return (
     <footer className="border-t border-border">
-      <div className="mx-auto max-w-7xl px-4 py-10">
+      <div className="mx-auto max-w-[1680px] px-4 py-10 sm:px-6 lg:px-10 xl:px-12">
         <Wordmark />
         <p className="mt-3 max-w-xl text-sm text-muted-foreground">
           Every opportunity. One place. Aspirova crawls company career pages

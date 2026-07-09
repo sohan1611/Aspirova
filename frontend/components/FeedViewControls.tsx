@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 
 const STORAGE_KEY = "aspirova_feed_view";
-const COLUMN_OPTIONS = [1, 2, 3];
+const COLUMN_OPTIONS = [1, 2, 3, 4];
 const ROW_OPTIONS = [5, 10, 15, 20];
 
 interface FeedViewControlsProps {
@@ -74,7 +74,7 @@ export default function FeedViewControls({ cols, rows }: FeedViewControlsProps) 
 
   return (
     <div className="flex items-center gap-3">
-      <div className="hidden items-center gap-2 md:flex">
+      <div className="hidden items-center gap-2 lg:flex">
         <label htmlFor="feed-columns" className="text-xs font-medium text-muted-foreground">
           Columns
         </label>

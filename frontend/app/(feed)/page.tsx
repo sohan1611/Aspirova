@@ -18,16 +18,17 @@ interface PageProps {
   }>;
 }
 
-const COLS_MD: Record<number, string> = {
-  1: "md:grid-cols-1",
-  2: "md:grid-cols-2",
-  3: "md:grid-cols-3",
+const COLS_LG: Record<number, string> = {
+  1: "lg:grid-cols-1",
+  2: "lg:grid-cols-2",
+  3: "lg:grid-cols-3",
+  4: "lg:grid-cols-4",
 };
 
 export default async function HomePage({ searchParams }: PageProps) {
   const params = await searchParams;
   const page = Math.max(1, Number(params.page ?? "1") || 1);
-  const cols = Math.min(3, Math.max(1, Number(params.cols ?? "2") || 2));
+  const cols = Math.min(4, Math.max(1, Number(params.cols ?? "3") || 3));
   const rows = Math.min(20, Math.max(5, Number(params.rows ?? "10") || 10));
   const LIMIT = cols * rows;
 
@@ -43,7 +44,7 @@ export default async function HomePage({ searchParams }: PageProps) {
   const totalPages = Math.max(1, Math.ceil(data.total / LIMIT));
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+    <main className="mx-auto max-w-[1680px] px-4 py-10 sm:px-6 lg:px-10 xl:px-12">
       <div className="mb-6">
         <SearchFilters />
       </div>
@@ -54,7 +55,7 @@ export default async function HomePage({ searchParams }: PageProps) {
       </div>
 
       {data.items.length > 0 ? (
-        <div className={`grid grid-cols-1 gap-4 ${COLS_MD[cols]}`}>
+        <div className={`grid grid-cols-1 sm:grid-cols-2 gap-5 ${COLS_LG[cols]}`}>
           {data.items.map((item) => (
             <OpportunityCard key={item.slug} item={item} />
           ))}
