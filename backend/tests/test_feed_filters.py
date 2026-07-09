@@ -129,3 +129,78 @@ def test_feed_filters_combine_with_category(client: TestClient, feed_rows) -> No
 
     assert body["total"] == 1
     assert [item["slug"] for item in body["items"]] == [opportunities[0].slug]
+
+
+def test_feed_top_filter_returns_ranked_companies_and_combines_with_category(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    suffix = str(uuid.uuid4())
+    seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    location_token = f"TopFilterville-{suffix}"
+    ranked_company = models.Company(
+        slug=f"top-filter-ranked-{suffix}",
+        name=f"Top Filter Ranked {suffix}",
+        global_rank=5,
+    )
+    unranked_company = models.Company(
+        slug=f"top-filter-unranked-{suffix}",
+        name=f"Top Filter Unranked {suffix}",
+    )
+    ranked_opportunity = models.Opportunity(
+        slug=f"top-filter-ranked-internship-{suffix}",
+        title="Ranked internship",
+        company=ranked_company,
+        category="internship",
+        location=location_token,
+        apply_url=f"https://example.com/top-filter/ranked/{suffix}",
+        status="active",
+        last_seen_at=seen_at,
+    )
+    unranked_opportunity = models.Opportunity(
+        slug=f"top-filter-unranked-job-{suffix}",
+        title="Unranked job",
+        company=unranked_company,
+        category="job",
+        location=location_token,
+        apply_url=f"https://example.com/top-filter/unranked/{suffix}",
+        status="active",
+        last_seen_at=seen_at,
+    )
+    db_session.add_all(
+        [ranked_company, unranked_company, ranked_opportunity, unranked_opportunity]
+    )
+    db_session.flush()
+
+    top_10 = client.get(
+        "/feed",
+        params={"top": 10, "location": location_token, "limit": 10},
+    ).json()
+    top_1 = client.get(
+        "/feed",
+        params={"top": 1, "location": location_token, "limit": 10},
+    ).json()
+    top_10_job = client.get(
+        "/feed",
+        params={"top": 10, "category": "job", "location": location_token, "limit": 10},
+    ).json()
+    top_10_internship = client.get(
+        "/feed",
+        params={
+            "top": 10,
+            "category": "internship",
+            "location": location_token,
+            "limit": 10,
+        },
+    ).json()
+
+    assert top_10["total"] == 1
+    assert [item["slug"] for item in top_10["items"]] == [ranked_opportunity.slug]
+    assert top_1["total"] == 0
+    assert top_1["items"] == []
+    assert top_10_job["total"] == 0
+    assert top_10_job["items"] == []
+    assert top_10_internship["total"] == 1
+    assert [item["slug"] for item in top_10_internship["items"]] == [
+        ranked_opportunity.slug
+    ]
