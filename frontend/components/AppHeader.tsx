@@ -1,12 +1,11 @@
 import Link from "next/link";
 import HeaderAuth from "@/components/HeaderAuth";
-import ThemeToggle from "@/components/ThemeToggle";
 import Wordmark from "@/components/Wordmark";
 
 export default function AppHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-2 px-3 sm:gap-4 sm:px-4">
+      <div className="mx-auto flex h-16 max-w-[1680px] items-center justify-between gap-2 px-4 sm:gap-4 sm:px-6 lg:px-10 xl:px-12">
         <div className="flex items-center gap-3 sm:gap-6">
           <Wordmark className="[&>span]:hidden sm:[&>span]:inline" />
           <nav className="flex items-center gap-3 text-sm font-medium sm:gap-4">
@@ -37,7 +36,6 @@ export default function AppHeader() {
           </nav>
         </div>
         <div className="flex items-center gap-2">
-          <ThemeToggle />
           <HeaderAuth />
         </div>
       </div>
