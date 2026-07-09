@@ -27,7 +27,10 @@ export default function AppHeader() {
           </nav>
         </div>
         <div className="flex items-center gap-2">
-          <HeaderAuth />
+          <HeaderAuth
+            triggerVariant="ghost"
+            triggerClassName="font-normal text-muted-foreground hover:bg-transparent hover:text-foreground"
+          />
         </div>
       </div>
     </header>

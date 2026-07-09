@@ -58,7 +58,7 @@ export default async function HomePage({ searchParams }: PageProps) {
       </div>
 
       {data.items.length > 0 ? (
-        <div className={`grid grid-cols-1 sm:grid-cols-2 gap-5 ${COLS_LG[cols]}`}>
+        <div className={`grid grid-cols-1 sm:grid-cols-2 gap-6 ${COLS_LG[cols]}`}>
           {data.items.map((item) => (
             <OpportunityCard key={item.slug} item={item} />
           ))}
