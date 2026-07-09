@@ -13,41 +13,48 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
   const metaParts = [
     item.company?.name ?? "Unknown company",
     item.location,
-    item.is_remote ? "Remote" : null,
   ].filter(Boolean);
 
   return (
     <Link
       href={`/opportunity/${item.slug}`}
-      className="group flex h-full gap-3 rounded-lg border border-border bg-card p-4 shadow-xs transition-[transform,box-shadow,border-color] duration-200 ease-premium hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      className="group flex h-full gap-4 rounded-xl border border-border bg-card p-5 shadow-soft transition-[transform,box-shadow,border-color] duration-300 ease-premium hover:-translate-y-0.5 hover:border-primary/45 hover:[box-shadow:var(--shadow-md)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
-      <CompanyFavicon company={item.company} />
+      <div className="flex shrink-0 items-center justify-center rounded-lg border border-border bg-secondary/50 p-1.5">
+        <CompanyFavicon company={item.company} />
+      </div>
 
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="min-w-0 flex-1 truncate font-semibold text-card-foreground group-hover:text-primary">
+          <h3 className="line-clamp-2 min-w-0 flex-1 text-md font-semibold tracking-tight text-card-foreground transition-colors duration-300 ease-premium group-hover:text-primary">
             {item.title}
           </h3>
-          <div className="flex shrink-0 flex-wrap justify-end gap-1">
-            {item.is_hidden && <Badge variant="outline">Hidden gem</Badge>}
+          <div className="flex max-w-[48%] shrink-0 flex-wrap justify-end gap-1.5">
             {item.category && (
               <Badge variant="secondary">
                 {CATEGORY_LABEL[item.category] ?? item.category}
               </Badge>
             )}
+            {item.is_remote && <Badge variant="outline">Remote</Badge>}
+            {item.is_hidden && <Badge variant="heritage">Hidden gem</Badge>}
           </div>
         </div>
 
-        <p className="mt-0.5 truncate text-sm text-muted-foreground">
+        <p className="mt-1 truncate text-sm text-muted-foreground">
           {metaParts.join(" · ")}
         </p>
 
         {item.deadline && (
-          <p className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-warning">
-            <Clock className="h-3.5 w-3.5" />
-            Deadline {new Date(item.deadline).toLocaleDateString()}
-            {item.deadline_confidence !== "explicit" ? " (estimated)" : ""}
-          </p>
+          <span className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-warning/25 bg-warning/15 px-2 py-1 text-xs font-medium text-warning-foreground dark:text-warning">
+            <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>
+              Deadline{" "}
+              <span className="tnum">
+                {new Date(item.deadline).toLocaleDateString()}
+              </span>
+              {item.deadline_confidence !== "explicit" ? " (estimated)" : ""}
+            </span>
+          </span>
         )}
       </div>
     </Link>

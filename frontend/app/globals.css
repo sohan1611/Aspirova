@@ -57,47 +57,73 @@
 
 :root {
   --radius: 0.625rem;
-  --background: #f4efe2;
-  --foreground: #2b2420;
-  --card: #fbf8f0;
-  --card-foreground: #2b2420;
-  --popover: #fbf8f0;
-  --popover-foreground: #2b2420;
-  --primary: #8f6234;
+  --text-2xs: 0.6875rem;
+  --text-xs: 0.78rem;
+  --text-sm: 0.875rem;
+  --text-base: 0.97rem;
+  --text-md: 1.06rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.55rem;
+  --text-2xl: 1.95rem;
+  --text-3xl: 2.45rem;
+  --text-4xl: 3.05rem;
+  --background: #faf7f0;
+  --foreground: #231c15;
+  --card: #fffdf8;
+  --card-foreground: #231c15;
+  --popover: #fffdf8;
+  --popover-foreground: #231c15;
+  --primary: #8a5e2f;
   --primary-foreground: #fdf9f0;
-  --secondary: #e8e1d0;
-  --secondary-foreground: #3a322b;
-  --muted: #ece4d3;
-  --muted-foreground: #6a5d4e; /* keep >= 4.5:1 on both --background and --muted */
-  --accent: #eae2d0;
-  --accent-foreground: #3a322b;
+  --secondary: #efe8d9;
+  --secondary-foreground: #3a3022;
+  --muted: #f0e9db;
+  --muted-foreground: #6b5f4e; /* keep >= 4.5:1 on both --background and --muted */
+  --accent: #ece4d3;
+  --accent-foreground: #3a3022;
   --destructive: #b23b2e;
   --destructive-foreground: #ffffff;
-  --border: #e2d8c4;
-  --input: #e2d8c4;
-  --ring: #8f6234;
+  --border: #e6ddcb;
+  --input: #e6ddcb;
+  --ring: #8a5e2f;
+  --heritage: #5e2b47;
+  --heritage-foreground: #faf3f7;
+  --shadow-sm: 0 1px 2px rgba(35, 28, 21, 0.05),
+    0 4px 12px -8px rgba(35, 28, 21, 0.1);
+  --shadow-md: 0 1px 2px rgba(35, 28, 21, 0.05),
+    0 10px 28px -14px rgba(35, 28, 21, 0.16);
+  --shadow-lg: 0 2px 4px rgba(35, 28, 21, 0.06),
+    0 24px 48px -20px rgba(35, 28, 21, 0.22);
 }
 
 .dark {
-  --background: #1b1917;
-  --foreground: #ece6db;
-  --card: #262320;
-  --card-foreground: #ece6db;
-  --popover: #1b1917;
-  --popover-foreground: #ece6db;
+  --background: #1a1712;
+  --foreground: #ece4d5;
+  --card: #241f18;
+  --card-foreground: #ece4d5;
+  --popover: #1a1712;
+  --popover-foreground: #ece4d5;
   --primary: #c99f63;
-  --primary-foreground: #241a0e;
-  --secondary: #2f2b27;
-  --secondary-foreground: #ece6db;
-  --muted: #29251f;
-  --muted-foreground: #b1a596;
-  --accent: #2f2b26;
-  --accent-foreground: #ece6db;
+  --primary-foreground: #231c15;
+  --secondary: #2c261d;
+  --secondary-foreground: #ece4d5;
+  --muted: #282219;
+  --muted-foreground: #a99a84;
+  --accent: #2c261d;
+  --accent-foreground: #ece4d5;
   --destructive: #7f2b23;
   --destructive-foreground: #ffffff;
-  --border: #35302a;
-  --input: #35302a;
+  --border: #342c20;
+  --input: #342c20;
   --ring: #c99f63;
+  --heritage: #cf92b4;
+  --heritage-foreground: #231c15;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4),
+    0 4px 12px -8px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.4),
+    0 10px 28px -14px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.4),
+    0 24px 48px -20px rgba(0, 0, 0, 0.5);
 }
 
 /* Mode-dependent tokens are re-exposed here as `inline` so Tailwind treats
@@ -126,11 +152,56 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-heritage: var(--heritage);
+  --color-heritage-foreground: var(--heritage-foreground);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+}
+
+.eyebrow {
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+.text-2xs {
+  font-size: var(--text-2xs);
+}
+
+.text-md {
+  font-size: var(--text-md);
+}
+
+.shadow-soft {
+  box-shadow: var(--shadow-sm);
+}
+
+.shadow-soft-md {
+  box-shadow: var(--shadow-md);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-rise {
+  animation: rise 0.5s var(--ease-premium) both;
 }
 
 /* Full a11y guard, not just a component-level concern - honored globally
@@ -146,14 +217,63 @@
   }
 }
 
+* {
+  scrollbar-color: var(--muted) transparent;
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--muted);
+  background-clip: content-box;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
 body {
-  background-color: var(--color-background);
-  color: var(--color-foreground);
+  position: relative;
+  isolation: isolate;
+  background-color: var(--background);
+  color: var(--foreground);
   font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+body::before {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.72'/%3E%3C/svg%3E");
+  background-attachment: fixed;
+  background-size: 180px 180px;
+  opacity: 0.025;
+}
+
+.dark body::before {
+  opacity: 0.04;
 }
 
 h1,
 h2 {
   font-family: var(--font-serif), Georgia, "Times New Roman", serif;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
 }
