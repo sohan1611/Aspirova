@@ -51,6 +51,9 @@ function throwResumeApiError(res: Response, action: string): never {
 export interface FeedParams {
   category?: "internship" | "job";
   remote?: boolean;
+  location?: string;
+  company?: string;
+  top?: number;
   sort?: "recent" | "deadline";
   page?: number;
   limit?: number;
@@ -60,6 +63,9 @@ export async function getFeed(params: FeedParams = {}): Promise<FeedResponse> {
   const search = new URLSearchParams();
   if (params.category) search.set("category", params.category);
   if (params.remote !== undefined) search.set("remote", String(params.remote));
+  if (params.location) search.set("location", params.location);
+  if (params.company) search.set("company", params.company);
+  if (params.top) search.set("top", String(params.top));
   if (params.sort) search.set("sort", params.sort);
   if (params.page) search.set("page", String(params.page));
   if (params.limit) search.set("limit", String(params.limit));

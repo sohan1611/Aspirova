@@ -13,6 +13,9 @@ interface PageProps {
     q?: string;
     category?: string;
     remote?: string;
+    location?: string;
+    company?: string;
+    top?: string;
     page?: string;
     cols?: string;
     rows?: string;
@@ -32,12 +35,16 @@ export default async function HomePage({ searchParams }: PageProps) {
   const cols = Math.min(4, Math.max(1, Number(params.cols ?? "3") || 3));
   const rows = Math.min(20, Math.max(5, Number(params.rows ?? "10") || 10));
   const LIMIT = cols * rows;
+  const top = params.top ? Number(params.top) : undefined;
 
   const data = params.q
     ? await searchOpportunities(params.q, page, LIMIT)
     : await getFeed({
         category: params.category as "internship" | "job" | undefined,
         remote: params.remote === "true" ? true : params.remote === "false" ? false : undefined,
+        location: params.location,
+        company: params.company,
+        top: top && Number.isFinite(top) && top > 0 ? top : undefined,
         page,
         limit: LIMIT,
       });
@@ -49,7 +56,9 @@ export default async function HomePage({ searchParams }: PageProps) {
       <SignedOutHero />
 
       <div id="feed-search" className="mb-6 scroll-mt-20 pt-10">
-        <SearchFilters />
+        <SearchFilters
+          key={[params.q, params.category, params.remote, params.location, params.company, params.top].join("|")}
+        />
       </div>
 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
