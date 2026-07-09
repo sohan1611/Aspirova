@@ -85,6 +85,26 @@ export interface PlanPublic {
   features: Record<string, boolean | number | string | null>;
 }
 
+export interface PlanState {
+  key: string;
+  price_paise: number;
+  billing: string | null;
+  features: Record<string, unknown>;
+  status: string;
+  current_period_end: string | null;
+}
+
+export interface AccountMe {
+  email: string | null;
+  display_name: string | null;
+  college: string | null;
+  graduation_year: number | null;
+  created_at: string;
+  invite_code: string | null;
+  notification_prefs: Record<string, boolean>;
+  plan: PlanState;
+}
+
 export interface ReferralMe {
   invite_code: string;
   referral_count: number;
