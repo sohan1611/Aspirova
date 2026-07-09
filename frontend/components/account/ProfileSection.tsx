@@ -95,7 +95,7 @@ export default function ProfileSection({
           Keep the details Aspirova uses to personalize your experience up to date.
         </CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-6">
+      <CardContent className="grid gap-7">
         <div className="flex items-center gap-4">
           <AccountAvatar
             email={account.email ?? user.email}
@@ -114,9 +114,11 @@ export default function ProfileSection({
 
         <Separator />
 
-        <form onSubmit={handleSubmit} className="grid gap-5">
-          <div className="grid gap-2">
-            <Label htmlFor="account-display-name">Display name</Label>
+        <form onSubmit={handleSubmit} className="grid gap-6">
+          <div className="grid gap-2.5">
+            <Label className="eyebrow" htmlFor="account-display-name">
+              Display name
+            </Label>
             <Input
               id="account-display-name"
               value={displayName}
@@ -126,8 +128,10 @@ export default function ProfileSection({
             />
           </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="account-email">Email</Label>
+          <div className="grid gap-2.5">
+            <Label className="eyebrow" htmlFor="account-email">
+              Email
+            </Label>
             <Input
               id="account-email"
               type="email"
@@ -138,9 +142,11 @@ export default function ProfileSection({
             />
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div className="grid gap-2">
-              <Label htmlFor="account-college">College</Label>
+          <div className="grid gap-6 sm:grid-cols-2">
+            <div className="grid gap-2.5">
+              <Label className="eyebrow" htmlFor="account-college">
+                College
+              </Label>
               <Input
                 id="account-college"
                 value={college}
@@ -149,8 +155,10 @@ export default function ProfileSection({
                 placeholder="Your college"
               />
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="account-graduation-year">Graduation year</Label>
+            <div className="grid gap-2.5">
+              <Label className="eyebrow" htmlFor="account-graduation-year">
+                Graduation year
+              </Label>
               <Input
                 id="account-graduation-year"
                 type="number"
@@ -164,7 +172,7 @@ export default function ProfileSection({
             </div>
           </div>
 
-          <div>
+          <div className="flex justify-end border-t border-border pt-6">
             <Button type="submit" disabled={submitting}>
               {submitting && <Loader2 className="animate-spin" aria-hidden="true" />}
               {submitting ? "Saving…" : "Save changes"}

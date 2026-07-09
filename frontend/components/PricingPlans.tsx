@@ -77,7 +77,7 @@ export default function PricingPlans({
               aria-pressed={billing === period}
               onClick={() => setBilling(period)}
               className={cn(
-                "rounded-sm px-4 py-1.5 text-sm font-medium capitalize transition-colors duration-150",
+                "rounded-sm px-4 py-1.5 text-sm font-medium capitalize outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring",
                 billing === period
                   ? "bg-background text-foreground shadow-xs"
                   : "text-muted-foreground hover:text-foreground",
@@ -98,27 +98,47 @@ export default function PricingPlans({
           if (!plan) return null;
 
           const isFree = tier.name === "Free";
-          const priceLabel = isFree
-            ? "Free"
-            : `${rupees(plan.price_paise)}${billing === "annual" ? "/yr" : "/mo"}`;
+          const price = isFree ? "Free" : rupees(plan.price_paise);
+          const billingSuffix = isFree ? null : billing === "annual" ? "/yr" : "/mo";
 
           return (
             <Card
               key={tier.name}
-              className={cn("relative", tier.highlight && "border-primary shadow-md")}
+              className={cn(
+                "relative py-8 shadow-soft transition-[transform,box-shadow,border-color] duration-300 ease-premium",
+                !isFree && "hover:-translate-y-0.5 hover:[box-shadow:var(--shadow-md)]",
+                tier.highlight && "border-heritage/40 shadow-soft-md",
+              )}
             >
               {tier.highlight && (
-                <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">Most popular</Badge>
+                <Badge
+                  variant="heritage"
+                  className="absolute -top-3 left-1/2 -translate-x-1/2"
+                >
+                  Most popular
+                </Badge>
               )}
               <CardHeader>
-                <CardTitle className="text-lg">{tier.name}</CardTitle>
-                <p className="text-3xl font-bold tracking-tight text-foreground">{priceLabel}</p>
+                <CardTitle className="eyebrow">{tier.name}</CardTitle>
+                <div className="flex items-baseline gap-1.5">
+                  <p className="tnum font-serif text-4xl font-semibold tracking-tight text-foreground">
+                    {price}
+                  </p>
+                  {billingSuffix && (
+                    <span className="text-sm font-normal text-muted-foreground">
+                      {billingSuffix}
+                    </span>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="flex-1">
-                <ul className="space-y-2 text-sm text-muted-foreground">
+                <ul className="space-y-3 text-sm leading-6 text-muted-foreground">
                   {featureLines(plan.features).map((line) => (
-                    <li key={line} className="flex items-start gap-2">
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                    <li key={line} className="flex items-start gap-2.5">
+                      <Check
+                        className="mt-1 size-4 shrink-0 text-primary"
+                        aria-hidden="true"
+                      />
                       {line}
                     </li>
                   ))}
