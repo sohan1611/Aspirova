@@ -33,6 +33,13 @@ def test_resolve_company_creates_a_new_row_when_none_matches(db_session: Session
     assert company.name_normalized == "totally unique test co xyz123"
 
 
+def test_resolve_company_cleans_name_before_normalizing(db_session: Session) -> None:
+    company = resolve_company(db_session, "  SÃ£o   Paulo Test Company XYZ123  ")
+
+    assert company.name == "São Paulo Test Company XYZ123"
+    assert company.name_normalized == "são paulo test company xyz123"
+
+
 def test_resolve_company_matches_an_existing_row_by_normalized_name(db_session: Session) -> None:
     existing = models.Company(
         slug="acme-existing-test",
