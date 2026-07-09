@@ -1,4 +1,5 @@
 import type {
+  AccountMe,
   CompanyListItem,
   CompanyPage,
   CopilotResponse,
@@ -222,6 +223,41 @@ export async function createCheckout(
   });
   if (!res.ok) throw new Error(`Failed to start checkout: ${res.status}`);
   return res.json();
+}
+
+export async function getAccount(accessToken: string): Promise<AccountMe> {
+  const res = await fetch(`${API_URL}/account/me`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`Failed to load account: ${res.status}`);
+  return res.json();
+}
+
+export async function updateAccount(
+  accessToken: string,
+  patch: Partial<Pick<AccountMe, "display_name" | "college" | "graduation_year">> & {
+    notification_prefs?: Record<string, boolean>;
+  },
+): Promise<AccountMe> {
+  const res = await fetch(`${API_URL}/account/me`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) throw new Error(`Failed to update account: ${res.status}`);
+  return res.json();
+}
+
+export async function cancelSubscription(accessToken: string): Promise<void> {
+  const res = await fetch(`${API_URL}/subscription/cancel`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error(`Failed to cancel subscription: ${res.status}`);
 }
 
 export async function joinWaitlist(email: string): Promise<void> {

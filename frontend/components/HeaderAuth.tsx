@@ -1,6 +1,7 @@
 "use client";
 
 import type { ComponentProps } from "react";
+import AccountMenu from "@/components/AccountMenu";
 import AuthWidget from "@/components/AuthWidget";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,7 +39,7 @@ export default function HeaderAuth({
   const session = useSession();
 
   if (session) {
-    return <AuthWidget />;
+    return <AccountMenu user={session.user} />;
   }
 
   return (
