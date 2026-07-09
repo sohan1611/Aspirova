@@ -37,6 +37,12 @@ def test_opportunities_has_canonical_columns() -> None:
     }.issubset(columns)
 
 
+def test_companies_has_global_rank_column_and_index() -> None:
+    companies = Base.metadata.tables["companies"]
+    assert "global_rank" in {c.name for c in companies.columns}
+    assert "ix_companies_global_rank" in {index.name for index in companies.indexes}
+
+
 def test_raw_listings_dedup_uniqueness_constraint_exists() -> None:
     raw_listings = Base.metadata.tables["raw_listings"]
     unique_cols = {

@@ -63,6 +63,7 @@ class Company(Base):
     ats_type: Mapped[str | None] = mapped_column(Text)
     ats_board_id: Mapped[str | None] = mapped_column(Text)
     logo_url: Mapped[str | None] = mapped_column(Text)
+    global_rank: Mapped[int | None] = mapped_column(Integer)
     is_dream_eligible: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
     created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
 
@@ -81,6 +82,7 @@ class Company(Base):
             unique=True,
             postgresql_where=text("domain IS NOT NULL"),
         ),
+        Index("ix_companies_global_rank", "global_rank"),
     )
 
 
