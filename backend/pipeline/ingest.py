@@ -43,6 +43,7 @@ from sqlalchemy.orm import Session
 
 from core import models
 from core.adapters import NormalizedListing, RawListing
+from core.textclean import fix_text
 from pipeline.dedup import find_matching_opportunity
 from pipeline.normalize import normalize_title
 
@@ -148,6 +149,14 @@ def ingest_one(
     Idempotent: a repeat call with byte-identical raw content (same
     content_hash) is a near-no-op - only last_seen_at is touched.
     """
+    normalized = normalized.model_copy(
+        update={
+            "title": fix_text(normalized.title),
+            "company_name": fix_text(normalized.company_name),
+            "location": fix_text(normalized.location),
+            "description_raw": fix_text(normalized.description_raw),
+        }
+    )
     raw_row = board_state.raw_by_external_id.get(raw.external_id)
 
     if raw_row is not None and raw_row.opportunity_id is not None:

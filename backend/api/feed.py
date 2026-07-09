@@ -10,7 +10,7 @@ measured p50 248-272ms / p95 up to 1254ms against the same real data.
 """
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from api.deps import get_db
@@ -24,6 +24,8 @@ router = APIRouter()
 def get_feed(
     category: str | None = Query(None, pattern="^(internship|job)$"),
     remote: bool | None = Query(None),
+    company: str | None = Query(None),
+    location: str | None = Query(None),
     sort: str = Query("recent", pattern="^(recent|deadline)$"),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -34,6 +36,19 @@ def get_feed(
         base_filters.append(models.Opportunity.category == category)
     if remote is not None:
         base_filters.append(models.Opportunity.is_remote == remote)
+    company_filter = company.strip() if company else ""
+    if company_filter:
+        base_filters.append(
+            models.Opportunity.company.has(
+                or_(
+                    models.Company.slug == company_filter,
+                    models.Company.name.ilike(f"%{company_filter}%"),
+                )
+            )
+        )
+    location_filter = location.strip() if location else ""
+    if location_filter:
+        base_filters.append(models.Opportunity.location.ilike(f"%{location_filter}%"))
 
     total_count = func.count().over().label("total_count")
     query = (

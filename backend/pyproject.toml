@@ -14,6 +14,7 @@ dependencies = [
     "pgvector>=0.3.6",
     "httpx>=0.27",
     "beautifulsoup4>=4.15.0",
+    "ftfy>=6.3.1",
     "upstash-redis>=1.7.0",
     "upstash-ratelimit>=1.1.0",
     "boto3>=1.43.40",

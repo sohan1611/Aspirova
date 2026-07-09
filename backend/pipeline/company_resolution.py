@@ -22,6 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from core import models
+from core.textclean import fix_text
 from pipeline.normalize import normalize_company_name
 
 
@@ -34,6 +35,7 @@ def _slugify(text: str) -> str:
 def resolve_company(
     session: Session, company_name: str, domain: str | None = None
 ) -> models.Company:
+    company_name = fix_text(company_name) or ""
     name_normalized = normalize_company_name(company_name)
     existing = session.scalar(
         select(models.Company).where(models.Company.name_normalized == name_normalized)
