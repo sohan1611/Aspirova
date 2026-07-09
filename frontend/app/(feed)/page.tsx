@@ -3,6 +3,7 @@ import Link from "next/link";
 import FeedViewControls from "@/components/FeedViewControls";
 import OpportunityCard from "@/components/OpportunityCard";
 import SearchFilters from "@/components/SearchFilters";
+import SignedOutHero from "@/components/SignedOutHero";
 import { Button } from "@/components/ui/button";
 import { getFeed, searchOpportunities } from "@/lib/api";
 import { buildPageHref } from "@/lib/pagination";
@@ -44,8 +45,10 @@ export default async function HomePage({ searchParams }: PageProps) {
   const totalPages = Math.max(1, Math.ceil(data.total / LIMIT));
 
   return (
-    <main className="mx-auto max-w-[1680px] px-4 py-10 sm:px-6 lg:px-10 xl:px-12">
-      <div className="mb-6">
+    <main className="mx-auto max-w-[1680px] px-4 pb-10 sm:px-6 lg:px-10 xl:px-12">
+      <SignedOutHero />
+
+      <div id="feed-search" className="mb-6 scroll-mt-20 pt-10">
         <SearchFilters />
       </div>
 
@@ -61,12 +64,17 @@ export default async function HomePage({ searchParams }: PageProps) {
           ))}
         </div>
       ) : (
-        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border py-16 text-center">
-          <SearchX className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
-          <p className="font-medium text-foreground">No opportunities found</p>
-          <p className="max-w-xs text-sm text-muted-foreground">
-            Try a different search term or clear a filter.
+        <div className="flex flex-col items-center px-4 py-20 text-center sm:py-24">
+          <div className="rounded-lg border border-border bg-secondary/40 p-3">
+            <SearchX className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
+          </div>
+          <h2 className="mt-5 text-xl font-semibold text-foreground">Nothing matches — yet.</h2>
+          <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
+            Try a broader search or clear your filters — the almanac updates daily.
           </p>
+          <Button className="mt-5" variant="outline" size="sm" asChild>
+            <Link href="/">Clear filters</Link>
+          </Button>
         </div>
       )}
 
