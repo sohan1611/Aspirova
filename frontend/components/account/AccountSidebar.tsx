@@ -66,28 +66,31 @@ export default function AccountSidebar({
       </div>
 
       <aside className="hidden md:block">
-        <nav
-          aria-label="Account settings"
-          className="sticky top-24 grid gap-1 rounded-xl border border-border bg-card p-2 shadow-sm"
-        >
-          {ACCOUNT_SECTIONS.map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              type="button"
-              aria-current={activeSection === key ? "page" : undefined}
-              onClick={() => onSectionChange(key)}
-              className={cn(
-                "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium outline-none transition-colors duration-200 ease-premium focus-visible:ring-2 focus-visible:ring-ring",
-                activeSection === key
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-              )}
-            >
-              <Icon className="size-4" aria-hidden="true" />
-              {label}
-            </button>
-          ))}
-        </nav>
+        <div className="sticky top-24">
+          <p className="eyebrow mb-2 px-3">Settings</p>
+          <nav
+            aria-label="Account settings"
+            className="grid gap-1 rounded-xl border border-border bg-card p-2 shadow-soft"
+          >
+            {ACCOUNT_SECTIONS.map(({ key, label, Icon }) => (
+              <button
+                key={key}
+                type="button"
+                aria-current={activeSection === key ? "page" : undefined}
+                onClick={() => onSectionChange(key)}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-lg border-l-2 px-3 py-2.5 text-left text-sm font-medium outline-none transition-colors duration-200 ease-premium focus-visible:ring-2 focus-visible:ring-ring",
+                  activeSection === key
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-transparent text-muted-foreground hover:bg-accent hover:text-foreground",
+                )}
+              >
+                <Icon className="size-4" aria-hidden="true" />
+                {label}
+              </button>
+            ))}
+          </nav>
+        </div>
       </aside>
     </>
   );

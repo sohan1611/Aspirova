@@ -3,6 +3,7 @@
 import { AlertCircle, Loader2, UserRound } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
+import AccountAvatar from "@/components/account/AccountAvatar";
 import AccountSidebar, {
   isAccountSection,
   type AccountSectionKey,
@@ -13,9 +14,11 @@ import ProfileSection from "@/components/account/ProfileSection";
 import SecuritySection from "@/components/account/SecuritySection";
 import SubscriptionSection from "@/components/account/SubscriptionSection";
 import HeaderAuth from "@/components/HeaderAuth";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
@@ -25,6 +28,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getAccount } from "@/lib/api";
 import type { AccountMe } from "@/lib/types";
 import { useSession } from "@/lib/useSession";
+
+function planName(key: string): string {
+  if (key === "free") return "Free";
+  if (key.startsWith("pro_lite_")) return "Pro Lite";
+  if (key.startsWith("pro_")) return "Pro";
+  return key
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
 
 export default function AccountPage() {
   return (
@@ -139,10 +152,16 @@ function AccountPageContent() {
   }
 
   const authenticatedAccessToken = session.access_token;
+  const email = account.email ?? session.user.email;
+  const displayName =
+    account.display_name?.trim() || email?.split("@")[0] || "Aspirova member";
+  const avatarUrl: unknown = session.user.user_metadata?.avatar_url;
+  const isFreePlan = account.plan.key === "free";
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-10">
       <div className="mb-8">
+        <p className="eyebrow mb-2">Your almanac</p>
         <h1 className="font-serif text-4xl font-semibold tracking-tight text-foreground">
           Account
         </h1>
@@ -150,6 +169,36 @@ function AccountPageContent() {
           Manage your profile, plan, preferences, and security.
         </p>
       </div>
+
+      <Card className="mb-8 shadow-soft">
+        <CardContent className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-4">
+            <AccountAvatar
+              email={email}
+              avatarUrl={typeof avatarUrl === "string" ? avatarUrl : null}
+              className="size-14 text-lg"
+            />
+            <div className="min-w-0">
+              <p className="truncate font-serif text-xl font-semibold text-foreground">
+                {displayName}
+              </p>
+              <p className="mt-1 truncate text-sm text-muted-foreground">{email}</p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center justify-between gap-5 sm:flex-col sm:items-end sm:justify-center sm:gap-2">
+            <Badge variant={isFreePlan ? "secondary" : "heritage"}>
+              {planName(account.plan.key)}
+            </Badge>
+            <p className="tnum text-sm text-muted-foreground">
+              Member since{" "}
+              {new Date(account.created_at).toLocaleDateString(undefined, {
+                month: "long",
+                year: "numeric",
+              })}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 md:grid-cols-[13rem_minmax(0,1fr)] md:items-start">
         <AccountSidebar

@@ -131,89 +131,142 @@ export default async function OpportunityPage({ params }: PageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(jobPostingJsonLd) }}
       />
-      <main className="mx-auto max-w-prose px-4 py-8">
+      <main className="mx-auto w-full max-w-5xl px-4 py-10 sm:py-14">
         <Link
           href="/"
-          className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          className="inline-flex text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
         >
-          ← Back to feed
+          ← All opportunities
         </Link>
 
-        <div className="mt-4 flex items-start gap-4">
-          <CompanyFavicon company={opportunity.company} />
-          <div className="min-w-0">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              {opportunity.title}
-            </h1>
-            <p className="mt-1 text-muted-foreground">
-              {opportunity.company?.name}
+        <header className="mt-8 max-w-3xl">
+          <div className="flex items-center gap-3">
+            <div className="flex shrink-0 items-center justify-center rounded-lg border border-border bg-secondary/50 p-1.5 shadow-soft">
+              <CompanyFavicon company={opportunity.company} />
+            </div>
+            <p className="text-sm font-medium text-muted-foreground">
+              {opportunity.company?.name ?? "Independent listing"}
             </p>
           </div>
-        </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          {opportunity.category && (
-            <Badge variant="secondary">
-              {CATEGORY_LABEL[opportunity.category] ?? opportunity.category}
-            </Badge>
-          )}
-          {opportunity.is_remote && <Badge variant="secondary">Remote</Badge>}
-          {opportunity.location && (
-            <Badge variant="outline" className="gap-1 font-normal">
-              <MapPin className="h-3 w-3" />
-              {opportunity.location}
-            </Badge>
-          )}
-          {sourceLabel && (
-            <Badge variant="outline" className="font-normal">
-              via {sourceLabel}
-            </Badge>
-          )}
-        </div>
+          <h1 className="mt-6 font-serif text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl">
+            {opportunity.title}
+          </h1>
+
+          <div className="mt-6 flex flex-wrap items-center gap-2">
+            {opportunity.category && (
+              <Badge variant="secondary" className="eyebrow rounded-full px-2.5 py-1">
+                {CATEGORY_LABEL[opportunity.category] ?? opportunity.category}
+              </Badge>
+            )}
+            {opportunity.is_remote && (
+              <Badge variant="secondary" className="eyebrow rounded-full px-2.5 py-1">
+                Remote
+              </Badge>
+            )}
+            {opportunity.is_hidden && (
+              <Badge variant="heritage" className="rounded-full px-2.5 py-1">
+                Hidden gem
+              </Badge>
+            )}
+            {opportunity.location && (
+              <Badge
+                variant="outline"
+                className="eyebrow gap-1 rounded-full px-2.5 py-1"
+              >
+                <MapPin className="size-3" aria-hidden="true" />
+                {opportunity.location}
+              </Badge>
+            )}
+            {sourceLabel && (
+              <Badge variant="outline" className="eyebrow rounded-full px-2.5 py-1">
+                via {sourceLabel}
+              </Badge>
+            )}
+          </div>
+        </header>
+
+        <section
+          aria-label="Application actions"
+          className="mt-8 flex max-w-3xl flex-col gap-5 border-y border-border py-6 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div>
+            {/* Always links to the real source - we index and link out, we
+                never mirror (Doc 01 sec 7 R1, Doc 04 sec 10). */}
+            <Button size="lg" asChild>
+              <a href={opportunity.apply_url} target="_blank" rel="noopener noreferrer">
+                {opportunity.company?.name
+                  ? `Apply on ${opportunity.company.name} →`
+                  : "Apply at the source →"}
+              </a>
+            </Button>
+            <p className="mt-2 max-w-lg text-xs leading-5 text-muted-foreground">
+              Opens the company&apos;s own listing — Aspirova never mirrors applications.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
+            <BookmarkButton slug={opportunity.slug} />
+            <ShareButton slug={opportunity.slug} />
+          </div>
+        </section>
 
         {opportunity.deadline && (
-          <div className="mt-4 inline-flex items-center gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm font-medium text-warning">
-            <Clock className="h-4 w-4 shrink-0" />
-            Deadline: {new Date(opportunity.deadline).toLocaleDateString()}
-            {opportunity.deadline_confidence !== "explicit" ? " (estimated)" : ""}
+          <div className="mt-8 inline-flex items-center gap-2 rounded-md border border-warning/25 bg-warning/15 px-3 py-2 text-sm font-medium text-warning-foreground dark:text-warning">
+            <Clock className="size-4 shrink-0" aria-hidden="true" />
+            <span>
+              Deadline:{" "}
+              <span className="tnum">
+                {new Date(opportunity.deadline).toLocaleDateString()}
+              </span>
+              {opportunity.deadline_confidence !== "explicit" ? " (estimated)" : ""}
+            </span>
           </div>
         )}
 
-        {opportunity.reopen_estimate && (
-          <div className="mt-4 flex items-start gap-2 text-sm">
-            <CalendarClock
-              className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <div>
-              <p className="font-medium text-foreground">
-                Reopen estimate: Typically opens {opportunity.reopen_estimate.window}
-              </p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {opportunity.reopen_estimate.note} This is an estimate based on{" "}
-                {opportunity.reopen_estimate.basis === "historical"
-                  ? "past openings"
-                  : "curated information"}
-                .
-              </p>
-            </div>
-          </div>
+        {(opportunity.summary || opportunity.reopen_estimate) && (
+          <aside className="mt-8 max-w-3xl rounded-xl border border-border bg-card p-6 shadow-soft sm:p-7">
+            {opportunity.summary && (
+              <div>
+                <p className="eyebrow">AI summary</p>
+                <p className="mt-3 whitespace-pre-wrap leading-7 text-foreground">
+                  {opportunity.summary}
+                </p>
+              </div>
+            )}
+
+            {opportunity.reopen_estimate && (
+              <div
+                className={
+                  opportunity.summary ? "mt-6 border-t border-border pt-6" : undefined
+                }
+              >
+                <div className="flex items-center gap-2">
+                  <CalendarClock
+                    className="size-4 shrink-0 text-primary"
+                    aria-hidden="true"
+                  />
+                  <p className="eyebrow">Reopen outlook</p>
+                </div>
+                <p className="tnum mt-3 font-medium text-foreground">
+                  Typically opens {opportunity.reopen_estimate.window}
+                </p>
+                <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
+                  {opportunity.reopen_estimate.note} This is an estimate based on{" "}
+                  {opportunity.reopen_estimate.basis === "historical"
+                    ? "past openings"
+                    : "curated information"}
+                  .
+                </p>
+              </div>
+            )}
+          </aside>
         )}
 
-        <div className="mt-6 flex items-center gap-3">
-          {/* Always links to the real source - we index and link out, we
-              never mirror (Doc 01 sec 7 R1, Doc 04 sec 10). */}
-          <Button size="lg" asChild>
-            <a href={opportunity.apply_url} target="_blank" rel="noopener noreferrer">
-              Apply at source ↗
-            </a>
-          </Button>
-          <BookmarkButton slug={opportunity.slug} />
-          <ShareButton slug={opportunity.slug} />
-        </div>
-
-        <article className="mt-8 leading-relaxed whitespace-pre-wrap text-foreground">
-          {opportunity.description_raw}
+        <article className="mt-10 max-w-3xl">
+          <p className="eyebrow">Opportunity brief</p>
+          <div className="mt-4 whitespace-pre-wrap text-base leading-8 text-foreground">
+            {opportunity.description_raw}
+          </div>
         </article>
       </main>
     </>
