@@ -1,10 +1,25 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { ArrowUpDown, Search, SlidersHorizontal } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
 const CATEGORY_OPTIONS = [
@@ -21,12 +36,14 @@ const REMOTE_OPTIONS = [
 
 const TOP_OPTIONS = [
   { value: null, label: "Any" },
-  { value: "10", label: "Top 10" },
+  { value: "10", label: "10" },
   { value: "50", label: "50" },
   { value: "100", label: "100" },
   { value: "500", label: "500" },
   { value: "1000", label: "1000" },
 ];
+
+const FILTER_KEYS = ["q", "category", "remote", "location", "company", "top"] as const;
 
 function SegmentedGroup({
   label,
@@ -74,10 +91,23 @@ export default function SearchFilters() {
   const [q, setQ] = useState(searchParams.get("q") ?? "");
   const [location, setLocation] = useState(searchParams.get("location") ?? "");
   const [company, setCompany] = useState(searchParams.get("company") ?? "");
+
+  // Resync inputs to the URL when params change externally (Clear all / Back),
+  // without remounting — so the Filter popover stays open across selections.
+  // React's "adjust state during render" pattern (guarded), not an effect.
+  const paramsSignature = searchParams.toString();
+  const [syncedSignature, setSyncedSignature] = useState(paramsSignature);
+  if (paramsSignature !== syncedSignature) {
+    setSyncedSignature(paramsSignature);
+    setQ(searchParams.get("q") ?? "");
+    setLocation(searchParams.get("location") ?? "");
+    setCompany(searchParams.get("company") ?? "");
+  }
+
   const top = searchParams.get("top");
-  const hasFilters = ["q", "category", "remote", "location", "company", "top"].some((key) =>
-    searchParams.has(key),
-  );
+  const sort = searchParams.get("sort") === "deadline" ? "deadline" : "recent";
+  const activeFilterCount = FILTER_KEYS.filter((key) => searchParams.has(key)).length;
+  const hasFilters = activeFilterCount > 0;
 
   function updateParam(key: string, value: string | null) {
     const params = new URLSearchParams(searchParams.toString());
@@ -111,80 +141,139 @@ export default function SearchFilters() {
     commitTextParam("company", company);
   }
 
+  function clearFilters() {
+    const params = new URLSearchParams();
+    const currentSort = searchParams.get("sort");
+    if (currentSort) params.set("sort", currentSort);
+    router.push(`/?${params.toString()}`);
+  }
+
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <form onSubmit={handleSubmit} className="flex w-full flex-wrap gap-2 sm:w-auto">
-          <div className="relative min-w-0 flex-1 sm:flex-none">
-            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="search"
-              aria-label="Search opportunities"
-              placeholder="Search opportunities..."
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              className="w-full pl-9 sm:w-72"
-            />
-          </div>
-          <Button type="submit">Search</Button>
-        </form>
-
-        <SegmentedGroup
-          label="Category"
-          options={CATEGORY_OPTIONS}
-          active={searchParams.get("category")}
-          onSelect={(value) => updateParam("category", value)}
-        />
-
-        <SegmentedGroup
-          label="Remote"
-          options={REMOTE_OPTIONS}
-          active={searchParams.get("remote")}
-          onSelect={(value) => updateParam("remote", value)}
-        />
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="eyebrow">REFINE</span>
-
-        <form onSubmit={handleLocationSubmit} className="min-w-0">
+    <div className="flex flex-wrap items-center gap-3">
+      <form onSubmit={handleSubmit} className="flex w-full flex-wrap gap-2 sm:w-auto">
+        <div className="relative min-w-0 flex-1 sm:flex-none">
+          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            aria-label="Location"
-            placeholder="City, country…"
-            value={location}
-            onBlur={() => commitTextParam("location", location)}
-            onChange={(e) => setLocation(e.target.value)}
-            className="w-44 max-w-full"
+            type="search"
+            aria-label="Search opportunities"
+            placeholder="Search opportunities..."
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="w-full pl-9 sm:w-72"
           />
-        </form>
+        </div>
+        <Button type="submit">Search</Button>
+      </form>
 
-        <form onSubmit={handleCompanySubmit} className="min-w-0">
-          <Input
-            aria-label="Company"
-            placeholder="Company name…"
-            value={company}
-            onBlur={() => commitTextParam("company", company)}
-            onChange={(e) => setCompany(e.target.value)}
-            className="w-52 max-w-full"
-          />
-        </form>
-
-        <SegmentedGroup
-          label="Top companies"
-          options={TOP_OPTIONS}
-          active={TOP_OPTIONS.some((option) => option.value === top) ? top : null}
-          onSelect={(value) => updateParam("top", value)}
-        />
-
-        {hasFilters && (
-          <button
-            type="button"
-            onClick={() => router.push("/")}
-            className="text-sm font-medium text-muted-foreground transition-colors duration-200 ease-[var(--ease-premium)] hover:text-foreground"
+      <div className="ml-auto flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-nowrap">
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button type="button" variant="outline">
+              <SlidersHorizontal aria-hidden="true" />
+              Filter
+              {hasFilters && (
+                <Badge
+                  variant="secondary"
+                  className="tnum"
+                  aria-label={`${activeFilterCount} active filters`}
+                >
+                  {activeFilterCount}
+                </Badge>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="end"
+            className="max-h-(--radix-popover-content-available-height) overflow-y-auto"
           >
-            Clear all
-          </button>
-        )}
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <p className="eyebrow">Category</p>
+                <SegmentedGroup
+                  label="Category"
+                  options={CATEGORY_OPTIONS}
+                  active={searchParams.get("category")}
+                  onSelect={(value) => updateParam("category", value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <p className="eyebrow">Work mode</p>
+                <SegmentedGroup
+                  label="Work mode"
+                  options={REMOTE_OPTIONS}
+                  active={searchParams.get("remote")}
+                  onSelect={(value) => updateParam("remote", value)}
+                />
+              </div>
+
+              <form onSubmit={handleLocationSubmit} className="space-y-2">
+                <Label htmlFor="filter-location" className="eyebrow">
+                  Location
+                </Label>
+                <Input
+                  id="filter-location"
+                  aria-label="Location"
+                  placeholder="City, country…"
+                  value={location}
+                  onBlur={() => commitTextParam("location", location)}
+                  onChange={(e) => setLocation(e.target.value)}
+                />
+              </form>
+
+              <form onSubmit={handleCompanySubmit} className="space-y-2">
+                <Label htmlFor="filter-company" className="eyebrow">
+                  Company
+                </Label>
+                <Input
+                  id="filter-company"
+                  aria-label="Company"
+                  placeholder="Company name…"
+                  value={company}
+                  onBlur={() => commitTextParam("company", company)}
+                  onChange={(e) => setCompany(e.target.value)}
+                />
+              </form>
+
+              <div className="space-y-2">
+                <p className="eyebrow">Top companies</p>
+                <SegmentedGroup
+                  label="Top companies"
+                  options={TOP_OPTIONS}
+                  active={TOP_OPTIONS.some((option) => option.value === top) ? top : null}
+                  onSelect={(value) => updateParam("top", value)}
+                />
+              </div>
+
+              {hasFilters && (
+                <>
+                  <Separator />
+                  <div className="flex justify-end">
+                    <Button type="button" variant="ghost" size="sm" onClick={clearFilters}>
+                      Clear all
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        <Select
+          value={sort}
+          onValueChange={(value) =>
+            updateParam("sort", value === "recent" ? null : "deadline")
+          }
+        >
+          <SelectTrigger aria-label="Sort opportunities">
+            <ArrowUpDown aria-hidden="true" />
+            <SelectValue>{sort === "deadline" ? "Closing soon" : "Newest"}</SelectValue>
+          </SelectTrigger>
+          <SelectContent align="end">
+            <SelectItem value="recent">Newest</SelectItem>
+            <SelectItem value="deadline">Closing soon</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
     </div>
   );
