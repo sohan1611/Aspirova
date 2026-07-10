@@ -27,9 +27,11 @@ happening after a successful connection, not during the handshake. Per-
 source isolation (Doc 04 sec 7) cannot hold if one stuck operation can
 consume the entire time budget regardless of which layer it stalls in.
 
-Pool defaults cap each app instance at 10 connections under Supabase's
-15-client session-pooler limit; pre-ping self-heals stale connections
-before checkout, and recycling prevents dead connections from lingering.
+With Supabase Pro's higher session-pooler client limit, the persistent Render
+server uses the correct session-mode pooler and the cap is relaxed from 5+5 to
+10+10 for healthier concurrency. Pre-ping still self-heals stale connections
+before checkout, while recycling prevents dead connections from lingering; the
+prior free-tier-exhaustion cap is historical.
 """
 
 from sqlalchemy import create_engine, event
@@ -40,8 +42,8 @@ from core.config import get_settings
 CONNECT_TIMEOUT_SECONDS = 10
 STATEMENT_TIMEOUT_MS = 20_000
 
-POOL_SIZE = 5
-MAX_OVERFLOW = 5
+POOL_SIZE = 10
+MAX_OVERFLOW = 10
 POOL_RECYCLE_SECONDS = 300
 
 DEFAULT_CONNECT_ARGS = {

@@ -16,8 +16,8 @@ def test_make_engine_uses_safe_pool_defaults(monkeypatch) -> None:
     engine = db.make_engine()
     try:
         assert engine.pool._pre_ping is True
-        assert engine.pool.size() == db.POOL_SIZE
-        assert engine.pool._max_overflow == db.MAX_OVERFLOW
+        assert engine.pool.size() == 10
+        assert engine.pool._max_overflow == 10
         assert engine.pool._recycle == db.POOL_RECYCLE_SECONDS
     finally:
         engine.dispose()
