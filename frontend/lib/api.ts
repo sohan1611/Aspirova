@@ -59,6 +59,11 @@ export interface FeedParams {
   limit?: number;
 }
 
+type SearchFilterParams = Pick<
+  FeedParams,
+  "category" | "remote" | "location" | "company" | "top"
+>;
+
 export async function getFeed(params: FeedParams = {}): Promise<FeedResponse> {
   const search = new URLSearchParams();
   if (params.category) search.set("category", params.category);
@@ -77,10 +82,16 @@ export async function getFeed(params: FeedParams = {}): Promise<FeedResponse> {
 
 export async function searchOpportunities(
   q: string,
+  filters: SearchFilterParams = {},
   page = 1,
   limit = 20,
 ): Promise<SearchResponse> {
   const search = new URLSearchParams({ q, page: String(page), limit: String(limit) });
+  if (filters.category) search.set("category", filters.category);
+  if (filters.remote !== undefined) search.set("remote", String(filters.remote));
+  if (filters.location) search.set("location", filters.location);
+  if (filters.company) search.set("company", filters.company);
+  if (filters.top) search.set("top", String(filters.top));
   const res = await fetch(`${API_URL}/search?${search.toString()}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`Failed to search: ${res.status}`);
   return res.json();

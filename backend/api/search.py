@@ -17,6 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from api.deps import get_db
+from api.filters import opportunity_filters
 from api.schemas import OpportunityListItem, SearchResponse
 from core import models
 
@@ -28,10 +29,16 @@ TRIGRAM_FALLBACK_THRESHOLD = 0.3
 @router.get("/search", response_model=SearchResponse)
 def search_opportunities(
     q: str = Query(..., min_length=1, max_length=200),
+    category: str | None = Query(None, pattern="^(internship|job)$"),
+    remote: bool | None = Query(None),
+    company: str | None = Query(None),
+    location: str | None = Query(None),
+    top: int | None = Query(None, gt=0),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
 ) -> SearchResponse:
+    extra_filters = opportunity_filters(category, remote, company, location, top)
     tsquery = func.websearch_to_tsquery("english", q)
     matches_fts = models.Opportunity.search_tsv.op("@@")(tsquery)
     rank = func.ts_rank(models.Opportunity.search_tsv, tsquery)
@@ -44,7 +51,7 @@ def search_opportunities(
     fts_query = (
         select(models.Opportunity, total_count)
         .options(joinedload(models.Opportunity.company))
-        .where(models.Opportunity.status == "active")
+        .where(models.Opportunity.status == "active", *extra_filters)
         .where(matches_fts)
         .order_by(rank.desc(), models.Opportunity.id.desc())
     )
@@ -62,7 +69,7 @@ def search_opportunities(
         db.scalar(
             select(func.count())
             .select_from(models.Opportunity)
-            .where(models.Opportunity.status == "active")
+            .where(models.Opportunity.status == "active", *extra_filters)
             .where(matches_fts)
         )
         or 0
@@ -74,7 +81,7 @@ def search_opportunities(
     fallback_query = (
         select(models.Opportunity, total_count)
         .options(joinedload(models.Opportunity.company))
-        .where(models.Opportunity.status == "active")
+        .where(models.Opportunity.status == "active", *extra_filters)
         .where(similarity >= TRIGRAM_FALLBACK_THRESHOLD)
         .order_by(similarity.desc(), models.Opportunity.id.desc())
     )

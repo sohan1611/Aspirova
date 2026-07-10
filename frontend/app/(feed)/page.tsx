@@ -39,14 +39,18 @@ export default async function HomePage({ searchParams }: PageProps) {
   const top = params.top ? Number(params.top) : undefined;
   const sort: "recent" | "deadline" = params.sort === "deadline" ? "deadline" : "recent";
 
+  const filters = {
+    category: params.category as "internship" | "job" | undefined,
+    remote: params.remote === "true" ? true : params.remote === "false" ? false : undefined,
+    location: params.location,
+    company: params.company,
+    top: top && Number.isFinite(top) && top > 0 ? top : undefined,
+  };
+
   const data = params.q
-    ? await searchOpportunities(params.q, page, LIMIT)
+    ? await searchOpportunities(params.q, filters, page, LIMIT)
     : await getFeed({
-        category: params.category as "internship" | "job" | undefined,
-        remote: params.remote === "true" ? true : params.remote === "false" ? false : undefined,
-        location: params.location,
-        company: params.company,
-        top: top && Number.isFinite(top) && top > 0 ? top : undefined,
+        ...filters,
         sort,
         page,
         limit: LIMIT,

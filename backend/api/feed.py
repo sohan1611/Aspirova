@@ -10,10 +10,11 @@ measured p50 248-272ms / p95 up to 1254ms against the same real data.
 """
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from api.deps import get_db
+from api.filters import opportunity_filters
 from api.schemas import FeedResponse, OpportunityListItem
 from core import models
 
@@ -32,33 +33,10 @@ def get_feed(
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
 ) -> FeedResponse:
-    base_filters = [models.Opportunity.status == "active"]
-    if category:
-        base_filters.append(models.Opportunity.category == category)
-    if remote is not None:
-        base_filters.append(models.Opportunity.is_remote == remote)
-    company_filter = company.strip() if company else ""
-    if company_filter:
-        base_filters.append(
-            models.Opportunity.company.has(
-                or_(
-                    models.Company.slug == company_filter,
-                    models.Company.name.ilike(f"%{company_filter}%"),
-                )
-            )
-        )
-    location_filter = location.strip() if location else ""
-    if location_filter:
-        base_filters.append(models.Opportunity.location.ilike(f"%{location_filter}%"))
-    if top is not None:
-        base_filters.append(
-            models.Opportunity.company.has(
-                and_(
-                    models.Company.global_rank.is_not(None),
-                    models.Company.global_rank <= top,
-                )
-            )
-        )
+    base_filters = [
+        models.Opportunity.status == "active",
+        *opportunity_filters(category, remote, company, location, top),
+    ]
 
     total_count = func.count().over().label("total_count")
     query = (

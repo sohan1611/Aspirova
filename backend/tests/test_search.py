@@ -1,0 +1,160 @@
+import uuid
+from datetime import UTC, datetime
+
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
+
+from api import middleware
+from api.deps import get_db
+from api.main import app
+from core import models
+
+
+@pytest.fixture
+def db_session(engine):
+    connection = engine.connect()
+    transaction = connection.begin()
+    session = Session(bind=connection)
+    try:
+        yield session
+    finally:
+        session.close()
+        transaction.rollback()
+        connection.close()
+
+
+@pytest.fixture
+def client(db_session: Session, monkeypatch):
+    monkeypatch.setattr(middleware, "get_redis", lambda: None)
+    app.dependency_overrides[get_db] = lambda: db_session
+    try:
+        yield TestClient(app)
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.fixture
+def search_rows(db_session: Session):
+    suffix = uuid.uuid4().hex
+    search_term = f"searchfilter{suffix}"
+    location_token = f"Searchville-{suffix}"
+    seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+
+    top_company = models.Company(
+        slug=f"search-filter-top-{suffix}",
+        name=f"Search Filter Top {suffix}",
+        global_rank=5,
+    )
+    mid_company = models.Company(
+        slug=f"search-filter-mid-{suffix}",
+        name=f"Search Filter Mid {suffix}",
+        global_rank=50,
+    )
+    unranked_company = models.Company(
+        slug=f"search-filter-unranked-{suffix}",
+        name=f"Search Filter Unranked {suffix}",
+    )
+    opportunities = [
+        models.Opportunity(
+            slug=f"search-filter-top-internship-{suffix}",
+            title=f"{search_term} top internship",
+            company=top_company,
+            category="internship",
+            location=f"North {location_token}, India",
+            is_remote=True,
+            apply_url=f"https://example.com/search-filter/top-internship/{suffix}",
+            status="active",
+            last_seen_at=seen_at,
+        ),
+        models.Opportunity(
+            slug=f"search-filter-top-job-{suffix}",
+            title=f"{search_term} top job",
+            company=top_company,
+            category="job",
+            location=f"Elsewhere-{suffix}",
+            is_remote=False,
+            apply_url=f"https://example.com/search-filter/top-job/{suffix}",
+            status="active",
+            last_seen_at=seen_at,
+        ),
+        models.Opportunity(
+            slug=f"search-filter-mid-internship-{suffix}",
+            title=f"{search_term} mid internship",
+            company=mid_company,
+            category="internship",
+            location=f"South {location_token}, India",
+            is_remote=False,
+            apply_url=f"https://example.com/search-filter/mid-internship/{suffix}",
+            status="active",
+            last_seen_at=seen_at,
+        ),
+        models.Opportunity(
+            slug=f"search-filter-unranked-job-{suffix}",
+            title=f"{search_term} unranked job",
+            company=unranked_company,
+            category="job",
+            location=f"Coast-{suffix}",
+            is_remote=True,
+            apply_url=f"https://example.com/search-filter/unranked-job/{suffix}",
+            status="active",
+            last_seen_at=seen_at,
+        ),
+    ]
+    db_session.add_all([top_company, mid_company, unranked_company, *opportunities])
+    db_session.flush()
+
+    return search_term, location_token, top_company.slug, opportunities
+
+
+def test_search_without_filters_returns_all_fts_matches(
+    client: TestClient,
+    search_rows,
+) -> None:
+    search_term, _location_token, _company_slug, opportunities = search_rows
+
+    response = client.get("/search", params={"q": search_term, "limit": 100})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == len(opportunities)
+    assert {item["slug"] for item in body["items"]} == {
+        opportunity.slug for opportunity in opportunities
+    }
+
+
+@pytest.mark.parametrize(
+    ("filter_name", "expected_indexes"),
+    [
+        pytest.param("category", {0, 2}, id="category"),
+        pytest.param("remote", {0, 3}, id="remote"),
+        pytest.param("company", {0, 1}, id="company"),
+        pytest.param("location", {0, 2}, id="location"),
+        pytest.param("top", {0, 1}, id="top"),
+    ],
+)
+def test_search_filters_restrict_fts_matches(
+    client: TestClient,
+    search_rows,
+    filter_name: str,
+    expected_indexes: set[int],
+) -> None:
+    search_term, location_token, company_slug, opportunities = search_rows
+    filter_params = {
+        "category": {"category": "internship"},
+        "remote": {"remote": True},
+        "company": {"company": company_slug},
+        "location": {"location": location_token.lower()},
+        "top": {"top": 10},
+    }
+    expected_slugs = {opportunities[index].slug for index in expected_indexes}
+
+    response = client.get(
+        "/search",
+        params={"q": search_term, "limit": 100, **filter_params[filter_name]},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == len(expected_slugs)
+    assert {item["slug"] for item in body["items"]} == expected_slugs
