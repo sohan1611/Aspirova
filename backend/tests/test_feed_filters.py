@@ -167,9 +167,7 @@ def test_feed_top_filter_returns_ranked_companies_and_combines_with_category(
         status="active",
         last_seen_at=seen_at,
     )
-    db_session.add_all(
-        [ranked_company, unranked_company, ranked_opportunity, unranked_opportunity]
-    )
+    db_session.add_all([ranked_company, unranked_company, ranked_opportunity, unranked_opportunity])
     db_session.flush()
 
     top_10 = client.get(
@@ -201,6 +199,4 @@ def test_feed_top_filter_returns_ranked_companies_and_combines_with_category(
     assert top_10_job["total"] == 0
     assert top_10_job["items"] == []
     assert top_10_internship["total"] == 1
-    assert [item["slug"] for item in top_10_internship["items"]] == [
-        ranked_opportunity.slug
-    ]
+    assert [item["slug"] for item in top_10_internship["items"]] == [ranked_opportunity.slug]
