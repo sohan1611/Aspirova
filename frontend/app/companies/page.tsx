@@ -1,6 +1,7 @@
 import { SearchX } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import CompanyFavicon from "@/components/CompanyFavicon";
 import { getCompanies } from "@/lib/api";
 import type { CompanyListItem } from "@/lib/types";
 
@@ -9,11 +10,6 @@ const DESCRIPTION =
 const INTRO =
   "Companies with active opportunities, auto-discovered from public company career pages; " +
   "Aspirova links out to the original source.";
-const EMPTY_STATE_CLASS_NAME = [
-  "flex flex-col items-center gap-3 rounded-lg border border-dashed",
-  "border-border py-16 text-center",
-].join(" ");
-
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -51,49 +47,60 @@ export default async function CompaniesPage() {
   }
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">
-          Companies hiring
+    <main className="mx-auto w-full max-w-[1680px] px-4 py-10 sm:px-6 sm:py-14 lg:px-10 xl:px-12">
+      <header className="max-w-3xl">
+        <p className="eyebrow">The roster</p>
+        <h1 className="mt-3 font-serif text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl">
+          Companies hiring now
         </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+        <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
           {INTRO}
+        </p>
+      </header>
+
+      <div className="mb-5 mt-10 flex items-center justify-between gap-4 border-b border-border pb-4">
+        <p className="eyebrow">Companies</p>
+        <p className="tnum text-sm text-muted-foreground">
+          {companyCountLabel(companies.length)}
         </p>
       </div>
 
-      <p className="mb-3 text-sm text-muted-foreground">
-        {companyCountLabel(companies.length)}
-      </p>
-
       {companies.length > 0 ? (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {companies.map((company) => (
             <Link
               key={company.slug}
               href={companyPath(company.slug)}
-              className={[
-                "group rounded-lg border border-border bg-card p-4",
-                "transition-colors hover:border-primary/50 hover:bg-accent/40",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              ].join(" ")}
+              className="group flex min-h-44 flex-col rounded-xl border border-border bg-card p-5 shadow-soft transition-[transform,box-shadow,border-color] duration-300 ease-premium hover:-translate-y-1 hover:border-primary/45 hover:[box-shadow:var(--shadow-md)] focus-visible:-translate-y-1 focus-visible:border-primary/45 focus-visible:[box-shadow:var(--shadow-md)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
-              <span className="block text-base font-semibold text-foreground group-hover:text-primary">
-                {company.name}
-              </span>
-              <span className="mt-2 block text-sm text-muted-foreground">
-                {openRoleLabel(company.active_count)}
-              </span>
+              <div className="w-fit rounded-xl border border-border bg-secondary/40 p-1.5 shadow-soft">
+                <CompanyFavicon company={company} size={56} />
+              </div>
+
+              <div className="mt-auto pt-6">
+                <h2 className="min-w-0 break-words font-sans text-md font-medium leading-snug text-card-foreground transition-colors duration-300 ease-premium group-hover:text-primary group-focus-visible:text-primary">
+                  {company.name}
+                </h2>
+                <p className="tnum mt-2 text-sm text-muted-foreground">
+                  {openRoleLabel(company.active_count)}
+                </p>
+              </div>
             </Link>
           ))}
         </div>
       ) : (
-        <div className={EMPTY_STATE_CLASS_NAME}>
-          <SearchX className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
-          <p className="font-medium text-foreground">No companies found</p>
-          <p className="max-w-xs text-sm text-muted-foreground">
+        <section className="flex flex-col items-center rounded-xl border border-border bg-card px-5 py-16 text-center shadow-soft sm:py-20">
+          <div className="rounded-lg border border-border bg-secondary/40 p-3 shadow-soft">
+            <SearchX className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
+          </div>
+          <p className="eyebrow mt-5">The roster</p>
+          <h2 className="mt-2 font-serif text-xl font-semibold text-foreground">
+            The next company is still being indexed.
+          </h2>
+          <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
             Check back soon as Aspirova discovers more public career pages.
           </p>
-        </div>
+        </section>
       )}
     </main>
   );

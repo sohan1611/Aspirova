@@ -8,9 +8,7 @@ export interface CompanySummary {
   logo_url: string | null;
 }
 
-export interface CompanyListItem {
-  slug: string;
-  name: string;
+export interface CompanyListItem extends CompanySummary {
   active_count: number;
 }
 
