@@ -16,6 +16,7 @@ interface PageProps {
     location?: string;
     company?: string;
     top?: string;
+    sort?: string;
     page?: string;
     cols?: string;
     rows?: string;
@@ -36,6 +37,7 @@ export default async function HomePage({ searchParams }: PageProps) {
   const rows = Math.min(20, Math.max(5, Number(params.rows ?? "10") || 10));
   const LIMIT = cols * rows;
   const top = params.top ? Number(params.top) : undefined;
+  const sort: "recent" | "deadline" = params.sort === "deadline" ? "deadline" : "recent";
 
   const data = params.q
     ? await searchOpportunities(params.q, page, LIMIT)
@@ -45,6 +47,7 @@ export default async function HomePage({ searchParams }: PageProps) {
         location: params.location,
         company: params.company,
         top: top && Number.isFinite(top) && top > 0 ? top : undefined,
+        sort,
         page,
         limit: LIMIT,
       });
@@ -56,9 +59,7 @@ export default async function HomePage({ searchParams }: PageProps) {
       <SignedOutHero />
 
       <div id="feed-search" className="mb-6 scroll-mt-20 pt-10">
-        <SearchFilters
-          key={[params.q, params.category, params.remote, params.location, params.company, params.top].join("|")}
-        />
+        <SearchFilters />
       </div>
 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
