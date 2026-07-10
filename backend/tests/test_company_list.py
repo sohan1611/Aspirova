@@ -42,6 +42,8 @@ def test_companies_returns_active_company_counts_ordered(
     high_count_company = models.Company(
         slug=f"company-list-high-count-{suffix}",
         name="Company List High Count",
+        domain=f"company-list-high-count-{suffix}.example",
+        logo_url=f"https://example.com/company-list/logo/{suffix}.png",
     )
     low_count_company = models.Company(
         slug=f"company-list-low-count-{suffix}",
@@ -105,7 +107,9 @@ def test_companies_returns_active_company_counts_ordered(
     assert response.status_code == 200
     body = response.json()
     assert isinstance(body, list)
-    assert all(set(item.keys()) == {"slug", "name", "active_count"} for item in body)
+    assert all(
+        set(item.keys()) == {"slug", "name", "domain", "logo_url", "active_count"} for item in body
+    )
 
     # Collation-independent global invariant: counts are non-increasing. The
     # endpoint's name tiebreak among equal counts uses the DB collation, which
@@ -125,11 +129,15 @@ def test_companies_returns_active_company_counts_ordered(
         {
             "slug": high_count_company.slug,
             "name": high_count_company.name,
+            "domain": high_count_company.domain,
+            "logo_url": high_count_company.logo_url,
             "active_count": 2,
         },
         {
             "slug": low_count_company.slug,
             "name": low_count_company.name,
+            "domain": None,
+            "logo_url": None,
             "active_count": 1,
         },
     ]

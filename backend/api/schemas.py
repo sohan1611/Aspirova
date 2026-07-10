@@ -22,6 +22,8 @@ class CompanySummary(BaseModel):
 class CompanyListItem(BaseModel):
     slug: str
     name: str
+    domain: str | None = None
+    logo_url: str | None = None
     active_count: int
 
 

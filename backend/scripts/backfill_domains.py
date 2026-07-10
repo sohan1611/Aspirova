@@ -17,6 +17,31 @@ BATCH_SIZE = 100
 CLEARBIT_SUGGEST_URL = "https://autocomplete.clearbit.com/v1/companies/suggest"
 REQUEST_TIMEOUT_SECONDS = 10.0
 EXAMPLE_LIMIT = 10
+_LEGAL_SUFFIXES = frozenset(
+    {
+        "ab",
+        "ag",
+        "as",
+        "bv",
+        "co",
+        "corp",
+        "corporation",
+        "gmbh",
+        "group",
+        "holdings",
+        "inc",
+        "kg",
+        "limited",
+        "llc",
+        "ltd",
+        "oy",
+        "plc",
+        "pty",
+        "sa",
+        "sas",
+        "srl",
+    }
+)
 
 
 def _positive_int(value: str) -> int:
@@ -75,6 +100,13 @@ def _first_token(value: str) -> str | None:
     return tokens[0]
 
 
+def _strip_legal_suffixes(value: str) -> str:
+    tokens = value.split()
+    while len(tokens) > 1 and tokens[-1] in _LEGAL_SUFFIXES:
+        tokens.pop()
+    return " ".join(tokens)
+
+
 def _is_confident_match(company: models.Company, suggestion_name: str) -> bool:
     company_normalized = company.name_normalized or normalize_company_name(company.name)
     suggestion_normalized = normalize_company_name(suggestion_name)
@@ -87,6 +119,11 @@ def _is_confident_match(company: models.Company, suggestion_name: str) -> bool:
     suggestion_first = _first_token(suggestion_normalized)
     if company_first is None or suggestion_first is None or company_first != suggestion_first:
         return False
+
+    company_without_suffixes = _strip_legal_suffixes(company_normalized)
+    suggestion_without_suffixes = _strip_legal_suffixes(suggestion_normalized)
+    if company_without_suffixes == suggestion_without_suffixes:
+        return True
 
     suggestion_extends_company = suggestion_normalized.startswith(company_normalized)
     company_extends_suggestion = company_normalized.startswith(suggestion_normalized)

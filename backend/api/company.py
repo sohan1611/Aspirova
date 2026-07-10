@@ -22,6 +22,8 @@ def list_companies(db: Session = Depends(get_db)) -> list[CompanyListItem]:
         select(
             models.Company.slug,
             models.Company.name,
+            models.Company.domain,
+            models.Company.logo_url,
             func.count(models.Opportunity.id).label("active_count"),
         )
         .join(
@@ -29,13 +31,25 @@ def list_companies(db: Session = Depends(get_db)) -> list[CompanyListItem]:
             (models.Opportunity.company_id == models.Company.id)
             & (models.Opportunity.status == "active"),
         )
-        .group_by(models.Company.id)
+        .group_by(
+            models.Company.id,
+            models.Company.slug,
+            models.Company.name,
+            models.Company.domain,
+            models.Company.logo_url,
+        )
         .order_by(desc("active_count"), models.Company.name.asc())
     ).all()
 
     return [
-        CompanyListItem(slug=slug, name=name, active_count=active_count)
-        for slug, name, active_count in rows
+        CompanyListItem(
+            slug=slug,
+            name=name,
+            domain=domain,
+            logo_url=logo_url,
+            active_count=active_count,
+        )
+        for slug, name, domain, logo_url, active_count in rows
     ]
 
 
