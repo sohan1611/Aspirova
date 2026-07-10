@@ -260,3 +260,14 @@ RESULT (source expansion, live): SmartRecruiters seeded to production and the Ti
 
 - **Codex delivered:** backend/api/filters.py `opportunity_filters()` (verbatim extraction); feed.py refactored to use it (identical behavior); /search gains the 5 filter params applied to all 3 builders (fts_query, fts_total count, fallback) with relevance/count/fallback intact; searchOpportunities(q, filters, page, limit) + page.tsx passes a shared filters obj to both branches; new test_search.py (1 no-filter + 5 parametrized filter cases).
 - **Claude verified:** ruff+black clean; **test_search.py 6/6 passed against the real DB**; frontend eslint+tsc+build clean; direct API — search "engineer" 2664 → +remote 752 → +internship 52; frontend end-to-end /?q=engineer&remote=true shows 752 (filtered), no console errors. Committed on feat/search-filters.
+
+## Phase 5 — Opportunity Expansion (cream layer + competitions) — architecture by Claude Opus
+- **Diagnosis (prod, 2026-07-11):** 203 companies, only 5 Forbes-ranked (min 132) → Top-10/50/100 = 0; MAANG count = 0. Root cause: crawler seed = ~21 hardcoded ATS companies + RemoteOK; MAANG don't use those ATSes. Architecture written to docs/handoffs/PHASE-5-HANDOFF.md.
+- **Founder decisions:** cream-layer FIRST; MAANG via staged custom adapters (public JSON only); ask before each prod write.
+
+### #41 — Phase 5.1 cream layer — gpt-5.6-sol @ ultra
+- **Claude → Codex:** prestige_rank migration + Company field; scripts/match_prestige.py (mirror match_forbes, reads Claude-curated data/prestige_companies.json = 130 cos incl MAANG + top unicorns + Indian names); api/filters.py top = (prestige_rank OR global_rank) <= N; seed_companies.py += 30 Claude-verified-live famous companies (OpenAI/Anthropic/Databricks/Cohere/Perplexity/Ramp/Spotify/…); tests (match_prestige, feed top-filter, search). Backend only, no prod writes.
+- **Status:** Codex running (branch feat/cream-layer); Claude to verify ruff/black/pytest, then founder-authorized prod migration+seed+crawl+rank.
+
+- **Codex delivered:** migration a5d1f8c3e7b2 (prestige_rank col+index, chains from b7e3c9d2a1f4 head); Company.prestige_rank + index; scripts/match_prestige.py (reads data/prestige_companies.json, writes prestige_rank); api/filters.py top = or_(prestige_rank<=N, global_rank<=N); seed_companies.py +30 verified famous cos; tests/test_match_prestige.py + extended test_feed_filters.
+- **Claude verified:** ruff+black clean; migration chains from single head; models/filters/matcher logic correct. Feed/search tests ERROR only with "column prestige_rank does not exist" — model is ahead of the un-migrated prod DB (expected); they pass once the migration is applied. Committed on feat/cream-layer. NEXT (founder-authorized): apply migration → seed → crawl → match_forbes + match_prestige → verify Top-N live.

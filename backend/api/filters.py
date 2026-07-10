@@ -33,9 +33,15 @@ def opportunity_filters(
     if top is not None:
         filters.append(
             models.Opportunity.company.has(
-                and_(
-                    models.Company.global_rank.is_not(None),
-                    models.Company.global_rank <= top,
+                or_(
+                    and_(
+                        models.Company.prestige_rank.is_not(None),
+                        models.Company.prestige_rank <= top,
+                    ),
+                    and_(
+                        models.Company.global_rank.is_not(None),
+                        models.Company.global_rank <= top,
+                    ),
                 )
             )
         )

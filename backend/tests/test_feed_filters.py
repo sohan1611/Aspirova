@@ -143,6 +143,11 @@ def test_feed_top_filter_returns_ranked_companies_and_combines_with_category(
         name=f"Top Filter Ranked {suffix}",
         global_rank=5,
     )
+    prestige_company = models.Company(
+        slug=f"top-filter-prestige-{suffix}",
+        name=f"Top Filter Prestige {suffix}",
+        prestige_rank=7,
+    )
     unranked_company = models.Company(
         slug=f"top-filter-unranked-{suffix}",
         name=f"Top Filter Unranked {suffix}",
@@ -157,6 +162,16 @@ def test_feed_top_filter_returns_ranked_companies_and_combines_with_category(
         status="active",
         last_seen_at=seen_at,
     )
+    prestige_opportunity = models.Opportunity(
+        slug=f"top-filter-prestige-internship-{suffix}",
+        title="Prestige internship",
+        company=prestige_company,
+        category="internship",
+        location=location_token,
+        apply_url=f"https://example.com/top-filter/prestige/{suffix}",
+        status="active",
+        last_seen_at=seen_at,
+    )
     unranked_opportunity = models.Opportunity(
         slug=f"top-filter-unranked-job-{suffix}",
         title="Unranked job",
@@ -167,7 +182,16 @@ def test_feed_top_filter_returns_ranked_companies_and_combines_with_category(
         status="active",
         last_seen_at=seen_at,
     )
-    db_session.add_all([ranked_company, unranked_company, ranked_opportunity, unranked_opportunity])
+    db_session.add_all(
+        [
+            ranked_company,
+            prestige_company,
+            unranked_company,
+            ranked_opportunity,
+            prestige_opportunity,
+            unranked_opportunity,
+        ]
+    )
     db_session.flush()
 
     top_10 = client.get(
@@ -192,11 +216,16 @@ def test_feed_top_filter_returns_ranked_companies_and_combines_with_category(
         },
     ).json()
 
-    assert top_10["total"] == 1
-    assert [item["slug"] for item in top_10["items"]] == [ranked_opportunity.slug]
+    expected_ranked_slugs = {ranked_opportunity.slug, prestige_opportunity.slug}
+
+    assert prestige_company.global_rank is None
+    assert unranked_company.global_rank is None
+    assert unranked_company.prestige_rank is None
+    assert top_10["total"] == 2
+    assert {item["slug"] for item in top_10["items"]} == expected_ranked_slugs
     assert top_1["total"] == 0
     assert top_1["items"] == []
     assert top_10_job["total"] == 0
     assert top_10_job["items"] == []
-    assert top_10_internship["total"] == 1
-    assert [item["slug"] for item in top_10_internship["items"]] == [ranked_opportunity.slug]
+    assert top_10_internship["total"] == 2
+    assert {item["slug"] for item in top_10_internship["items"]} == expected_ranked_slugs

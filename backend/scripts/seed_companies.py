@@ -31,6 +31,23 @@ GREENHOUSE_COMPANIES = [
     ("reddit", "Reddit", "reddit.com"),
     ("cloudflare", "Cloudflare", "cloudflare.com"),
     ("gitlab", "GitLab", "gitlab.com"),
+    ("affirm", "Affirm", "affirm.com"),
+    ("airtable", "Airtable", "airtable.com"),
+    ("anthropic", "Anthropic", "anthropic.com"),
+    ("chime", "Chime", "chime.com"),
+    ("cockroachlabs", "Cockroach Labs", "cockroachlabs.com"),
+    ("databricks", "Databricks", "databricks.com"),
+    ("dropbox", "Dropbox", "dropbox.com"),
+    ("faire", "Faire", "faire.com"),
+    ("flexport", "Flexport", "flexport.com"),
+    ("gemini", "Gemini", "gemini.com"),
+    ("instacart", "Instacart", "instacart.com"),
+    ("lyft", "Lyft", "lyft.com"),
+    ("mongodb", "MongoDB", "mongodb.com"),
+    ("samsara", "Samsara", "samsara.com"),
+    ("scaleai", "Scale AI", "scale.com"),
+    ("sofi", "SoFi", "sofi.com"),
+    ("twitch", "Twitch", "twitch.tv"),
 ]
 
 # (board_token, company_name, domain) - verified live against
@@ -39,6 +56,7 @@ LEVER_COMPANIES = [
     ("weride", "WeRide", "weride.ai"),
     ("angellist", "AngelList", "angellist.com"),
     ("wealthfront", "Wealthfront", "wealthfront.com"),
+    ("spotify", "Spotify", "spotify.com"),
 ]
 
 # (board_token, company_name, domain) - verified live against
@@ -47,6 +65,18 @@ ASHBY_COMPANIES = [
     ("linear", "Linear", "linear.app"),
     ("notion", "Notion", "notion.so"),
     ("ashby", "Ashby", "ashbyhq.com"),
+    ("browserbase", "Browserbase", "browserbase.com"),
+    ("cohere", "Cohere", "cohere.com"),
+    ("elevenlabs", "ElevenLabs", "elevenlabs.io"),
+    ("mercor", "Mercor", "mercor.com"),
+    ("modal", "Modal", "modal.com"),
+    ("openai", "OpenAI", "openai.com"),
+    ("perplexity", "Perplexity", "perplexity.ai"),
+    ("ramp", "Ramp", "ramp.com"),
+    ("replit", "Replit", "replit.com"),
+    ("sardine", "Sardine", "sardine.ai"),
+    ("vanta", "Vanta", "vanta.com"),
+    ("watershed", "Watershed", "watershed.com"),
 ]
 
 # (board_token, company_name, domain) - verified live against
