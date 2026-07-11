@@ -100,6 +100,8 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
   const competitionMode = isCompetition
     ? getCompetitionMode(item.meta)
     : null;
+  const offersPpi = isCompetition && item.meta?.offers_ppi === true;
+  const offersPpo = isCompetition && item.meta?.offers_ppo === true;
   const urgentDeadline =
     isCompetition && item.deadline ? isDeadlineUrgent(item.deadline) : false;
   const registrationsClosed =
@@ -181,6 +183,8 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
           {competitionMode && (
             <Badge variant="outline">{competitionMode}</Badge>
           )}
+          {offersPpi && <Badge variant="heritage">Offers internship</Badge>}
+          {offersPpo && <Badge variant="heritage">Offers PPO</Badge>}
           {item.is_hidden && <Badge variant="heritage">Hidden gem</Badge>}
         </div>
 

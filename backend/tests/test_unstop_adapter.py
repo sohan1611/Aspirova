@@ -191,10 +191,30 @@ def test_parse_maps_category_deadline_organizer_and_meta(
         "subtype": opportunity["subtype"],
         "mode": opportunity["region"],
         "prizes": opportunity["prizes"],
+        "offers_ppi": False,
+        "offers_ppo": False,
         "register_count": opportunity["registerCount"],
         "skills": opportunity["required_skills"],
         "is_paid": opportunity["isPaid"],
     }
+
+
+def test_parse_maps_pre_placement_prizes_to_offer_flags(
+    adapter: UnstopAdapter,
+    fixture_payload: dict,
+) -> None:
+    opportunity = {
+        **_fixture_items(fixture_payload)[0],
+        "prizes": [
+            {"pre_placement_internship": 1},
+            {"pre_placement_opportunity": 1},
+        ],
+    }
+
+    normalized = adapter.parse(_raw_listing_for(opportunity))
+
+    assert normalized.meta["offers_ppi"] is True
+    assert normalized.meta["offers_ppo"] is True
 
 
 @pytest.mark.parametrize("date_value", [None, "not a real date"])

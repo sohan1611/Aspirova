@@ -303,6 +303,7 @@ def test_feed_keeps_recently_closed_competitions_and_excludes_expired_ones(
         location=location_token,
         apply_url=f"https://example.com/deadline-filter/expired/{suffix}",
         deadline=now - timedelta(days=20),
+        meta={"offers_ppi": True},
         status="active",
         last_seen_at=now,
     )
@@ -314,6 +315,7 @@ def test_feed_keeps_recently_closed_competitions_and_excludes_expired_ones(
         location=location_token,
         apply_url=f"https://example.com/deadline-filter/recently-closed/{suffix}",
         deadline=now - timedelta(days=3),
+        meta={"offers_ppi": True},
         status="active",
         last_seen_at=now,
     )
@@ -325,6 +327,7 @@ def test_feed_keeps_recently_closed_competitions_and_excludes_expired_ones(
         location=location_token,
         apply_url=f"https://example.com/deadline-filter/earlier-closed/{suffix}",
         deadline=now - timedelta(days=10),
+        meta={"offers_ppo": True},
         status="active",
         last_seen_at=now,
     )
@@ -433,5 +436,9 @@ def test_feed_keeps_recently_closed_competitions_and_excludes_expired_ones(
         recently_closed_competition.slug,
         earlier_closed_hackathon.slug,
     ]
-    assert roles["total"] == 1
-    assert [item["slug"] for item in roles["items"]] == [past_deadline_role.slug]
+    assert roles["total"] == 3
+    assert {item["slug"] for item in roles["items"]} == {
+        recently_closed_competition.slug,
+        earlier_closed_hackathon.slug,
+        past_deadline_role.slug,
+    }

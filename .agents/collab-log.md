@@ -317,3 +317,7 @@ RESULT (source expansion, live): SmartRecruiters seeded to production and the Ti
 ### #49 — RP-1+RP-2 — gpt-5.6-sol @ ultra (branch feat/polish-dates-perf, running bztoxn05o)
 - **Codex delivered:** lib/date.ts (en-GB formatDate long/numeric); day-first dates on cards ("5 Mar")/detail ("05/03/2026 DD/MM/YYYY")/account/referral; OpportunityCardSkeleton + loading.tsx for (feed)/competitions/companies; useTransition + isPending pending-affordance in SearchFilters + FeedViewControls.
 - **Claude verified:** eslint+tsc+build clean; preview — cards "Registers by 11 Jul", detail "Deadline: 11/07/2026" (day-first ✓); no console errors. Committed on feat/polish-dates-perf.
+
+### #50 — RP-3 roles/competitions split + PPI/PPO bridge — gpt-5.6-sol @ ultra
+- **Codex delivered:** unstop.py meta.offers_ppi/offers_ppo from prizes' pre_placement flags; feed.py kind=roles = category(internship,job) OR meta offers_ppi/ppo (JSONB as_boolean); home feed defaults kind=roles (competitions no longer clutter internships; explicit category/kind overrides); OpportunityCard "Offers internship/PPO" heritage badge; tests.
+- **Claude verified:** ruff+black clean, 17 tests pass, eslint+tsc+build clean. Committed on feat/roles-competitions-split. Re-crawling Unstop locally to backfill meta.offers_ppi on existing rows.

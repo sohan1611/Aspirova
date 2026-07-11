@@ -10,7 +10,7 @@ measured p50 248-272ms / p95 up to 1254ms against the same real data.
 """
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import and_, case, func, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from api.deps import get_db
@@ -42,7 +42,13 @@ def get_feed(
     if kind == "competitions":
         base_filters.append(models.Opportunity.category.in_(["hackathon", "competition"]))
     elif kind == "roles":
-        base_filters.append(models.Opportunity.category.in_(["internship", "job"]))
+        base_filters.append(
+            or_(
+                models.Opportunity.category.in_(["internship", "job"]),
+                models.Opportunity.meta["offers_ppi"].as_boolean().is_(True),
+                models.Opportunity.meta["offers_ppo"].as_boolean().is_(True),
+            )
+        )
 
     total_count = func.count().over().label("total_count")
     query = (

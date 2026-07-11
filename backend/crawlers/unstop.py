@@ -115,6 +115,8 @@ class UnstopAdapter:
         prizes = opportunity.get("prizes")
         if not isinstance(prizes, list):
             prizes = []
+        offers_ppi = any(bool(prize.get("pre_placement_internship")) for prize in prizes)
+        offers_ppo = any(bool(prize.get("pre_placement_opportunity")) for prize in prizes)
         skills = opportunity.get("required_skills")
         if not isinstance(skills, list):
             skills = []
@@ -141,6 +143,8 @@ class UnstopAdapter:
                 "subtype": opportunity.get("subtype"),
                 "mode": region,
                 "prizes": prizes,
+                "offers_ppi": offers_ppi,
+                "offers_ppo": offers_ppo,
                 "register_count": opportunity.get("registerCount"),
                 "skills": skills,
                 "is_paid": opportunity.get("isPaid"),

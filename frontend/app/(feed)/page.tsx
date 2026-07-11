@@ -12,6 +12,7 @@ interface PageProps {
   searchParams: Promise<{
     q?: string;
     category?: string;
+    kind?: string;
     remote?: string;
     location?: string;
     company?: string;
@@ -38,6 +39,11 @@ export default async function HomePage({ searchParams }: PageProps) {
   const LIMIT = cols * rows;
   const top = params.top ? Number(params.top) : undefined;
   const sort: "recent" | "deadline" = params.sort === "deadline" ? "deadline" : "recent";
+  const kind = params.kind
+    ? (params.kind as "roles" | "competitions")
+    : params.category
+      ? undefined
+      : "roles";
 
   const filters = {
     category: params.category as "internship" | "job" | undefined,
@@ -51,6 +57,7 @@ export default async function HomePage({ searchParams }: PageProps) {
     ? await searchOpportunities(params.q, filters, page, LIMIT)
     : await getFeed({
         ...filters,
+        kind,
         sort,
         page,
         limit: LIMIT,
