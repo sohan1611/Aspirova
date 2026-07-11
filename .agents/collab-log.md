@@ -336,3 +336,9 @@ RESULT (source expansion, live): SmartRecruiters seeded to production and the Ti
 
 ### A6 — trim Unstop meta payload (perf) — Claude direct (small)
 - meta.skills -> deduped list of name strings (was full nested objects w/ pivot/ai_generated); meta.prizes -> {rank,cash,currency} (dropped pivot/entity internals). offers_ppi/ppo computed before trim. Card unaffected (reads prize.cash). Tests updated, 11 pass, frontend build clean. Re-crawl backfills existing rows.
+
+### #46 — RP-5 straight-to-source cards for Google/Microsoft/Apple — gpt-5.6-sol @ ultra
+- **Architect (Claude) authored the data:** lib/externalCompanies.ts — 3 companies, verified careers URLs, and flagship annual programs (Google: GSoC, GDG Solution Challenge, STEP, Girl Hackathon; Microsoft: Imagine Cup, Engage, Explore; Apple: Swift Student Challenge). Every URL fetch-verified live (HTTP 200) before shipping. Trust guardrail: no scraping, honest "we always link to source" framing, tentative-timeline caveats.
+- **Codex delivered (frontend):** SourceCompanyCard (branded card) + SourceCompanyDetail (honest note + verified careers CTA + flagship-programs grid w/ 🌍/🇮🇳 scope badges + official links); search q=google/microsoft/apple surfaces the card; /companies/<slug> short-circuits the API for the 3 slugs; /companies "Marquee employers" row.
+- **Claude verified:** eslint+tsc+build clean; live browser — /companies/google+apple render honest detail, /?q=google surfaces the card above 1019 results, /companies shows the 3-up marquee, normal slug (/companies/databricks) still hits the API. Polished a duplicate heading (eyebrow → "The annual calendar"). Merged to master as sohan1611.
+- **Ops note:** stopped the A6 meta-trim backfill (failing on lock contention from a leaked idle-in-transaction session — a killed re-crawl); meta-trim is perf-only and applies on fresh crawls. Leaked session is harmless to reads; flagged to founder to clear via Supabase SQL editor if desired.
