@@ -9,9 +9,9 @@ export default function AppHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-[1680px] items-center justify-between gap-2 px-4 sm:gap-4 sm:px-6 lg:px-10 xl:px-12">
-        <div className="flex items-center gap-3 sm:gap-6">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-6">
           <Wordmark className="[&>span]:hidden [&>span]:tracking-[-0.01em] sm:[&>span]:inline" />
-          <nav className="flex items-center gap-3 text-sm font-medium sm:gap-4">
+          <nav className="flex min-w-0 items-center gap-3 overflow-x-auto whitespace-nowrap text-sm font-medium [scrollbar-width:none] sm:gap-4 [&::-webkit-scrollbar]:hidden">
             <Link href="/resume" className={NAV_LINK_CLASSES}>
               Matches
             </Link>
@@ -20,6 +20,9 @@ export default function AppHeader() {
             </Link>
             <Link href="/copilot" className={NAV_LINK_CLASSES}>
               Copilot
+            </Link>
+            <Link href="/competitions" className={NAV_LINK_CLASSES}>
+              Competitions
             </Link>
             <Link href="/pricing" className={NAV_LINK_CLASSES}>
               Pricing

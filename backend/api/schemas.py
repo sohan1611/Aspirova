@@ -48,6 +48,7 @@ class OpportunityListItem(BaseModel):
     posted_at: datetime | None
     last_seen_at: datetime
     is_hidden: bool
+    meta: dict | None = None
 
     @field_validator("location")
     @classmethod
@@ -81,6 +82,7 @@ class OpportunityListItem(BaseModel):
             posted_at=o.posted_at,
             last_seen_at=o.last_seen_at,
             is_hidden=o.is_hidden,
+            meta=o.meta,
         )
 
 
@@ -171,6 +173,7 @@ class OpportunityDetail(OpportunityListItem):
             posted_at=o.posted_at,
             last_seen_at=o.last_seen_at,
             is_hidden=o.is_hidden,
+            meta=o.meta,
             description_raw=o.description_raw or "",
             summary=o.summary,
             apply_url=o.apply_url,

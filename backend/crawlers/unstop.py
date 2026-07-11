@@ -1,6 +1,6 @@
 """Unstop aggregator adapter using its public opportunity search API."""
 
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 import httpx
@@ -30,6 +30,7 @@ class UnstopAdapter:
         listings: list[RawListing] = []
         seen_ids: set[str] = set()
         degraded = False
+        expiry_cutoff = datetime.now(UTC) - timedelta(days=14)
 
         for opportunity_type in _OPPORTUNITY_TYPES:
             for page in range(1, _MAX_PAGES + 1):
@@ -71,7 +72,8 @@ class UnstopAdapter:
                         degraded = True
                         continue
 
-                    if item.get("regn_open") != 1 and item.get("status") != "LIVE":
+                    deadline = _parse_iso_datetime(item.get("end_date"))
+                    if deadline is not None and deadline < expiry_cutoff:
                         continue
 
                     opportunity_id = item.get("id")
@@ -167,9 +169,12 @@ def _parse_iso_datetime(value: Any) -> datetime | None:
     if not text:
         return None
     try:
-        return datetime.fromisoformat(text)
+        parsed = datetime.fromisoformat(text)
     except ValueError:
         return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed
 
 
 def _as_text(value: Any) -> str:

@@ -10,11 +10,11 @@ measured p50 248-272ms / p95 up to 1254ms against the same real data.
 """
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
+from sqlalchemy import and_, case, func, select
 from sqlalchemy.orm import Session, joinedload
 
 from api.deps import get_db
-from api.filters import opportunity_filters
+from api.filters import exclude_closed_competitions, opportunity_filters
 from api.schemas import FeedResponse, OpportunityListItem
 from core import models
 
@@ -24,6 +24,7 @@ router = APIRouter()
 @router.get("/feed", response_model=FeedResponse)
 def get_feed(
     category: str | None = Query(None, pattern="^(internship|job|hackathon|competition)$"),
+    kind: str | None = Query(None, pattern="^(roles|competitions)$"),
     remote: bool | None = Query(None),
     company: str | None = Query(None),
     location: str | None = Query(None),
@@ -35,8 +36,13 @@ def get_feed(
 ) -> FeedResponse:
     base_filters = [
         models.Opportunity.status == "active",
+        exclude_closed_competitions(),
         *opportunity_filters(category, remote, company, location, top),
     ]
+    if kind == "competitions":
+        base_filters.append(models.Opportunity.category.in_(["hackathon", "competition"]))
+    elif kind == "roles":
+        base_filters.append(models.Opportunity.category.in_(["internship", "job"]))
 
     total_count = func.count().over().label("total_count")
     query = (
@@ -49,7 +55,42 @@ def get_feed(
     # Postgres gives no ordering guarantee among tied rows across separate
     # paginated queries - confirmed live, page 1 and page 2 returned
     # overlapping rows without this.
-    if sort == "deadline":
+    competition_view = kind == "competitions" or category in {
+        "hackathon",
+        "competition",
+    }
+    if competition_view:
+        competition_is_closed = case(
+            (
+                and_(
+                    models.Opportunity.deadline.is_not(None),
+                    models.Opportunity.deadline < func.now(),
+                ),
+                1,
+            ),
+            else_=0,
+        )
+        if sort == "deadline":
+            competition_open_deadline = case(
+                (
+                    competition_is_closed == 0,
+                    models.Opportunity.deadline,
+                ),
+                else_=None,
+            )
+            query = query.order_by(
+                competition_is_closed.asc(),
+                competition_open_deadline.asc().nullslast(),
+                models.Opportunity.deadline.desc().nullslast(),
+                models.Opportunity.id.asc(),
+            )
+        else:
+            query = query.order_by(
+                competition_is_closed.asc(),
+                models.Opportunity.last_seen_at.desc(),
+                models.Opportunity.id.desc(),
+            )
+    elif sort == "deadline":
         query = query.order_by(
             models.Opportunity.deadline.asc().nullslast(), models.Opportunity.id.asc()
         )

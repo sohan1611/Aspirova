@@ -1,8 +1,18 @@
 """Shared optional filters for opportunity query endpoints."""
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, func, or_, text
 
 from core import models
+
+
+def exclude_closed_competitions():
+    """Exclude competitions whose registration deadline passed over 14 days ago."""
+    expired_competition = and_(
+        models.Opportunity.category.in_(["hackathon", "competition"]),
+        models.Opportunity.deadline.is_not(None),
+        models.Opportunity.deadline < func.now() - text("interval '14 days'"),
+    )
+    return expired_competition.is_not(True)
 
 
 def opportunity_filters(

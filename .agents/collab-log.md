@@ -307,3 +307,7 @@ RESULT (source expansion, live): SmartRecruiters seeded to production and the Ti
 
 - **Codex delivered:** crawlers/devpost.py + crawlers/unstop.py (aggregator adapters); registered in AGGREGATOR_ADAPTERS; run_tier orders remoteok LAST (aggregator_jobs.sort remoteok->last); seeded devpost+unstop sources; adapter tests + fixtures.
 - **Claude verified:** ruff clean; black (fixed 1 Codex missed); test_devpost+test_unstop+test_runner 21/21; LIVE fetch = Devpost 72 hackathons (deadlines from date-range end) + Unstop 1669 (669 competition + 1000 hackathon, ISO deadlines), organizers resolve (XPRIZE/Salesforce/IIT/etc.). Committed on feat/competition-adapters.
+
+### #48 — 5.2d competitions UI + 14-day lifecycle — gpt-5.6-sol @ ultra
+- **Codex delivered:** meta on OpportunityListItem + /feed kind param; Hackathons/Competitions filter; competition cards (prize ₹/mode/deadline); /competitions (THE ARENA) + nav; 14-day lifecycle (open→"Registers by", closed≤14d→"Registrations closed" ranked below open, closed>14d excluded); Unstop skips >14d-closed; scripts/cleanup_expired_competitions (FK-safe) + crawl-workflow prune step; tests.
+- **Claude verified + hardened:** 31 backend tests pass (incl cleanup), eslint/tsc/build clean, ruff/black clean. Hardened cleanup (batch 200, per-batch commit, 120s maint timeout) after a statement-timeout from crashed-pytest lock contention. Ran cleanup → drained 1180 stale competitions (0 stale >14d remaining; 520 live competitions; 9703 active opps). Committed on feat/competitions-ui.

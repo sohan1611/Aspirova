@@ -26,6 +26,8 @@ const CATEGORY_OPTIONS = [
   { value: null, label: "All" },
   { value: "internship", label: "Internships" },
   { value: "job", label: "Jobs" },
+  { value: "hackathon", label: "Hackathons" },
+  { value: "competition", label: "Competitions" },
 ];
 
 const REMOTE_OPTIONS = [

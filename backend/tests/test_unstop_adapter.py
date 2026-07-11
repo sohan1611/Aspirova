@@ -1,7 +1,7 @@
 """Unit tests for UnstopAdapter using a captured real API response."""
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -54,6 +54,10 @@ def test_fetch_returns_fixture_opportunities_and_deduplicates_across_types(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     request_params: list[dict] = []
+    fixture_items = _fixture_items(fixture_payload)
+    now = datetime.now(UTC)
+    for days_until_deadline, opportunity in enumerate(fixture_items, start=1):
+        opportunity["end_date"] = (now + timedelta(days=days_until_deadline)).isoformat()
 
     def fake_get(url: str, *, params: dict) -> httpx.Response:
         request_params.append(params)
@@ -64,7 +68,6 @@ def test_fetch_returns_fixture_opportunities_and_deduplicates_across_types(
     monkeypatch.setattr(adapter._client, "get", fake_get)
 
     raw_listings = adapter.fetch()
-    fixture_items = _fixture_items(fixture_payload)
 
     assert len(raw_listings) == len(fixture_items)
     assert {listing.external_id for listing in raw_listings} == {
@@ -76,6 +79,75 @@ def test_fetch_returns_fixture_opportunities_and_deduplicates_across_types(
         {"opportunity": "hackathons", "per_page": 100, "page": 1},
         {"opportunity": "hackathons", "per_page": 100, "page": 2},
     ]
+    assert adapter.health() == "ok"
+
+
+def test_fetch_only_skips_deadlines_older_than_grace_period(
+    adapter: UnstopAdapter,
+    fixture_payload: dict,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture_item = _fixture_items(fixture_payload)[0]
+    now = datetime.now(UTC)
+    items = [
+        {
+            **fixture_item,
+            "id": 1,
+            "seo_url": "https://unstop.com/competition/future-aware-1",
+            "end_date": (now + timedelta(days=1)).isoformat(),
+        },
+        {
+            **fixture_item,
+            "id": 2,
+            "regn_open": 0,
+            "status": "CLOSED",
+            "seo_url": "https://unstop.com/competition/recently-closed-2",
+            "end_date": (now - timedelta(days=3)).isoformat(),
+        },
+        {
+            **fixture_item,
+            "id": 3,
+            "seo_url": "https://unstop.com/competition/expired-3",
+            "end_date": (now - timedelta(days=20)).isoformat(),
+        },
+        {
+            **fixture_item,
+            "id": 4,
+            "regn_open": 0,
+            "status": "CLOSED",
+            "seo_url": "https://unstop.com/competition/missing-4",
+            "end_date": None,
+        },
+        {
+            **fixture_item,
+            "id": 5,
+            "seo_url": "https://unstop.com/competition/invalid-5",
+            "end_date": "not a real date",
+        },
+        {
+            **fixture_item,
+            "id": 6,
+            "seo_url": "https://unstop.com/competition/future-naive-6",
+            "end_date": (now + timedelta(days=2)).replace(tzinfo=None).isoformat(),
+        },
+    ]
+
+    def fake_get(url: str, *, params: dict) -> httpx.Response:
+        payload = {"data": {"data": items if params["page"] == 1 else []}}
+        request = httpx.Request("GET", url, params=params)
+        return httpx.Response(200, json=payload, request=request)
+
+    monkeypatch.setattr(adapter._client, "get", fake_get)
+
+    raw_listings = adapter.fetch()
+
+    assert {listing.external_id for listing in raw_listings} == {
+        "1",
+        "2",
+        "4",
+        "5",
+        "6",
+    }
     assert adapter.health() == "ok"
 
 
@@ -140,3 +212,18 @@ def test_parse_handles_missing_and_weird_dates_without_raising(
 
     assert normalized.deadline is None
     assert normalized.deadline_confidence == "unknown"
+
+
+def test_parse_assumes_utc_for_naive_date(
+    adapter: UnstopAdapter,
+    fixture_payload: dict,
+) -> None:
+    opportunity = {
+        **_fixture_items(fixture_payload)[0],
+        "end_date": "2099-01-02T03:04:05",
+    }
+
+    normalized = adapter.parse(_raw_listing_for(opportunity))
+
+    assert normalized.deadline == datetime(2099, 1, 2, 3, 4, 5, tzinfo=UTC)
+    assert normalized.deadline_confidence == "explicit"

@@ -1,5 +1,5 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -282,3 +282,156 @@ def test_feed_top_filter_returns_ranked_companies_and_combines_with_category(
     assert top_10_job["items"] == []
     assert top_10_internship["total"] == 2
     assert {item["slug"] for item in top_10_internship["items"]} == expected_ranked_slugs
+
+
+def test_feed_keeps_recently_closed_competitions_and_excludes_expired_ones(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    suffix = uuid.uuid4().hex
+    now = datetime.now(UTC)
+    location_token = f"DeadlineFilterville-{suffix}"
+    company = models.Company(
+        slug=f"deadline-filter-company-{suffix}",
+        name=f"Deadline Filter Company {suffix}",
+    )
+    expired_competition = models.Opportunity(
+        slug=f"deadline-filter-expired-competition-{suffix}",
+        title="Expired competition",
+        company=company,
+        category="competition",
+        location=location_token,
+        apply_url=f"https://example.com/deadline-filter/expired/{suffix}",
+        deadline=now - timedelta(days=20),
+        status="active",
+        last_seen_at=now,
+    )
+    recently_closed_competition = models.Opportunity(
+        slug=f"deadline-filter-recently-closed-competition-{suffix}",
+        title="Recently closed competition",
+        company=company,
+        category="competition",
+        location=location_token,
+        apply_url=f"https://example.com/deadline-filter/recently-closed/{suffix}",
+        deadline=now - timedelta(days=3),
+        status="active",
+        last_seen_at=now,
+    )
+    earlier_closed_hackathon = models.Opportunity(
+        slug=f"deadline-filter-earlier-closed-hackathon-{suffix}",
+        title="Earlier closed hackathon",
+        company=company,
+        category="hackathon",
+        location=location_token,
+        apply_url=f"https://example.com/deadline-filter/earlier-closed/{suffix}",
+        deadline=now - timedelta(days=10),
+        status="active",
+        last_seen_at=now,
+    )
+    soon_hackathon = models.Opportunity(
+        slug=f"deadline-filter-soon-hackathon-{suffix}",
+        title="Soon hackathon",
+        company=company,
+        category="hackathon",
+        location=location_token,
+        apply_url=f"https://example.com/deadline-filter/soon/{suffix}",
+        deadline=now + timedelta(days=5),
+        status="active",
+        last_seen_at=now,
+    )
+    future_hackathon = models.Opportunity(
+        slug=f"deadline-filter-future-hackathon-{suffix}",
+        title="Future hackathon",
+        company=company,
+        category="hackathon",
+        location=location_token,
+        apply_url=f"https://example.com/deadline-filter/future/{suffix}",
+        deadline=now + timedelta(days=30),
+        status="active",
+        last_seen_at=now,
+    )
+    no_deadline_competition = models.Opportunity(
+        slug=f"deadline-filter-no-deadline-competition-{suffix}",
+        title="Competition without a deadline",
+        company=company,
+        category="competition",
+        location=location_token,
+        apply_url=f"https://example.com/deadline-filter/no-deadline/{suffix}",
+        status="active",
+        last_seen_at=now,
+    )
+    past_deadline_role = models.Opportunity(
+        slug=f"deadline-filter-past-role-{suffix}",
+        title="Past-deadline role",
+        company=company,
+        category="job",
+        location=location_token,
+        apply_url=f"https://example.com/deadline-filter/role/{suffix}",
+        deadline=now - timedelta(days=30),
+        status="active",
+        last_seen_at=now,
+    )
+    uncategorized_past_deadline = models.Opportunity(
+        slug=f"deadline-filter-uncategorized-{suffix}",
+        title="Uncategorized past-deadline opportunity",
+        company=company,
+        category=None,
+        location=location_token,
+        apply_url=f"https://example.com/deadline-filter/uncategorized/{suffix}",
+        deadline=now - timedelta(days=30),
+        status="active",
+        last_seen_at=now,
+    )
+    db_session.add_all(
+        [
+            company,
+            expired_competition,
+            recently_closed_competition,
+            earlier_closed_hackathon,
+            soon_hackathon,
+            future_hackathon,
+            no_deadline_competition,
+            past_deadline_role,
+            uncategorized_past_deadline,
+        ]
+    )
+    db_session.flush()
+
+    all_opportunities = client.get(
+        "/feed",
+        params={"location": location_token, "limit": 10},
+    ).json()
+    competitions = client.get(
+        "/feed",
+        params={
+            "kind": "competitions",
+            "location": location_token,
+            "sort": "deadline",
+            "limit": 10,
+        },
+    ).json()
+    roles = client.get(
+        "/feed",
+        params={"kind": "roles", "location": location_token, "limit": 10},
+    ).json()
+
+    assert all_opportunities["total"] == 7
+    assert {item["slug"] for item in all_opportunities["items"]} == {
+        recently_closed_competition.slug,
+        earlier_closed_hackathon.slug,
+        soon_hackathon.slug,
+        future_hackathon.slug,
+        no_deadline_competition.slug,
+        past_deadline_role.slug,
+        uncategorized_past_deadline.slug,
+    }
+    assert competitions["total"] == 5
+    assert [item["slug"] for item in competitions["items"]] == [
+        soon_hackathon.slug,
+        future_hackathon.slug,
+        no_deadline_competition.slug,
+        recently_closed_competition.slug,
+        earlier_closed_hackathon.slug,
+    ]
+    assert roles["total"] == 1
+    assert [item["slug"] for item in roles["items"]] == [past_deadline_role.slug]

@@ -1,5 +1,5 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -158,3 +158,88 @@ def test_search_filters_restrict_fts_matches(
     body = response.json()
     assert body["total"] == len(expected_slugs)
     assert {item["slug"] for item in body["items"]} == expected_slugs
+
+
+def test_search_keeps_recently_closed_competitions_and_excludes_expired_ones(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    suffix = uuid.uuid4().hex
+    search_term = f"deadlinefilter{suffix}"
+    now = datetime.now(UTC)
+    company = models.Company(
+        slug=f"search-deadline-filter-company-{suffix}",
+        name=f"Search Deadline Filter Company {suffix}",
+    )
+    expired_competition = models.Opportunity(
+        slug=f"search-deadline-filter-expired-{suffix}",
+        title=f"{search_term} expired competition",
+        company=company,
+        category="competition",
+        apply_url=f"https://example.com/search-deadline-filter/expired/{suffix}",
+        deadline=now - timedelta(days=20),
+        status="active",
+        last_seen_at=now,
+    )
+    recently_closed_competition = models.Opportunity(
+        slug=f"search-deadline-filter-recently-closed-{suffix}",
+        title=f"{search_term} recently closed competition",
+        company=company,
+        category="competition",
+        apply_url=(f"https://example.com/search-deadline-filter/recently-closed/{suffix}"),
+        deadline=now - timedelta(days=3),
+        status="active",
+        last_seen_at=now,
+    )
+    future_hackathon = models.Opportunity(
+        slug=f"search-deadline-filter-future-{suffix}",
+        title=f"{search_term} future hackathon",
+        company=company,
+        category="hackathon",
+        apply_url=f"https://example.com/search-deadline-filter/future/{suffix}",
+        deadline=now + timedelta(days=30),
+        status="active",
+        last_seen_at=now,
+    )
+    no_deadline_competition = models.Opportunity(
+        slug=f"search-deadline-filter-no-deadline-{suffix}",
+        title=f"{search_term} competition without deadline",
+        company=company,
+        category="competition",
+        apply_url=f"https://example.com/search-deadline-filter/no-deadline/{suffix}",
+        status="active",
+        last_seen_at=now,
+    )
+    past_deadline_role = models.Opportunity(
+        slug=f"search-deadline-filter-role-{suffix}",
+        title=f"{search_term} past-deadline role",
+        company=company,
+        category="job",
+        apply_url=f"https://example.com/search-deadline-filter/role/{suffix}",
+        deadline=now - timedelta(days=30),
+        status="active",
+        last_seen_at=now,
+    )
+    db_session.add_all(
+        [
+            company,
+            expired_competition,
+            recently_closed_competition,
+            future_hackathon,
+            no_deadline_competition,
+            past_deadline_role,
+        ]
+    )
+    db_session.flush()
+
+    response = client.get("/search", params={"q": search_term, "limit": 10})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 4
+    assert {item["slug"] for item in body["items"]} == {
+        recently_closed_competition.slug,
+        future_hackathon.slug,
+        no_deadline_competition.slug,
+        past_deadline_role.slug,
+    }

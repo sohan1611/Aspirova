@@ -17,7 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from api.deps import get_db
-from api.filters import opportunity_filters
+from api.filters import exclude_closed_competitions, opportunity_filters
 from api.schemas import OpportunityListItem, SearchResponse
 from core import models
 
@@ -39,6 +39,11 @@ def search_opportunities(
     db: Session = Depends(get_db),
 ) -> SearchResponse:
     extra_filters = opportunity_filters(category, remote, company, location, top)
+    base_filters = [
+        models.Opportunity.status == "active",
+        exclude_closed_competitions(),
+        *extra_filters,
+    ]
     tsquery = func.websearch_to_tsquery("english", q)
     matches_fts = models.Opportunity.search_tsv.op("@@")(tsquery)
     rank = func.ts_rank(models.Opportunity.search_tsv, tsquery)
@@ -51,7 +56,7 @@ def search_opportunities(
     fts_query = (
         select(models.Opportunity, total_count)
         .options(joinedload(models.Opportunity.company))
-        .where(models.Opportunity.status == "active", *extra_filters)
+        .where(*base_filters)
         .where(matches_fts)
         .order_by(rank.desc(), models.Opportunity.id.desc())
     )
@@ -69,7 +74,7 @@ def search_opportunities(
         db.scalar(
             select(func.count())
             .select_from(models.Opportunity)
-            .where(models.Opportunity.status == "active", *extra_filters)
+            .where(*base_filters)
             .where(matches_fts)
         )
         or 0
@@ -81,7 +86,7 @@ def search_opportunities(
     fallback_query = (
         select(models.Opportunity, total_count)
         .options(joinedload(models.Opportunity.company))
-        .where(models.Opportunity.status == "active", *extra_filters)
+        .where(*base_filters)
         .where(similarity >= TRIGRAM_FALLBACK_THRESHOLD)
         .order_by(similarity.desc(), models.Opportunity.id.desc())
     )
