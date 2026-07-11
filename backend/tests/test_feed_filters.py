@@ -131,6 +131,59 @@ def test_feed_filters_combine_with_category(client: TestClient, feed_rows) -> No
     assert [item["slug"] for item in body["items"]] == [opportunities[0].slug]
 
 
+def test_feed_accepts_hackathon_category_and_rejects_bogus_category(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    suffix = str(uuid.uuid4())
+    seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    location_token = f"HackathonFilterville-{suffix}"
+    company = models.Company(
+        slug=f"hackathon-filter-company-{suffix}",
+        name=f"Hackathon Filter Company {suffix}",
+    )
+    hackathon = models.Opportunity(
+        slug=f"hackathon-filter-event-{suffix}",
+        title="Build challenge",
+        company=company,
+        category="hackathon",
+        location=location_token,
+        apply_url=f"https://example.com/hackathon-filter/event/{suffix}",
+        status="active",
+        last_seen_at=seen_at,
+    )
+    role = models.Opportunity(
+        slug=f"hackathon-filter-role-{suffix}",
+        title="Backend engineer",
+        company=company,
+        category="job",
+        location=location_token,
+        apply_url=f"https://example.com/hackathon-filter/role/{suffix}",
+        status="active",
+        last_seen_at=seen_at,
+    )
+    db_session.add_all([company, hackathon, role])
+    db_session.flush()
+
+    response = client.get(
+        "/feed",
+        params={
+            "category": "hackathon",
+            "location": location_token,
+            "limit": 10,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 1
+    assert [item["slug"] for item in body["items"]] == [hackathon.slug]
+    assert all(item["category"] == "hackathon" for item in body["items"])
+
+    bogus_response = client.get("/feed", params={"category": "fellowship"})
+    assert bogus_response.status_code == 422
+
+
 def test_feed_top_filter_returns_ranked_companies_and_combines_with_category(
     client: TestClient,
     db_session: Session,

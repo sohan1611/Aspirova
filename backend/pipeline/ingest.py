@@ -194,6 +194,7 @@ def ingest_one(
             opportunity.location = normalized.location
             opportunity.is_remote = normalized.is_remote
             opportunity.deadline = normalized.deadline
+            opportunity.meta = normalized.meta
             opportunity.deadline_confidence = normalized.deadline_confidence
             opportunity.summary = None
             opportunity.embedding = None
@@ -268,6 +269,7 @@ def ingest_one(
                 apply_url=normalized.apply_url,
                 posted_at=normalized.posted_at,
                 deadline=normalized.deadline,
+                meta=normalized.meta,
                 deadline_confidence=normalized.deadline_confidence,
             )
             session.add(opportunity)

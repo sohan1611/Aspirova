@@ -36,6 +36,7 @@ class NormalizedListing(BaseModel):
     apply_url: str
     posted_at: datetime | None = None
     deadline: datetime | None = None
+    meta: dict | None = None
     deadline_confidence: Literal["explicit", "inferred", "unknown"] = "unknown"
 
 

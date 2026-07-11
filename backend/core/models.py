@@ -129,6 +129,7 @@ class Opportunity(Base):
     apply_url: Mapped[str] = mapped_column(Text, nullable=False)
     posted_at: Mapped[datetime | None] = mapped_column()
     deadline: Mapped[datetime | None] = mapped_column()
+    meta: Mapped[dict | None] = mapped_column(JSONB)
     deadline_confidence: Mapped[str] = mapped_column(Text, server_default="unknown")
     is_hidden: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     status: Mapped[str] = mapped_column(Text, server_default="active")

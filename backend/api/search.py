@@ -29,7 +29,7 @@ TRIGRAM_FALLBACK_THRESHOLD = 0.3
 @router.get("/search", response_model=SearchResponse)
 def search_opportunities(
     q: str = Query(..., min_length=1, max_length=200),
-    category: str | None = Query(None, pattern="^(internship|job)$"),
+    category: str | None = Query(None, pattern="^(internship|job|hackathon|competition)$"),
     remote: bool | None = Query(None),
     company: str | None = Query(None),
     location: str | None = Query(None),

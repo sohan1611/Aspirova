@@ -23,7 +23,7 @@ router = APIRouter()
 
 @router.get("/feed", response_model=FeedResponse)
 def get_feed(
-    category: str | None = Query(None, pattern="^(internship|job)$"),
+    category: str | None = Query(None, pattern="^(internship|job|hackathon|competition)$"),
     remote: bool | None = Query(None),
     company: str | None = Query(None),
     location: str | None = Query(None),

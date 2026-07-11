@@ -8,6 +8,8 @@ nothing persists in the real database (Doc 08: tests must not pollute
 shared state).
 """
 
+from datetime import UTC, datetime
+
 import pytest
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -151,6 +153,89 @@ def test_full_rerun_creates_zero_duplicates(db_session, seeded):
     assert opp_count == 1
     assert raw_count == 1
     assert link_count == 1
+
+
+def test_hackathon_meta_round_trips_and_role_meta_defaults_to_null(db_session, seeded):
+    source_a, _source_b, company = seeded
+    deadline = datetime(2026, 8, 15, 23, 59, tzinfo=UTC)
+    meta = {
+        "organizer": "Acme Corp",
+        "prize": "INR 100,000",
+        "mode": "online",
+        "eligibility": "Students",
+        "team_size": {"min": 2, "max": 4},
+        "registration_deadline": "2026-08-15T23:59:00+00:00",
+        "event_start": "2026-08-20T09:00:00+00:00",
+        "event_end": "2026-08-22T18:00:00+00:00",
+        "tags": ["ai", "web"],
+        "platform": "Unstop",
+    }
+    source_url = "https://acme.example/hackathons/1"
+    raw_v1 = _raw("hackathon-1", source_url, content_hash="hash-hackathon-v1")
+    normalized_v1 = NormalizedListing(
+        source_slug="test",
+        external_id="hackathon-1",
+        source_url=source_url,
+        title="Acme Build Challenge",
+        company_name="Acme Corp",
+        category="hackathon",
+        description_raw="Build a working product.",
+        apply_url=source_url,
+        deadline=deadline,
+        meta=meta,
+        deadline_confidence="explicit",
+    )
+    hackathon, is_new_v1 = _ingest(
+        db_session,
+        source_a.id,
+        company.id,
+        raw_v1,
+        normalized_v1,
+    )
+    db_session.flush()
+
+    hackathon_id = hackathon.id
+    db_session.expire(hackathon, ["category", "meta", "deadline"])
+    assert is_new_v1 is True
+    assert hackathon.category == "hackathon"
+    assert hackathon.meta == meta
+    assert hackathon.deadline == deadline
+
+    updated_deadline = datetime(2026, 8, 17, 23, 59, tzinfo=UTC)
+    updated_meta = {**meta, "prize": "INR 150,000"}
+    raw_v2 = _raw("hackathon-1", source_url, content_hash="hash-hackathon-v2")
+    normalized_v2 = normalized_v1.model_copy(
+        update={"deadline": updated_deadline, "meta": updated_meta}
+    )
+    updated_hackathon, is_new_v2 = _ingest(
+        db_session,
+        source_a.id,
+        company.id,
+        raw_v2,
+        normalized_v2,
+    )
+    db_session.flush()
+    db_session.expire(updated_hackathon, ["meta", "deadline"])
+
+    assert is_new_v2 is False
+    assert updated_hackathon.id == hackathon_id
+    assert updated_hackathon.meta == updated_meta
+    assert updated_hackathon.deadline == updated_deadline
+
+    role_raw = _raw("job-meta-null", "https://acme.example/jobs/meta-null")
+    role_normalized = _normalized("Platform Engineer", role_raw.source_url)
+    role, is_new_role = _ingest(
+        db_session,
+        source_a.id,
+        company.id,
+        role_raw,
+        role_normalized,
+    )
+    db_session.flush()
+    db_session.expire(role, ["meta"])
+
+    assert is_new_role is True
+    assert role.meta is None
 
 
 def test_distinct_roles_at_same_company_do_not_merge(db_session, seeded):

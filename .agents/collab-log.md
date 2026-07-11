@@ -289,3 +289,13 @@ RESULT (source expansion, live): SmartRecruiters seeded to production and the Ti
 
 - **Codex delivered:** crawlers/amazon.py (AmazonAdapter, terms intern/new grad/graduate, per-query cap 300, dedup, polite delay, apply_url=amazon.jobs listing, company_name fixed 'Amazon'); registered "amazon" in ATS_ADAPTERS; seeded Amazon source+company (amazon.com); tests/test_amazon_adapter.py + fixture.
 - **Claude verified:** ruff+black clean, test_amazon 5/5; LIVE fetch = 420 student roles (156 intern + 264 new-grad), health ok. Seeded Amazon to prod + LOCAL crawl (0 Actions min) → 332 Amazon opps ingested; match_prestige (47 ranked, Amazon r4). Prod: /feed?company=amazon=332, top<=10 1127→1473 (Amazon joins OpenAI/Anthropic). MAANG G/MS/Apple flagged (no public API; would need ToS-violating headless scraping) — offered a licensed-aggregator (Adzuna) route instead.
+
+## Phase 5.2 — Competitions / Hackathons — architecture by Claude Opus
+- **Claude probe (2026-07-11):** Devpost api/hackathons = WORKS (13,578 hackathons; prize_amount, submission dates, org, url). Unstop api/public/opportunity/search-result = WORKS (Flipkart-GRiD-class competitions; regn_open, organisation, seo_url, type/subtype). Both public JSON → crawlable.
+
+### #44 — 5.2a schema + ingest foundation — gpt-5.6-sol @ ultra
+- **Claude → Codex:** migration add opportunities.meta JSONB; Opportunity.meta + NormalizedListing.meta; ingest passes meta through; broaden category validators to internship|job|hackathon|competition (feed/search); tests. Backward-compatible plumbing only (adapters come in 5.2b).
+- **Status:** Codex running (branch feat/competitions-schema); Claude to apply migration + verify + merge.
+
+- **Codex delivered:** migration c9f4e2a6b1d8 (opportunities.meta JSONB, chains from a5d1f8c3e7b2); Opportunity.meta + NormalizedListing.meta; ingest passes meta through (create+update); category validators broadened to internship|job|hackathon|competition (feed+search); tests.
+- **Claude verified:** ruff clean; black (Codex missed 2 files → Claude reformatted); applied migration to prod (a5d1f8c3e7b2→c9f4e2a6b1d8); test_ingest+test_feed_filters 15/15 (meta round-trips, hackathon/competition accepted, backward compatible). Committed on feat/competitions-schema.
