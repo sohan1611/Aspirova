@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 
 from core import models
 from core.db import make_engine
+from crawlers.amazon import AmazonAdapter
 from crawlers.ashby import AshbyAdapter
 from crawlers.greenhouse import GreenhouseAdapter
 from crawlers.lever import LeverAdapter
@@ -37,6 +38,7 @@ from pipeline.ingest import ingest_one, load_board_state
 # source is adding one entry here plus an adapter module; the crawl/ingest
 # pipeline itself never changes (Doc 02 sec 3.3, Doc 04 sec 3).
 ATS_ADAPTERS: dict[str, type] = {
+    "amazon": AmazonAdapter,
     "greenhouse": GreenhouseAdapter,
     "lever": LeverAdapter,
     "ashby": AshbyAdapter,

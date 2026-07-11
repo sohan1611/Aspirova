@@ -90,6 +90,10 @@ SMARTRECRUITERS_COMPANIES = [
 # BoschGroup (4667) and DeliveryHero (1110) are verified-available but held out
 # for now to bound crawl duration until async/lazy detail fetch is added.
 
+# Amazon uses one employer-wide search API. The board token is only a stable
+# marker for the shared adapter interface and is not sent to the endpoint.
+AMAZON_COMPANIES = [("amazon", "Amazon", "amazon.com")]
+
 # adapter_key -> (source slug/name/base_url, company list)
 _ADAPTER_SOURCES: dict[str, tuple[str, str, str, list[tuple[str, str, str]]]] = {
     "greenhouse": (
@@ -106,6 +110,7 @@ _ADAPTER_SOURCES: dict[str, tuple[str, str, str, list[tuple[str, str, str]]]] = 
         "https://api.smartrecruiters.com",
         SMARTRECRUITERS_COMPANIES,
     ),
+    "amazon": ("amazon", "Amazon", "https://www.amazon.jobs", AMAZON_COMPANIES),
 }
 
 # Aggregator sources (Doc 04 sec 1: best-effort tier) have no fixed

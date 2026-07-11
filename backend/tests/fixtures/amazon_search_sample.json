@@ -1,0 +1,42 @@
+{
+  "error": null,
+  "hits": 24,
+  "jobs": [
+    {
+      "id": "5c697518-a6e4-4300-87c8-f07f09c7c61c",
+      "id_icims": "10418355",
+      "title": "2027 Software Dev Engineer Intern",
+      "city": "Dublin",
+      "state": null,
+      "country_code": "IRL",
+      "company_name": "Amazon Development Centre Ireland Limited - D94",
+      "job_category": "Software Development",
+      "university_job": null,
+      "is_intern": null,
+      "job_path": "/en/jobs/10418355/2027-software-dev-engineer-intern",
+      "url_next_step": "https://account.amazon.jobs/jobs/10418355/apply",
+      "posted_date": "May 13, 2026",
+      "updated_time": "12 days",
+      "description_short": "Do you want to solve business challenges through innovative technology? Do you enjoy working on cutting-edge, scalable services technology in a team environment? Do you like working on industry-defining",
+      "normalized_location": "Dublin, IRL"
+    },
+    {
+      "id": "cae3028c-93d9-4d45-a7ed-d41aa5230f0d",
+      "id_icims": "10401402",
+      "title": "Software Dev Engineer Intern Machine Learning, Amazon Robotics",
+      "city": "Berlin",
+      "state": "BE",
+      "country_code": "DEU",
+      "company_name": "Amazon Development Center Germany GmbH",
+      "job_category": "Software Development",
+      "university_job": null,
+      "is_intern": null,
+      "job_path": "/en/jobs/10401402/software-dev-engineer-intern-machine-learning-amazon-robotics",
+      "url_next_step": "https://account.amazon.com/jobs/10401402/apply",
+      "posted_date": "April 23, 2026",
+      "updated_time": "9 days",
+      "description_short": "Do you want to solve real customer problems through innovative technology? Do you enjoy working on scalable services in a collaborative team environment? Do you want to see your code directly impact millions",
+      "normalized_location": "Berlin, Berlin, DEU"
+    }
+  ]
+}
