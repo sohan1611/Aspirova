@@ -11,6 +11,7 @@ const STATIC_ROUTES = [
   "/remote",
   "/jobs",
   "/companies",
+  "/research",
 ] as const;
 
 export const revalidate = 300;

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { getFeed, searchOpportunities } from "@/lib/api";
 import { findExternalCompany } from "@/lib/externalCompanies";
 import { buildPageHref } from "@/lib/pagination";
+import { matchesResearchIntent } from "@/lib/researchPrograms";
 
 interface PageProps {
   searchParams: Promise<{
@@ -36,6 +37,7 @@ const COLS_LG: Record<number, string> = {
 export default async function HomePage({ searchParams }: PageProps) {
   const params = await searchParams;
   const sourceCompany = params.q ? findExternalCompany(params.q) : undefined;
+  const showResearch = params.q ? matchesResearchIntent(params.q) : false;
   const page = Math.max(1, Number(params.page ?? "1") || 1);
   const cols = Math.min(4, Math.max(1, Number(params.cols ?? "3") || 3));
   const rows = Math.min(20, Math.max(5, Number(params.rows ?? "10") || 10));
@@ -85,6 +87,21 @@ export default async function HomePage({ searchParams }: PageProps) {
         <section className="mb-6 max-w-md">
           <p className="eyebrow mb-3">Straight to source</p>
           <SourceCompanyCard company={sourceCompany} />
+        </section>
+      )}
+
+      {showResearch && (
+        <section className="mb-6 max-w-md">
+          <div className="rounded-xl border border-border bg-card p-5 shadow-soft">
+            <p className="eyebrow">Research track</p>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              India&apos;s flagship IISc, IIT, NIT &amp; TIFR research fellowships — apply straight
+              at the source.
+            </p>
+            <Button asChild variant="outline" size="sm" className="mt-4">
+              <Link href="/research">Explore the research track →</Link>
+            </Button>
+          </div>
         </section>
       )}
 
