@@ -5,6 +5,7 @@
 Usage:
   uv run python -m scripts.notification_worker --digest
   uv run python -m scripts.notification_worker --instant-alerts
+  uv run python -m scripts.notification_worker --closing-soon
   uv run python -m scripts.notification_worker --weekly
 """
 
@@ -13,7 +14,11 @@ import argparse
 from sqlalchemy.orm import Session
 
 from core.db import make_engine
-from pipeline.notifications import send_daily_digests, send_instant_alerts
+from pipeline.notifications import (
+    send_closing_soon_alerts,
+    send_daily_digests,
+    send_instant_alerts,
+)
 from pipeline.weekly_report import send_weekly_reports
 
 
@@ -24,6 +29,9 @@ def main() -> None:
     group.add_argument(
         "--instant-alerts", action="store_true", help="Send instant dream-company alerts"
     )
+    group.add_argument(
+        "--closing-soon", action="store_true", help="Send bookmarked deadline alerts"
+    )
     group.add_argument("--weekly", action="store_true", help="Send weekly career reports")
     args = parser.parse_args()
 
@@ -32,6 +40,9 @@ def main() -> None:
         if args.digest:
             result = send_daily_digests(session)
             print(f"daily digests: {result}", flush=True)
+        elif args.closing_soon:
+            result = send_closing_soon_alerts(session)
+            print(f"closing-soon alerts: {result}", flush=True)
         elif args.weekly:
             result = send_weekly_reports(session)
             print(f"weekly career reports: {result}", flush=True)

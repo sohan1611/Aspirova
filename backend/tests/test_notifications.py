@@ -15,7 +15,11 @@ from sqlalchemy.orm import Session
 
 import pipeline.notifications as notifications_module
 from core import models
-from pipeline.notifications import send_daily_digests, send_instant_alerts
+from pipeline.notifications import (
+    send_closing_soon_alerts,
+    send_daily_digests,
+    send_instant_alerts,
+)
 
 
 @pytest.fixture
@@ -38,7 +42,7 @@ def sent_emails(monkeypatch):
     calls = []
 
     def _fake_send(to, subject, html, text):
-        calls.append({"to": to, "subject": subject})
+        calls.append({"to": to, "subject": subject, "html": html, "text": text})
         return True
 
     monkeypatch.setattr(notifications_module, "send_email", _fake_send)
@@ -94,13 +98,18 @@ def _make_user(db_session: Session) -> models.User:
 
 
 def _make_opportunity(
-    db_session: Session, company: models.Company, *, first_seen_at: datetime
+    db_session: Session,
+    company: models.Company,
+    *,
+    first_seen_at: datetime,
+    deadline: datetime | None = None,
 ) -> models.Opportunity:
     opp = models.Opportunity(
         slug=f"notif-test-opp-{uuid.uuid4()}",
         company_id=company.id,
         title="Test Opportunity",
         apply_url="https://example.com/apply",
+        deadline=deadline,
         first_seen_at=first_seen_at,
         last_seen_at=first_seen_at,
     )
@@ -297,5 +306,169 @@ def test_failed_send_records_failed_status_not_sent(
     notification = db_session.scalar(
         select(models.Notification).where(models.Notification.user_id == user.id)
     )
+    assert notification.status == "failed"
+    assert notification.sent_at is None
+
+
+def test_closing_soon_alert_includes_only_bookmarked_opportunities_in_window(
+    db_session, sent_emails, source_and_company
+) -> None:
+    _source, company = source_and_company
+    now = datetime(2026, 7, 11, 12, tzinfo=timezone.utc)
+    user = _make_user(db_session)
+    closing_soon = _make_opportunity(
+        db_session,
+        company,
+        first_seen_at=now,
+        deadline=now + timedelta(days=2),
+    )
+    closing_later = _make_opportunity(
+        db_session,
+        company,
+        first_seen_at=now,
+        deadline=now + timedelta(days=10),
+    )
+    already_closed = _make_opportunity(
+        db_session,
+        company,
+        first_seen_at=now,
+        deadline=now - timedelta(hours=1),
+    )
+    not_bookmarked = _make_opportunity(
+        db_session,
+        company,
+        first_seen_at=now,
+        deadline=now + timedelta(days=1),
+    )
+    inactive = _make_opportunity(
+        db_session,
+        company,
+        first_seen_at=now,
+        deadline=now + timedelta(days=1),
+    )
+    inactive.status = "closed"
+    db_session.add_all(
+        [
+            models.Bookmark(user_id=user.id, opportunity_id=closing_soon.id),
+            models.Bookmark(user_id=user.id, opportunity_id=closing_later.id),
+            models.Bookmark(user_id=user.id, opportunity_id=already_closed.id),
+            models.Bookmark(user_id=user.id, opportunity_id=inactive.id),
+        ]
+    )
+    db_session.flush()
+
+    result = send_closing_soon_alerts(db_session, now=now)
+
+    emails_to_user = [email for email in sent_emails if email["to"] == user.email]
+    assert len(emails_to_user) == 1
+    assert emails_to_user[0]["subject"] == "'Test Opportunity' closes in 2 days"
+    assert closing_soon.deadline.strftime("%d %b %Y") in emails_to_user[0]["html"]
+    assert closing_soon.apply_url in emails_to_user[0]["html"]
+    assert result["users_notified"] >= 1
+    assert result["opportunities"] >= 1
+
+    notification_rows = list(
+        db_session.scalars(
+            select(models.Notification).where(
+                models.Notification.user_id == user.id,
+                models.Notification.type == "closing_soon",
+            )
+        ).all()
+    )
+    assert len(notification_rows) == 1
+    assert notification_rows[0].opportunity_id == closing_soon.id
+    excluded_ids = {closing_later.id, already_closed.id, not_bookmarked.id, inactive.id}
+    assert excluded_ids.isdisjoint(row.opportunity_id for row in notification_rows)
+    assert notification_rows[0].status == "sent"
+    assert notification_rows[0].sent_at is not None
+
+
+def test_closing_soon_alert_is_deduplicated_per_opportunity(
+    db_session, sent_emails, source_and_company
+) -> None:
+    _source, company = source_and_company
+    now = datetime(2026, 7, 11, 12, tzinfo=timezone.utc)
+    user = _make_user(db_session)
+    opportunity = _make_opportunity(
+        db_session,
+        company,
+        first_seen_at=now,
+        deadline=now + timedelta(days=2),
+    )
+    db_session.add(models.Bookmark(user_id=user.id, opportunity_id=opportunity.id))
+    db_session.flush()
+
+    send_closing_soon_alerts(db_session, now=now)
+    send_closing_soon_alerts(db_session, now=now)
+
+    assert sum(1 for email in sent_emails if email["to"] == user.email) == 1
+    notifications = list(
+        db_session.scalars(
+            select(models.Notification).where(
+                models.Notification.user_id == user.id,
+                models.Notification.opportunity_id == opportunity.id,
+                models.Notification.type == "closing_soon",
+            )
+        ).all()
+    )
+    assert len(notifications) == 1
+
+
+def test_closing_soon_alert_respects_notification_preference(
+    db_session, sent_emails, source_and_company
+) -> None:
+    _source, company = source_and_company
+    now = datetime(2026, 7, 11, 12, tzinfo=timezone.utc)
+    user = _make_user(db_session)
+    user.notification_prefs = {"closing_soon": False}
+    opportunity = _make_opportunity(
+        db_session,
+        company,
+        first_seen_at=now,
+        deadline=now + timedelta(days=2),
+    )
+    db_session.add(models.Bookmark(user_id=user.id, opportunity_id=opportunity.id))
+    db_session.flush()
+
+    send_closing_soon_alerts(db_session, now=now)
+
+    assert not any(email["to"] == user.email for email in sent_emails)
+    assert (
+        db_session.scalar(
+            select(models.Notification.id).where(
+                models.Notification.user_id == user.id,
+                models.Notification.type == "closing_soon",
+            )
+        )
+        is None
+    )
+
+
+def test_closing_soon_failed_send_records_failed_status(
+    db_session, monkeypatch, source_and_company
+) -> None:
+    monkeypatch.setattr(notifications_module, "send_email", lambda to, subject, html, text: False)
+    _source, company = source_and_company
+    now = datetime(2026, 7, 11, 12, tzinfo=timezone.utc)
+    user = _make_user(db_session)
+    opportunity = _make_opportunity(
+        db_session,
+        company,
+        first_seen_at=now,
+        deadline=now + timedelta(days=2),
+    )
+    db_session.add(models.Bookmark(user_id=user.id, opportunity_id=opportunity.id))
+    db_session.flush()
+
+    result = send_closing_soon_alerts(db_session, now=now)
+
+    notification = db_session.scalar(
+        select(models.Notification).where(
+            models.Notification.user_id == user.id,
+            models.Notification.opportunity_id == opportunity.id,
+            models.Notification.type == "closing_soon",
+        )
+    )
+    assert result["failed"] >= 1
     assert notification.status == "failed"
     assert notification.sent_at is None

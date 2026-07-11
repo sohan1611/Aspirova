@@ -1,5 +1,5 @@
 """Notification worker logic (Doc 03 sec 4.3, Doc 02 sec 3.6, Doc
-handoffs/PHASE-2-HANDOFF.md sec 5). Two independent jobs:
+handoffs/PHASE-2-HANDOFF.md sec 5). Three independent jobs:
 
 - send_daily_digests(): one email per user per ~24h (Doc 02 sec 3.6: "one
   daily digest email per free user, not per-opportunity"), rule-based
@@ -13,8 +13,11 @@ handoffs/PHASE-2-HANDOFF.md sec 5). Two independent jobs:
   opportunities.first_seen_at rather than threading opportunity IDs
   through crawlers/runner.py's return value, so it keeps working
   correctly regardless of exactly when it runs relative to a crawl.
+- send_closing_soon_alerts(): one grouped email per opted-in user for
+  their bookmarked active opportunities closing within the configured
+  deadline window, with per-opportunity notification-log deduplication.
 
-Both enforce their caps via the notifications table (Doc 03 sec 4.3's
+All three enforce their caps via the notifications table (Doc 03 sec 4.3's
 (user_id, type, sent_at) index) - never a scattered ad-hoc check.
 
 Deliberately a plain per-user loop, not a bulk-ops rewrite in the style of
@@ -28,6 +31,7 @@ count - building for anticipated load here would violate the same
 
 import logging
 from datetime import datetime, timedelta, timezone
+from html import escape
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -89,14 +93,19 @@ def _already_sent_recently(
     )
 
 
-def _already_alerted(session: Session, user_id, opportunity_id: int) -> bool:
+def _already_alerted(
+    session: Session,
+    user_id,
+    opportunity_id: int,
+    notification_type: str = "instant_alert",
+) -> bool:
     return (
         session.scalar(
             select(models.Notification.id)
             .where(
                 models.Notification.user_id == user_id,
                 models.Notification.opportunity_id == opportunity_id,
-                models.Notification.type == "instant_alert",
+                models.Notification.type == notification_type,
                 models.Notification.status == "sent",
             )
             .limit(1)
@@ -161,6 +170,57 @@ def _render_instant_alert(opportunity: models.Opportunity) -> tuple[str, str]:
         f'<p><a href="{opportunity.apply_url}">Apply here</a></p>'
     )
     return html, text
+
+
+def _render_closing_soon(
+    opportunities: list[models.Opportunity],
+    now: datetime,
+) -> tuple[str, str]:
+    if len(opportunities) == 1:
+        opportunity = opportunities[0]
+        assert opportunity.deadline is not None
+        days_remaining = (opportunity.deadline.date() - now.date()).days
+        if days_remaining <= 0:
+            timing = "today"
+        elif days_remaining == 1:
+            timing = "tomorrow"
+        else:
+            timing = f"in {days_remaining} days"
+        subject = f"'{opportunity.title}' closes {timing}"
+    else:
+        subject = f"{len(opportunities)} opportunities closing soon"
+
+    html_items = "".join(
+        (
+            '<li style="margin-bottom:12px">'
+            f'<a href="{escape(opportunity.apply_url, quote=True)}">'
+            f"{escape(opportunity.title)}</a><br>"
+            f"Deadline: {opportunity.deadline.strftime('%d %b %Y')}"
+            "</li>"
+        )
+        for opportunity in opportunities
+        if opportunity.deadline is not None
+    )
+    html = (
+        "<p>Your bookmarked opportunities are closing soon:</p>"
+        f"<ul>{html_items}</ul>"
+        "<p>Deadlines can change. Please verify them at the linked source.</p>"
+    )
+    return subject, html
+
+
+def _render_closing_soon_text(opportunities: list[models.Opportunity]) -> str:
+    lines = [
+        f"- {opportunity.title} — deadline {opportunity.deadline.strftime('%d %b %Y')}: "
+        f"{opportunity.apply_url}"
+        for opportunity in opportunities
+        if opportunity.deadline is not None
+    ]
+    return (
+        "Your bookmarked opportunities are closing soon:\n\n"
+        + "\n".join(lines)
+        + "\n\nDeadlines can change. Please verify them at the linked source."
+    )
 
 
 def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict:
@@ -249,5 +309,67 @@ def send_instant_alerts(session: Session, *, now: datetime | None = None) -> dic
             status="sent" if sent else "failed",
         )
         result["sent" if sent else "failed"] += 1
+
+    return result
+
+
+def send_closing_soon_alerts(
+    session: Session, *, now: datetime | None = None, within_days: int = 3
+) -> dict:
+    now = now or datetime.now(timezone.utc)
+    cutoff = now + timedelta(days=within_days)
+    result = {"users_notified": 0, "opportunities": 0, "failed": 0}
+
+    for user in session.scalars(select(models.User)).all():
+        if not wants(user, "closing_soon"):
+            continue
+
+        opportunities = list(
+            session.scalars(
+                select(models.Opportunity)
+                .join(
+                    models.Bookmark,
+                    models.Bookmark.opportunity_id == models.Opportunity.id,
+                )
+                .where(
+                    models.Bookmark.user_id == user.id,
+                    models.Opportunity.status == "active",
+                    models.Opportunity.deadline.is_not(None),
+                    models.Opportunity.deadline.between(now, cutoff),
+                )
+                .order_by(models.Opportunity.deadline.asc(), models.Opportunity.id.asc())
+            ).all()
+        )
+        opportunities = [
+            opportunity
+            for opportunity in opportunities
+            if not _already_alerted(
+                session,
+                user.id,
+                opportunity.id,
+                notification_type="closing_soon",
+            )
+        ]
+        if not opportunities:
+            continue
+
+        subject, html = _render_closing_soon(opportunities, now)
+        text = _render_closing_soon_text(opportunities)
+        sent = send_email(user.email, subject, html, text)
+        status = "sent" if sent else "failed"
+        for opportunity in opportunities:
+            _record_notification(
+                session,
+                user.id,
+                "closing_soon",
+                opportunity_id=opportunity.id,
+                status=status,
+            )
+
+        if sent:
+            result["users_notified"] += 1
+            result["opportunities"] += len(opportunities)
+        else:
+            result["failed"] += 1
 
     return result

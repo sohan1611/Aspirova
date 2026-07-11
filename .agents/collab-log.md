@@ -329,3 +329,7 @@ RESULT (source expansion, live): SmartRecruiters seeded to production and the Ti
 ### #52 — A1 feed open-first + roles-first ordering — gpt-5.6-sol @ ultra
 - Codex: unified feed ordering — is_closed asc (open/undated first), roles-first when kind=roles, then sort (open-deadline asc / last_seen), id tiebreak.
 - Claude verified: ruff/black + 8 tests; live — internships sort=deadline leads with OPEN (was closed); kind=roles leads with internships. Merged. NOTE found A6: meta.skills payload bloat (perf).
+
+### #53 — C1 closing-soon deadline alerts (never-miss) — gpt-5.6-sol @ ultra
+- Codex: send_closing_soon_alerts (bookmarked opps closing within 3d, open, per-(user,opp) dedup type=closing_soon, wants() pref, Resend path) + _render_closing_soon html/text; --closing-soon worker arg; tests (14 pass).
+- Claude: added the missing daily workflow step (Codex omitted it); smoke test runs clean {users_notified:0}. Verified ruff/black + 14 tests. Merged. THE anti-Flipkart never-miss feature, unblocked by the deadline fix.
