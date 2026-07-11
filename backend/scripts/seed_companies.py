@@ -118,7 +118,9 @@ _ADAPTER_SOURCES: dict[str, tuple[str, str, str, list[tuple[str, str, str]]]] = 
 # Company row dynamically (pipeline/company_resolution.py) - so they're
 # seeded as a bare Source row only, separately from _ADAPTER_SOURCES.
 _AGGREGATOR_SOURCES: dict[str, tuple[str, str, str]] = {
+    "devpost": ("devpost", "Devpost", "https://devpost.com"),
     "remoteok": ("remoteok", "RemoteOK", "https://remoteok.com"),
+    "unstop": ("unstop", "Unstop", "https://unstop.com"),
 }
 
 

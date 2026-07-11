@@ -121,3 +121,27 @@ def test_run_tier_processes_only_selected_group(
     assert calls == [expected_call]
     assert len(session_factory.sessions) == 2  # gather + exactly one selected job
     assert session_factory.sessions[0].scalars_calls == expected_gather_queries
+
+
+def test_run_tier_processes_remoteok_after_competition_aggregators(monkeypatch) -> None:
+    sources = [
+        SimpleNamespace(id=1, adapter_key="remoteok"),
+        SimpleNamespace(id=2, adapter_key="unstop"),
+        SimpleNamespace(id=3, adapter_key="devpost"),
+    ]
+    session_factory = _SessionFactory(sources, [])
+    calls: list[str] = []
+
+    def fake_crawl_aggregator(_session, source, adapter_class):
+        assert adapter_class is runner.AGGREGATOR_ADAPTERS[source.adapter_key]
+        calls.append(source.adapter_key)
+        return {}
+
+    monkeypatch.setattr(runner, "make_engine", lambda: object())
+    monkeypatch.setattr(runner, "Session", session_factory)
+    monkeypatch.setattr(runner, "crawl_aggregator", fake_crawl_aggregator)
+
+    runner.run_tier(1, group="aggregator")
+
+    assert set(calls[:-1]) == {"devpost", "unstop"}
+    assert calls[-1] == "remoteok"

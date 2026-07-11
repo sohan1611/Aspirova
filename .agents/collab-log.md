@@ -299,3 +299,11 @@ RESULT (source expansion, live): SmartRecruiters seeded to production and the Ti
 
 - **Codex delivered:** migration c9f4e2a6b1d8 (opportunities.meta JSONB, chains from a5d1f8c3e7b2); Opportunity.meta + NormalizedListing.meta; ingest passes meta through (create+update); category validators broadened to internship|job|hackathon|competition (feed+search); tests.
 - **Claude verified:** ruff clean; black (Codex missed 2 files → Claude reformatted); applied migration to prod (a5d1f8c3e7b2→c9f4e2a6b1d8); test_ingest+test_feed_filters 15/15 (meta round-trips, hackathon/competition accepted, backward compatible). Committed on feat/competitions-schema.
+
+### #45 — 5.2b Devpost + Unstop adapters — gpt-5.6-sol @ ultra
+- **Claude probe/fixtures:** Devpost /api/hackathons?status[]=open (72 live; submission_period_dates range, prize_amount HTML, organization_name); Unstop /api/public/opportunity/search-result?opportunity=competitions|hackathons (end_date ISO w/ tz = registration deadline, organisation.name, region=mode, type). Saved tests/fixtures/devpost_sample.json + unstop_sample.json.
+- **Claude → Codex:** crawlers/devpost.py + crawlers/unstop.py (aggregator-type, no-arg ctor; category hackathon/competition + meta + deadline); register in AGGREGATOR_ADAPTERS; order remoteok LAST (competitions not starved by its 12-min cap); seed devpost+unstop sources; adapter tests via fixtures.
+- **Status:** Codex running (branch feat/competition-adapters); Claude to verify + LOCAL ingest (0 Actions min) + confirm Flipkart-type competitions.
+
+- **Codex delivered:** crawlers/devpost.py + crawlers/unstop.py (aggregator adapters); registered in AGGREGATOR_ADAPTERS; run_tier orders remoteok LAST (aggregator_jobs.sort remoteok->last); seeded devpost+unstop sources; adapter tests + fixtures.
+- **Claude verified:** ruff clean; black (fixed 1 Codex missed); test_devpost+test_unstop+test_runner 21/21; LIVE fetch = Devpost 72 hackathons (deadlines from date-range end) + Unstop 1669 (669 competition + 1000 hackathon, ISO deadlines), organizers resolve (XPRIZE/Salesforce/IIT/etc.). Committed on feat/competition-adapters.

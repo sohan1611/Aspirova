@@ -1,0 +1,170 @@
+{
+  "data": {
+    "data": [
+      {
+        "id": 1716244,
+        "title": "Product Matters 6.0 : Quiz & Assessment Week 4",
+        "seo_url": "https://unstop.com/quiz/product-matters-60-quiz-assessment-week-4-iit-guwahati-1716244",
+        "type": "quizzes",
+        "subtype": null,
+        "regn_open": 1,
+        "region": "online",
+        "status": "LIVE",
+        "organisation": {
+          "id": 605,
+          "name": "Indian Institute of Technology (IIT), Guwahati",
+          "public_url": "c/indian-institute-of-technology-iit-guwahati-placement-interview-competitions-articles-videos-605",
+          "logoUrl": "https://d8it4huxumps7.cloudfront.net/images/partners/partners75/528ebdc85a2e9.jpeg",
+          "logoUrl2": "https://d8it4huxumps7.cloudfront.net/images/partners/partners125/528ebdc85a2e9.jpeg",
+          "show_evaluator_login_link": false,
+          "official_email_domains": "@iitg.ac.in,@op.iitg.ac.in",
+          "tier": 1
+        },
+        "end_date": "2026-07-13T23:59:00+05:30",
+        "prizes": [],
+        "tags": [],
+        "registerCount": 257,
+        "required_skills": [
+          {
+            "id": 645587,
+            "skill": "Assessment Administration",
+            "skill_name": "Assessment Administration",
+            "pivot": {
+              "entity_id": 1716244,
+              "subject_id": 645587,
+              "id": 5200262,
+              "ai_generated": true
+            }
+          },
+          {
+            "id": 643203,
+            "skill": "Analytical Skills",
+            "skill_name": "Analytical Skills",
+            "pivot": {
+              "entity_id": 1716244,
+              "subject_id": 643203,
+              "id": 5200263,
+              "ai_generated": true
+            }
+          },
+          {
+            "id": 643258,
+            "skill": "Assessment Methods",
+            "skill_name": "Assessment Methods",
+            "pivot": {
+              "entity_id": 1716244,
+              "subject_id": 643258,
+              "id": 5200264,
+              "ai_generated": true
+            }
+          },
+          {
+            "id": 643267,
+            "skill": "Attention to Detail",
+            "skill_name": "Attention to Detail",
+            "pivot": {
+              "entity_id": 1716244,
+              "subject_id": 643267,
+              "id": 5200265,
+              "ai_generated": true
+            }
+          },
+          {
+            "id": 645225,
+            "skill": "Time Management and Organization",
+            "skill_name": "Time Management and Organization",
+            "pivot": {
+              "entity_id": 1716244,
+              "subject_id": 645225,
+              "id": 5200266,
+              "ai_generated": true
+            }
+          }
+        ],
+        "isPaid": false
+      },
+      {
+        "id": 1703709,
+        "title": "Code Build 1.0",
+        "seo_url": "https://unstop.com/hackathons/code-build-10-cobuild-1703709",
+        "type": "hackathons",
+        "subtype": "online_coding_challenge",
+        "regn_open": 1,
+        "region": "offline",
+        "status": "LIVE",
+        "organisation": {
+          "id": 1550102,
+          "name": "Cobuild",
+          "public_url": "c/cobuild-1550102",
+          "logoUrl": "",
+          "logoUrl2": "",
+          "show_evaluator_login_link": false,
+          "official_email_domains": null,
+          "tier": null
+        },
+        "end_date": "2026-09-12T17:00:00+05:30",
+        "prizes": [],
+        "tags": [],
+        "registerCount": 379,
+        "required_skills": [
+          {
+            "id": 646411,
+            "skill": "Innovation Management",
+            "skill_name": "Innovation Management",
+            "pivot": {
+              "entity_id": 1703709,
+              "subject_id": 646411,
+              "id": 5200077,
+              "ai_generated": true
+            }
+          },
+          {
+            "id": 647511,
+            "skill": "Teamwork and Collaboration",
+            "skill_name": "Teamwork and Collaboration",
+            "pivot": {
+              "entity_id": 1703709,
+              "subject_id": 647511,
+              "id": 5200078,
+              "ai_generated": true
+            }
+          },
+          {
+            "id": 1481,
+            "skill": "UI/UX Design",
+            "skill_name": "UI/UX Design",
+            "pivot": {
+              "entity_id": 1703709,
+              "subject_id": 1481,
+              "id": 5200079,
+              "ai_generated": true
+            }
+          },
+          {
+            "id": 1373,
+            "skill": "Problem Solving",
+            "skill_name": "Problem Solving",
+            "pivot": {
+              "entity_id": 1703709,
+              "subject_id": 1373,
+              "id": 5200080,
+              "ai_generated": true
+            }
+          },
+          {
+            "id": 668375,
+            "skill": "PowerPoint",
+            "skill_name": "PowerPoint",
+            "pivot": {
+              "entity_id": 1703709,
+              "subject_id": 668375,
+              "id": 5200081,
+              "ai_generated": true
+            }
+          }
+        ],
+        "isPaid": false
+      }
+    ]
+  }
+}

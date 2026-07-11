@@ -26,10 +26,12 @@ from core import models
 from core.db import make_engine
 from crawlers.amazon import AmazonAdapter
 from crawlers.ashby import AshbyAdapter
+from crawlers.devpost import DevpostAdapter
 from crawlers.greenhouse import GreenhouseAdapter
 from crawlers.lever import LeverAdapter
 from crawlers.remoteok import RemoteOkAdapter
 from crawlers.smartrecruiters import SmartRecruitersAdapter
+from crawlers.unstop import UnstopAdapter
 from pipeline.company_resolution import resolve_company
 from pipeline.ingest import ingest_one, load_board_state
 
@@ -50,7 +52,9 @@ ATS_ADAPTERS: dict[str, type] = {
 # source, one fetch spans many different companies (crawl_aggregator
 # below), so these are dispatched separately from ATS_ADAPTERS.
 AGGREGATOR_ADAPTERS: dict[str, type] = {
+    "devpost": DevpostAdapter,
     "remoteok": RemoteOkAdapter,
+    "unstop": UnstopAdapter,
 }
 
 
@@ -397,6 +401,8 @@ def run_tier(tier: int, group: str = "all") -> None:
             elif group in ("aggregator", "all") and source.adapter_key in AGGREGATOR_ADAPTERS:
                 aggregator_jobs.append((source.id, source.adapter_key))
             # else: adapter_key not registered in either dict - skip
+
+        aggregator_jobs.sort(key=lambda job: job[1] == "remoteok")
 
     for source_id, company_slug, adapter_key in ats_jobs:
         # expire_on_commit=False: board_state (loaded once per company in
