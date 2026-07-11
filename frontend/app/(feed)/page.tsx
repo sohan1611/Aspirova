@@ -4,8 +4,10 @@ import FeedViewControls from "@/components/FeedViewControls";
 import OpportunityCard from "@/components/OpportunityCard";
 import SearchFilters from "@/components/SearchFilters";
 import SignedOutHero from "@/components/SignedOutHero";
+import SourceCompanyCard from "@/components/SourceCompanyCard";
 import { Button } from "@/components/ui/button";
 import { getFeed, searchOpportunities } from "@/lib/api";
+import { findExternalCompany } from "@/lib/externalCompanies";
 import { buildPageHref } from "@/lib/pagination";
 
 interface PageProps {
@@ -33,6 +35,7 @@ const COLS_LG: Record<number, string> = {
 
 export default async function HomePage({ searchParams }: PageProps) {
   const params = await searchParams;
+  const sourceCompany = params.q ? findExternalCompany(params.q) : undefined;
   const page = Math.max(1, Number(params.page ?? "1") || 1);
   const cols = Math.min(4, Math.max(1, Number(params.cols ?? "3") || 3));
   const rows = Math.min(20, Math.max(5, Number(params.rows ?? "10") || 10));
@@ -77,6 +80,13 @@ export default async function HomePage({ searchParams }: PageProps) {
         <p className="text-sm text-muted-foreground">{data.total} opportunities</p>
         <FeedViewControls cols={cols} rows={rows} />
       </div>
+
+      {sourceCompany && (
+        <section className="mb-6 max-w-md">
+          <p className="eyebrow mb-3">Straight to source</p>
+          <SourceCompanyCard company={sourceCompany} />
+        </section>
+      )}
 
       {data.items.length > 0 ? (
         <div className={`grid grid-cols-1 sm:grid-cols-2 gap-6 ${COLS_LG[cols]}`}>

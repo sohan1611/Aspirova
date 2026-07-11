@@ -2,7 +2,9 @@ import { SearchX } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import CompanyFavicon from "@/components/CompanyFavicon";
+import SourceCompanyCard from "@/components/SourceCompanyCard";
 import { getCompanies } from "@/lib/api";
+import { EXTERNAL_COMPANIES } from "@/lib/externalCompanies";
 import type { CompanyListItem } from "@/lib/types";
 
 const DESCRIPTION =
@@ -57,6 +59,25 @@ export default async function CompaniesPage() {
           {INTRO}
         </p>
       </header>
+
+      <section className="mt-10 border-y border-border py-8" aria-labelledby="marquee-title">
+        <p className="eyebrow">Marquee employers</p>
+        <h2
+          id="marquee-title"
+          className="mt-2 font-serif text-2xl font-semibold leading-tight text-foreground sm:text-3xl"
+        >
+          Straight to the source
+        </h2>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
+          Roles at these giants live only on their own careers sites — we point you straight there,
+          and track their flagship student programs.
+        </p>
+        <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {EXTERNAL_COMPANIES.map((company) => (
+            <SourceCompanyCard key={company.slug} company={company} />
+          ))}
+        </div>
+      </section>
 
       <div className="mb-5 mt-10 flex items-center justify-between gap-4 border-b border-border pb-4">
         <p className="eyebrow">Companies</p>

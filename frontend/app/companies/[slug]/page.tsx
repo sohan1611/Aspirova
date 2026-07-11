@@ -4,8 +4,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import CompanyFavicon from "@/components/CompanyFavicon";
 import OpportunityCard from "@/components/OpportunityCard";
+import SourceCompanyDetail from "@/components/SourceCompanyDetail";
 import { Button } from "@/components/ui/button";
 import { getCompanyPage } from "@/lib/api";
+import { getExternalCompany } from "@/lib/externalCompanies";
 import { buildPageHref } from "@/lib/pagination";
 
 const LIMIT = 20;
@@ -30,6 +32,23 @@ function companyWebsite(domain: string): string {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
+  const external = getExternalCompany(slug);
+  if (external) {
+    const title = `${external.name} — student roles & flagship programs`;
+
+    return {
+      title,
+      description: external.note,
+      alternates: { canonical: `/companies/${external.slug}` },
+      openGraph: {
+        title: `${external.name} — Aspirova`,
+        description: external.note,
+        type: "website",
+        url: `/companies/${external.slug}`,
+      },
+    };
+  }
+
   const data = await getCompanyPage(slug, 1, 1);
   if (!data) {
     return { title: "Company not found" };
@@ -58,6 +77,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function CompanyPage({ params, searchParams }: PageProps) {
   const [{ slug }, query] = await Promise.all([params, searchParams]);
+  const external = getExternalCompany(slug);
+  if (external) {
+    return (
+      <main className="mx-auto w-full max-w-[1680px] px-4 py-10 sm:px-6 sm:py-14 lg:px-10 xl:px-12">
+        <SourceCompanyDetail company={external} />
+      </main>
+    );
+  }
+
   const page = Math.max(1, Number(query.page ?? "1") || 1);
   const data = await getCompanyPage(slug, page, LIMIT);
   if (!data) {
