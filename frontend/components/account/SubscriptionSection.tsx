@@ -25,6 +25,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { cancelSubscription } from "@/lib/api";
+import { formatDate } from "@/lib/date";
 import type { AccountMe, PlanState } from "@/lib/types";
 
 const FEATURE_LABELS: Array<[string, (value: unknown) => string | null]> = [
@@ -72,14 +73,6 @@ function planName(key: string): string {
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
-}
-
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString(undefined, {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
 }
 
 export default function SubscriptionSection({

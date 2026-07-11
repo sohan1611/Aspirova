@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getReferralMe } from "@/lib/api";
+import { formatDate } from "@/lib/date";
 import { useHydrated } from "@/lib/useHydrated";
 import type { ReferralMe } from "@/lib/types";
 import { useSession } from "@/lib/useSession";
@@ -224,7 +225,7 @@ function ReferralContent({ referral }: { referral: ReferralMe }) {
             <CardTitle>Reward status</CardTitle>
             <CardDescription>
               {referral.reward_active_until
-                ? `Pro Lite active until ${formatRewardDate(referral.reward_active_until)}`
+                ? `Pro Lite active until ${formatDate(referral.reward_active_until, "long")}`
                 : "Each successful referral grants 30 days of Pro Lite."}
             </CardDescription>
           </CardHeader>
@@ -232,15 +233,4 @@ function ReferralContent({ referral }: { referral: ReferralMe }) {
       </div>
     </div>
   );
-}
-
-function formatRewardDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(date);
 }

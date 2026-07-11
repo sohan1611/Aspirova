@@ -8,6 +8,7 @@ import ShareButton from "@/components/ShareButton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getOpportunity } from "@/lib/api";
+import { formatDate } from "@/lib/date";
 import { getSourceLabel } from "@/lib/sourceLabel";
 import type { OpportunityDetail } from "@/lib/types";
 
@@ -216,7 +217,7 @@ export default async function OpportunityPage({ params }: PageProps) {
             <span>
               Deadline:{" "}
               <span className="tnum">
-                {new Date(opportunity.deadline).toLocaleDateString()}
+                {formatDate(opportunity.deadline, "numeric")}
               </span>
               {opportunity.deadline_confidence !== "explicit" ? " (estimated)" : ""}
             </span>

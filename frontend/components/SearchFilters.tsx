@@ -1,8 +1,8 @@
 "use client";
 
-import { ArrowUpDown, Search, SlidersHorizontal, X } from "lucide-react";
+import { ArrowUpDown, Loader2, Search, SlidersHorizontal, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,11 +58,13 @@ function SegmentedGroup({
   options,
   active,
   onSelect,
+  disabled = false,
 }: {
   label: string;
   options: { value: string | null; label: string }[];
   active: string | null;
   onSelect: (value: string | null) => void;
+  disabled?: boolean;
 }) {
   return (
     <div
@@ -77,9 +79,10 @@ function SegmentedGroup({
             key={option.label}
             type="button"
             aria-pressed={isActive}
+            disabled={disabled}
             onClick={() => onSelect(option.value)}
             className={cn(
-              "whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-[background-color,color,box-shadow] duration-200 ease-[var(--ease-premium)]",
+              "whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-[background-color,color,box-shadow] duration-200 ease-[var(--ease-premium)] disabled:cursor-wait",
               isActive
                 ? "bg-background text-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground",
@@ -96,6 +99,7 @@ function SegmentedGroup({
 export default function SearchFilters() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
   const [q, setQ] = useState(searchParams.get("q") ?? "");
   const [location, setLocation] = useState(searchParams.get("location") ?? "");
   const [company, setCompany] = useState(searchParams.get("company") ?? "");
@@ -155,7 +159,9 @@ export default function SearchFilters() {
       params.delete(key);
     }
     params.delete("page");
-    router.push(`/?${params.toString()}`);
+    startTransition(() => {
+      router.push(`/?${params.toString()}`);
+    });
   }
 
   function commitTextParam(key: string, value: string) {
@@ -183,11 +189,24 @@ export default function SearchFilters() {
     const params = new URLSearchParams();
     const currentSort = searchParams.get("sort");
     if (currentSort) params.set("sort", currentSort);
-    router.push(`/?${params.toString()}`);
+    startTransition(() => {
+      router.push(`/?${params.toString()}`);
+    });
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div
+      aria-busy={isPending}
+      className={cn(
+        "flex flex-col gap-3",
+        isPending && "pointer-events-none cursor-progress",
+      )}
+    >
+      {isPending && (
+        <span className="sr-only" role="status">
+          Updating opportunities…
+        </span>
+      )}
       <div className="flex flex-wrap items-center gap-3">
         <form onSubmit={handleSubmit} className="flex w-full flex-wrap gap-2 sm:w-auto">
           <div className="relative min-w-0 flex-1 sm:flex-none">
@@ -201,14 +220,23 @@ export default function SearchFilters() {
               className="w-full pl-9 sm:w-72"
             />
           </div>
-          <Button type="submit">Search</Button>
+          <Button type="submit" disabled={isPending}>
+            Search
+          </Button>
         </form>
 
         <div className="ml-auto flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-nowrap">
           <Popover>
             <PopoverTrigger asChild>
-              <Button type="button" variant="outline">
-                <SlidersHorizontal aria-hidden="true" />
+              <Button type="button" variant="outline" disabled={isPending}>
+                {isPending ? (
+                  <Loader2
+                    className="animate-spin motion-reduce:animate-none"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <SlidersHorizontal aria-hidden="true" />
+                )}
                 Filter
                 {hasFilters && (
                   <Badge
@@ -223,7 +251,11 @@ export default function SearchFilters() {
             </PopoverTrigger>
             <PopoverContent
               align="end"
-              className="max-h-(--radix-popover-content-available-height) overflow-y-auto"
+              aria-busy={isPending}
+              className={cn(
+                "max-h-(--radix-popover-content-available-height) overflow-y-auto",
+                isPending && "pointer-events-none",
+              )}
             >
               <div className="space-y-5">
                 <div className="space-y-2">
@@ -233,6 +265,7 @@ export default function SearchFilters() {
                     options={CATEGORY_OPTIONS}
                     active={searchParams.get("category")}
                     onSelect={(value) => updateParam("category", value)}
+                    disabled={isPending}
                   />
                 </div>
 
@@ -243,6 +276,7 @@ export default function SearchFilters() {
                     options={REMOTE_OPTIONS}
                     active={searchParams.get("remote")}
                     onSelect={(value) => updateParam("remote", value)}
+                    disabled={isPending}
                   />
                 </div>
 
@@ -281,6 +315,7 @@ export default function SearchFilters() {
                     options={TOP_OPTIONS}
                     active={TOP_OPTIONS.some((option) => option.value === top) ? top : null}
                     onSelect={(value) => updateParam("top", value)}
+                    disabled={isPending}
                   />
                 </div>
 
@@ -288,7 +323,13 @@ export default function SearchFilters() {
                   <>
                     <Separator />
                     <div className="flex justify-end">
-                      <Button type="button" variant="ghost" size="sm" onClick={clearFilters}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={isPending}
+                        onClick={clearFilters}
+                      >
                         Clear all
                       </Button>
                     </div>
@@ -300,6 +341,7 @@ export default function SearchFilters() {
 
           <Select
             value={sort}
+            disabled={isPending}
             onValueChange={(value) =>
               updateParam("sort", value === "recent" ? null : "deadline")
             }
@@ -328,6 +370,7 @@ export default function SearchFilters() {
               <button
                 type="button"
                 aria-label={`Remove ${humanLabel} filter`}
+                disabled={isPending}
                 onClick={() => updateParam(key, null)}
                 className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-[color,background-color,box-shadow] duration-200 ease-[var(--ease-premium)] hover:bg-background/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
               >
@@ -337,6 +380,7 @@ export default function SearchFilters() {
           ))}
           <button
             type="button"
+            disabled={isPending}
             onClick={clearFilters}
             className="min-h-7 whitespace-nowrap rounded-sm px-1.5 py-1 text-sm font-medium text-muted-foreground transition-colors duration-200 ease-[var(--ease-premium)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >

@@ -2,6 +2,7 @@ import { Clock, Globe2, MapPin } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import CompanyFavicon from "@/components/CompanyFavicon";
+import { formatDate } from "@/lib/date";
 import type { OpportunityListItem } from "@/lib/types";
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -33,18 +34,6 @@ function formatRelativeTime(value: string): string {
   if (ageInDays < 365) return `· ${Math.floor(ageInDays / 30)}mo ago`;
 
   return `· ${Math.floor(ageInDays / 365)}y ago`;
-}
-
-function formatDeadline(value: string): string {
-  const deadline = new Date(value);
-
-  if (Number.isNaN(deadline.getTime())) return value;
-
-  return deadline.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: deadline.getFullYear() === new Date().getFullYear() ? undefined : "numeric",
-  });
 }
 
 function getPrizeText(
@@ -215,19 +204,19 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
                   }`}
                   aria-label={
                     urgentDeadline
-                      ? `Urgent: registers by ${formatDeadline(item.deadline)}`
+                      ? `Urgent: registers by ${formatDate(item.deadline, "long")}`
                       : undefined
                   }
                 >
                   <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                  Registers by {formatDeadline(item.deadline)}
+                  Registers by {formatDate(item.deadline, "long")}
                 </span>
               )
             ) : (
               <span className="tnum inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-warning/25 bg-warning/15 px-2 py-1 text-xs font-medium text-warning-foreground dark:text-warning">
                 <Clock className="h-3.5 w-3.5" aria-hidden="true" />
                 Closes {item.deadline_confidence !== "explicit" ? "~" : ""}
-                {formatDeadline(item.deadline)}
+                {formatDate(item.deadline, "long")}
               </span>
             )
           )}

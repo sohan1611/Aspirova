@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { updateAccount } from "@/lib/api";
+import { formatDate } from "@/lib/date";
 import type { AccountMe } from "@/lib/types";
 
 interface ProfileSectionProps {
@@ -187,11 +188,7 @@ export default function ProfileSection({
             <p className="text-muted-foreground">Member since</p>
             <p className="mt-1 flex items-center gap-2 font-medium text-foreground">
               <CalendarDays className="size-4 text-primary" aria-hidden="true" />
-              {new Date(account.created_at).toLocaleDateString(undefined, {
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              })}
+              {formatDate(account.created_at, "long")}
             </p>
           </div>
           <div>

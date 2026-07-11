@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAccount } from "@/lib/api";
+import { formatDate } from "@/lib/date";
 import type { AccountMe } from "@/lib/types";
 import { useSession } from "@/lib/useSession";
 
@@ -191,10 +192,7 @@ function AccountPageContent() {
             </Badge>
             <p className="tnum text-sm text-muted-foreground">
               Member since{" "}
-              {new Date(account.created_at).toLocaleDateString(undefined, {
-                month: "long",
-                year: "numeric",
-              })}
+              {formatDate(account.created_at, "long")}
             </p>
           </div>
         </CardContent>

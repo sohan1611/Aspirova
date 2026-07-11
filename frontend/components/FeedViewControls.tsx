@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Select,
@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "aspirova_feed_view";
 const COLUMN_OPTIONS = [1, 2, 3, 4];
@@ -23,6 +24,7 @@ export default function FeedViewControls({ cols, rows }: FeedViewControlsProps) 
   const router = useRouter();
   const searchParams = useSearchParams();
   const restoredPreference = useRef(false);
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     if (restoredPreference.current) return;
@@ -69,16 +71,33 @@ export default function FeedViewControls({ cols, rows }: FeedViewControlsProps) 
       // Continue with URL navigation if local storage is unavailable.
     }
 
-    router.push(`/?${params.toString()}`);
+    startTransition(() => {
+      router.push(`/?${params.toString()}`);
+    });
   }
 
   return (
-    <div className="flex items-center gap-3">
+    <div
+      aria-busy={isPending}
+      className={cn(
+        "flex items-center gap-3 motion-safe:transition-opacity motion-safe:duration-200",
+        isPending && "pointer-events-none cursor-progress opacity-70",
+      )}
+    >
+      {isPending && (
+        <span className="sr-only" role="status">
+          Updating feed view…
+        </span>
+      )}
       <div className="hidden items-center gap-2 lg:flex">
         <label htmlFor="feed-columns" className="text-xs font-medium text-muted-foreground">
           Columns
         </label>
-        <Select value={String(cols)} onValueChange={(value) => updateView("cols", value)}>
+        <Select
+          value={String(cols)}
+          disabled={isPending}
+          onValueChange={(value) => updateView("cols", value)}
+        >
           <SelectTrigger id="feed-columns" size="sm" aria-label="Columns">
             <SelectValue />
           </SelectTrigger>
@@ -96,7 +115,11 @@ export default function FeedViewControls({ cols, rows }: FeedViewControlsProps) 
         <label htmlFor="feed-rows" className="text-xs font-medium text-muted-foreground">
           Per page
         </label>
-        <Select value={String(rows)} onValueChange={(value) => updateView("rows", value)}>
+        <Select
+          value={String(rows)}
+          disabled={isPending}
+          onValueChange={(value) => updateView("rows", value)}
+        >
           <SelectTrigger id="feed-rows" size="sm" aria-label="Rows per page">
             <SelectValue />
           </SelectTrigger>
