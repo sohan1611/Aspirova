@@ -333,3 +333,6 @@ RESULT (source expansion, live): SmartRecruiters seeded to production and the Ti
 ### #53 — C1 closing-soon deadline alerts (never-miss) — gpt-5.6-sol @ ultra
 - Codex: send_closing_soon_alerts (bookmarked opps closing within 3d, open, per-(user,opp) dedup type=closing_soon, wants() pref, Resend path) + _render_closing_soon html/text; --closing-soon worker arg; tests (14 pass).
 - Claude: added the missing daily workflow step (Codex omitted it); smoke test runs clean {users_notified:0}. Verified ruff/black + 14 tests. Merged. THE anti-Flipkart never-miss feature, unblocked by the deadline fix.
+
+### A6 — trim Unstop meta payload (perf) — Claude direct (small)
+- meta.skills -> deduped list of name strings (was full nested objects w/ pivot/ai_generated); meta.prizes -> {rank,cash,currency} (dropped pivot/entity internals). offers_ppi/ppo computed before trim. Card unaffected (reads prize.cash). Tests updated, 11 pass, frontend build clean. Re-crawl backfills existing rows.

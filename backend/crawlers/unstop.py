@@ -130,9 +130,32 @@ class UnstopAdapter:
             prizes = []
         offers_ppi = any(bool(prize.get("pre_placement_internship")) for prize in prizes)
         offers_ppo = any(bool(prize.get("pre_placement_opportunity")) for prize in prizes)
-        skills = opportunity.get("required_skills")
-        if not isinstance(skills, list):
-            skills = []
+        # Trim prizes to display essentials — Unstop's raw objects carry pivot/
+        # entity internals that bloat every /feed response with no user value.
+        trimmed_prizes = [
+            {
+                "rank": prize.get("rank"),
+                "cash": prize.get("cash"),
+                "currency": prize.get("currency"),
+            }
+            for prize in prizes
+            if isinstance(prize, dict)
+        ]
+        # Skills -> a deduped list of plain name strings (raw skills are nested
+        # objects with pivot/ai_generated flags — huge payload, no value here).
+        skills: list[str] = []
+        raw_skills = opportunity.get("required_skills")
+        if isinstance(raw_skills, list):
+            _seen_skills: set[str] = set()
+            for skill in raw_skills:
+                name = (
+                    _as_text(skill.get("skill_name") or skill.get("skill"))
+                    if isinstance(skill, dict)
+                    else _as_text(skill)
+                ).strip()
+                if name and name.lower() not in _seen_skills:
+                    _seen_skills.add(name.lower())
+                    skills.append(name)
 
         return NormalizedListing(
             source_slug=self.source_slug,
@@ -153,7 +176,7 @@ class UnstopAdapter:
                 "type": item_type or search_opportunity,
                 "subtype": opportunity.get("subtype"),
                 "mode": region,
-                "prizes": prizes,
+                "prizes": trimmed_prizes,
                 "offers_ppi": offers_ppi,
                 "offers_ppo": offers_ppo,
                 "register_count": opportunity.get("registerCount"),
