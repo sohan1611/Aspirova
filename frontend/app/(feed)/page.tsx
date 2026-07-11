@@ -16,6 +16,7 @@ interface PageProps {
     q?: string;
     category?: string;
     kind?: string;
+    source?: string;
     remote?: string;
     location?: string;
     company?: string;
@@ -52,6 +53,12 @@ export default async function HomePage({ searchParams }: PageProps) {
 
   const filters = {
     category: params.category as "internship" | "job" | undefined,
+    source: params.source as
+      | "direct"
+      | "unstop"
+      | "remoteok"
+      | "devpost"
+      | undefined,
     remote: params.remote === "true" ? true : params.remote === "false" ? false : undefined,
     location: params.location,
     company: params.company,

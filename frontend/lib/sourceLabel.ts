@@ -6,11 +6,9 @@ const SOURCE_HOSTS: { match: string; label: string }[] = [
 ];
 
 /**
- * Derives an honest "via X" label straight from the apply_url's own host -
- * the same domain the user lands on when they click Apply - rather than a
- * separate backend field (none exists yet, and adding one is out of scope
- * for this frontend-only phase). Returns null for anything unrecognized
- * rather than guessing.
+ * Derives an honest fallback "via X" label from the apply_url's own host -
+ * the same domain the user lands on when they click Apply. Returns null for
+ * anything unrecognized rather than guessing.
  */
 export function getSourceLabel(applyUrl: string): string | null {
   try {

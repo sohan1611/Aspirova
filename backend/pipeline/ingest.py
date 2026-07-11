@@ -263,6 +263,7 @@ def ingest_one(
                 title=normalized.title,
                 title_normalized=title_normalized,
                 category=normalized.category,
+                primary_source=raw.source_slug,
                 location=normalized.location,
                 is_remote=normalized.is_remote,
                 description_raw=normalized.description_raw,

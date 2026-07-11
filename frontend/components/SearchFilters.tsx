@@ -30,6 +30,14 @@ const CATEGORY_OPTIONS = [
   { value: "competition", label: "Competitions" },
 ];
 
+const SOURCE_OPTIONS = [
+  { value: null, label: "All" },
+  { value: "direct", label: "Direct from company" },
+  { value: "unstop", label: "Unstop" },
+  { value: "remoteok", label: "RemoteOK" },
+  { value: "devpost", label: "Devpost" },
+];
+
 const REMOTE_OPTIONS = [
   { value: null, label: "Any" },
   { value: "true", label: "Remote" },
@@ -45,7 +53,15 @@ const TOP_OPTIONS = [
   { value: "1000", label: "1000" },
 ];
 
-const FILTER_KEYS = ["q", "category", "remote", "location", "company", "top"] as const;
+const FILTER_KEYS = [
+  "q",
+  "category",
+  "source",
+  "remote",
+  "location",
+  "company",
+  "top",
+] as const;
 
 interface ActiveFilterDescriptor {
   key: (typeof FILTER_KEYS)[number];
@@ -131,6 +147,10 @@ export default function SearchFilters() {
     } else if (key === "category") {
       humanLabel =
         CATEGORY_OPTIONS.find((option) => option.value === value)?.label ?? value;
+      label = humanLabel;
+    } else if (key === "source") {
+      humanLabel =
+        SOURCE_OPTIONS.find((option) => option.value === value)?.label ?? value;
       label = humanLabel;
     } else if (key === "remote") {
       humanLabel =
@@ -265,6 +285,17 @@ export default function SearchFilters() {
                     options={CATEGORY_OPTIONS}
                     active={searchParams.get("category")}
                     onSelect={(value) => updateParam("category", value)}
+                    disabled={isPending}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <p className="eyebrow">Source</p>
+                  <SegmentedGroup
+                    label="Source"
+                    options={SOURCE_OPTIONS}
+                    active={searchParams.get("source")}
+                    onSelect={(value) => updateParam("source", value)}
                     disabled={isPending}
                   />
                 </div>

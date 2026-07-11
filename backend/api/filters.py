@@ -4,6 +4,13 @@ from sqlalchemy import and_, func, or_, text
 
 from core import models
 
+SOURCE_GROUPS = {
+    "direct": ["greenhouse", "lever", "ashby", "smartrecruiters", "amazon"],
+    "unstop": ["unstop"],
+    "remoteok": ["remoteok"],
+    "devpost": ["devpost"],
+}
+
 
 def exclude_closed_competitions():
     """Exclude expiring categories whose deadline passed over 14 days ago."""

@@ -17,7 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from api.deps import get_db
-from api.filters import exclude_closed_competitions, opportunity_filters
+from api.filters import SOURCE_GROUPS, exclude_closed_competitions, opportunity_filters
 from api.schemas import OpportunityListItem, SearchResponse
 from core import models
 
@@ -33,6 +33,7 @@ def search_opportunities(
     remote: bool | None = Query(None),
     company: str | None = Query(None),
     location: str | None = Query(None),
+    source: str | None = Query(None, pattern="^(direct|unstop|remoteok|devpost)$"),
     top: int | None = Query(None, gt=0),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -44,6 +45,8 @@ def search_opportunities(
         exclude_closed_competitions(),
         *extra_filters,
     ]
+    if source is not None:
+        base_filters.append(models.Opportunity.primary_source.in_(SOURCE_GROUPS[source]))
     tsquery = func.websearch_to_tsquery("english", q)
     matches_fts = models.Opportunity.search_tsv.op("@@")(tsquery)
     rank = func.ts_rank(models.Opportunity.search_tsv, tsquery)

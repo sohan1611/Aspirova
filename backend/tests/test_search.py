@@ -64,6 +64,7 @@ def search_rows(db_session: Session):
             location=f"North {location_token}, India",
             is_remote=True,
             apply_url=f"https://example.com/search-filter/top-internship/{suffix}",
+            primary_source="greenhouse",
             status="active",
             last_seen_at=seen_at,
         ),
@@ -75,6 +76,7 @@ def search_rows(db_session: Session):
             location=f"Elsewhere-{suffix}",
             is_remote=False,
             apply_url=f"https://example.com/search-filter/top-job/{suffix}",
+            primary_source="unstop",
             status="active",
             last_seen_at=seen_at,
         ),
@@ -86,6 +88,7 @@ def search_rows(db_session: Session):
             location=f"South {location_token}, India",
             is_remote=False,
             apply_url=f"https://example.com/search-filter/mid-internship/{suffix}",
+            primary_source="ashby",
             status="active",
             last_seen_at=seen_at,
         ),
@@ -97,6 +100,7 @@ def search_rows(db_session: Session):
             location=f"Coast-{suffix}",
             is_remote=True,
             apply_url=f"https://example.com/search-filter/unranked-job/{suffix}",
+            primary_source="remoteok",
             status="active",
             last_seen_at=seen_at,
         ),
@@ -131,6 +135,7 @@ def test_search_without_filters_returns_all_fts_matches(
         pytest.param("company", {0, 1}, id="company"),
         pytest.param("location", {0, 2}, id="location"),
         pytest.param("top", {0, 1}, id="top"),
+        pytest.param("source", {0, 2}, id="source"),
     ],
 )
 def test_search_filters_restrict_fts_matches(
@@ -146,6 +151,7 @@ def test_search_filters_restrict_fts_matches(
         "company": {"company": company_slug},
         "location": {"location": location_token.lower()},
         "top": {"top": 10},
+        "source": {"source": "direct"},
     }
     expected_slugs = {opportunities[index].slug for index in expected_indexes}
 

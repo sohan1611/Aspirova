@@ -51,6 +51,7 @@ function throwResumeApiError(res: Response, action: string): never {
 export interface FeedParams {
   category?: "internship" | "job";
   kind?: "roles" | "competitions";
+  source?: "direct" | "unstop" | "remoteok" | "devpost";
   remote?: boolean;
   location?: string;
   company?: string;
@@ -62,13 +63,14 @@ export interface FeedParams {
 
 type SearchFilterParams = Pick<
   FeedParams,
-  "category" | "remote" | "location" | "company" | "top"
+  "category" | "source" | "remote" | "location" | "company" | "top"
 >;
 
 export async function getFeed(params: FeedParams = {}): Promise<FeedResponse> {
   const search = new URLSearchParams();
   if (params.category) search.set("category", params.category);
   if (params.kind) search.set("kind", params.kind);
+  if (params.source) search.set("source", params.source);
   if (params.remote !== undefined) search.set("remote", String(params.remote));
   if (params.location) search.set("location", params.location);
   if (params.company) search.set("company", params.company);
@@ -90,6 +92,7 @@ export async function searchOpportunities(
 ): Promise<SearchResponse> {
   const search = new URLSearchParams({ q, page: String(page), limit: String(limit) });
   if (filters.category) search.set("category", filters.category);
+  if (filters.source) search.set("source", filters.source);
   if (filters.remote !== undefined) search.set("remote", String(filters.remote));
   if (filters.location) search.set("location", filters.location);
   if (filters.company) search.set("company", filters.company);

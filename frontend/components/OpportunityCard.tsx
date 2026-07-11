@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import CompanyFavicon from "@/components/CompanyFavicon";
 import { formatDate } from "@/lib/date";
+import { getSourceLabel } from "@/lib/sourceLabel";
 import type { OpportunityListItem } from "@/lib/types";
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -10,6 +11,17 @@ const CATEGORY_LABEL: Record<string, string> = {
   job: "Job",
   hackathon: "Hackathon",
   competition: "Competition",
+};
+
+const SOURCE_LABEL: Record<string, string> = {
+  greenhouse: "Greenhouse",
+  lever: "Lever",
+  ashby: "Ashby",
+  smartrecruiters: "SmartRecruiters",
+  amazon: "Amazon",
+  unstop: "Unstop",
+  remoteok: "RemoteOK",
+  devpost: "Devpost",
 };
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
@@ -86,6 +98,11 @@ function isDeadlinePast(value: string): boolean {
 
 export default function OpportunityCard({ item }: { item: OpportunityListItem }) {
   const companyName = item.company?.name ?? "Unknown company";
+  const sourceLabel = item.source
+    ? SOURCE_LABEL[item.source] ?? null
+    : "apply_url" in item && typeof item.apply_url === "string"
+      ? getSourceLabel(item.apply_url)
+      : null;
   const location = item.location?.replace(/\s+/g, " ").trim() || null;
   const postedAgeInDays = getAgeInDays(item.posted_at);
   const isNew =
@@ -139,9 +156,16 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
         {item.title}
       </h3>
 
-      <p className="truncate text-sm font-medium text-foreground/80">
-        {companyName}
-      </p>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <p className="min-w-0 truncate text-sm font-medium text-foreground/80">
+          {companyName}
+        </p>
+        {sourceLabel && (
+          <span className="shrink-0 rounded-full border border-border bg-muted/50 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+            via {sourceLabel}
+          </span>
+        )}
+      </div>
 
       {(location || item.is_remote) && (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">

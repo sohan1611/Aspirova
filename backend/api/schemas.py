@@ -41,6 +41,7 @@ class OpportunityListItem(BaseModel):
     title: str
     company: CompanySummary | None
     category: str | None
+    source: str | None = None
     location: str | None
     is_remote: bool | None
     deadline: datetime | None
@@ -75,6 +76,7 @@ class OpportunityListItem(BaseModel):
             title=o.title,
             company=CompanySummary.model_validate(o.company) if o.company else None,
             category=o.category,
+            source=o.primary_source,
             location=o.location,
             is_remote=o.is_remote,
             deadline=o.deadline,
@@ -166,6 +168,7 @@ class OpportunityDetail(OpportunityListItem):
             title=o.title,
             company=CompanySummary.model_validate(o.company) if o.company else None,
             category=o.category,
+            source=o.primary_source,
             location=o.location,
             is_remote=o.is_remote,
             deadline=o.deadline,

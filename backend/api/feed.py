@@ -14,7 +14,7 @@ from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from api.deps import get_db
-from api.filters import exclude_closed_competitions, opportunity_filters
+from api.filters import SOURCE_GROUPS, exclude_closed_competitions, opportunity_filters
 from api.schemas import FeedResponse, OpportunityListItem
 from core import models
 
@@ -28,6 +28,7 @@ def get_feed(
     remote: bool | None = Query(None),
     company: str | None = Query(None),
     location: str | None = Query(None),
+    source: str | None = Query(None, pattern="^(direct|unstop|remoteok|devpost)$"),
     top: int | None = Query(None, gt=0),
     sort: str = Query("recent", pattern="^(recent|deadline)$"),
     page: int = Query(1, ge=1),
@@ -49,10 +50,26 @@ def get_feed(
                 models.Opportunity.meta["offers_ppo"].as_boolean().is_(True),
             )
         )
+    if source is not None:
+        base_filters.append(models.Opportunity.primary_source.in_(SOURCE_GROUPS[source]))
 
     total_count = func.count().over().label("total_count")
+    source_rank = (
+        func.row_number()
+        .over(
+            partition_by=func.coalesce(models.Opportunity.primary_source, ""),
+            order_by=[
+                models.Opportunity.last_seen_at.desc(),
+                models.Opportunity.id.desc(),
+            ],
+        )
+        .label("source_rank")
+    )
+    selected_columns = [models.Opportunity, total_count]
+    if sort == "recent":
+        selected_columns.append(source_rank)
     query = (
-        select(models.Opportunity, total_count)
+        select(*selected_columns)
         .options(joinedload(models.Opportunity.company))
         .where(*base_filters)
     )
@@ -94,6 +111,7 @@ def get_feed(
     else:
         ordering.extend(
             [
+                source_rank.asc(),
                 models.Opportunity.last_seen_at.desc(),
                 models.Opportunity.id.desc(),
             ]

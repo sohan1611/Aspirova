@@ -122,6 +122,7 @@ class Opportunity(Base):
     title: Mapped[str] = mapped_column(Text, nullable=False)
     title_normalized: Mapped[str | None] = mapped_column(Text)
     category: Mapped[str | None] = mapped_column(Text)
+    primary_source: Mapped[str | None] = mapped_column(Text)
     location: Mapped[str | None] = mapped_column(Text)
     is_remote: Mapped[bool | None] = mapped_column(Boolean)
     description_raw: Mapped[str | None] = mapped_column(Text)
@@ -163,6 +164,7 @@ class Opportunity(Base):
             "company_id",
             postgresql_where=text("status = 'active'"),
         ),
+        Index("ix_opportunities_primary_source", "primary_source"),
     )
 
 

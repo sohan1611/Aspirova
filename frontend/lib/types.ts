@@ -17,6 +17,7 @@ export interface OpportunityListItem {
   title: string;
   company: CompanySummary | null;
   category: string | null;
+  source: string | null;
   meta?: Record<string, unknown> | null;
   location: string | null;
   is_remote: boolean | null;
