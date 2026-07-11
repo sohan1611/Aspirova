@@ -71,3 +71,21 @@ Still open from v1: RP-4 (internship tracks Company/College/Research/Learning + 
 
 ### Fix order (one Codex branch each, Claude verifies+merges)
 1. **A0** India internships + internship lifecycle (in progress). 2. **A1** roles-first ordering. 3. **A2** multi-location de-dupe. 4. **A3** junk filter. 5. **A4** companies-directory = employers. 6. RP-4 tracks. 7. RP-5 MAANG cards.
+
+---
+
+## Phase 6 — The "Never-Miss" Command Center (the reason to pay) — Opus, 2026-07-11
+Founder's core doubt: "if it just redirects to Unstop, why pay?" Answer: Aspirova is the personal scout that watches every source + never lets you miss. The moat = breadth × personalization × proactivity × intelligence. Most exists (Phase 3) but is buried and was running on wrong deadlines (now fixed). Make it the hero:
+
+**C1 — Closing-soon deadline alerts (NEW, highest value; the anti-Flipkart).** notification_worker gains `--closing-soon`: for each opted-in user, email the bookmarked (and, for Pro, resume-matched) opportunities whose deadline is within N days (default 3). Dedup via the notifications table; gate by plan/prefs; wire into the daily cron. Unblocked now that deadlines are correct. This is THE "never miss another Flipkart" feature.
+
+**C2 — "My Opportunities" tracker page (NEW).** A dashboard of the user's bookmarks with deadline countdowns ("Closes in 3 days"), urgency-sorted, split Open / Closing-soon / Closed. The personal command center + the home for the alerts. Bookmarks already exist.
+
+**C3 — Personalized "For You" (enhance).** Resume-matched opportunities as a first-class tab/front-door for logged-in users with a resume (Resume Match exists at /resume — surface it as "For You").
+
+**C4 — Sharpen free vs paid.** Free = browse + limited bookmarks. Paid = closing-soon + dream alerts + unlimited tracking + For-You + Copilot. Make the paid value legible on pricing + at the gates.
+
+### Overall remaining order
+1. A1 feed ordering (in progress). 2. A2 multi-location de-dupe. 3. **C1 closing-soon alerts** (high value, unblocked). 4. C2 tracker page. 5. A3 junk, A4 companies-directory. 6. C3 For-You. 7. RP-4 tracks, RP-5 MAANG cards. 8. C4 pricing clarity.
+
+**A6 — meta payload bloat:** Unstop meta.skills stores full nested objects (id/pivot/ai_generated per skill) → /feed responses are huge → slower transfer (hurts the perceived-perf goal). → trim meta to essentials (skill NAMES only, drop pivot/prizes internals) in the Unstop adapter + a one-time backfill. **[P1, perf]**

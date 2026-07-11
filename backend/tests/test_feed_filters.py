@@ -284,6 +284,112 @@ def test_feed_top_filter_returns_ranked_companies_and_combines_with_category(
     assert {item["slug"] for item in top_10_internship["items"]} == expected_ranked_slugs
 
 
+def test_feed_orders_open_and_real_roles_before_closed_and_competitions(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    suffix = uuid.uuid4().hex
+    now = datetime.now(UTC)
+    location_token = f"OrderingFilterville-{suffix}"
+    company = models.Company(
+        slug=f"ordering-filter-company-{suffix}",
+        name=f"Ordering Filter Company {suffix}",
+    )
+    open_internship = models.Opportunity(
+        slug=f"ordering-filter-open-internship-{suffix}",
+        title="Open internship",
+        company=company,
+        category="internship",
+        location=location_token,
+        apply_url=f"https://example.com/ordering-filter/open-internship/{suffix}",
+        deadline=now + timedelta(days=10),
+        status="active",
+        last_seen_at=now - timedelta(hours=3),
+    )
+    closed_internship = models.Opportunity(
+        slug=f"ordering-filter-closed-internship-{suffix}",
+        title="Recently closed internship",
+        company=company,
+        category="internship",
+        location=location_token,
+        apply_url=f"https://example.com/ordering-filter/closed-internship/{suffix}",
+        deadline=now - timedelta(days=2),
+        status="active",
+        last_seen_at=now,
+    )
+    no_deadline_job = models.Opportunity(
+        slug=f"ordering-filter-no-deadline-job-{suffix}",
+        title="Job without a deadline",
+        company=company,
+        category="job",
+        location=location_token,
+        apply_url=f"https://example.com/ordering-filter/no-deadline-job/{suffix}",
+        deadline=None,
+        status="active",
+        last_seen_at=now - timedelta(hours=1),
+    )
+    ppi_competition = models.Opportunity(
+        slug=f"ordering-filter-ppi-competition-{suffix}",
+        title="PPI competition",
+        company=company,
+        category="competition",
+        location=location_token,
+        apply_url=f"https://example.com/ordering-filter/ppi-competition/{suffix}",
+        deadline=now + timedelta(days=30),
+        meta={"offers_ppi": True},
+        status="active",
+        last_seen_at=now - timedelta(hours=2),
+    )
+    db_session.add_all(
+        [
+            company,
+            open_internship,
+            closed_internship,
+            no_deadline_job,
+            ppi_competition,
+        ]
+    )
+    db_session.flush()
+
+    deadline_sorted = client.get(
+        "/feed",
+        params={
+            "category": "internship",
+            "location": location_token,
+            "sort": "deadline",
+            "limit": 10,
+        },
+    ).json()
+    roles = client.get(
+        "/feed",
+        params={"kind": "roles", "location": location_token, "limit": 10},
+    ).json()
+    recent = client.get(
+        "/feed",
+        params={"location": location_token, "limit": 10},
+    ).json()
+
+    assert deadline_sorted["total"] == 2
+    assert [item["slug"] for item in deadline_sorted["items"]] == [
+        open_internship.slug,
+        closed_internship.slug,
+    ]
+    assert roles["total"] == 4
+    assert [item["slug"] for item in roles["items"]] == [
+        no_deadline_job.slug,
+        open_internship.slug,
+        ppi_competition.slug,
+        closed_internship.slug,
+    ]
+    assert recent["total"] == 4
+    assert [item["slug"] for item in recent["items"]] == [
+        no_deadline_job.slug,
+        ppi_competition.slug,
+        open_internship.slug,
+        closed_internship.slug,
+    ]
+
+
 def test_feed_keeps_grace_period_and_undated_rows_but_excludes_expired_categories(
     client: TestClient,
     db_session: Session,

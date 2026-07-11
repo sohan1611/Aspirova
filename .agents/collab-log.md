@@ -325,3 +325,7 @@ RESULT (source expansion, live): SmartRecruiters seeded to production and the Ti
 ### #51 — India internships + deadline correctness — gpt-5.6-sol @ ultra + Claude fixes
 - **Codex delivered:** Unstop adapter adds opportunity=internships; extend 14-day lifecycle to internships (filters/cleanup); card "Apply by"/"Applications closed".
 - **Claude found + fixed 2 real bugs during review:** (1) DEADLINE was Unstop end_date (event's final-round date) not the registration close — added _registration_deadline() using regnRequirements.end_regn_dt (fallback end_date). This is why closed contests showed future deadlines. (2) CATEGORY: Unstop returns internships with type="jobs", so all 1000 internships were miscategorized as "competition" — now derive category from the SEARCH opportunity type (injected as _aspirova_opportunity in fetch). Live re-verify: 967 internships (was 0), Indian orgs, registration deadlines. All gates + 19 tests green.
+
+### #52 — A1 feed open-first + roles-first ordering — gpt-5.6-sol @ ultra
+- Codex: unified feed ordering — is_closed asc (open/undated first), roles-first when kind=roles, then sort (open-deadline asc / last_seen), id tiebreak.
+- Claude verified: ruff/black + 8 tests; live — internships sort=deadline leads with OPEN (was closed); kind=roles leads with internships. Merged. NOTE found A6: meta.skills payload bloat (perf).

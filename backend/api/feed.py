@@ -61,47 +61,44 @@ def get_feed(
     # Postgres gives no ordering guarantee among tied rows across separate
     # paginated queries - confirmed live, page 1 and page 2 returned
     # overlapping rows without this.
-    competition_view = kind == "competitions" or category in {
-        "hackathon",
-        "competition",
-    }
-    if competition_view:
-        competition_is_closed = case(
-            (
-                and_(
-                    models.Opportunity.deadline.is_not(None),
-                    models.Opportunity.deadline < func.now(),
-                ),
-                1,
+    is_closed = case(
+        (
+            and_(
+                models.Opportunity.deadline.is_not(None),
+                models.Opportunity.deadline < func.now(),
             ),
-            else_=0,
+            1,
+        ),
+        else_=0,
+    )
+    ordering = [is_closed.asc()]
+    if kind == "roles":
+        roles_first = case(
+            (models.Opportunity.category.in_(["internship", "job"]), 0),
+            else_=1,
         )
-        if sort == "deadline":
-            competition_open_deadline = case(
-                (
-                    competition_is_closed == 0,
-                    models.Opportunity.deadline,
-                ),
-                else_=None,
-            )
-            query = query.order_by(
-                competition_is_closed.asc(),
-                competition_open_deadline.asc().nullslast(),
+        ordering.append(roles_first.asc())
+
+    if sort == "deadline":
+        open_deadline = case(
+            (is_closed == 0, models.Opportunity.deadline),
+            else_=None,
+        )
+        ordering.extend(
+            [
+                open_deadline.asc().nullslast(),
                 models.Opportunity.deadline.desc().nullslast(),
                 models.Opportunity.id.asc(),
-            )
-        else:
-            query = query.order_by(
-                competition_is_closed.asc(),
-                models.Opportunity.last_seen_at.desc(),
-                models.Opportunity.id.desc(),
-            )
-    elif sort == "deadline":
-        query = query.order_by(
-            models.Opportunity.deadline.asc().nullslast(), models.Opportunity.id.asc()
+            ]
         )
     else:
-        query = query.order_by(models.Opportunity.last_seen_at.desc(), models.Opportunity.id.desc())
+        ordering.extend(
+            [
+                models.Opportunity.last_seen_at.desc(),
+                models.Opportunity.id.desc(),
+            ]
+        )
+    query = query.order_by(*ordering)
 
     rows = db.execute(query.offset((page - 1) * limit).limit(limit)).unique().all()
 
