@@ -358,7 +358,7 @@ def crawl_aggregator(session: Session, source: models.Source, adapter_class: typ
     return result
 
 
-def run_tier(tier: int) -> None:
+def run_tier(tier: int, group: str = "all") -> None:
     engine = make_engine()
 
     # Gather the (source_id, company_id) work list with one short-lived
@@ -385,14 +385,14 @@ def run_tier(tier: int) -> None:
         ats_jobs: list[tuple[int, str, str]] = []
         aggregator_jobs: list[tuple[int, str]] = []
         for source in sources:
-            if source.adapter_key in ATS_ADAPTERS:
+            if group in ("ats", "all") and source.adapter_key in ATS_ADAPTERS:
                 companies = session.scalars(
                     select(models.Company).where(models.Company.ats_type == source.adapter_key)
                 ).all()
                 ats_jobs.extend(
                     (source.id, company.slug, source.adapter_key) for company in companies
                 )
-            elif source.adapter_key in AGGREGATOR_ADAPTERS:
+            elif group in ("aggregator", "all") and source.adapter_key in AGGREGATOR_ADAPTERS:
                 aggregator_jobs.append((source.id, source.adapter_key))
             # else: adapter_key not registered in either dict - skip
 
@@ -443,8 +443,9 @@ def run_tier(tier: int) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--tier", type=int, required=True)
+    parser.add_argument("--group", choices=("ats", "aggregator", "all"), default="all")
     args = parser.parse_args()
-    run_tier(args.tier)
+    run_tier(args.tier, args.group)
 
 
 if __name__ == "__main__":

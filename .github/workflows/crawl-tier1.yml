@@ -1,10 +1,12 @@
 name: Crawl Tier 1
 
-# Tier 1 = every 1-2h (Doc 04 sec 2). Starting at 2h; tighten once real
-# volume/cost data justifies it (Doc 02 sec 5 - scale by measured trigger).
+# Tier 1 crawl. Original intent was 2-3x/day (not every 2h); running at 2x/day
+# (every 12h) to keep GitHub Actions minutes well under the 2,000/mo included
+# free tier (Doc 02 sec 5 - scale by measured cost). Bump toward 3x/day once the
+# monthly Actions budget comfortably allows it.
 on:
   schedule:
-    - cron: "0 */2 * * *"
+    - cron: "0 */12 * * *"
   workflow_dispatch: {}
 
 concurrency:
@@ -14,16 +16,9 @@ concurrency:
 jobs:
   crawl:
     runs-on: ubuntu-latest
-    # Generous margin: this network path (GH Actions -> Supabase pooler) has
-    # shown meaningfully higher and more variable latency than a local
-    # connection - confirmed by direct measurement, not assumed. 12
-    # companies each individually bounded by core/db.py's connect/keepalive/
-    # statement timeouts should never need this long, but the margin costs
-    # nothing on a 2h schedule and avoids a slow-but-real run being killed.
-    # SmartRecruiters currently adds ~18 min/crawl because its adapter fetches
-    # per-posting detail endpoints every crawl; the board fingerprint is computed
-    # after fetch(). This intentionally generous margin can drop back down after
-    # the tracked lazy/only-changed detail-fetch follow-up lands.
+    # ATS must complete (it's fast now that it's split out); the aggregator runs
+    # afterward as best-effort work with its own tight per-step cap below. The
+    # job cap bounds worst-case billed minutes per run.
     timeout-minutes: 40
     defaults:
       run:
@@ -41,7 +36,7 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
-      - name: Run Tier-1 crawl
+      - name: Run ATS crawl (tier 1)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           # Python block-buffers stdout when it's not a TTY (i.e. always, in
@@ -50,7 +45,17 @@ jobs:
           # of incrementally, making it look like a multi-minute silent hang
           # when the real-time picture was just hidden, not absent.
           PYTHONUNBUFFERED: "1"
-        run: uv run python -m crawlers.runner --tier 1
+        run: uv run python -m crawlers.runner --tier 1 --group ats
+
+      - name: Run RemoteOK aggregator (tier 1, best-effort)
+        continue-on-error: true
+        # Hard cap the aggregator: it's the biggest minute-consumer and lowest-
+        # value tier (many no-name companies). Never let it burn the budget.
+        timeout-minutes: 12
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONUNBUFFERED: "1"
+        run: uv run python -m crawlers.runner --tier 1 --group aggregator
 
       - name: Recompute hidden opportunities
         env:

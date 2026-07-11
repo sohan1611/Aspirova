@@ -1,7 +1,56 @@
-"""Unit test for the pure board-fingerprint helper (no DB/network)."""
+"""Unit tests for crawler runner helpers and dispatch (no DB/network)."""
+
+from types import SimpleNamespace
+
+import pytest
 
 from core.adapters import RawListing
+from crawlers import runner
 from crawlers.runner import _board_fingerprint
+
+
+class _ScalarResult:
+    def __init__(self, values: list[object]) -> None:
+        self.values = values
+
+    def all(self) -> list[object]:
+        return self.values
+
+
+class _FakeSession:
+    def __init__(self, sources: list[object], companies: list[object]) -> None:
+        self.sources = sources
+        self.companies = companies
+        self.scalars_calls = 0
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, _exc_type, _exc_value, _traceback) -> None:
+        pass
+
+    def scalars(self, _query) -> _ScalarResult:
+        self.scalars_calls += 1
+        values = self.sources if self.scalars_calls == 1 else self.companies
+        return _ScalarResult(values)
+
+    def get(self, _model, source_id: int):
+        return next(source for source in self.sources if source.id == source_id)
+
+    def scalar(self, _query):
+        return self.companies[0]
+
+
+class _SessionFactory:
+    def __init__(self, sources: list[object], companies: list[object]) -> None:
+        self.sources = sources
+        self.companies = companies
+        self.sessions: list[_FakeSession] = []
+
+    def __call__(self, _engine, **_kwargs) -> _FakeSession:
+        session = _FakeSession(self.sources, self.companies)
+        self.sessions.append(session)
+        return session
 
 
 def _listing(external_id: str, content_hash: str) -> RawListing:
@@ -34,3 +83,41 @@ def test_fingerprint_changes_when_a_job_is_added() -> None:
 
 def test_fingerprint_empty_list_is_deterministic() -> None:
     assert _board_fingerprint([]) == _board_fingerprint([])
+
+
+@pytest.mark.parametrize(
+    ("group", "expected_call", "expected_gather_queries"),
+    [("ats", "ats", 2), ("aggregator", "aggregator", 1)],
+)
+def test_run_tier_processes_only_selected_group(
+    monkeypatch, group: str, expected_call: str, expected_gather_queries: int
+) -> None:
+    ats_source = SimpleNamespace(id=1, adapter_key="greenhouse")
+    aggregator_source = SimpleNamespace(id=2, adapter_key="remoteok")
+    company = SimpleNamespace(slug="example-company")
+    session_factory = _SessionFactory([ats_source, aggregator_source], [company])
+    calls: list[str] = []
+
+    def fake_crawl_company_board(_session, source, selected_company, adapter_class):
+        assert source is ats_source
+        assert selected_company is company
+        assert adapter_class is runner.ATS_ADAPTERS["greenhouse"]
+        calls.append("ats")
+        return {}
+
+    def fake_crawl_aggregator(_session, source, adapter_class):
+        assert source is aggregator_source
+        assert adapter_class is runner.AGGREGATOR_ADAPTERS["remoteok"]
+        calls.append("aggregator")
+        return {}
+
+    monkeypatch.setattr(runner, "make_engine", lambda: object())
+    monkeypatch.setattr(runner, "Session", session_factory)
+    monkeypatch.setattr(runner, "crawl_company_board", fake_crawl_company_board)
+    monkeypatch.setattr(runner, "crawl_aggregator", fake_crawl_aggregator)
+
+    runner.run_tier(1, group=group)
+
+    assert calls == [expected_call]
+    assert len(session_factory.sessions) == 2  # gather + exactly one selected job
+    assert session_factory.sessions[0].scalars_calls == expected_gather_queries
