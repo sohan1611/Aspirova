@@ -160,7 +160,7 @@ def test_search_filters_restrict_fts_matches(
     assert {item["slug"] for item in body["items"]} == expected_slugs
 
 
-def test_search_keeps_recently_closed_competitions_and_excludes_expired_ones(
+def test_search_keeps_grace_period_and_undated_rows_but_excludes_expired_categories(
     client: TestClient,
     db_session: Session,
 ) -> None:
@@ -210,6 +210,28 @@ def test_search_keeps_recently_closed_competitions_and_excludes_expired_ones(
         status="active",
         last_seen_at=now,
     )
+    expired_internship = models.Opportunity(
+        slug=f"search-deadline-filter-expired-internship-{suffix}",
+        title=f"{search_term} expired Unstop internship",
+        company=company,
+        category="internship",
+        apply_url=f"https://example.com/search-deadline-filter/expired-internship/{suffix}",
+        deadline=now - timedelta(days=20),
+        meta={"platform": "unstop"},
+        status="active",
+        last_seen_at=now,
+    )
+    ats_internship_without_deadline = models.Opportunity(
+        slug=f"search-deadline-filter-ats-internship-{suffix}",
+        title=f"{search_term} ATS internship without deadline",
+        company=company,
+        category="internship",
+        apply_url=f"https://example.com/search-deadline-filter/ats-internship/{suffix}",
+        deadline=None,
+        meta={"platform": "greenhouse"},
+        status="active",
+        last_seen_at=now,
+    )
     past_deadline_role = models.Opportunity(
         slug=f"search-deadline-filter-role-{suffix}",
         title=f"{search_term} past-deadline role",
@@ -227,6 +249,8 @@ def test_search_keeps_recently_closed_competitions_and_excludes_expired_ones(
             recently_closed_competition,
             future_hackathon,
             no_deadline_competition,
+            expired_internship,
+            ats_internship_without_deadline,
             past_deadline_role,
         ]
     )
@@ -236,10 +260,11 @@ def test_search_keeps_recently_closed_competitions_and_excludes_expired_ones(
 
     assert response.status_code == 200
     body = response.json()
-    assert body["total"] == 4
+    assert body["total"] == 5
     assert {item["slug"] for item in body["items"]} == {
         recently_closed_competition.slug,
         future_hackathon.slug,
         no_deadline_competition.slug,
+        ats_internship_without_deadline.slug,
         past_deadline_role.slug,
     }

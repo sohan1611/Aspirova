@@ -96,6 +96,8 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
     : null;
   const isCompetition =
     item.category !== null && COMPETITION_CATEGORIES.has(item.category);
+  const isInternship = item.category === "internship";
+  const hasExpiringDeadline = isCompetition || isInternship;
   const prizeText = isCompetition ? getPrizeText(item.meta) : null;
   const competitionMode = isCompetition
     ? getCompetitionMode(item.meta)
@@ -103,9 +105,17 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
   const offersPpi = isCompetition && item.meta?.offers_ppi === true;
   const offersPpo = isCompetition && item.meta?.offers_ppo === true;
   const urgentDeadline =
-    isCompetition && item.deadline ? isDeadlineUrgent(item.deadline) : false;
-  const registrationsClosed =
-    isCompetition && item.deadline ? isDeadlinePast(item.deadline) : false;
+    hasExpiringDeadline && item.deadline
+      ? isDeadlineUrgent(item.deadline)
+      : false;
+  const deadlinePast =
+    hasExpiringDeadline && item.deadline
+      ? isDeadlinePast(item.deadline)
+      : false;
+  const openDeadlineLabel = isInternship ? "Apply by" : "Registers by";
+  const closedDeadlineLabel = isInternship
+    ? "Applications closed"
+    : "Registrations closed";
 
   return (
     <Link
@@ -190,14 +200,14 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
           {item.deadline && (
-            isCompetition ? (
-              registrationsClosed ? (
+            hasExpiringDeadline ? (
+              deadlinePast ? (
                 <Badge
                   variant="secondary"
                   className="tnum border border-border px-2 py-1 normal-case text-muted-foreground"
                 >
                   <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                  Registrations closed
+                  {closedDeadlineLabel}
                 </Badge>
               ) : (
                 <span
@@ -208,12 +218,12 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
                   }`}
                   aria-label={
                     urgentDeadline
-                      ? `Urgent: registers by ${formatDate(item.deadline, "long")}`
+                      ? `Urgent: ${openDeadlineLabel.toLowerCase()} ${formatDate(item.deadline, "long")}`
                       : undefined
                   }
                 >
                   <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                  Registers by {formatDate(item.deadline, "long")}
+                  {openDeadlineLabel} {formatDate(item.deadline, "long")}
                 </span>
               )
             ) : (

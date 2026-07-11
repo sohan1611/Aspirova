@@ -49,3 +49,25 @@ Search for Google/Microsoft/Apple → branded card (logo) → page with honest "
 - No US date formats. No fake/stale data. No ToS-violating scraping.
 - Each item ships only after ruff/black/pytest + eslint/tsc/build + a browser check.
 - Stay within Supabase Pro + GitHub Actions (3,000 min) limits.
+
+---
+
+## v2 — Extensive site audit (Opus, 2026-07-11)
+Measured on prod (9,706 active opps: 233 internships / 8,950 jobs / 234 hackathon / 289 competition).
+
+**A0 — India internships = 0; all 233 internships have NO deadline; all Amazon/US ATS.** Root cause: Unstop *internships* (10,000, Indian, with deadlines) were never crawled — only its competitions/hackathons. → FIXING (feat/india-internships, br6ow7vqo): add opportunity=internships + extend the 14-day deadline lifecycle to internships. **[P0]**
+
+**A1 — Home "roles" feed leads with PPI/PPO competitions** (recently crawled, sort=recent) so real internships/jobs get buried. → order genuine internships/jobs first; PPI/PPO competitions after. **[P1]**
+
+**A2 — 816 duplicate multi-location role clusters** (e.g. MongoDB "Enterprise Account Executive" ×19 cities, Databricks roles ×13–15) bloat the feed with near-identical cards. → group multi-location roles into one card ("+18 locations") or de-dupe the feed by (title, company) with a location roll-up. **[P1]**
+
+**A3 — Junk/empty listings:** 1 empty title, 1 "Test 1 posting", 9 roles missing location. → drop empty-title/obvious-test rows on ingest; require a location for role listings or show "Location N/A". **[P2]**
+
+**A4 — /companies counts competitions as "open roles"** and lists small competition-organizers (colleges/clubs) as if employers. → the Companies directory should reflect employers with real internship/job counts (exclude competition-only organizers, or label "N events"). **[P2]**
+
+**A5 — ATS/Amazon internships legitimately have no deadline** → show "Posted <n> ago" (not implying an expiry); never show a stale "months ago with no action". **[P2, part of A0 card work]**
+
+Still open from v1: RP-4 (internship tracks Company/College/Research/Learning + institute/research curated data), RP-5 (Google/MS/Apple source-cards + flagship programs).
+
+### Fix order (one Codex branch each, Claude verifies+merges)
+1. **A0** India internships + internship lifecycle (in progress). 2. **A1** roles-first ordering. 3. **A2** multi-location de-dupe. 4. **A3** junk filter. 5. **A4** companies-directory = employers. 6. RP-4 tracks. 7. RP-5 MAANG cards.

@@ -9,7 +9,7 @@ from core.adapters import NormalizedListing, RawListing
 from crawlers.common import USER_AGENT, content_hash, extract_text
 
 _API_URL = "https://unstop.com/api/public/opportunity/search-result"
-_OPPORTUNITY_TYPES = ("competitions", "hackathons")
+_OPPORTUNITY_TYPES = ("internships", "competitions", "hackathons")
 _PAGE_SIZE = 100
 _MAX_PAGES = 10
 
@@ -72,7 +72,7 @@ class UnstopAdapter:
                         degraded = True
                         continue
 
-                    deadline = _parse_iso_datetime(item.get("end_date"))
+                    deadline = _registration_deadline(item)
                     if deadline is not None and deadline < expiry_cutoff:
                         continue
 
@@ -87,6 +87,10 @@ class UnstopAdapter:
                         continue
 
                     seen_ids.add(external_id)
+                    # Record WHICH search returned this item — Unstop's per-item
+                    # "type" is unreliable (internships come back with type="jobs"),
+                    # so category must be derived from the search opportunity type.
+                    item["_aspirova_opportunity"] = opportunity_type
                     listings.append(
                         RawListing(
                             source_slug=self.source_slug,
@@ -107,9 +111,18 @@ class UnstopAdapter:
             organization = {}
 
         organizer = extract_text(_as_text(organization.get("name"))) or None
-        opportunity_type = _as_text(opportunity.get("type")) or None
+        # Category comes from the SEARCH that returned this item (authoritative),
+        # not the item's own "type" (Unstop returns internships with type="jobs").
+        search_opportunity = _as_text(opportunity.get("_aspirova_opportunity")).lower()
+        item_type = (_as_text(opportunity.get("type")) or "").lower()
+        if search_opportunity == "internships":
+            category = "internship"
+        elif search_opportunity == "hackathons" or item_type == "hackathons":
+            category = "hackathon"
+        else:
+            category = "competition"
         region = _as_text(opportunity.get("region")) or None
-        deadline = _parse_iso_datetime(opportunity.get("end_date"))
+        deadline = _registration_deadline(opportunity)
         apply_url = _as_text(opportunity.get("seo_url")) or raw.source_url
 
         prizes = opportunity.get("prizes")
@@ -130,16 +143,14 @@ class UnstopAdapter:
             company_domain=None,
             location=region,
             is_remote=(region or "").lower() == "online",
-            category=(
-                "hackathon" if (opportunity_type or "").lower() == "hackathons" else "competition"
-            ),
+            category=category,
             description_raw=extract_text(_as_text(opportunity.get("details"))),
             apply_url=apply_url,
             deadline=deadline,
             meta={
                 "platform": "unstop",
                 "organizer": organizer,
-                "type": opportunity_type,
+                "type": item_type or search_opportunity,
                 "subtype": opportunity.get("subtype"),
                 "mode": region,
                 "prizes": prizes,
@@ -179,6 +190,21 @@ def _parse_iso_datetime(value: Any) -> datetime | None:
     if parsed.tzinfo is None:
         return parsed.replace(tzinfo=UTC)
     return parsed
+
+
+def _registration_deadline(item: Any) -> datetime | None:
+    """The real deadline is when REGISTRATION closes (regnRequirements.end_regn_dt),
+    NOT end_date — which is the event's final-round date and can be months later.
+    Using end_date made closed-registration contests look open. Fall back to
+    end_date only when the registration window is missing."""
+    if not isinstance(item, dict):
+        return None
+    reqs = item.get("regnRequirements")
+    if isinstance(reqs, dict):
+        regn = _parse_iso_datetime(reqs.get("end_regn_dt"))
+        if regn is not None:
+            return regn
+    return _parse_iso_datetime(item.get("end_date"))
 
 
 def _as_text(value: Any) -> str:

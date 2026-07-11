@@ -1,4 +1,4 @@
-"""Hard-delete competitions after their 14-day closed-registration grace window.
+"""Hard-delete expiring opportunities after their 14-day closed grace window.
 
 Usage: uv run python -m scripts.cleanup_expired_competitions
 """
@@ -16,7 +16,7 @@ BATCH_SIZE = 200
 # Maintenance timeout for the batch job: the API-side statement_timeout
 # (core/db.py) is deliberately tight; a large prune needs more headroom.
 MAINTENANCE_STATEMENT_TIMEOUT = "120s"
-COMPETITION_CATEGORIES = ("hackathon", "competition")
+EXPIRING_CATEGORIES = ("hackathon", "competition", "internship")
 
 
 def cleanup_expired_competitions(
@@ -26,7 +26,7 @@ def cleanup_expired_competitions(
     batch_size: int = BATCH_SIZE,
     commit_each_batch: bool = False,
 ) -> int:
-    """Prune expired competitions in batches without committing the transaction."""
+    """Prune expired opportunities in batches without committing the transaction."""
     if batch_size < 1:
         raise ValueError("batch_size must be at least 1")
 
@@ -38,7 +38,7 @@ def cleanup_expired_competitions(
             session.scalars(
                 select(models.Opportunity.id)
                 .where(
-                    models.Opportunity.category.in_(COMPETITION_CATEGORIES),
+                    models.Opportunity.category.in_(EXPIRING_CATEGORIES),
                     models.Opportunity.deadline.is_not(None),
                     models.Opportunity.deadline < cutoff,
                 )
@@ -89,7 +89,7 @@ def main() -> None:
         session.execute(text(f"SET statement_timeout = '{MAINTENANCE_STATEMENT_TIMEOUT}'"))
         deleted_count = cleanup_expired_competitions(session, commit_each_batch=True)
 
-    print(f"expired competitions deleted: {deleted_count}", flush=True)
+    print(f"expired opportunities deleted: {deleted_count}", flush=True)
 
 
 if __name__ == "__main__":

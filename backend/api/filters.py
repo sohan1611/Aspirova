@@ -6,13 +6,13 @@ from core import models
 
 
 def exclude_closed_competitions():
-    """Exclude competitions whose registration deadline passed over 14 days ago."""
-    expired_competition = and_(
-        models.Opportunity.category.in_(["hackathon", "competition"]),
+    """Exclude expiring categories whose deadline passed over 14 days ago."""
+    expired_opportunity = and_(
+        models.Opportunity.category.in_(["hackathon", "competition", "internship"]),
         models.Opportunity.deadline.is_not(None),
         models.Opportunity.deadline < func.now() - text("interval '14 days'"),
     )
-    return expired_competition.is_not(True)
+    return expired_opportunity.is_not(True)
 
 
 def opportunity_filters(

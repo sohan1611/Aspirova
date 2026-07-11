@@ -74,6 +74,8 @@ def test_fetch_returns_fixture_opportunities_and_deduplicates_across_types(
         str(opportunity["id"]) for opportunity in fixture_items
     }
     assert request_params == [
+        {"opportunity": "internships", "per_page": 100, "page": 1},
+        {"opportunity": "internships", "per_page": 100, "page": 2},
         {"opportunity": "competitions", "per_page": 100, "page": 1},
         {"opportunity": "competitions", "per_page": 100, "page": 2},
         {"opportunity": "hackathons", "per_page": 100, "page": 1},
@@ -82,18 +84,21 @@ def test_fetch_returns_fixture_opportunities_and_deduplicates_across_types(
     assert adapter.health() == "ok"
 
 
-def test_fetch_only_skips_deadlines_older_than_grace_period(
+def test_fetch_skips_internship_deadlines_older_than_grace_period(
     adapter: UnstopAdapter,
     fixture_payload: dict,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    fixture_item = _fixture_items(fixture_payload)[0]
+    fixture_item = {
+        **_fixture_items(fixture_payload)[0],
+        "type": "internships",
+    }
     now = datetime.now(UTC)
     items = [
         {
             **fixture_item,
             "id": 1,
-            "seo_url": "https://unstop.com/competition/future-aware-1",
+            "seo_url": "https://unstop.com/internships/future-aware-1",
             "end_date": (now + timedelta(days=1)).isoformat(),
         },
         {
@@ -101,13 +106,13 @@ def test_fetch_only_skips_deadlines_older_than_grace_period(
             "id": 2,
             "regn_open": 0,
             "status": "CLOSED",
-            "seo_url": "https://unstop.com/competition/recently-closed-2",
+            "seo_url": "https://unstop.com/internships/recently-closed-2",
             "end_date": (now - timedelta(days=3)).isoformat(),
         },
         {
             **fixture_item,
             "id": 3,
-            "seo_url": "https://unstop.com/competition/expired-3",
+            "seo_url": "https://unstop.com/internships/expired-3",
             "end_date": (now - timedelta(days=20)).isoformat(),
         },
         {
@@ -115,25 +120,26 @@ def test_fetch_only_skips_deadlines_older_than_grace_period(
             "id": 4,
             "regn_open": 0,
             "status": "CLOSED",
-            "seo_url": "https://unstop.com/competition/missing-4",
+            "seo_url": "https://unstop.com/internships/missing-4",
             "end_date": None,
         },
         {
             **fixture_item,
             "id": 5,
-            "seo_url": "https://unstop.com/competition/invalid-5",
+            "seo_url": "https://unstop.com/internships/invalid-5",
             "end_date": "not a real date",
         },
         {
             **fixture_item,
             "id": 6,
-            "seo_url": "https://unstop.com/competition/future-naive-6",
+            "seo_url": "https://unstop.com/internships/future-naive-6",
             "end_date": (now + timedelta(days=2)).replace(tzinfo=None).isoformat(),
         },
     ]
 
     def fake_get(url: str, *, params: dict) -> httpx.Response:
-        payload = {"data": {"data": items if params["page"] == 1 else []}}
+        is_first_internship_page = params["opportunity"] == "internships" and params["page"] == 1
+        payload = {"data": {"data": items if is_first_internship_page else []}}
         request = httpx.Request("GET", url, params=params)
         return httpx.Response(200, json=payload, request=request)
 
@@ -193,6 +199,46 @@ def test_parse_maps_category_deadline_organizer_and_meta(
         "prizes": opportunity["prizes"],
         "offers_ppi": False,
         "offers_ppo": False,
+        "register_count": opportunity["registerCount"],
+        "skills": opportunity["required_skills"],
+        "is_paid": opportunity["isPaid"],
+    }
+
+
+def test_parse_maps_internship_deadline_organizer_and_meta(
+    adapter: UnstopAdapter,
+    fixture_payload: dict,
+) -> None:
+    opportunity = {
+        **_fixture_items(fixture_payload)[0],
+        "title": "Software Development Internship",
+        "seo_url": "https://unstop.com/internships/software-development-internship-1716244",
+        # Unstop returns internships with type="jobs"; the adapter records the
+        # search opportunity it came from so category is derived correctly.
+        "type": "jobs",
+        "_aspirova_opportunity": "internships",
+        "prizes": [
+            {"pre_placement_internship": 1},
+            {"pre_placement_opportunity": 1},
+        ],
+    }
+
+    normalized = adapter.parse(_raw_listing_for(opportunity))
+
+    assert normalized.category == "internship"
+    assert normalized.company_name == opportunity["organisation"]["name"]
+    assert normalized.location == opportunity["region"]
+    assert normalized.deadline == datetime.fromisoformat(opportunity["end_date"])
+    assert normalized.deadline_confidence == "explicit"
+    assert normalized.meta == {
+        "platform": "unstop",
+        "organizer": opportunity["organisation"]["name"],
+        "type": "jobs",
+        "subtype": opportunity["subtype"],
+        "mode": opportunity["region"],
+        "prizes": opportunity["prizes"],
+        "offers_ppi": True,
+        "offers_ppo": True,
         "register_count": opportunity["registerCount"],
         "skills": opportunity["required_skills"],
         "is_paid": opportunity["isPaid"],

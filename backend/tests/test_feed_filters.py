@@ -284,7 +284,7 @@ def test_feed_top_filter_returns_ranked_companies_and_combines_with_category(
     assert {item["slug"] for item in top_10_internship["items"]} == expected_ranked_slugs
 
 
-def test_feed_keeps_recently_closed_competitions_and_excludes_expired_ones(
+def test_feed_keeps_grace_period_and_undated_rows_but_excludes_expired_categories(
     client: TestClient,
     db_session: Session,
 ) -> None:
@@ -363,6 +363,30 @@ def test_feed_keeps_recently_closed_competitions_and_excludes_expired_ones(
         status="active",
         last_seen_at=now,
     )
+    expired_internship = models.Opportunity(
+        slug=f"deadline-filter-expired-internship-{suffix}",
+        title="Expired Unstop internship",
+        company=company,
+        category="internship",
+        location=location_token,
+        apply_url=f"https://example.com/deadline-filter/expired-internship/{suffix}",
+        deadline=now - timedelta(days=20),
+        meta={"platform": "unstop"},
+        status="active",
+        last_seen_at=now,
+    )
+    ats_internship_without_deadline = models.Opportunity(
+        slug=f"deadline-filter-ats-internship-{suffix}",
+        title="ATS internship without a deadline",
+        company=company,
+        category="internship",
+        location=location_token,
+        apply_url=f"https://example.com/deadline-filter/ats-internship/{suffix}",
+        deadline=None,
+        meta={"platform": "greenhouse"},
+        status="active",
+        last_seen_at=now,
+    )
     past_deadline_role = models.Opportunity(
         slug=f"deadline-filter-past-role-{suffix}",
         title="Past-deadline role",
@@ -394,6 +418,8 @@ def test_feed_keeps_recently_closed_competitions_and_excludes_expired_ones(
             soon_hackathon,
             future_hackathon,
             no_deadline_competition,
+            expired_internship,
+            ats_internship_without_deadline,
             past_deadline_role,
             uncategorized_past_deadline,
         ]
@@ -418,13 +444,14 @@ def test_feed_keeps_recently_closed_competitions_and_excludes_expired_ones(
         params={"kind": "roles", "location": location_token, "limit": 10},
     ).json()
 
-    assert all_opportunities["total"] == 7
+    assert all_opportunities["total"] == 8
     assert {item["slug"] for item in all_opportunities["items"]} == {
         recently_closed_competition.slug,
         earlier_closed_hackathon.slug,
         soon_hackathon.slug,
         future_hackathon.slug,
         no_deadline_competition.slug,
+        ats_internship_without_deadline.slug,
         past_deadline_role.slug,
         uncategorized_past_deadline.slug,
     }
@@ -436,9 +463,10 @@ def test_feed_keeps_recently_closed_competitions_and_excludes_expired_ones(
         recently_closed_competition.slug,
         earlier_closed_hackathon.slug,
     ]
-    assert roles["total"] == 3
+    assert roles["total"] == 4
     assert {item["slug"] for item in roles["items"]} == {
         recently_closed_competition.slug,
         earlier_closed_hackathon.slug,
+        ats_internship_without_deadline.slug,
         past_deadline_role.slug,
     }

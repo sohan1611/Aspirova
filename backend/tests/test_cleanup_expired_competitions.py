@@ -1,4 +1,4 @@
-"""Integration coverage for the expired-competition cleanup script."""
+"""Integration coverage for the expired-opportunity cleanup script."""
 
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -54,7 +54,7 @@ def _count_for_opportunity(
     )
 
 
-def test_cleanup_deletes_only_competitions_beyond_grace_window_and_handles_fks(
+def test_cleanup_deletes_expiring_categories_beyond_grace_window_and_handles_fks(
     db_session: Session,
 ) -> None:
     now = datetime.now(timezone.utc)
@@ -107,11 +107,25 @@ def test_cleanup_deletes_only_competitions_beyond_grace_window_and_handles_fks(
         category="competition",
         deadline=None,
     )
-    expired_role = _opportunity(
+    expired_internship = _opportunity(
         db_session,
         suffix=suffix,
-        name="expired-role",
+        name="expired-internship",
         category="internship",
+        deadline=now - timedelta(days=30),
+    )
+    undated_ats_internship = _opportunity(
+        db_session,
+        suffix=suffix,
+        name="undated-ats-internship",
+        category="internship",
+        deadline=None,
+    )
+    expired_job = _opportunity(
+        db_session,
+        suffix=suffix,
+        name="expired-job",
+        category="job",
         deadline=now - timedelta(days=30),
     )
 
@@ -175,12 +189,14 @@ def test_cleanup_deletes_only_competitions_beyond_grace_window_and_handles_fks(
 
     expired_competition_id = expired_competition.id
     expired_hackathon_id = expired_hackathon.id
+    expired_internship_id = expired_internship.id
     retained_ids = {
         recent_closed.id,
         grace_boundary.id,
         future_competition.id,
         undated_competition.id,
-        expired_role.id,
+        undated_ats_internship.id,
+        expired_job.id,
     }
     raw_listing_id = raw_listing.id
     notification_id = notification.id
@@ -195,14 +211,20 @@ def test_cleanup_deletes_only_competitions_beyond_grace_window_and_handles_fks(
         db_session.scalars(
             select(models.Opportunity.id).where(
                 models.Opportunity.id.in_(
-                    retained_ids | {expired_competition_id, expired_hackathon_id}
+                    retained_ids
+                    | {
+                        expired_competition_id,
+                        expired_hackathon_id,
+                        expired_internship_id,
+                    }
                 )
             )
         ).all()
     )
-    assert deleted_count >= 2
+    assert deleted_count >= 3
     assert expired_competition_id not in remaining_ids
     assert expired_hackathon_id not in remaining_ids
+    assert expired_internship_id not in remaining_ids
     assert retained_ids <= remaining_ids
     assert _count_for_opportunity(db_session, models.OpportunitySource, expired_competition_id) == 0
     assert _count_for_opportunity(db_session, models.OpportunityTag, expired_competition_id) == 0
