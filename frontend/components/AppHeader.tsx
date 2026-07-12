@@ -1,5 +1,6 @@
 import Link from "next/link";
 import HeaderAuth from "@/components/HeaderAuth";
+import MobileNav from "@/components/MobileNav";
 import Wordmark from "@/components/Wordmark";
 
 const NAV_LINK_CLASSES =
@@ -11,7 +12,8 @@ export default function AppHeader() {
       <div className="mx-auto flex h-16 max-w-[1680px] items-center justify-between gap-2 px-4 sm:gap-4 sm:px-6 lg:px-10 xl:px-12">
         <div className="flex min-w-0 items-center gap-3 sm:gap-6">
           <Wordmark className="[&>span]:hidden [&>span]:tracking-[-0.01em] sm:[&>span]:inline" />
-          <nav className="flex min-w-0 items-center gap-3 overflow-x-auto whitespace-nowrap text-sm font-medium [scrollbar-width:none] sm:gap-4 [&::-webkit-scrollbar]:hidden">
+          <MobileNav />
+          <nav className="hidden min-w-0 items-center gap-3 overflow-x-auto whitespace-nowrap text-sm font-medium [scrollbar-width:none] sm:gap-4 md:flex [&::-webkit-scrollbar]:hidden">
             <Link href="/saved" className={NAV_LINK_CLASSES}>
               Saved
             </Link>

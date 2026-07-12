@@ -87,15 +87,16 @@ export default async function PricingPage() {
       {paymentsEnabled && (
         <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
       )}
-      <div className="text-center">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">
+      <header className="mx-auto max-w-3xl text-center">
+        <p className="eyebrow">Membership</p>
+        <h1 className="mt-3 font-serif text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl">
           Simple, honest pricing
         </h1>
-        <p className="mt-2 text-muted-foreground">
+        <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
           The free feed is genuinely useful today. Pro is launching soon -
           join the waitlist to be first in line.
         </p>
-      </div>
+      </header>
 
       <div className="mt-10">
         <PricingPlans plans={plans} paymentsEnabled={paymentsEnabled} />
