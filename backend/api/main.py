@@ -15,6 +15,7 @@ from api import (
     resume,
     search,
     sitemap,
+    stats,
     waitlist,
 )
 from api.middleware import RateLimitMiddleware, ReadCacheMiddleware, TimingMiddleware
@@ -55,6 +56,7 @@ app.include_router(payments.router)
 app.include_router(plans.router)
 app.include_router(referral.router)
 app.include_router(sitemap.router)
+app.include_router(stats.router)
 app.include_router(waitlist.router)
 
 

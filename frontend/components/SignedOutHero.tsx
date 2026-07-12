@@ -31,9 +31,9 @@ export default function SignedOutHero() {
         </p>
 
         <p className="mt-6 max-w-3xl border-l border-border pl-4 text-sm leading-relaxed text-muted-foreground">
-          We index roles straight from company career pages — Greenhouse, Lever, Ashby,
-          SmartRecruiters — and always link you to the original source. We never mirror an
-          application; every Apply takes you to the company.
+          We index opportunities from company career pages — including Greenhouse, Lever, Ashby
+          and SmartRecruiters — plus curated competitions, hackathons and research fellowships,
+          always linking you to the original source.
         </p>
 
         <div className="mt-7 flex flex-wrap items-center gap-2">

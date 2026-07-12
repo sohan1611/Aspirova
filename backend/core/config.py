@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     rate_limit_user_copilot_per_day: int = 20
     rate_limit_ip_waitlist_per_minute: int = 5
     read_cache_ttl_seconds: int = 45
+    stats_cache_ttl_seconds: int = 300
     copilot_cache_ttl_seconds: int = 3600
 
     # Independent nightly backup (Doc 03 sec 8/9) - S3-compatible object

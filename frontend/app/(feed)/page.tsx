@@ -3,13 +3,16 @@ import Link from "next/link";
 import FeedViewControls from "@/components/FeedViewControls";
 import OpportunityCard from "@/components/OpportunityCard";
 import SearchFilters from "@/components/SearchFilters";
+import SignedInWelcome from "@/components/SignedInWelcome";
 import SignedOutHero from "@/components/SignedOutHero";
 import SourceCompanyCard from "@/components/SourceCompanyCard";
+import StatsBar from "@/components/StatsBar";
 import { Button } from "@/components/ui/button";
-import { getFeed, searchOpportunities } from "@/lib/api";
+import { getFeed, getStats, searchOpportunities } from "@/lib/api";
 import { findExternalCompany } from "@/lib/externalCompanies";
 import { buildPageHref } from "@/lib/pagination";
 import { matchesResearchIntent } from "@/lib/researchPrograms";
+import type { StatsResponse } from "@/lib/types";
 
 interface PageProps {
   searchParams: Promise<{
@@ -34,6 +37,14 @@ const COLS_LG: Record<number, string> = {
   3: "lg:grid-cols-3",
   4: "lg:grid-cols-4",
 };
+
+async function loadStats(): Promise<StatsResponse | null> {
+  try {
+    return await getStats();
+  } catch {
+    return null;
+  }
+}
 
 export default async function HomePage({ searchParams }: PageProps) {
   const params = await searchParams;
@@ -65,6 +76,7 @@ export default async function HomePage({ searchParams }: PageProps) {
     top: top && Number.isFinite(top) && top > 0 ? top : undefined,
   };
 
+  const statsPromise = loadStats();
   const data = params.q
     ? await searchOpportunities(params.q, filters, page, LIMIT)
     : await getFeed({
@@ -74,12 +86,15 @@ export default async function HomePage({ searchParams }: PageProps) {
         page,
         limit: LIMIT,
       });
+  const stats = await statsPromise;
 
   const totalPages = Math.max(1, Math.ceil(data.total / LIMIT));
 
   return (
     <main className="mx-auto max-w-[1680px] px-4 pb-10 sm:px-6 lg:px-10 xl:px-12">
       <SignedOutHero />
+      <SignedInWelcome />
+      {stats && <StatsBar stats={stats} />}
 
       <div id="feed-search" className="mb-6 scroll-mt-20 pt-10">
         <SearchFilters />

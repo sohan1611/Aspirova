@@ -146,7 +146,16 @@ export default async function OpportunityPage({ params }: PageProps) {
               <CompanyFavicon company={opportunity.company} />
             </div>
             <p className="text-sm font-medium text-muted-foreground">
-              {opportunity.company?.name ?? "Independent listing"}
+              {opportunity.company?.slug ? (
+                <Link
+                  href={`/companies/${opportunity.company.slug}`}
+                  className="underline-offset-4 transition-colors hover:text-foreground hover:underline"
+                >
+                  {opportunity.company.name}
+                </Link>
+              ) : (
+                opportunity.company?.name ?? "Independent listing"
+              )}
             </p>
           </div>
 

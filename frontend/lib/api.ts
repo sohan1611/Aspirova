@@ -11,6 +11,7 @@ import type {
   ReferralClaimResult,
   ReferralMe,
   SearchResponse,
+  StatsResponse,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -81,6 +82,12 @@ export async function getFeed(params: FeedParams = {}): Promise<FeedResponse> {
 
   const res = await fetch(`${API_URL}/feed?${search.toString()}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`Failed to load feed: ${res.status}`);
+  return res.json();
+}
+
+export async function getStats(): Promise<StatsResponse> {
+  const res = await fetch(`${API_URL}/stats`, { next: { revalidate: 300 } });
+  if (!res.ok) throw new Error(`Failed to load stats: ${res.status}`);
   return res.json();
 }
 

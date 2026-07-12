@@ -199,6 +199,13 @@ class FeedResponse(BaseModel):
     limit: int
 
 
+class StatsResponse(BaseModel):
+    opportunities: int
+    companies: int
+    sources: int
+    updated_at: datetime | None
+
+
 class CompanyPage(BaseModel):
     company: CompanySummary
     items: list[OpportunityListItem]

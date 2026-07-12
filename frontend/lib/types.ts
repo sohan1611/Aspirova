@@ -64,6 +64,13 @@ export interface FeedResponse {
   limit: number;
 }
 
+export interface StatsResponse {
+  opportunities: number;
+  companies: number;
+  sources: number;
+  updated_at: string | null;
+}
+
 export interface CompanyPage {
   company: CompanySummary;
   items: OpportunityListItem[];

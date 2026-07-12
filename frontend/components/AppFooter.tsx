@@ -23,13 +23,23 @@ export default function AppFooter() {
                 </Link>
               </li>
               <li>
+                <Link className="text-muted-foreground hover:text-foreground" href="/jobs">
+                  Jobs
+                </Link>
+              </li>
+              <li>
                 <Link className="text-muted-foreground hover:text-foreground" href="/remote">
                   Remote
                 </Link>
               </li>
               <li>
-                <Link className="text-muted-foreground hover:text-foreground" href="/jobs">
-                  Jobs
+                <Link className="text-muted-foreground hover:text-foreground" href="/competitions">
+                  Competitions
+                </Link>
+              </li>
+              <li>
+                <Link className="text-muted-foreground hover:text-foreground" href="/research">
+                  Research
                 </Link>
               </li>
               <li>

@@ -66,6 +66,7 @@ _CACHEABLE_PREFIXES = (
     "/plans",
     "/sitemap-opportunities",
     "/sitemap-companies",
+    "/stats",
 )
 
 
@@ -151,7 +152,12 @@ class ReadCacheMiddleware(BaseHTTPMiddleware):
 
         body = b"".join([chunk async for chunk in response.body_iterator])
         settings = get_settings()
-        await cache_set(redis, key, body.decode(), settings.read_cache_ttl_seconds)
+        ttl_seconds = (
+            settings.stats_cache_ttl_seconds
+            if request.url.path == "/stats"
+            else settings.read_cache_ttl_seconds
+        )
+        await cache_set(redis, key, body.decode(), ttl_seconds)
 
         headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
         headers["X-Cache"] = "MISS"
