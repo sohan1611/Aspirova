@@ -37,6 +37,13 @@ def test_opportunities_has_canonical_columns() -> None:
     }.issubset(columns)
 
 
+def test_opportunities_has_country_column_and_index() -> None:
+    opportunities = Base.metadata.tables["opportunities"]
+
+    assert "country" in {column.name for column in opportunities.columns}
+    assert "ix_opportunities_country" in {index.name for index in opportunities.indexes}
+
+
 def test_companies_has_global_rank_column_and_index() -> None:
     companies = Base.metadata.tables["companies"]
     assert "global_rank" in {c.name for c in companies.columns}

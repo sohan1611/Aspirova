@@ -429,3 +429,45 @@ def test_pruned_raw_listing_soft_merges_via_slug_instead_of_failing(db_session, 
         .where(models.Opportunity.company_id == company.id)
     )
     assert opp_count == 1
+
+
+def test_ingest_derives_and_refreshes_country_on_content_change(db_session, seeded):
+    source_a, _source_b, company = seeded
+    source_url = "https://acme.example/jobs/country-aware"
+    raw_v1 = _raw("country-aware-role", source_url, content_hash="country-hash-v1")
+    normalized_v1 = _normalized(
+        "Country-aware engineer",
+        source_url,
+        location="Bengaluru, Karnataka",
+    )
+
+    opportunity_v1, is_new_v1 = _ingest(
+        db_session,
+        source_a.id,
+        company.id,
+        raw_v1,
+        normalized_v1,
+    )
+    db_session.flush()
+
+    assert is_new_v1 is True
+    assert opportunity_v1.country == "IN"
+
+    raw_v2 = _raw("country-aware-role", source_url, content_hash="country-hash-v2")
+    normalized_v2 = _normalized(
+        "Country-aware engineer",
+        source_url,
+        location="Toronto, Ontario",
+    )
+    opportunity_v2, is_new_v2 = _ingest(
+        db_session,
+        source_a.id,
+        company.id,
+        raw_v2,
+        normalized_v2,
+    )
+    db_session.flush()
+
+    assert is_new_v2 is False
+    assert opportunity_v2.id == opportunity_v1.id
+    assert opportunity_v2.country == "CA"

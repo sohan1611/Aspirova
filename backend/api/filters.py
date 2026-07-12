@@ -64,3 +64,32 @@ def opportunity_filters(
         )
 
     return filters
+
+
+def location_scope_filters(scope: str | None, country: str | None) -> list:
+    """Return country-scope filters while preserving remote opportunities."""
+    country_upper = country.strip().upper() if country else ""
+    if (
+        scope not in {"domestic", "abroad"}
+        or len(country_upper) != 2
+        or not country_upper.isalpha()
+    ):
+        return []
+
+    if scope == "domestic":
+        return [
+            or_(
+                models.Opportunity.country == country_upper,
+                models.Opportunity.is_remote.is_(True),
+            )
+        ]
+
+    return [
+        or_(
+            and_(
+                models.Opportunity.country.is_not(None),
+                models.Opportunity.country != country_upper,
+            ),
+            models.Opportunity.is_remote.is_(True),
+        )
+    ]

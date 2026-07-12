@@ -16,6 +16,7 @@ from sqlalchemy import (
     Index,
     Integer,
     SmallInteger,
+    String,
     Text,
     UniqueConstraint,
     text,
@@ -124,6 +125,7 @@ class Opportunity(Base):
     category: Mapped[str | None] = mapped_column(Text)
     primary_source: Mapped[str | None] = mapped_column(Text)
     location: Mapped[str | None] = mapped_column(Text)
+    country: Mapped[str | None] = mapped_column(String(2))
     is_remote: Mapped[bool | None] = mapped_column(Boolean)
     description_raw: Mapped[str | None] = mapped_column(Text)
     summary: Mapped[str | None] = mapped_column(Text)
@@ -165,6 +167,7 @@ class Opportunity(Base):
             postgresql_where=text("status = 'active'"),
         ),
         Index("ix_opportunities_primary_source", "primary_source"),
+        Index("ix_opportunities_country", "country"),
     )
 
 

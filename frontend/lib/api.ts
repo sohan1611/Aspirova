@@ -57,6 +57,8 @@ export interface FeedParams {
   location?: string;
   company?: string;
   top?: number;
+  scope?: "abroad" | "domestic" | "both";
+  country?: string;
   sort?: "recent" | "deadline";
   page?: number;
   limit?: number;
@@ -64,7 +66,7 @@ export interface FeedParams {
 
 type SearchFilterParams = Pick<
   FeedParams,
-  "category" | "source" | "remote" | "location" | "company" | "top"
+  "category" | "source" | "remote" | "location" | "company" | "top" | "scope" | "country"
 >;
 
 export async function getFeed(params: FeedParams = {}): Promise<FeedResponse> {
@@ -76,6 +78,8 @@ export async function getFeed(params: FeedParams = {}): Promise<FeedResponse> {
   if (params.location) search.set("location", params.location);
   if (params.company) search.set("company", params.company);
   if (params.top) search.set("top", String(params.top));
+  if (params.scope) search.set("scope", params.scope);
+  if (params.country) search.set("country", params.country);
   if (params.sort) search.set("sort", params.sort);
   if (params.page) search.set("page", String(params.page));
   if (params.limit) search.set("limit", String(params.limit));
@@ -104,6 +108,8 @@ export async function searchOpportunities(
   if (filters.location) search.set("location", filters.location);
   if (filters.company) search.set("company", filters.company);
   if (filters.top) search.set("top", String(filters.top));
+  if (filters.scope) search.set("scope", filters.scope);
+  if (filters.country) search.set("country", filters.country);
   const res = await fetch(`${API_URL}/search?${search.toString()}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`Failed to search: ${res.status}`);
   return res.json();

@@ -45,6 +45,7 @@ from core import models
 from core.adapters import NormalizedListing, RawListing
 from core.textclean import fix_text
 from pipeline.dedup import find_matching_opportunity
+from pipeline.location_country import derive_country
 from pipeline.normalize import normalize_title
 
 
@@ -157,6 +158,7 @@ def ingest_one(
             "description_raw": fix_text(normalized.description_raw),
         }
     )
+    country = derive_country(normalized.location)
     raw_row = board_state.raw_by_external_id.get(raw.external_id)
 
     if raw_row is not None and raw_row.opportunity_id is not None:
@@ -192,6 +194,7 @@ def ingest_one(
             opportunity.title = normalized.title
             opportunity.title_normalized = normalize_title(normalized.title)
             opportunity.location = normalized.location
+            opportunity.country = country
             opportunity.is_remote = normalized.is_remote
             opportunity.deadline = normalized.deadline
             opportunity.meta = normalized.meta
@@ -265,6 +268,7 @@ def ingest_one(
                 category=normalized.category,
                 primary_source=raw.source_slug,
                 location=normalized.location,
+                country=country,
                 is_remote=normalized.is_remote,
                 description_raw=normalized.description_raw,
                 apply_url=normalized.apply_url,

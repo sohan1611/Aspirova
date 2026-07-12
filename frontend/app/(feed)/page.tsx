@@ -24,6 +24,8 @@ interface PageProps {
     location?: string;
     company?: string;
     top?: string;
+    scope?: string;
+    country?: string;
     sort?: string;
     page?: string;
     cols?: string;
@@ -74,6 +76,8 @@ export default async function HomePage({ searchParams }: PageProps) {
     location: params.location,
     company: params.company,
     top: top && Number.isFinite(top) && top > 0 ? top : undefined,
+    scope: params.scope as "abroad" | "domestic" | "both" | undefined,
+    country: params.country,
   };
 
   const statsPromise = loadStats();

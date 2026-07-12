@@ -14,7 +14,12 @@ from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from api.deps import get_db
-from api.filters import SOURCE_GROUPS, exclude_closed_competitions, opportunity_filters
+from api.filters import (
+    SOURCE_GROUPS,
+    exclude_closed_competitions,
+    location_scope_filters,
+    opportunity_filters,
+)
 from api.schemas import FeedResponse, OpportunityListItem
 from core import models
 
@@ -28,6 +33,8 @@ def get_feed(
     remote: bool | None = Query(None),
     company: str | None = Query(None),
     location: str | None = Query(None),
+    scope: str | None = Query(None, pattern="^(abroad|domestic|both)$"),
+    country: str | None = Query(None, min_length=2, max_length=2),
     source: str | None = Query(None, pattern="^(direct|unstop|remoteok|devpost)$"),
     top: int | None = Query(None, gt=0),
     sort: str = Query("recent", pattern="^(recent|deadline)$"),
@@ -39,6 +46,7 @@ def get_feed(
         models.Opportunity.status == "active",
         exclude_closed_competitions(),
         *opportunity_filters(category, remote, company, location, top),
+        *location_scope_filters(scope, country),
     ]
     if kind == "competitions":
         base_filters.append(models.Opportunity.category.in_(["hackathon", "competition"]))

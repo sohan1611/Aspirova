@@ -17,7 +17,12 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from api.deps import get_db
-from api.filters import SOURCE_GROUPS, exclude_closed_competitions, opportunity_filters
+from api.filters import (
+    SOURCE_GROUPS,
+    exclude_closed_competitions,
+    location_scope_filters,
+    opportunity_filters,
+)
 from api.schemas import OpportunityListItem, SearchResponse
 from core import models
 
@@ -33,6 +38,8 @@ def search_opportunities(
     remote: bool | None = Query(None),
     company: str | None = Query(None),
     location: str | None = Query(None),
+    scope: str | None = Query(None, pattern="^(abroad|domestic|both)$"),
+    country: str | None = Query(None, min_length=2, max_length=2),
     source: str | None = Query(None, pattern="^(direct|unstop|remoteok|devpost)$"),
     top: int | None = Query(None, gt=0),
     page: int = Query(1, ge=1),
@@ -44,6 +51,7 @@ def search_opportunities(
         models.Opportunity.status == "active",
         exclude_closed_competitions(),
         *extra_filters,
+        *location_scope_filters(scope, country),
     ]
     if source is not None:
         base_filters.append(models.Opportunity.primary_source.in_(SOURCE_GROUPS[source]))

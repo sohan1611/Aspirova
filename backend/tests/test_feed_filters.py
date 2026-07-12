@@ -119,6 +119,116 @@ def test_feed_blank_company_and_location_filters_are_ignored(client: TestClient,
     assert blank_filters == baseline
 
 
+def test_feed_location_scope_keeps_remote_rows_in_every_scope(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    suffix = uuid.uuid4().hex
+    seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    location_token = f"LocationScopeville-{suffix}"
+    company = models.Company(
+        slug=f"location-scope-company-{suffix}",
+        name=f"Location Scope Company {suffix}",
+    )
+    domestic = models.Opportunity(
+        slug=f"location-scope-domestic-{suffix}",
+        title="Domestic role",
+        company=company,
+        category="job",
+        location=location_token,
+        country="IN",
+        is_remote=False,
+        apply_url=f"https://example.com/location-scope/domestic/{suffix}",
+        status="active",
+        last_seen_at=seen_at,
+    )
+    abroad = models.Opportunity(
+        slug=f"location-scope-abroad-{suffix}",
+        title="Abroad role",
+        company=company,
+        category="job",
+        location=location_token,
+        country="US",
+        is_remote=False,
+        apply_url=f"https://example.com/location-scope/abroad/{suffix}",
+        status="active",
+        last_seen_at=seen_at,
+    )
+    remote = models.Opportunity(
+        slug=f"location-scope-remote-{suffix}",
+        title="Remote role",
+        company=company,
+        category="job",
+        location=location_token,
+        country=None,
+        is_remote=True,
+        apply_url=f"https://example.com/location-scope/remote/{suffix}",
+        status="active",
+        last_seen_at=seen_at,
+    )
+    unclassified = models.Opportunity(
+        slug=f"location-scope-unclassified-{suffix}",
+        title="Unclassified role",
+        company=company,
+        category="job",
+        location=location_token,
+        country=None,
+        is_remote=False,
+        apply_url=f"https://example.com/location-scope/unclassified/{suffix}",
+        status="active",
+        last_seen_at=seen_at,
+    )
+    db_session.add_all([company, domestic, abroad, remote, unclassified])
+    db_session.flush()
+
+    domestic_body = client.get(
+        "/feed",
+        params={
+            "scope": "domestic",
+            "country": "IN",
+            "location": location_token,
+            "limit": 10,
+        },
+    ).json()
+    abroad_body = client.get(
+        "/feed",
+        params={
+            "scope": "abroad",
+            "country": "IN",
+            "location": location_token,
+            "limit": 10,
+        },
+    ).json()
+    both_body = client.get(
+        "/feed",
+        params={
+            "scope": "both",
+            "country": "IN",
+            "location": location_token,
+            "limit": 10,
+        },
+    ).json()
+    unscoped_body = client.get(
+        "/feed",
+        params={"location": location_token, "limit": 10},
+    ).json()
+
+    assert {item["slug"] for item in domestic_body["items"]} == {domestic.slug, remote.slug}
+    assert {item["slug"] for item in abroad_body["items"]} == {abroad.slug, remote.slug}
+    assert {item["slug"] for item in both_body["items"]} == {
+        domestic.slug,
+        abroad.slug,
+        remote.slug,
+        unclassified.slug,
+    }
+    assert {item["slug"] for item in unscoped_body["items"]} == {
+        domestic.slug,
+        abroad.slug,
+        remote.slug,
+        unclassified.slug,
+    }
+
+
 def test_feed_filters_combine_with_category(client: TestClient, feed_rows) -> None:
     company_a, _company_b, opportunities, _location_token, _suffix = feed_rows
 
