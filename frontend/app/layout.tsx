@@ -3,6 +3,7 @@ import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 import AppFooter from "@/components/AppFooter";
 import AppHeader from "@/components/AppHeader";
+import { BookmarksProvider } from "@/components/BookmarksProvider";
 import ReferralCapture from "@/components/ReferralCapture";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
@@ -24,7 +25,7 @@ const fraunces = Fraunces({
   display: "swap",
 });
 
-const SITE_URL = "https://aspirova.vercel.app";
+const SITE_URL = "https://www.aspirova.org";
 const TITLE = "Aspirova - Every opportunity. One place.";
 const DESCRIPTION =
   "AI-powered career intelligence for students. Aspirova discovers internships, jobs, and hidden opportunities from across the web and brings them to one place.";
@@ -64,8 +65,10 @@ export default function RootLayout({
           <Suspense fallback={null}>
             <ReferralCapture />
           </Suspense>
-          <AppHeader />
-          <div className="flex-1">{children}</div>
+          <BookmarksProvider>
+            <AppHeader />
+            <div className="flex-1">{children}</div>
+          </BookmarksProvider>
           <AppFooter />
           <Toaster />
         </ThemeProvider>

@@ -16,7 +16,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   internship: "Internship",
   job: "Job",
 };
-const SITE_URL = "https://aspirova.vercel.app";
+const SITE_URL = "https://www.aspirova.org";
 
 interface PageProps {
   params: Promise<{ slug: string }>;

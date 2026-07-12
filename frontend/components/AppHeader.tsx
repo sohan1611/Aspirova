@@ -12,6 +12,9 @@ export default function AppHeader() {
         <div className="flex min-w-0 items-center gap-3 sm:gap-6">
           <Wordmark className="[&>span]:hidden [&>span]:tracking-[-0.01em] sm:[&>span]:inline" />
           <nav className="flex min-w-0 items-center gap-3 overflow-x-auto whitespace-nowrap text-sm font-medium [scrollbar-width:none] sm:gap-4 [&::-webkit-scrollbar]:hidden">
+            <Link href="/saved" className={NAV_LINK_CLASSES}>
+              Saved
+            </Link>
             <Link href="/resume" className={NAV_LINK_CLASSES}>
               Matches
             </Link>

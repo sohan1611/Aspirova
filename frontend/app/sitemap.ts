@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const SITE_URL = "https://aspirova.vercel.app";
+const SITE_URL = "https://www.aspirova.org";
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const STATIC_ROUTES = [
   "/",
