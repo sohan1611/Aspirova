@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import CompanyFavicon from "@/components/CompanyFavicon";
 import SaveButton from "@/components/SaveButton";
+import { getCountry } from "@/lib/countries";
 import { formatDate } from "@/lib/date";
 import { getSourceLabel } from "@/lib/sourceLabel";
 import type { OpportunityListItem } from "@/lib/types";
@@ -105,6 +106,7 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
       ? getSourceLabel(item.apply_url)
       : null;
   const location = item.location?.replace(/\s+/g, " ").trim() || null;
+  const countryFlag = getCountry(item.country)?.flag;
   const postedAgeInDays = getAgeInDays(item.posted_at);
   const isNew =
     postedAgeInDays !== null && postedAgeInDays >= 0 && postedAgeInDays < 7;
@@ -169,15 +171,24 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
           )}
         </div>
 
-        {(location || item.is_remote) && (
+        {(location || countryFlag || item.is_remote) && (
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-            {location && (
+            {(location || countryFlag) && (
               <span className="inline-flex min-w-0 items-center gap-1.5">
-                <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                <span className="min-w-0 break-words">{location}</span>
+                {countryFlag && (
+                  <span aria-hidden="true" className="text-[11px] leading-none opacity-80">
+                    {countryFlag}
+                  </span>
+                )}
+                {location && (
+                  <>
+                    <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    <span className="min-w-0 break-words">{location}</span>
+                  </>
+                )}
               </span>
             )}
-            {location && item.is_remote && <span aria-hidden="true">·</span>}
+            {(location || countryFlag) && item.is_remote && <span aria-hidden="true">·</span>}
             {item.is_remote && (
               <span className="inline-flex items-center gap-1.5">
                 <Globe2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />

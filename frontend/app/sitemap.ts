@@ -11,6 +11,7 @@ const STATIC_ROUTES = [
   "/remote",
   "/jobs",
   "/companies",
+  "/competitions",
   "/research",
 ] as const;
 

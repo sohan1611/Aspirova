@@ -228,8 +228,11 @@ export default function SearchFilters() {
           Updating opportunities…
         </span>
       )}
-      <div className="flex flex-wrap items-center gap-3">
-        <form onSubmit={handleSubmit} className="flex w-full flex-wrap gap-2 sm:w-auto">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <form
+          onSubmit={handleSubmit}
+          className="flex min-w-0 w-full flex-wrap gap-x-2 gap-y-2 sm:w-auto"
+        >
           <div className="relative min-w-0 flex-1 sm:flex-none">
             <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -246,7 +249,7 @@ export default function SearchFilters() {
           </Button>
         </form>
 
-        <div className="ml-auto flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-nowrap">
+        <div className="ml-auto flex w-full min-w-0 flex-wrap items-center justify-end gap-x-2 gap-y-2 sm:w-auto sm:flex-nowrap">
           <Popover>
             <PopoverTrigger asChild>
               <Button type="button" variant="outline" disabled={isPending}>

@@ -7,10 +7,11 @@ import CompanyFavicon from "@/components/CompanyFavicon";
 import ShareButton from "@/components/ShareButton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getOpportunity } from "@/lib/api";
+import OpportunityCard from "@/components/OpportunityCard";
+import { getOpportunity, getSimilarOpportunities } from "@/lib/api";
 import { formatDate } from "@/lib/date";
 import { getSourceLabel } from "@/lib/sourceLabel";
-import type { OpportunityDetail } from "@/lib/types";
+import type { OpportunityDetail, OpportunityListItem } from "@/lib/types";
 
 const CATEGORY_LABEL: Record<string, string> = {
   internship: "Internship",
@@ -125,6 +126,13 @@ export default async function OpportunityPage({ params }: PageProps) {
   const sourceLabel = getSourceLabel(opportunity.apply_url);
   const canonicalUrl = opportunityUrl(slug);
   const jobPostingJsonLd = buildJobPostingJsonLd(opportunity, canonicalUrl);
+  let similarOpportunities: OpportunityListItem[] = [];
+
+  try {
+    similarOpportunities = await getSimilarOpportunities(slug);
+  } catch {
+    // Related opportunities are non-essential to the detail page.
+  }
 
   return (
     <>
@@ -278,6 +286,20 @@ export default async function OpportunityPage({ params }: PageProps) {
             {opportunity.description_raw}
           </div>
         </article>
+
+        {similarOpportunities.length > 0 && (
+          <section className="mt-14">
+            <p className="eyebrow">More like this</p>
+            <h2 className="mt-2 font-serif text-3xl font-semibold tracking-tight text-foreground">
+              Related opportunities
+            </h2>
+            <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {similarOpportunities.map((item) => (
+                <OpportunityCard key={item.slug} item={item} />
+              ))}
+            </div>
+          </section>
+        )}
       </main>
     </>
   );

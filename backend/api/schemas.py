@@ -43,6 +43,7 @@ class OpportunityListItem(BaseModel):
     category: str | None
     source: str | None = None
     location: str | None
+    country: str | None = None
     is_remote: bool | None
     deadline: datetime | None
     deadline_confidence: str
@@ -78,6 +79,7 @@ class OpportunityListItem(BaseModel):
             category=o.category,
             source=o.primary_source,
             location=o.location,
+            country=o.country,
             is_remote=o.is_remote,
             deadline=o.deadline,
             deadline_confidence=o.deadline_confidence,
@@ -170,6 +172,7 @@ class OpportunityDetail(OpportunityListItem):
             category=o.category,
             source=o.primary_source,
             location=o.location,
+            country=o.country,
             is_remote=o.is_remote,
             deadline=o.deadline,
             deadline_confidence=o.deadline_confidence,

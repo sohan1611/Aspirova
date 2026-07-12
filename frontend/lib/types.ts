@@ -20,6 +20,7 @@ export interface OpportunityListItem {
   source: string | null;
   meta?: Record<string, unknown> | null;
   location: string | null;
+  country: string | null;
   is_remote: boolean | null;
   deadline: string | null;
   deadline_confidence: "explicit" | "inferred" | "unknown";

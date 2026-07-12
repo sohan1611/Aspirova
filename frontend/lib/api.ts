@@ -124,6 +124,23 @@ export async function getOpportunity(slug: string): Promise<OpportunityDetail | 
   return res.json();
 }
 
+export async function getSimilarOpportunities(
+  slug: string,
+  limit = 6,
+): Promise<OpportunityListItem[]> {
+  try {
+    const search = new URLSearchParams({ limit: String(limit) });
+    const res = await fetch(
+      `${API_URL}/opportunity/${encodeURIComponent(slug)}/similar?${search.toString()}`,
+      { next: { revalidate: 60 } },
+    );
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
+}
+
 export async function getCompanyPage(
   slug: string,
   page = 1,
