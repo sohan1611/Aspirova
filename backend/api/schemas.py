@@ -90,6 +90,19 @@ class OpportunityListItem(BaseModel):
         )
 
 
+class SavedOpportunityItem(OpportunityListItem):
+    bookmark_status: str
+
+    @classmethod
+    def from_models(cls, opportunity: "models.Opportunity", status: str) -> "SavedOpportunityItem":
+        base = OpportunityListItem.from_model(opportunity)
+        return cls(**base.model_dump(), bookmark_status=status)
+
+
+class BookmarkStatusUpdate(BaseModel):
+    status: Literal["saved", "applied", "interviewing", "offer", "archived"]
+
+
 class ResumeUploadRequest(BaseModel):
     resume_text: str
 

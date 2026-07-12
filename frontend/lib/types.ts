@@ -29,6 +29,17 @@ export interface OpportunityListItem {
   is_hidden: boolean;
 }
 
+export type BookmarkStage =
+  | "saved"
+  | "applied"
+  | "interviewing"
+  | "offer"
+  | "archived";
+
+export type SavedOpportunityItem = OpportunityListItem & {
+  bookmark_status: BookmarkStage;
+};
+
 export interface MatchItem {
   opportunity: OpportunityListItem;
   score: number;

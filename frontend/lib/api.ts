@@ -1,5 +1,6 @@
 import type {
   AccountMe,
+  BookmarkStage,
   CompanyListItem,
   CompanyPage,
   CopilotResponse,
@@ -10,6 +11,7 @@ import type {
   PlanPublic,
   ReferralClaimResult,
   ReferralMe,
+  SavedOpportunityItem,
   SearchResponse,
   StatsResponse,
 } from "./types";
@@ -177,13 +179,29 @@ export async function removeBookmark(slug: string, accessToken: string): Promise
   if (!res.ok) throw new Error(`Failed to remove bookmark: ${res.status}`);
 }
 
-export async function getBookmarks(accessToken: string): Promise<OpportunityListItem[]> {
+export async function getBookmarks(accessToken: string): Promise<SavedOpportunityItem[]> {
   const res = await fetch(`${API_URL}/bookmarks`, {
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: "no-store",
   });
   if (!res.ok) throw new Error(`Failed to load bookmarks: ${res.status}`);
   return res.json();
+}
+
+export async function updateBookmarkStatus(
+  slug: string,
+  status: BookmarkStage,
+  accessToken: string,
+): Promise<void> {
+  const res = await fetch(`${API_URL}/bookmarks/${encodeURIComponent(slug)}`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) throw new Error(`Failed to update bookmark status: ${res.status}`);
 }
 
 export async function uploadResume(

@@ -1,4 +1,4 @@
-"""POST/DELETE /bookmarks + GET /bookmarks - the one authenticated surface
+"""POST/PATCH/DELETE /bookmarks + GET /bookmarks - the authenticated surface
 in Phase 1."""
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from api.auth import get_current_user
 from api.deps import get_db
-from api.schemas import OpportunityListItem
+from api.schemas import BookmarkStatusUpdate, SavedOpportunityItem
 from core import models
 from core.config import get_settings
 from core.ratelimit import check_rate_limit
@@ -73,16 +73,32 @@ def remove_bookmark(
         db.commit()
 
 
-@router.get("/bookmarks", response_model=list[OpportunityListItem])
+@router.patch("/bookmarks/{opportunity_slug}", status_code=204)
+def update_bookmark_status(
+    opportunity_slug: str,
+    update: BookmarkStatusUpdate,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(enforce_bookmark_write_limit),
+) -> None:
+    opportunity = _get_opportunity_or_404(db, opportunity_slug)
+    bookmark = db.get(models.Bookmark, (user.id, opportunity.id))
+    if bookmark is None:
+        raise HTTPException(status_code=404, detail="Bookmark not found")
+
+    bookmark.status = update.status
+    db.commit()
+
+
+@router.get("/bookmarks", response_model=list[SavedOpportunityItem])
 def list_bookmarks(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
-) -> list[OpportunityListItem]:
-    rows = db.scalars(
-        select(models.Opportunity)
+) -> list[SavedOpportunityItem]:
+    rows = db.execute(
+        select(models.Opportunity, models.Bookmark.status)
         .join(models.Bookmark, models.Bookmark.opportunity_id == models.Opportunity.id)
         .options(joinedload(models.Opportunity.company))
         .where(models.Bookmark.user_id == user.id)
         .order_by(models.Bookmark.created_at.desc())
     ).all()
-    return [OpportunityListItem.from_model(o) for o in rows]
+    return [SavedOpportunityItem.from_models(opportunity, status) for opportunity, status in rows]

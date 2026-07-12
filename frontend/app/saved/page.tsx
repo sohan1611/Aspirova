@@ -2,10 +2,12 @@
 
 import { AlertCircle, Bookmark } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import HeaderAuth from "@/components/HeaderAuth";
 import OpportunityCard from "@/components/OpportunityCard";
 import OpportunityCardSkeleton from "@/components/OpportunityCardSkeleton";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,21 +16,81 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { getBookmarks } from "@/lib/api";
-import type { OpportunityListItem } from "@/lib/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { getBookmarks, updateBookmarkStatus } from "@/lib/api";
+import type { BookmarkStage, SavedOpportunityItem } from "@/lib/types";
 import { useSession } from "@/lib/useSession";
+import { cn } from "@/lib/utils";
+
+const STAGES = [
+  { value: "saved", label: "Saved" },
+  { value: "applied", label: "Applied" },
+  { value: "interviewing", label: "Interviewing" },
+  { value: "offer", label: "Offer" },
+  { value: "archived", label: "Archived" },
+] as const satisfies readonly { value: BookmarkStage; label: string }[];
+
+type StageFilter = "all" | BookmarkStage;
 
 interface SavedLoadState {
   accessToken: string | null;
   requestKey: number;
   status: "success" | "error";
-  items: OpportunityListItem[];
+  items: SavedOpportunityItem[];
+}
+
+function getStageLabel(stage: BookmarkStage): string {
+  return STAGES.find((option) => option.value === stage)?.label ?? stage;
+}
+
+function StageControl({
+  item,
+  pending,
+  onChange,
+}: {
+  item: SavedOpportunityItem;
+  pending: boolean;
+  onChange: (status: BookmarkStage) => void;
+}) {
+  return (
+    <div className="absolute right-14 top-3 z-20">
+      <Select
+        value={item.bookmark_status}
+        disabled={pending}
+        onValueChange={(value) => onChange(value as BookmarkStage)}
+      >
+        <SelectTrigger
+          size="sm"
+          aria-busy={pending}
+          aria-label={`Application stage for ${item.title}`}
+          className="min-w-[7.25rem] border-border bg-background/90 px-2.5 text-xs shadow-soft backdrop-blur"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent align="end">
+          {STAGES.map((stage) => (
+            <SelectItem key={stage.value} value={stage.value}>
+              {stage.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
 }
 
 export default function SavedPage() {
   const session = useSession();
   const accessToken = session?.access_token ?? null;
   const [retryKey, setRetryKey] = useState(0);
+  const [activeStage, setActiveStage] = useState<StageFilter>("all");
+  const [pendingSlugs, setPendingSlugs] = useState<Set<string>>(new Set());
   const [loadState, setLoadState] = useState<SavedLoadState>({
     accessToken: null,
     requestKey: -1,
@@ -61,6 +123,88 @@ export default function SavedPage() {
     };
   }, [accessToken, retryKey]);
 
+  const stageCounts = useMemo(() => {
+    const counts: Record<BookmarkStage, number> = {
+      saved: 0,
+      applied: 0,
+      interviewing: 0,
+      offer: 0,
+      archived: 0,
+    };
+
+    for (const item of loadState.items) {
+      counts[item.bookmark_status] += 1;
+    }
+
+    return counts;
+  }, [loadState.items]);
+
+  const selectedStage: StageFilter =
+    activeStage !== "all" && activeStage !== "saved" && stageCounts[activeStage] === 0
+      ? "all"
+      : activeStage;
+  const visibleStages = STAGES.filter(
+    (stage) => stage.value === "saved" || stageCounts[stage.value] > 0,
+  );
+  const filteredItems =
+    selectedStage === "all"
+      ? loadState.items
+      : loadState.items.filter((item) => item.bookmark_status === selectedStage);
+  const selectedStageLabel =
+    selectedStage === "all" ? "All" : getStageLabel(selectedStage);
+
+  async function handleStageChange(slug: string, nextStatus: BookmarkStage) {
+    if (!accessToken || pendingSlugs.has(slug)) return;
+
+    const item = loadState.items.find((savedItem) => savedItem.slug === slug);
+    if (!item || item.bookmark_status === nextStatus) return;
+
+    const previousStatus = item.bookmark_status;
+    setPendingSlugs((current) => new Set(current).add(slug));
+    setLoadState((current) => {
+      if (current.accessToken !== accessToken) return current;
+      return {
+        ...current,
+        items: current.items.map((savedItem) =>
+          savedItem.slug === slug
+            ? { ...savedItem, bookmark_status: nextStatus }
+            : savedItem,
+        ),
+      };
+    });
+
+    if (
+      selectedStage === previousStatus &&
+      previousStatus !== "saved" &&
+      stageCounts[previousStatus] === 1
+    ) {
+      setActiveStage("all");
+    }
+
+    try {
+      await updateBookmarkStatus(slug, nextStatus, accessToken);
+    } catch {
+      setLoadState((current) => {
+        if (current.accessToken !== accessToken) return current;
+        return {
+          ...current,
+          items: current.items.map((savedItem) =>
+            savedItem.slug === slug
+              ? { ...savedItem, bookmark_status: previousStatus }
+              : savedItem,
+          ),
+        };
+      });
+      toast.error("Couldn't update this opportunity's stage");
+    } finally {
+      setPendingSlugs((current) => {
+        const next = new Set(current);
+        next.delete(slug);
+        return next;
+      });
+    }
+  }
+
   const loading =
     accessToken !== null &&
     (loadState.accessToken !== accessToken || loadState.requestKey !== retryKey);
@@ -73,7 +217,7 @@ export default function SavedPage() {
           Saved opportunities
         </h1>
         <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
-          Keep the opportunities you care about close at hand.
+          Track each one from saved to offer.
         </p>
       </header>
 
@@ -137,15 +281,90 @@ export default function SavedPage() {
         </section>
       ) : (
         <section className="mt-10" aria-labelledby="saved-count">
-          <p id="saved-count" className="tnum mb-5 text-sm text-muted-foreground">
-            {loadState.items.length} saved{" "}
-            {loadState.items.length === 1 ? "opportunity" : "opportunities"}
-          </p>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {loadState.items.map((item) => (
-              <OpportunityCard key={item.slug} item={item} />
-            ))}
+          <div
+            role="group"
+            aria-label="Filter saved opportunities by application stage"
+            className="inline-flex max-w-full flex-wrap rounded-md border border-border bg-muted p-1"
+          >
+            <button
+              type="button"
+              aria-pressed={selectedStage === "all"}
+              aria-label={`All: ${loadState.items.length} opportunities`}
+              onClick={() => setActiveStage("all")}
+              className={cn(
+                "flex items-center gap-1.5 whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-[background-color,color,box-shadow] duration-200 ease-[var(--ease-premium)]",
+                selectedStage === "all"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              All
+              <Badge
+                variant="secondary"
+                aria-hidden="true"
+                className="tnum min-w-5 justify-center border-0 px-1.5 py-0.5 text-[11px] normal-case"
+              >
+                {loadState.items.length}
+              </Badge>
+            </button>
+            {visibleStages.map((stage) => {
+              const isActive = selectedStage === stage.value;
+              return (
+                <button
+                  key={stage.value}
+                  type="button"
+                  aria-pressed={isActive}
+                  aria-label={`${stage.label}: ${stageCounts[stage.value]} opportunities`}
+                  onClick={() => setActiveStage(stage.value)}
+                  className={cn(
+                    "flex items-center gap-1.5 whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-[background-color,color,box-shadow] duration-200 ease-[var(--ease-premium)]",
+                    isActive
+                      ? "bg-background text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {stage.label}
+                  <Badge
+                    variant="secondary"
+                    aria-hidden="true"
+                    className="tnum min-w-5 justify-center border-0 px-1.5 py-0.5 text-[11px] normal-case"
+                  >
+                    {stageCounts[stage.value]}
+                  </Badge>
+                </button>
+              );
+            })}
           </div>
+
+          <p id="saved-count" className="tnum mb-5 mt-5 text-sm text-muted-foreground">
+            {filteredItems.length} of {loadState.items.length}{" "}
+            {loadState.items.length === 1 ? "opportunity" : "opportunities"}
+            {selectedStage !== "all" && ` in ${selectedStageLabel.toLowerCase()}`}
+          </p>
+
+          {filteredItems.length === 0 ? (
+            <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-border bg-card px-5 py-8 text-left shadow-soft">
+              <p className="text-sm text-muted-foreground">
+                No opportunities in {selectedStageLabel.toLowerCase()} yet.
+              </p>
+              <Button type="button" variant="outline" size="sm" onClick={() => setActiveStage("all")}>
+                View all opportunities
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredItems.map((item) => (
+                <div key={item.slug} className="relative">
+                  <OpportunityCard item={item} />
+                  <StageControl
+                    item={item}
+                    pending={pendingSlugs.has(item.slug)}
+                    onChange={(status) => void handleStageChange(item.slug, status)}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       )}
     </main>

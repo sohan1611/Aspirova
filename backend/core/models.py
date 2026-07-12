@@ -234,6 +234,7 @@ class Bookmark(Base):
         UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True
     )
     opportunity_id: Mapped[int] = mapped_column(ForeignKey("opportunities.id"), primary_key=True)
+    status: Mapped[str] = mapped_column(Text, server_default=text("'saved'"))
     created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
 
 
