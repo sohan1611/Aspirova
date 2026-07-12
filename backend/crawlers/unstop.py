@@ -1,7 +1,8 @@
 """Unstop aggregator adapter using its public opportunity search API."""
 
 from datetime import UTC, datetime, timedelta
-from typing import Any, Literal
+from time import monotonic
+from typing import Any, Callable, Literal
 
 import httpx
 
@@ -25,15 +26,32 @@ class UnstopAdapter:
     def __init__(self, timeout: float = 15.0) -> None:
         self._client = httpx.Client(timeout=timeout, headers={"User-Agent": USER_AGENT})
         self._last_health: HealthStatus = "ok"
+        self._stopped_early = False
 
-    def fetch(self) -> list[RawListing]:
+    @property
+    def stopped_early(self) -> bool:
+        """Whether the most recent fetch returned a deliberately incomplete
+        page set because its crawler deadline or stop signal was reached."""
+        return self._stopped_early
+
+    def fetch(
+        self,
+        *,
+        deadline_monotonic: float | None = None,
+        should_stop: Callable[[], bool] | None = None,
+    ) -> list[RawListing]:
         listings: list[RawListing] = []
         seen_ids: set[str] = set()
         degraded = False
         expiry_cutoff = datetime.now(UTC) - timedelta(days=14)
+        self._stopped_early = False
 
         for opportunity_type in _OPPORTUNITY_TYPES:
             for page in range(1, _MAX_PAGES + 1):
+                if _should_stop(deadline_monotonic, should_stop):
+                    self._stopped_early = True
+                    return listings
+
                 try:
                     response = self._client.get(
                         _API_URL,
@@ -45,6 +63,10 @@ class UnstopAdapter:
                     )
                 except httpx.RequestError:
                     self._last_health = "degraded"
+                    return listings
+
+                if _should_stop(deadline_monotonic, should_stop):
+                    self._stopped_early = True
                     return listings
 
                 if response.status_code == 404:
@@ -188,6 +210,12 @@ class UnstopAdapter:
 
     def health(self) -> HealthStatus:
         return self._last_health
+
+
+def _should_stop(deadline_monotonic: float | None, should_stop: Callable[[], bool] | None) -> bool:
+    if deadline_monotonic is not None and monotonic() >= deadline_monotonic:
+        return True
+    return should_stop() if should_stop is not None else False
 
 
 def _opportunity_items(payload: Any) -> list[Any] | None:

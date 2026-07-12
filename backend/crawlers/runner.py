@@ -17,12 +17,20 @@ count actually justifies it - a real future amendment, not silent drift.
 
 import argparse
 import hashlib
+import os
+import signal
+import threading
+import time
+from collections.abc import Callable
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from core import models
+from core.adapters import RawListing
 from core.db import make_engine
 from crawlers.amazon import AmazonAdapter
 from crawlers.ashby import AshbyAdapter
@@ -57,6 +65,25 @@ AGGREGATOR_ADAPTERS: dict[str, type] = {
     "unstop": UnstopAdapter,
 }
 
+ATS_FETCH_MAX_WORKERS = 10
+DEFAULT_AGGREGATOR_MAX_SECONDS = 600.0
+_STOP_REQUESTED = threading.Event()
+
+
+@dataclass(frozen=True)
+class _AtsJob:
+    source_id: int
+    company_slug: str
+    adapter_key: str
+    board_token: str
+    company_name: str
+
+
+@dataclass(frozen=True)
+class _PrefetchedBoard:
+    listings: list[RawListing]
+    health: str
+
 
 def _board_fingerprint(raw_listings: list) -> str:
     """Cheap aggregate hash over a board's listings - if unchanged since the
@@ -66,8 +93,124 @@ def _board_fingerprint(raw_listings: list) -> str:
     return hashlib.sha256("|".join(parts).encode()).hexdigest()
 
 
+def _is_stop_requested(
+    should_stop: Callable[[], bool] | None, deadline_monotonic: float | None = None
+) -> bool:
+    if deadline_monotonic is not None and time.monotonic() >= deadline_monotonic:
+        return True
+    return should_stop() if should_stop is not None else False
+
+
+def _configured_aggregator_max_seconds() -> float:
+    raw_value = os.getenv("AGGREGATOR_MAX_SECONDS")
+    if raw_value is None:
+        return DEFAULT_AGGREGATOR_MAX_SECONDS
+
+    try:
+        max_seconds = float(raw_value)
+    except ValueError:
+        print(
+            "WARNING: AGGREGATOR_MAX_SECONDS must be a number; "
+            f"using {DEFAULT_AGGREGATOR_MAX_SECONDS:.0f} seconds",
+            flush=True,
+        )
+        return DEFAULT_AGGREGATOR_MAX_SECONDS
+
+    return max(0.0, max_seconds)
+
+
+def _fetch_company_board(
+    job: _AtsJob, should_stop: Callable[[], bool] | None = None
+) -> _PrefetchedBoard | None:
+    """Fetch one ATS board without opening a database session."""
+    if _is_stop_requested(should_stop):
+        return None
+
+    adapter = ATS_ADAPTERS[job.adapter_key](
+        board_token=job.board_token,
+        company_name=job.company_name,
+    )
+    if _is_stop_requested(should_stop):
+        return None
+
+    return _PrefetchedBoard(listings=list(adapter.fetch()), health=adapter.health())
+
+
+def _prefetch_ats_boards(
+    ats_jobs: list[_AtsJob], should_stop: Callable[[], bool] | None = None
+) -> dict[str, _PrefetchedBoard]:
+    """Fetch ATS boards concurrently while keeping all database work out of
+    worker threads. A failed board is logged and omitted so it cannot abort
+    other boards' fetches or trigger a retry during sequential ingestion.
+    """
+    if not ats_jobs or _is_stop_requested(should_stop):
+        return {}
+
+    prefetched: dict[str, _PrefetchedBoard] = {}
+    max_workers = min(ATS_FETCH_MAX_WORKERS, len(ats_jobs))
+    jobs = iter(ats_jobs)
+    executor = ThreadPoolExecutor(max_workers=max_workers)
+    future_to_job = {}
+
+    def submit_next() -> bool:
+        if _is_stop_requested(should_stop):
+            return False
+        try:
+            job = next(jobs)
+        except StopIteration:
+            return False
+        future_to_job[executor.submit(_fetch_company_board, job, should_stop)] = job
+        return True
+
+    stopped = False
+    try:
+        for _ in range(max_workers):
+            if not submit_next():
+                break
+
+        while future_to_job:
+            completed, _ = wait(
+                future_to_job,
+                timeout=0.25,
+                return_when=FIRST_COMPLETED,
+            )
+            for future in completed:
+                job = future_to_job.pop(future)
+                try:
+                    board = future.result()
+                    if board is not None:
+                        prefetched[job.company_slug] = board
+                except Exception as exc:
+                    print(
+                        f"ERROR: {job.company_slug} fetch failed: {type(exc).__name__}: {exc}",
+                        flush=True,
+                    )
+
+            stopped = _is_stop_requested(should_stop)
+            if stopped:
+                break
+            while len(future_to_job) < max_workers and submit_next():
+                pass
+    finally:
+        stopped = stopped or _is_stop_requested(should_stop)
+        if stopped:
+            for future in future_to_job:
+                future.cancel()
+            executor.shutdown(wait=False, cancel_futures=True)
+        else:
+            executor.shutdown(wait=True)
+
+    return prefetched
+
+
 def crawl_company_board(
-    session: Session, source: models.Source, company: models.Company, adapter_class: type
+    session: Session,
+    source: models.Source,
+    company: models.Company,
+    adapter_class: type,
+    prefetched: list[RawListing] | None = None,
+    prefetched_health: str | None = None,
+    should_stop: Callable[[], bool] | None = None,
 ) -> dict:
     """Crawl one company's board on the given ATS. Never raises - every
     failure mode, including a dropped DB connection mid-crawl, is caught
@@ -93,15 +236,23 @@ def crawl_company_board(
 
     try:
         adapter = adapter_class(board_token=board_token, company_name=company_name)
-        raw_listings = adapter.fetch()
+        raw_listings = list(adapter.fetch()) if prefetched is None else prefetched
         result["listings_found"] = len(raw_listings)
 
-        if adapter.health() == "broken":
+        health = (
+            adapter.health()
+            if prefetched is None or prefetched_health is None
+            else prefetched_health
+        )
+        if health == "broken":
             result["status"] = "failed"
-        elif adapter.health() == "degraded":
+        elif health == "degraded":
             result["status"] = "partial"
 
         fingerprint = _board_fingerprint(raw_listings) if raw_listings else None
+        stopped_early = _is_stop_requested(should_stop)
+        if stopped_early:
+            result["status"] = "partial"
         state = session.scalar(
             select(models.SourceState).where(
                 models.SourceState.source_id == source_id,
@@ -109,7 +260,12 @@ def crawl_company_board(
             )
         )
 
-        if fingerprint is not None and state is not None and state.last_content_hash == fingerprint:
+        if (
+            not stopped_early
+            and fingerprint is not None
+            and state is not None
+            and state.last_content_hash == fingerprint
+        ):
             session.commit()
             return result  # change-detection skip: nothing changed since last crawl
 
@@ -145,6 +301,10 @@ def crawl_company_board(
         pending_new_opps = 0
 
         for raw in raw_listings:
+            if _is_stop_requested(should_stop):
+                stopped_early = True
+                result["status"] = "partial"
+                break
             try:
                 normalized = adapter.parse(raw)
                 _opportunity, is_new = ingest_one(
@@ -185,7 +345,11 @@ def crawl_company_board(
             session.commit()
             result["new_opps"] += pending_new_opps
 
-        if fingerprint is not None:
+        if _is_stop_requested(should_stop):
+            stopped_early = True
+            result["status"] = "partial"
+
+        if fingerprint is not None and not stopped_early:
             if state is None:
                 state = models.SourceState(source_id=source_id, page_key=board_token)
                 session.add(state)
@@ -227,7 +391,14 @@ def crawl_company_board(
     return result
 
 
-def crawl_aggregator(session: Session, source: models.Source, adapter_class: type) -> dict:
+def crawl_aggregator(
+    session: Session,
+    source: models.Source,
+    adapter_class: type,
+    max_seconds: float | None = None,
+    should_stop: Callable[[], bool] | None = None,
+    deadline_monotonic: float | None = None,
+) -> dict:
     """Crawl a multi-company aggregator source (Doc 04 sec 1: best-effort
     tier; Doc handoffs/PHASE-2-HANDOFF.md sec 2/5, Part 2.5). Structurally
     parallel to crawl_company_board (same fingerprint skip, batch-commit,
@@ -249,26 +420,53 @@ def crawl_aggregator(session: Session, source: models.Source, adapter_class: typ
     tier = source.crawl_tier
     started_at = datetime.now(timezone.utc)
     result = {"listings_found": 0, "new_opps": 0, "errors": 0, "status": "success"}
+    if deadline_monotonic is None and max_seconds is not None:
+        deadline_monotonic = time.monotonic() + max_seconds
+
+    def stop_now() -> bool:
+        return _is_stop_requested(should_stop, deadline_monotonic)
 
     try:
         adapter = adapter_class()
-        raw_listings = adapter.fetch()
+        stopped_early = stop_now()
+        if stopped_early:
+            raw_listings: list[RawListing] = []
+        elif isinstance(adapter, UnstopAdapter):
+            raw_listings = adapter.fetch(
+                deadline_monotonic=deadline_monotonic,
+                should_stop=stop_now,
+            )
+        else:
+            raw_listings = list(adapter.fetch())
+
+        stopped_early = (
+            stopped_early or bool(getattr(adapter, "stopped_early", False)) or stop_now()
+        )
         result["listings_found"] = len(raw_listings)
 
         if adapter.health() == "broken":
             result["status"] = "failed"
         elif adapter.health() == "degraded":
             result["status"] = "partial"
+        if stopped_early:
+            result["status"] = "partial"
 
         fingerprint = _board_fingerprint(raw_listings) if raw_listings else None
-        state = session.scalar(
-            select(models.SourceState).where(
-                models.SourceState.source_id == source_id,
-                models.SourceState.page_key == "aggregator",
+        state = None
+        if not stopped_early:
+            state = session.scalar(
+                select(models.SourceState).where(
+                    models.SourceState.source_id == source_id,
+                    models.SourceState.page_key == "aggregator",
+                )
             )
-        )
 
-        if fingerprint is not None and state is not None and state.last_content_hash == fingerprint:
+        if (
+            not stopped_early
+            and fingerprint is not None
+            and state is not None
+            and state.last_content_hash == fingerprint
+        ):
             session.commit()
             return result  # change-detection skip: nothing changed since last crawl
 
@@ -278,6 +476,10 @@ def crawl_aggregator(session: Session, source: models.Source, adapter_class: typ
         pending_new_opps = 0
 
         for raw in raw_listings:
+            if stop_now():
+                stopped_early = True
+                result["status"] = "partial"
+                break
             try:
                 normalized = adapter.parse(raw)
                 company = resolve_company(
@@ -322,7 +524,14 @@ def crawl_aggregator(session: Session, source: models.Source, adapter_class: typ
             session.commit()
             result["new_opps"] += pending_new_opps
 
-        if fingerprint is not None:
+        if stop_now():
+            stopped_early = True
+            result["status"] = "partial"
+
+        # An incomplete page set must never become the change-detection
+        # fingerprint. Otherwise a later run with the same truncated prefix
+        # could skip ingestion forever and leave the remaining pages unseen.
+        if fingerprint is not None and not stopped_early:
             if state is None:
                 state = models.SourceState(source_id=source_id, page_key="aggregator")
                 session.add(state)
@@ -364,7 +573,18 @@ def crawl_aggregator(session: Session, source: models.Source, adapter_class: typ
     return result
 
 
-def run_tier(tier: int, group: str = "all") -> None:
+def run_tier(
+    tier: int,
+    group: str = "all",
+    *,
+    aggregator_max_seconds: float | None = None,
+    should_stop: Callable[[], bool] | None = None,
+) -> None:
+    if aggregator_max_seconds is None:
+        aggregator_max_seconds = _configured_aggregator_max_seconds()
+    if should_stop is None:
+        should_stop = _STOP_REQUESTED.is_set
+
     engine = make_engine()
 
     # Gather the (source_id, company_id) work list with one short-lived
@@ -388,7 +608,7 @@ def run_tier(tier: int, group: str = "all") -> None:
             )
         ).all()
 
-        ats_jobs: list[tuple[int, str, str]] = []
+        ats_jobs: list[_AtsJob] = []
         aggregator_jobs: list[tuple[int, str]] = []
         for source in sources:
             if group in ("ats", "all") and source.adapter_key in ATS_ADAPTERS:
@@ -396,7 +616,14 @@ def run_tier(tier: int, group: str = "all") -> None:
                     select(models.Company).where(models.Company.ats_type == source.adapter_key)
                 ).all()
                 ats_jobs.extend(
-                    (source.id, company.slug, source.adapter_key) for company in companies
+                    _AtsJob(
+                        source_id=source.id,
+                        company_slug=company.slug,
+                        adapter_key=source.adapter_key,
+                        board_token=company.ats_board_id,
+                        company_name=company.name,
+                    )
+                    for company in companies
                 )
             elif group in ("aggregator", "all") and source.adapter_key in AGGREGATOR_ADAPTERS:
                 aggregator_jobs.append((source.id, source.adapter_key))
@@ -404,7 +631,22 @@ def run_tier(tier: int, group: str = "all") -> None:
 
         aggregator_jobs.sort(key=lambda job: job[1] == "remoteok")
 
-    for source_id, company_slug, adapter_key in ats_jobs:
+    # Fetches are pure HTTP and may safely overlap. The gather session above
+    # is already closed here; worker threads never receive a Session or ORM
+    # object. Ingest remains below in the original one-session-per-board
+    # sequence, so the Supabase session-mode pool sees no extra connections.
+    prefetched_boards = _prefetch_ats_boards(ats_jobs, should_stop=should_stop)
+
+    for job in ats_jobs:
+        if _is_stop_requested(should_stop):
+            print("Stop requested; ending ATS ingestion after committed work", flush=True)
+            break
+
+        prefetched = prefetched_boards.get(job.company_slug)
+        if prefetched is None:
+            # _prefetch_ats_boards already logged the isolated fetch error.
+            continue
+
         # expire_on_commit=False: board_state (loaded once per company in
         # crawl_company_board) holds ORM objects across several batch
         # commits within this same company's crawl - without this, each
@@ -412,12 +654,20 @@ def run_tier(tier: int, group: str = "all") -> None:
         # would pay a lazy-reload round trip, quietly clawing back the
         # round trips this refactor exists to eliminate.
         with Session(engine, expire_on_commit=False) as session:
-            source = session.get(models.Source, source_id)
+            source = session.get(models.Source, job.source_id)
             company = session.scalar(
-                select(models.Company).where(models.Company.slug == company_slug)
+                select(models.Company).where(models.Company.slug == job.company_slug)
             )
             try:
-                result = crawl_company_board(session, source, company, ATS_ADAPTERS[adapter_key])
+                result = crawl_company_board(
+                    session,
+                    source,
+                    company,
+                    ATS_ADAPTERS[job.adapter_key],
+                    prefetched=prefetched.listings,
+                    prefetched_health=prefetched.health,
+                    should_stop=should_stop,
+                )
             except Exception as exc:
                 # Last-resort safety net: crawl_company_board already
                 # catches its own failures, but per-source isolation (Doc
@@ -427,15 +677,37 @@ def run_tier(tier: int, group: str = "all") -> None:
                     session.rollback()
                 except Exception:
                     pass
-                print(f"ERROR: {company_slug} crawl raised unexpectedly: {exc}", flush=True)
+                print(f"ERROR: {job.company_slug} crawl raised unexpectedly: {exc}", flush=True)
                 continue
-            print(f"{company_slug}: {result}", flush=True)
+            print(f"{job.company_slug}: {result}", flush=True)
+
+    # Treat the soft limit as a budget for the entire aggregator phase, not
+    # a fresh 10-minute allowance for every source. That leaves the phase
+    # safely below the workflow cap even when more than one aggregator is
+    # enabled.
+    aggregator_deadline_monotonic = time.monotonic() + aggregator_max_seconds
 
     for source_id, adapter_key in aggregator_jobs:
+        if _is_stop_requested(should_stop):
+            print("Stop requested; ending aggregator crawl after committed work", flush=True)
+            break
+
+        remaining_seconds = aggregator_deadline_monotonic - time.monotonic()
+        if remaining_seconds <= 0:
+            print("Aggregator time budget reached; ending after committed work", flush=True)
+            break
+
         with Session(engine, expire_on_commit=False) as session:
             source = session.get(models.Source, source_id)
             try:
-                result = crawl_aggregator(session, source, AGGREGATOR_ADAPTERS[adapter_key])
+                result = crawl_aggregator(
+                    session,
+                    source,
+                    AGGREGATOR_ADAPTERS[adapter_key],
+                    max_seconds=remaining_seconds,
+                    should_stop=should_stop,
+                    deadline_monotonic=aggregator_deadline_monotonic,
+                )
             except Exception as exc:
                 try:
                     session.rollback()
@@ -448,12 +720,41 @@ def run_tier(tier: int, group: str = "all") -> None:
             print(f"{adapter_key} (aggregator): {result}", flush=True)
 
 
+def _handle_stop_signal(_signum: int, _frame: object) -> None:
+    """Let the active crawl reach its next safe commit/close boundary."""
+    _STOP_REQUESTED.set()
+
+
+def _install_stop_handlers() -> dict[int, object]:
+    previous_handlers: dict[int, object] = {}
+    for signal_number in (signal.SIGTERM, signal.SIGINT):
+        try:
+            previous_handlers[signal_number] = signal.getsignal(signal_number)
+            signal.signal(signal_number, _handle_stop_signal)
+        except ValueError:
+            # Signal handlers can only be changed on the main thread. CLI
+            # execution is on that thread; this makes direct/test callers
+            # harmless if they are not.
+            pass
+    return previous_handlers
+
+
+def _restore_stop_handlers(previous_handlers: dict[int, object]) -> None:
+    for signal_number, previous_handler in previous_handlers.items():
+        signal.signal(signal_number, previous_handler)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--tier", type=int, required=True)
     parser.add_argument("--group", choices=("ats", "aggregator", "all"), default="all")
     args = parser.parse_args()
-    run_tier(args.tier, args.group)
+    _STOP_REQUESTED.clear()
+    previous_handlers = _install_stop_handlers()
+    try:
+        run_tier(args.tier, args.group)
+    finally:
+        _restore_stop_handlers(previous_handlers)
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ import httpx
 import pytest
 
 from core.adapters import RawListing
+from crawlers import unstop
 from crawlers.common import content_hash
 from crawlers.unstop import UnstopAdapter
 
@@ -46,6 +47,30 @@ def test_adapter_identity_and_default_health(adapter: UnstopAdapter) -> None:
     assert adapter.source_slug == "unstop"
     assert adapter.requires_browser is False
     assert adapter.health() == "ok"
+
+
+def test_fetch_stops_at_its_deadline_before_requesting_the_next_page(
+    adapter: UnstopAdapter,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request_params: list[dict] = []
+
+    def fake_get(url: str, *, params: dict) -> httpx.Response:
+        request_params.append(params)
+        request = httpx.Request("GET", url, params=params)
+        return httpx.Response(200, json={"data": {"data": []}}, request=request)
+
+    monkeypatch.setattr(adapter._client, "get", fake_get)
+    clock_values = iter([0.0, 1.0])
+    monkeypatch.setattr(unstop, "monotonic", lambda: next(clock_values))
+
+    raw_listings = adapter.fetch(deadline_monotonic=0.5)
+
+    assert raw_listings == []
+    assert adapter.stopped_early is True
+    assert request_params == [
+        {"opportunity": "internships", "per_page": 100, "page": 1},
+    ]
 
 
 def test_fetch_returns_fixture_opportunities_and_deduplicates_across_types(
