@@ -232,6 +232,10 @@ class FeedResponse(BaseModel):
     limit: int
 
 
+class TrendingResponse(BaseModel):
+    items: list[OpportunityListItem]
+
+
 class StatsResponse(BaseModel):
     opportunities: int
     companies: int

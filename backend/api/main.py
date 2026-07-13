@@ -18,6 +18,7 @@ from api import (
     search,
     sitemap,
     stats,
+    trending,
     waitlist,
 )
 from api.middleware import RateLimitMiddleware, ReadCacheMiddleware, TimingMiddleware
@@ -61,6 +62,7 @@ app.include_router(plans.router)
 app.include_router(referral.router)
 app.include_router(sitemap.router)
 app.include_router(stats.router)
+app.include_router(trending.router)
 app.include_router(waitlist.router)
 
 

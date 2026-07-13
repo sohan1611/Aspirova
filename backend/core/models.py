@@ -171,6 +171,24 @@ class Opportunity(Base):
     )
 
 
+class OpportunityViewCount(Base):
+    """Hot cumulative view counters kept off the wide opportunities row."""
+
+    __tablename__ = "opportunity_view_counts"
+
+    opportunity_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("opportunities.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    views: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default=text("0"))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=text("now()"),
+    )
+
+
 class OpportunitySource(Base):
     """Every place a canonical opportunity was found — dedup provenance (Doc 03 3.5)."""
 

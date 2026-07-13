@@ -2,6 +2,7 @@ import { SearchX } from "lucide-react";
 import Link from "next/link";
 import FeedViewControls from "@/components/FeedViewControls";
 import ForYouControl from "@/components/ForYouControl";
+import MostViewed from "@/components/MostViewed";
 import OpportunityCard from "@/components/OpportunityCard";
 import RecentlyViewed from "@/components/RecentlyViewed";
 import SearchFilters from "@/components/SearchFilters";
@@ -10,7 +11,7 @@ import SignedOutHero from "@/components/SignedOutHero";
 import SourceCompanyCard from "@/components/SourceCompanyCard";
 import StatsBar from "@/components/StatsBar";
 import { Button } from "@/components/ui/button";
-import { getFeed, getForYou, getStats, searchOpportunities } from "@/lib/api";
+import { getFeed, getForYou, getStats, getTrending, searchOpportunities } from "@/lib/api";
 import { findExternalCompany } from "@/lib/externalCompanies";
 import { buildPageHref } from "@/lib/pagination";
 import { matchesResearchIntent } from "@/lib/researchPrograms";
@@ -88,8 +89,27 @@ export default async function HomePage({ searchParams }: PageProps) {
     .map((field) => field.trim())
     .filter(Boolean);
   const isForYou = params.view === "foryou" && !params.q;
+  const hasActiveFilters = Boolean(
+    params.category ||
+      params.kind ||
+      params.source ||
+      params.remote !== undefined ||
+      params.location ||
+      params.company ||
+      params.top ||
+      params.scope ||
+      params.country ||
+      params.sort === "deadline",
+  );
+  const isCleanDefaultFeed =
+    !params.q &&
+    params.view !== "foryou" &&
+    !params.fields &&
+    !hasActiveFilters &&
+    page === 1;
 
   const statsPromise = loadStats();
+  const trendingPromise = isCleanDefaultFeed ? getTrending() : null;
   const data = params.q
     ? await searchOpportunities(params.q, filters, page, LIMIT)
     : isForYou
@@ -108,7 +128,10 @@ export default async function HomePage({ searchParams }: PageProps) {
         page,
         limit: LIMIT,
       });
-  const stats = await statsPromise;
+  const [stats, trending] = await Promise.all([
+    statsPromise,
+    trendingPromise ?? Promise.resolve({ items: [] }),
+  ]);
 
   const totalPages = Math.max(1, Math.ceil(data.total / LIMIT));
 
@@ -118,6 +141,7 @@ export default async function HomePage({ searchParams }: PageProps) {
       <SignedInWelcome />
       {stats && <StatsBar stats={stats} />}
       <RecentlyViewed />
+      {isCleanDefaultFeed && <MostViewed items={trending.items} />}
 
       <div id="feed-search" className="mb-6 scroll-mt-20 pt-10">
         <ForYouControl />

@@ -76,6 +76,10 @@ export interface FeedResponse {
   limit: number;
 }
 
+export interface TrendingResponse {
+  items: OpportunityListItem[];
+}
+
 export interface StatsResponse {
   opportunities: number;
   companies: number;

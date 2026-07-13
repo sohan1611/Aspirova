@@ -15,6 +15,7 @@ import type {
   SavedOpportunityItem,
   SearchResponse,
   StatsResponse,
+  TrendingResponse,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -99,6 +100,27 @@ export async function getFeed(params: FeedParams = {}): Promise<FeedResponse> {
   const res = await fetch(`${API_URL}/feed?${search.toString()}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`Failed to load feed: ${res.status}`);
   return res.json();
+}
+
+export async function pingOpportunityView(slug: string): Promise<void> {
+  try {
+    await fetch(`${API_URL}/opportunities/${encodeURIComponent(slug)}/view`, {
+      method: "POST",
+    });
+  } catch {
+    // View tracking must never affect the detail page.
+  }
+}
+
+export async function getTrending(limit?: number): Promise<TrendingResponse> {
+  try {
+    const search = limit === undefined ? "" : `?limit=${encodeURIComponent(String(limit))}`;
+    const res = await fetch(`${API_URL}/trending${search}`, { cache: "no-store" });
+    if (!res.ok) return { items: [] };
+    return res.json();
+  } catch {
+    return { items: [] };
+  }
 }
 
 export async function getForYou(params: ForYouParams = {}): Promise<FeedResponse> {
