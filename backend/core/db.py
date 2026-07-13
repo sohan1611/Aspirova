@@ -103,6 +103,7 @@ def make_engine(**kwargs) -> Engine:
             cursor = dbapi_connection.cursor()
             cursor.execute(f"SET statement_timeout = {STATEMENT_TIMEOUT_MS}")
             cursor.close()
+
     else:
         # Transaction mode: the pooler returns the server backend to the pool
         # after every transaction, so neither a connect-time `SET` nor the
