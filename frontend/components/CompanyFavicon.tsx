@@ -21,28 +21,30 @@ interface CompanyFaviconProps {
   size?: number;
 }
 
+interface CompanyFaviconImageProps {
+  candidates: string[];
+  name: string;
+  colorIndex: number;
+  size: number;
+}
+
 /**
  * The only client leaf in the feed card - everything else stays
  * server-rendered text. Isolated here so a broken/missing favicon can
- * fall back to an initial-letter avatar via onError, which needs JS,
+ * advance through external favicon candidates before falling back to an
+ * initial-letter avatar via onError, which needs JS,
  * without making the whole card (and its SEO-relevant text) client-side.
  */
-export default function CompanyFavicon({
-  company,
-  size = 44,
-}: CompanyFaviconProps) {
-  const [failed, setFailed] = useState(false);
-  const name = company?.name?.trim() || "?";
-  const colorIndex =
-    name.split("").reduce((sum, character) => sum + character.charCodeAt(0), 0) %
-    MONOGRAM_COLORS.length;
-  const src =
-    company?.logo_url ??
-    (company?.domain
-      ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(company.domain)}&sz=64`
-      : null);
+function CompanyFaviconImage({
+  candidates,
+  name,
+  colorIndex,
+  size,
+}: CompanyFaviconImageProps) {
+  const [candidateIndex, setCandidateIndex] = useState(0);
+  const src = candidates[candidateIndex];
 
-  if (!src || failed) {
+  if (!src) {
     return (
       <div
         aria-hidden="true"
@@ -66,9 +68,41 @@ export default function CompanyFavicon({
       height={size}
       loading="lazy"
       referrerPolicy="no-referrer"
-      onError={() => setFailed(true)}
+      onError={() => setCandidateIndex((index) => index + 1)}
       className="h-11 w-11 shrink-0 rounded-lg border border-border bg-background object-contain p-1.5"
       style={size === 44 ? undefined : { height: size, width: size }}
+    />
+  );
+}
+
+export default function CompanyFavicon({
+  company,
+  size = 44,
+}: CompanyFaviconProps) {
+  const name = company?.name?.trim() || "?";
+  const colorIndex =
+    name.split("").reduce((sum, character) => sum + character.charCodeAt(0), 0) %
+    MONOGRAM_COLORS.length;
+  const domain = company?.domain;
+  const candidates = Array.from(
+    new Set(
+      [
+        company?.logo_url,
+        domain
+          ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`
+          : null,
+      ].filter((candidate): candidate is string => Boolean(candidate)),
+    ),
+  );
+  const companyIdentity = JSON.stringify([company?.logo_url ?? null, domain ?? null]);
+
+  return (
+    <CompanyFaviconImage
+      key={companyIdentity}
+      candidates={candidates}
+      name={name}
+      colorIndex={colorIndex}
+      size={size}
     />
   );
 }

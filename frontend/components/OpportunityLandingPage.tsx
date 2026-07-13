@@ -51,10 +51,14 @@ export default function OpportunityLandingPage({
       ) : (
         <div className={EMPTY_STATE_CLASS_NAME}>
           <SearchX className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
-          <p className="font-medium text-foreground">No opportunities found</p>
+          <p className="font-medium text-foreground">Nothing open here — yet.</p>
           <p className="max-w-xs text-sm text-muted-foreground">
-            Check back soon as Aspirova discovers more public career pages.
+            Aspirova is always discovering more from public career pages. Meanwhile, browse
+            everything on offer.
           </p>
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/">Browse all opportunities</Link>
+          </Button>
         </div>
       )}
 
