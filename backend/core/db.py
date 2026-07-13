@@ -12,13 +12,14 @@ Three independent mechanisms, because they bound different failure modes
   TCP reset (common behind NAT/stateful firewalls on cloud CI networks).
   Without this, a query can hang forever waiting for a response that will
   never arrive, because neither endpoint knows the connection is dead.
-- statement_timeout: a server-side cap on any single query. Set via an
-  explicit `SET` after connecting, NOT via the `options` connection
-  startup parameter - verified that approach silently does nothing here,
-  almost certainly because the Supabase pooler (PgBouncer) does not
-  forward arbitrary startup options through to the backend. `SET` is a
-  normal query over an established connection, which the Session pooler
-  (chosen specifically for full session semantics) passes through fine.
+- statement_timeout and idle_in_transaction_session_timeout: server-side
+  caps on a single query and an abandoned open transaction. They are set via
+  explicit `SET` commands, not the `options` connection startup parameter -
+  verified that approach silently does nothing here, almost certainly because
+  the Supabase pooler (PgBouncer) does not forward arbitrary startup options
+  through to the backend. `SET` is a normal query over an established
+  connection, which the Session pooler (chosen specifically for full session
+  semantics) passes through fine.
 
 This combination exists because connect_timeout alone was NOT sufficient:
 a GitHub Actions run hung for ~4-5 minutes before its first failure twice
@@ -32,16 +33,21 @@ server uses the correct session-mode pooler and the cap is relaxed from 5+5 to
 10+10 for healthier concurrency. Pre-ping still self-heals stale connections
 before checkout, while recycling prevents dead connections from lingering; the
 prior free-tier-exhaustion cap is historical.
+
+Transaction mode keeps a small SQLAlchemy QueuePool with rollback-on-return.
+The transaction pooler still multiplexes those idle client connections across
+server backends, while the rollback guarantees a returned connection cannot
+remain idle in an open transaction.
 """
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
-from sqlalchemy.pool import NullPool
 
 from core.config import get_settings
 
 CONNECT_TIMEOUT_SECONDS = 10
 STATEMENT_TIMEOUT_MS = 20_000
+IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS = 120_000
 
 POOL_SIZE = 10
 MAX_OVERFLOW = 10
@@ -69,16 +75,23 @@ def make_engine(**kwargs) -> Engine:
         #     rotating server backends -> disable them (psycopg
         #     prepare_threshold=None), or every query risks
         #     "prepared statement does not exist".
-        #  2) a connect-time `SET statement_timeout` would not survive past
-        #     its own transaction -> pass it as a startup option so the cap is
-        #     established on the backend itself, for every transaction.
+        #  2) connect-time settings do not survive past their own transaction
+        #     -> set both server-side timeout guards with `SET LOCAL` when
+        #     each transaction begins.
         connect_args.setdefault("prepare_threshold", None)
 
     pool_kwargs: dict = {}
     if transaction_mode:
-        # Let the external pooler own connection pooling; SQLAlchemy must not
-        # keep its own long-lived connections stacked on top of it.
-        pool_kwargs["poolclass"] = NullPool
+        # Keep a bounded client QueuePool and roll every connection back before
+        # reuse. PgBouncer transaction mode still multiplexes idle client
+        # connections server-side, while the rollback prevents an
+        # idle-in-transaction connection from lingering in the pool.
+        pool_kwargs.update(
+            pool_pre_ping=True,
+            pool_size=5,
+            max_overflow=10,
+            pool_reset_on_return="rollback",
+        )
     else:
         pool_kwargs.update(
             pool_pre_ping=True,
@@ -99,9 +112,13 @@ def make_engine(**kwargs) -> Engine:
         # persists for the session (verified live; the `options` startup param
         # is NOT forwarded by the session pooler - see module docstring).
         @event.listens_for(engine, "connect")
-        def _set_statement_timeout(dbapi_connection, _connection_record) -> None:
+        def _set_session_timeouts(dbapi_connection, _connection_record) -> None:
             cursor = dbapi_connection.cursor()
             cursor.execute(f"SET statement_timeout = {STATEMENT_TIMEOUT_MS}")
+            cursor.execute(
+                "SET idle_in_transaction_session_timeout = "
+                f"{IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS}"
+            )
             cursor.close()
 
     else:
@@ -109,10 +126,15 @@ def make_engine(**kwargs) -> Engine:
         # after every transaction, so neither a connect-time `SET` nor the
         # `options` startup param sticks (both verified ineffective against the
         # :6543 pooler - it reports the 2min default). `SET LOCAL` at the start
-        # of each transaction applies the cap for exactly that transaction,
-        # which is the whole lifetime of one pooled server backend here.
+        # of each transaction applies both timeout guards for exactly that
+        # transaction, which is the whole lifetime of one pooled server backend
+        # here.
         @event.listens_for(engine, "begin")
-        def _set_local_statement_timeout(connection) -> None:
+        def _set_local_transaction_timeouts(connection) -> None:
             connection.exec_driver_sql(f"SET LOCAL statement_timeout = {STATEMENT_TIMEOUT_MS}")
+            connection.exec_driver_sql(
+                "SET LOCAL idle_in_transaction_session_timeout = "
+                f"{IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS}"
+            )
 
     return engine
