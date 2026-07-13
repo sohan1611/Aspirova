@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import BookmarkButton from "@/components/BookmarkButton";
 import CompanyFavicon from "@/components/CompanyFavicon";
+import RecordOpportunityView from "@/components/RecordOpportunityView";
 import ShareButton from "@/components/ShareButton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -139,6 +140,14 @@ export default async function OpportunityPage({ params }: PageProps) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(jobPostingJsonLd) }}
+      />
+      <RecordOpportunityView
+        slug={opportunity.slug}
+        title={opportunity.title}
+        companyName={opportunity.company?.name ?? null}
+        companyDomain={opportunity.company?.domain ?? null}
+        companyLogoUrl={opportunity.company?.logo_url ?? null}
+        category={opportunity.category}
       />
       <main className="mx-auto w-full max-w-5xl px-4 py-10 sm:py-14">
         <Link

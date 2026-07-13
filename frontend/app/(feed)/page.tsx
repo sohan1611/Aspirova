@@ -3,6 +3,7 @@ import Link from "next/link";
 import FeedViewControls from "@/components/FeedViewControls";
 import ForYouControl from "@/components/ForYouControl";
 import OpportunityCard from "@/components/OpportunityCard";
+import RecentlyViewed from "@/components/RecentlyViewed";
 import SearchFilters from "@/components/SearchFilters";
 import SignedInWelcome from "@/components/SignedInWelcome";
 import SignedOutHero from "@/components/SignedOutHero";
@@ -116,6 +117,7 @@ export default async function HomePage({ searchParams }: PageProps) {
       <SignedOutHero />
       <SignedInWelcome />
       {stats && <StatsBar stats={stats} />}
+      <RecentlyViewed />
 
       <div id="feed-search" className="mb-6 scroll-mt-20 pt-10">
         <ForYouControl />
