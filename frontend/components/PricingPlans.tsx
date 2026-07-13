@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { useCurrency } from "@/lib/country";
 import type { PlanPublic } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import SubscribeButton from "./SubscribeButton";
@@ -54,6 +55,7 @@ export default function PricingPlans({
   paymentsEnabled: boolean;
 }) {
   const [billing, setBilling] = useState<"monthly" | "annual">("annual");
+  const { currency, hydrated } = useCurrency();
 
   const byKey = Object.fromEntries(plans.map((p) => [p.key, p]));
   const tiers: Tier[] = [
@@ -65,30 +67,39 @@ export default function PricingPlans({
   return (
     <div>
       <div className="flex justify-center">
-        <div
-          role="group"
-          aria-label="Billing period"
-          className="inline-flex rounded-md border border-border bg-muted p-1"
-        >
-          {(["monthly", "annual"] as const).map((period) => (
-            <button
-              key={period}
-              type="button"
-              aria-pressed={billing === period}
-              onClick={() => setBilling(period)}
-              className={cn(
-                "rounded-sm px-4 py-1.5 text-sm font-medium capitalize outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring",
-                billing === period
-                  ? "bg-background text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {period}
-              {period === "annual" && (
-                <span className="ml-1.5 text-xs text-primary">Save ~15%</span>
-              )}
-            </button>
-          ))}
+        <div className="flex flex-col items-center gap-2">
+          <div
+            role="group"
+            aria-label="Billing period"
+            className="inline-flex rounded-md border border-border bg-muted p-1"
+          >
+            {(["monthly", "annual"] as const).map((period) => (
+              <button
+                key={period}
+                type="button"
+                aria-pressed={billing === period}
+                onClick={() => setBilling(period)}
+                className={cn(
+                  "rounded-sm px-4 py-1.5 text-sm font-medium capitalize outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring",
+                  billing === period
+                    ? "bg-background text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {period}
+                {period === "annual" && (
+                  <span className="ml-1.5 text-xs text-primary">Save ~15%</span>
+                )}
+              </button>
+            ))}
+          </div>
+          {hydrated && (
+            <p className="text-xs font-medium text-muted-foreground">
+              {currency === "INR"
+                ? "Prices shown in ₹ (INR) · India"
+                : "You're outside India — USD pricing is being finalized."}
+            </p>
+          )}
         </div>
       </div>
 
@@ -100,6 +111,7 @@ export default function PricingPlans({
           const isFree = tier.name === "Free";
           const price = isFree ? "Free" : rupees(plan.price_paise);
           const billingSuffix = isFree ? null : billing === "annual" ? "/yr" : "/mo";
+          const usdPricingPending = !isFree && currency === "USD";
 
           return (
             <Card
@@ -121,13 +133,21 @@ export default function PricingPlans({
               <CardHeader>
                 <CardTitle className="eyebrow">{tier.name}</CardTitle>
                 <div className="flex items-baseline gap-1.5">
-                  <p className="tnum font-serif text-4xl font-semibold tracking-tight text-foreground">
-                    {price}
-                  </p>
-                  {billingSuffix && (
-                    <span className="text-sm font-normal text-muted-foreground">
-                      {billingSuffix}
-                    </span>
+                  {usdPricingPending ? (
+                    <p className="text-sm font-medium text-muted-foreground">
+                      USD pricing coming soon
+                    </p>
+                  ) : (
+                    <>
+                      <p className="tnum font-serif text-4xl font-semibold tracking-tight text-foreground">
+                        {price}
+                      </p>
+                      {billingSuffix && (
+                        <span className="text-sm font-normal text-muted-foreground">
+                          {billingSuffix}
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
               </CardHeader>
@@ -149,7 +169,7 @@ export default function PricingPlans({
                   <Button variant="outline" className="w-full" disabled>
                     Included today
                   </Button>
-                ) : paymentsEnabled ? (
+                ) : paymentsEnabled && currency === "INR" ? (
                   <SubscribeButton
                     planKey={plan.key}
                     planLabel={tier.name}

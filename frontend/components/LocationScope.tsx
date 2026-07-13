@@ -2,15 +2,13 @@
 
 import { Pencil } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useSyncExternalStore, useTransition } from "react";
+import { useTransition } from "react";
 import { CountryPicker } from "@/components/CountryPicker";
 import { Button } from "@/components/ui/button";
+import { storeCountryCode, useStoredCountryCode } from "@/lib/country";
 import { getCountry } from "@/lib/countries";
 import { useHydrated } from "@/lib/useHydrated";
 import { cn } from "@/lib/utils";
-
-const COUNTRY_STORAGE_KEY = "aspirova.country";
-const COUNTRY_EVENT = "aspirova:country-change";
 
 type Scope = "abroad" | "domestic" | "both";
 
@@ -22,46 +20,12 @@ function getScope(value: string | null): Scope {
   return "both";
 }
 
-// localStorage as an external store (the sanctioned pattern — a
-// setState-in-effect read triggers cascading renders). Writes dispatch a
-// same-tab event so the store re-reads immediately; "storage" covers other tabs.
-function readStoredCountryCode(): string | null {
-  try {
-    return window.localStorage.getItem(COUNTRY_STORAGE_KEY);
-  } catch {
-    // Storage can be unavailable in privacy-restricted browser contexts.
-    return null;
-  }
-}
-
-function storeCountryCode(code: string): void {
-  try {
-    window.localStorage.setItem(COUNTRY_STORAGE_KEY, code);
-  } catch {
-    // Keep the in-session preference even if persistent storage is unavailable.
-  }
-  window.dispatchEvent(new Event(COUNTRY_EVENT));
-}
-
-function subscribeStoredCountry(onChange: () => void): () => void {
-  window.addEventListener(COUNTRY_EVENT, onChange);
-  window.addEventListener("storage", onChange);
-  return () => {
-    window.removeEventListener(COUNTRY_EVENT, onChange);
-    window.removeEventListener("storage", onChange);
-  };
-}
-
 export default function LocationScope() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isHydrated = useHydrated();
   const [isPending, startTransition] = useTransition();
-  const storedCode = useSyncExternalStore(
-    subscribeStoredCountry,
-    readStoredCountryCode,
-    () => null,
-  );
+  const storedCode = useStoredCountryCode();
   const countryCode = storedCode && getCountry(storedCode) ? storedCode : null;
 
   const requestedScope = getScope(searchParams.get("scope"));
