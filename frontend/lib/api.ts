@@ -6,6 +6,7 @@ import type {
   CopilotResponse,
   FeedResponse,
   MatchItem,
+  NotificationsResponse,
   OpportunityDetail,
   OpportunityListItem,
   PlanPublic,
@@ -208,6 +209,33 @@ export async function getBookmarks(accessToken: string): Promise<SavedOpportunit
     cache: "no-store",
   });
   if (!res.ok) throw new Error(`Failed to load bookmarks: ${res.status}`);
+  return res.json();
+}
+
+export async function getNotifications(accessToken: string): Promise<NotificationsResponse> {
+  const res = await fetch(`${API_URL}/notifications`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`Failed to load notifications: ${res.status}`);
+  return res.json();
+}
+
+export async function getUnreadCount(accessToken: string): Promise<{ unread: number }> {
+  const res = await fetch(`${API_URL}/notifications/unread-count`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`Failed to load unread notifications: ${res.status}`);
+  return res.json();
+}
+
+export async function markNotificationsRead(accessToken: string): Promise<{ unread: number }> {
+  const res = await fetch(`${API_URL}/notifications/read`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error(`Failed to mark notifications as read: ${res.status}`);
   return res.json();
 }
 

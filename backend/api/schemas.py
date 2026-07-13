@@ -99,6 +99,23 @@ class SavedOpportunityItem(OpportunityListItem):
         return cls(**base.model_dump(), bookmark_status=status)
 
 
+class NotificationItem(BaseModel):
+    id: int
+    type: str
+    title: str
+    body: str
+    opportunity_slug: str | None
+    opportunity_title: str | None
+    company_name: str | None
+    created_at: datetime
+    read: bool
+
+
+class NotificationsResponse(BaseModel):
+    items: list[NotificationItem]
+    unread: int
+
+
 class BookmarkStatusUpdate(BaseModel):
     status: Literal["saved", "applied", "interviewing", "offer", "archived"]
 

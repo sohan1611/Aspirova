@@ -313,6 +313,7 @@ class Notification(Base):
     channel: Mapped[str] = mapped_column(Text, server_default="email")
     status: Mapped[str] = mapped_column(Text, nullable=False)
     sent_at: Mapped[datetime | None] = mapped_column()
+    read_at: Mapped[datetime | None] = mapped_column()
     meta: Mapped[dict | None] = mapped_column()
 
     __table_args__ = (Index("ix_notifications_user_type_sent", "user_id", "type", "sent_at"),)

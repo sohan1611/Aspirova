@@ -1,6 +1,7 @@
 import Link from "next/link";
 import HeaderAuth from "@/components/HeaderAuth";
 import MobileNav from "@/components/MobileNav";
+import NotificationBell from "@/components/NotificationBell";
 import Wordmark from "@/components/Wordmark";
 
 const NAV_LINK_CLASSES =
@@ -38,6 +39,7 @@ export default function AppHeader() {
           </nav>
         </div>
         <div className="flex items-center gap-2">
+          <NotificationBell />
           <HeaderAuth
             triggerVariant="ghost"
             triggerClassName="font-normal text-muted-foreground hover:bg-transparent hover:text-foreground"

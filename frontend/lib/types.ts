@@ -134,3 +134,20 @@ export interface ReferralClaimResult {
   referred: boolean;
   reason: string;
 }
+
+export interface NotificationItem {
+  id: number;
+  type: string;
+  title: string;
+  body: string;
+  opportunity_slug: string | null;
+  opportunity_title: string | null;
+  company_name: string | null;
+  created_at: string;
+  read: boolean;
+}
+
+export interface NotificationsResponse {
+  items: NotificationItem[];
+  unread: number;
+}
