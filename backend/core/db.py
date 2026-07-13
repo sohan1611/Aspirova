@@ -36,6 +36,7 @@ prior free-tier-exhaustion cap is historical.
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
+from sqlalchemy.pool import NullPool
 
 from core.config import get_settings
 
@@ -56,24 +57,61 @@ DEFAULT_CONNECT_ARGS = {
 
 
 def make_engine(**kwargs) -> Engine:
+    settings = get_settings()
+    transaction_mode = settings.db_pool_mode.strip().lower() == "transaction"
     connect_args = {**DEFAULT_CONNECT_ARGS, **kwargs.pop("connect_args", {})}
-    pool_kwargs = {
-        "pool_pre_ping": True,
-        "pool_size": POOL_SIZE,
-        "max_overflow": MAX_OVERFLOW,
-        "pool_recycle": POOL_RECYCLE_SECONDS,
-    }
-    if "poolclass" in kwargs:
-        pool_kwargs.pop("pool_size")
-        pool_kwargs.pop("max_overflow")
-        pool_kwargs.pop("pool_recycle")
-    pool_kwargs.update(kwargs)
-    engine = create_engine(get_settings().database_url, connect_args=connect_args, **pool_kwargs)
 
-    @event.listens_for(engine, "connect")
-    def _set_statement_timeout(dbapi_connection, _connection_record) -> None:
-        cursor = dbapi_connection.cursor()
-        cursor.execute(f"SET statement_timeout = {STATEMENT_TIMEOUT_MS}")
-        cursor.close()
+    if transaction_mode:
+        # Supabase's transaction-mode pooler (:6543) hands the server
+        # connection back after EACH transaction, so two things the
+        # session-mode setup relied on no longer hold:
+        #  1) server-side prepared statements can't be reused across the
+        #     rotating server backends -> disable them (psycopg
+        #     prepare_threshold=None), or every query risks
+        #     "prepared statement does not exist".
+        #  2) a connect-time `SET statement_timeout` would not survive past
+        #     its own transaction -> pass it as a startup option so the cap is
+        #     established on the backend itself, for every transaction.
+        connect_args.setdefault("prepare_threshold", None)
+
+    pool_kwargs: dict = {}
+    if transaction_mode:
+        # Let the external pooler own connection pooling; SQLAlchemy must not
+        # keep its own long-lived connections stacked on top of it.
+        pool_kwargs["poolclass"] = NullPool
+    else:
+        pool_kwargs.update(
+            pool_pre_ping=True,
+            pool_size=POOL_SIZE,
+            max_overflow=MAX_OVERFLOW,
+            pool_recycle=POOL_RECYCLE_SECONDS,
+        )
+
+    if "poolclass" in kwargs:
+        pool_kwargs.pop("pool_size", None)
+        pool_kwargs.pop("max_overflow", None)
+        pool_kwargs.pop("pool_recycle", None)
+    pool_kwargs.update(kwargs)
+    engine = create_engine(settings.database_url, connect_args=connect_args, **pool_kwargs)
+
+    if not transaction_mode:
+        # Session mode: `SET` over the established connection is honored and
+        # persists for the session (verified live; the `options` startup param
+        # is NOT forwarded by the session pooler - see module docstring).
+        @event.listens_for(engine, "connect")
+        def _set_statement_timeout(dbapi_connection, _connection_record) -> None:
+            cursor = dbapi_connection.cursor()
+            cursor.execute(f"SET statement_timeout = {STATEMENT_TIMEOUT_MS}")
+            cursor.close()
+    else:
+        # Transaction mode: the pooler returns the server backend to the pool
+        # after every transaction, so neither a connect-time `SET` nor the
+        # `options` startup param sticks (both verified ineffective against the
+        # :6543 pooler - it reports the 2min default). `SET LOCAL` at the start
+        # of each transaction applies the cap for exactly that transaction,
+        # which is the whole lifetime of one pooled server backend here.
+        @event.listens_for(engine, "begin")
+        def _set_local_statement_timeout(connection) -> None:
+            connection.exec_driver_sql(f"SET LOCAL statement_timeout = {STATEMENT_TIMEOUT_MS}")
 
     return engine

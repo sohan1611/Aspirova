@@ -10,6 +10,12 @@ class Settings(BaseSettings):
 
     env: str = "development"
     database_url: str = ""
+    # "session" (default; Supabase session pooler :5432) or "transaction"
+    # (Supabase transaction pooler :6543). Transaction mode removes the tight
+    # per-client session-pool ceiling but changes connection semantics -
+    # core/db.py adapts (NullPool, no server-side prepared statements, and
+    # statement_timeout via a startup option) when this is "transaction".
+    db_pool_mode: str = "session"
     supabase_url: str = ""
     supabase_anon_key: str = ""
     supabase_service_key: str = ""
