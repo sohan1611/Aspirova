@@ -8,6 +8,7 @@ from api import (
     copilot,
     dream_companies,
     feed,
+    for_you,
     opportunity,
     payments,
     plans,
@@ -44,6 +45,7 @@ app.add_middleware(
 )
 
 app.include_router(feed.router)
+app.include_router(for_you.router)
 app.include_router(account.router)
 app.include_router(search.router)
 app.include_router(opportunity.router)

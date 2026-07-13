@@ -66,6 +66,15 @@ export interface FeedParams {
   limit?: number;
 }
 
+export interface ForYouParams {
+  fields?: string[];
+  categories?: string[];
+  country?: string;
+  scope?: "abroad" | "domestic" | "both";
+  page?: number;
+  limit?: number;
+}
+
 type SearchFilterParams = Pick<
   FeedParams,
   "category" | "source" | "remote" | "location" | "company" | "top" | "scope" | "country"
@@ -88,6 +97,20 @@ export async function getFeed(params: FeedParams = {}): Promise<FeedResponse> {
 
   const res = await fetch(`${API_URL}/feed?${search.toString()}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`Failed to load feed: ${res.status}`);
+  return res.json();
+}
+
+export async function getForYou(params: ForYouParams = {}): Promise<FeedResponse> {
+  const search = new URLSearchParams();
+  if (params.fields?.length) search.set("fields", params.fields.join(","));
+  if (params.categories?.length) search.set("categories", params.categories.join(","));
+  if (params.country) search.set("country", params.country);
+  if (params.scope) search.set("scope", params.scope);
+  if (params.page) search.set("page", String(params.page));
+  if (params.limit) search.set("limit", String(params.limit));
+
+  const res = await fetch(`${API_URL}/for-you?${search.toString()}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Failed to load personalized feed: ${res.status}`);
   return res.json();
 }
 

@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import AppFooter from "@/components/AppFooter";
 import AppHeader from "@/components/AppHeader";
 import { BookmarksProvider } from "@/components/BookmarksProvider";
+import OnboardingDialog from "@/components/OnboardingDialog";
 import ReferralCapture from "@/components/ReferralCapture";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
@@ -68,6 +69,9 @@ export default function RootLayout({
           <BookmarksProvider>
             <AppHeader />
             <div className="flex-1">{children}</div>
+            <Suspense fallback={null}>
+              <OnboardingDialog />
+            </Suspense>
           </BookmarksProvider>
           <AppFooter />
           <Toaster />

@@ -1,0 +1,144 @@
+"use client";
+
+import { Pencil, Sparkles } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useSyncExternalStore, useTransition } from "react";
+import { Button } from "@/components/ui/button";
+import { getCountry } from "@/lib/countries";
+import { requestOnboarding, useInterests } from "@/lib/interests";
+import { cn } from "@/lib/utils";
+
+const COUNTRY_STORAGE_KEY = "aspirova.country";
+const COUNTRY_EVENT = "aspirova:country-change";
+
+function readStoredCountryCode(): string | null {
+  try {
+    return window.localStorage.getItem(COUNTRY_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function subscribeStoredCountry(onChange: () => void): () => void {
+  window.addEventListener(COUNTRY_EVENT, onChange);
+  window.addEventListener("storage", onChange);
+
+  return () => {
+    window.removeEventListener(COUNTRY_EVENT, onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
+
+function hrefFor(params: URLSearchParams): string {
+  const query = params.toString();
+  return query ? `/?${query}` : "/";
+}
+
+export default function ForYouControl() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { fields, hydrated } = useInterests();
+  const [isPending, startTransition] = useTransition();
+  const storedCountryCode = useSyncExternalStore(
+    subscribeStoredCountry,
+    readStoredCountryCode,
+    () => null,
+  );
+  const countryCode = storedCountryCode && getCountry(storedCountryCode) ? storedCountryCode : null;
+  const isForYou = searchParams.get("view") === "foryou" && !searchParams.get("q");
+
+  function activateForYou() {
+    if (fields.length === 0) {
+      requestOnboarding();
+      return;
+    }
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("q");
+    params.set("view", "foryou");
+    params.set("fields", fields.join(","));
+    if (countryCode) params.set("country", countryCode);
+    params.delete("page");
+
+    startTransition(() => {
+      router.push(hrefFor(params));
+    });
+  }
+
+  function activateLatest() {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("view");
+    params.delete("fields");
+    params.delete("page");
+
+    startTransition(() => {
+      router.push(hrefFor(params));
+    });
+  }
+
+  if (!hydrated) {
+    return <div className="h-8 w-52" aria-hidden="true" />;
+  }
+
+  return (
+    <div
+      aria-busy={isPending}
+      className={cn(
+        "flex flex-wrap items-center justify-between gap-2",
+        isPending && "pointer-events-none cursor-progress opacity-70",
+      )}
+    >
+      {isPending && (
+        <span className="sr-only" role="status">
+          Updating your feed…
+        </span>
+      )}
+      <div
+        role="group"
+        aria-label="Feed view"
+        className="inline-flex items-center rounded-md border border-border bg-muted p-1"
+      >
+        <button
+          type="button"
+          aria-pressed={isForYou}
+          disabled={isPending}
+          onClick={activateForYou}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm font-medium transition-[background-color,color,box-shadow] duration-200 ease-[var(--ease-premium)] disabled:cursor-wait",
+            isForYou
+              ? "bg-background text-foreground shadow-xs"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <Sparkles className="size-3.5" aria-hidden="true" />
+          For You
+        </button>
+        <button
+          type="button"
+          aria-pressed={!isForYou}
+          disabled={isPending}
+          onClick={activateLatest}
+          className={cn(
+            "rounded-sm px-3 py-1.5 text-sm font-medium transition-[background-color,color,box-shadow] duration-200 ease-[var(--ease-premium)] disabled:cursor-wait",
+            !isForYou
+              ? "bg-background text-foreground shadow-xs"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          Latest
+        </button>
+      </div>
+
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        disabled={isPending}
+        onClick={requestOnboarding}
+      >
+        <Pencil aria-hidden="true" />
+        Edit interests
+      </Button>
+    </div>
+  );
+}

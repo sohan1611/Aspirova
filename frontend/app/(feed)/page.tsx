@@ -1,6 +1,7 @@
 import { SearchX } from "lucide-react";
 import Link from "next/link";
 import FeedViewControls from "@/components/FeedViewControls";
+import ForYouControl from "@/components/ForYouControl";
 import OpportunityCard from "@/components/OpportunityCard";
 import SearchFilters from "@/components/SearchFilters";
 import SignedInWelcome from "@/components/SignedInWelcome";
@@ -8,7 +9,7 @@ import SignedOutHero from "@/components/SignedOutHero";
 import SourceCompanyCard from "@/components/SourceCompanyCard";
 import StatsBar from "@/components/StatsBar";
 import { Button } from "@/components/ui/button";
-import { getFeed, getStats, searchOpportunities } from "@/lib/api";
+import { getFeed, getForYou, getStats, searchOpportunities } from "@/lib/api";
 import { findExternalCompany } from "@/lib/externalCompanies";
 import { buildPageHref } from "@/lib/pagination";
 import { matchesResearchIntent } from "@/lib/researchPrograms";
@@ -27,6 +28,8 @@ interface PageProps {
     scope?: string;
     country?: string;
     sort?: string;
+    view?: string;
+    fields?: string;
     page?: string;
     cols?: string;
     rows?: string;
@@ -79,10 +82,24 @@ export default async function HomePage({ searchParams }: PageProps) {
     scope: params.scope as "abroad" | "domestic" | "both" | undefined,
     country: params.country,
   };
+  const forYouFields = params.fields
+    ?.split(",")
+    .map((field) => field.trim())
+    .filter(Boolean);
+  const isForYou = params.view === "foryou" && !params.q;
 
   const statsPromise = loadStats();
   const data = params.q
     ? await searchOpportunities(params.q, filters, page, LIMIT)
+    : isForYou
+      ? await getForYou({
+          fields: forYouFields,
+          categories: params.category ? [params.category] : undefined,
+          country: params.country,
+          scope: filters.scope,
+          page,
+          limit: LIMIT,
+        })
     : await getFeed({
         ...filters,
         kind,
@@ -101,7 +118,10 @@ export default async function HomePage({ searchParams }: PageProps) {
       {stats && <StatsBar stats={stats} />}
 
       <div id="feed-search" className="mb-6 scroll-mt-20 pt-10">
-        <SearchFilters />
+        <ForYouControl />
+        <div className="mt-3">
+          <SearchFilters />
+        </div>
       </div>
 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
