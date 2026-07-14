@@ -66,13 +66,23 @@ _FakeAdapter = _make_fake_adapter_class(3)
 
 
 def _make_forced_failure_ingest(fail_on_external_id: str):
-    def _ingest(session, board_state, source_id, company_id, raw, normalized):
+    def _ingest(
+        session, board_state, source_id, company_id, raw, normalized, seen_opportunity_ids=None
+    ):
         if raw.external_id == fail_on_external_id:
             # A real DB-level error - this is what actually aborts the
             # Postgres transaction, which is the condition the original bug
             # depended on.
             session.execute(text("SELECT 1/0"))
-        return real_ingest_one(session, board_state, source_id, company_id, raw, normalized)
+        return real_ingest_one(
+            session,
+            board_state,
+            source_id,
+            company_id,
+            raw,
+            normalized,
+            seen_opportunity_ids=seen_opportunity_ids,
+        )
 
     return _ingest
 
