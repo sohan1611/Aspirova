@@ -1,12 +1,11 @@
 name: Crawl Tier 1
 
-# Tier 1 crawl. Original intent was 2-3x/day (not every 2h); running at 2x/day
-# (every 12h) to keep GitHub Actions minutes well under the 2,000/mo included
-# free tier (Doc 02 sec 5 - scale by measured cost). Bump toward 3x/day once the
-# monthly Actions budget comfortably allows it.
+# Tier 1 crawl runs once daily at 01:00 UTC. Recent 2x/day runs exhausted the
+# 3,000 min/mo included Actions budget by hitting their 40-minute timeout every
+# run; this workflow now has a 30-minute job cap and a 20-minute ATS-step cap.
 on:
   schedule:
-    - cron: "0 */12 * * *"
+    - cron: "0 1 * * *"
   workflow_dispatch: {}
 
 concurrency:
@@ -19,7 +18,7 @@ jobs:
     # ATS must complete (it's fast now that it's split out); the aggregator runs
     # afterward as best-effort work with its own tight per-step cap below. The
     # job cap bounds worst-case billed minutes per run.
-    timeout-minutes: 40
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: backend
@@ -37,6 +36,7 @@ jobs:
         run: uv sync --frozen
 
       - name: Run ATS crawl (tier 1)
+        timeout-minutes: 20
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           # Python block-buffers stdout when it's not a TTY (i.e. always, in
