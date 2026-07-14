@@ -144,12 +144,20 @@ def ingest_one(
     company_id: int | None,
     raw: RawListing,
     normalized: NormalizedListing,
+    seen_opportunity_ids: set[int] | None = None,
 ) -> tuple[models.Opportunity, bool]:
     """Returns (opportunity, is_new_canonical_opportunity).
 
     Idempotent: a repeat call with byte-identical raw content (same
     content_hash) is a near-no-op - only last_seen_at is touched.
     """
+
+    def mark_seen(opportunity: models.Opportunity) -> None:
+        if seen_opportunity_ids is not None and opportunity.id is not None:
+            seen_opportunity_ids.add(opportunity.id)
+        else:
+            opportunity.last_seen_at = func.now()
+
     normalized = normalized.model_copy(
         update={
             "title": fix_text(normalized.title),
@@ -208,7 +216,7 @@ def ingest_one(
                 )
             )
 
-        opportunity.last_seen_at = func.now()
+        mark_seen(opportunity)
         raw_row.processed = True
 
         _ensure_provenance(
@@ -242,7 +250,7 @@ def ingest_one(
     if match is not None:
         if len(normalized.description_raw or "") > len(match.description_raw or ""):
             match.description_raw = normalized.description_raw
-        match.last_seen_at = func.now()
+        mark_seen(match)
         opportunity, is_new = match, False
     else:
         slug = _make_opportunity_slug(normalized.company_name, normalized.title, raw)
@@ -257,7 +265,7 @@ def ingest_one(
             opportunity = existing_by_slug
             if len(normalized.description_raw or "") > len(opportunity.description_raw or ""):
                 opportunity.description_raw = normalized.description_raw
-            opportunity.last_seen_at = func.now()
+            mark_seen(opportunity)
             is_new = False
         else:
             opportunity = models.Opportunity(

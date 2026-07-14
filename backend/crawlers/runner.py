@@ -26,7 +26,7 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from core import models
@@ -285,7 +285,9 @@ def crawl_company_board(
         # slow on this network path: one 484-listing company alone consumed
         # most of a 25-minute job, because each commit is a full-durability
         # round-trip and round-trip count - not server processing time - is
-        # what's actually slow here. A failed listing now rolls back only
+        # what's actually slow here. last_seen_at touches are collected and
+        # flushed in one bulk UPDATE per company, so per-25 commits mostly
+        # flush genuinely changed rows. A failed listing now rolls back only
         # its own batch (still-uncommitted listings earlier in the SAME
         # batch are lost too, not just the failed one), not the whole
         # company - an acceptable, self-healing tradeoff: ingest is
@@ -299,6 +301,7 @@ def crawl_company_board(
         # listing's DB row while result["new_opps"] had already counted it,
         # silently overcounting.
         pending_new_opps = 0
+        seen_opportunity_ids: set[int] = set()
 
         for raw in raw_listings:
             if _is_stop_requested(should_stop):
@@ -308,7 +311,13 @@ def crawl_company_board(
             try:
                 normalized = adapter.parse(raw)
                 _opportunity, is_new = ingest_one(
-                    session, board_state, source_id, company.id, raw, normalized
+                    session,
+                    board_state,
+                    source_id,
+                    company.id,
+                    raw,
+                    normalized,
+                    seen_opportunity_ids=seen_opportunity_ids,
                 )
                 since_last_commit += 1
                 if is_new:
@@ -344,6 +353,15 @@ def crawl_company_board(
         if since_last_commit > 0:
             session.commit()
             result["new_opps"] += pending_new_opps
+
+        if seen_opportunity_ids:
+            ids = list(seen_opportunity_ids)
+            for i in range(0, len(ids), 5000):
+                session.execute(
+                    update(models.Opportunity)
+                    .where(models.Opportunity.id.in_(ids[i : i + 5000]))
+                    .values(last_seen_at=func.now())
+                )
 
         if _is_stop_requested(should_stop):
             stopped_early = True

@@ -11,7 +11,7 @@ shared state).
 from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from core import models
@@ -77,13 +77,22 @@ def _ingest(
     company_id: int | None,
     raw: RawListing,
     normalized: NormalizedListing,
+    seen_opportunity_ids: set[int] | None = None,
 ) -> tuple[models.Opportunity, bool]:
     """Loads a fresh board_state before each call, simulating what
     production actually does: crawlers/runner.py loads board_state once
     per company crawl, and every call site below represents a separate
     crawl of that board (Doc handoffs/PHASE-2-HANDOFF.md sec 2/5)."""
     board_state = load_board_state(db_session, source_id, company_id)
-    return ingest_one(db_session, board_state, source_id, company_id, raw, normalized)
+    return ingest_one(
+        db_session,
+        board_state,
+        source_id,
+        company_id,
+        raw,
+        normalized,
+        seen_opportunity_ids=seen_opportunity_ids,
+    )
 
 
 def test_same_job_from_two_sources_merges_into_one_opportunity(db_session, seeded):
@@ -126,14 +135,47 @@ def test_full_rerun_creates_zero_duplicates(db_session, seeded):
     raw = _raw("job-1", "https://acme.example/jobs/1")
     norm = _normalized("Software Engineering Intern", "https://acme.example/jobs/1")
 
-    opp1, is_new1 = _ingest(db_session, source_a.id, company.id, raw, norm)
+    seen_opportunity_ids: set[int] = set()
+    opp1, is_new1 = _ingest(
+        db_session,
+        source_a.id,
+        company.id,
+        raw,
+        norm,
+        seen_opportunity_ids=seen_opportunity_ids,
+    )
     db_session.flush()
-    opp2, is_new2 = _ingest(db_session, source_a.id, company.id, raw, norm)
+    assert seen_opportunity_ids == set()
+
+    old_last_seen_at = datetime(2000, 1, 1, tzinfo=UTC)
+    opp1.last_seen_at = old_last_seen_at
+    db_session.flush()
+
+    seen_opportunity_ids = set()
+    opp2, is_new2 = _ingest(
+        db_session,
+        source_a.id,
+        company.id,
+        raw,
+        norm,
+        seen_opportunity_ids=seen_opportunity_ids,
+    )
     db_session.flush()
 
     assert is_new1 is True
     assert is_new2 is False
     assert opp1.id == opp2.id
+    assert seen_opportunity_ids == {opp1.id}
+    assert opp2.last_seen_at == old_last_seen_at
+
+    db_session.execute(
+        update(models.Opportunity)
+        .where(models.Opportunity.id.in_(seen_opportunity_ids))
+        .values(last_seen_at=func.now())
+    )
+    db_session.flush()
+    db_session.refresh(opp2)
+    assert opp2.last_seen_at > old_last_seen_at
 
     opp_count = db_session.scalar(
         select(func.count())
