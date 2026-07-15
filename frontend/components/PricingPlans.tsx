@@ -49,6 +49,13 @@ interface Tier {
   annual?: PlanPublic;
 }
 
+// The badge straddles the card's top edge, and the heritage variant's fill is
+// only 10% opaque - so the card's border painted straight through the text. The
+// pseudo-element lays an opaque card-coloured layer under the tint (rather than
+// replacing it) so the intended tint survives and the border stops showing.
+const EDGE_BADGE_CLASS_NAME =
+  "absolute -top-3 left-1/2 z-10 -translate-x-1/2 before:absolute before:inset-0 before:-z-10 before:bg-card";
+
 export default function PricingPlans({
   plans,
   paymentsEnabled,
@@ -165,17 +172,11 @@ export default function PricingPlans({
               )}
             >
               {isCurrentTier ? (
-                <Badge
-                  variant="heritage"
-                  className="absolute -top-3 left-1/2 -translate-x-1/2"
-                >
+                <Badge variant="heritage" className={EDGE_BADGE_CLASS_NAME}>
                   Current plan
                 </Badge>
               ) : tier.highlight ? (
-                <Badge
-                  variant="heritage"
-                  className="absolute -top-3 left-1/2 -translate-x-1/2"
-                >
+                <Badge variant="heritage" className={EDGE_BADGE_CLASS_NAME}>
                   Most popular
                 </Badge>
               ) : null}
