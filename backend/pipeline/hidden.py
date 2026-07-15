@@ -17,10 +17,17 @@ def recompute_hidden(session: Session) -> int:
             func.min(models.Source.crawl_tier) > 1,
         )
     )
+    should_be_hidden = models.Opportunity.id.in_(hidden_opportunity_ids)
 
+    # Only write the rows whose flag actually flips. Without the WHERE this
+    # rewrote EVERY opportunity row on every crawl - a full-table rewrite
+    # (row versions + index maintenance) that exceeded statement_timeout and
+    # failed the crawl's compute-hidden step outright. In the steady state
+    # almost nothing changes, so the update touches a handful of rows.
     session.execute(
         update(models.Opportunity)
-        .values(is_hidden=models.Opportunity.id.in_(hidden_opportunity_ids))
+        .values(is_hidden=should_be_hidden)
+        .where(models.Opportunity.is_hidden.is_distinct_from(should_be_hidden))
         .execution_options(synchronize_session=False)
     )
 
