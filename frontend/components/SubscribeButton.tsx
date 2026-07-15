@@ -12,6 +12,7 @@ interface SubscribeButtonProps {
   planKey: string;
   planLabel: string;
   highlight?: boolean;
+  label?: string;
 }
 
 function isPaymentsUnavailableError(error: unknown): boolean {
@@ -34,6 +35,7 @@ export default function SubscribeButton({
   planKey,
   planLabel,
   highlight,
+  label,
 }: SubscribeButtonProps) {
   const session = useSession();
   const accessToken = session?.access_token;
@@ -100,7 +102,7 @@ export default function SubscribeButton({
       onClick={handleSubscribe}
     >
       {loading && <Loader2 className="animate-spin" aria-hidden="true" />}
-      {loading ? "Starting checkout..." : `Upgrade to ${planLabel}`}
+      {loading ? "Starting checkout..." : (label ?? `Upgrade to ${planLabel}`)}
     </Button>
   );
 }

@@ -1,12 +1,14 @@
 "use client";
 
 import { Check } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { getAccount } from "@/lib/api";
 import { useCurrency } from "@/lib/country";
 import type { PlanPublic } from "@/lib/types";
+import { useSession } from "@/lib/useSession";
 import { cn } from "@/lib/utils";
 import SubscribeButton from "./SubscribeButton";
 import WaitlistForm from "./WaitlistForm";
@@ -56,6 +58,42 @@ export default function PricingPlans({
 }) {
   const [billing, setBilling] = useState<"monthly" | "annual">("annual");
   const { currency, hydrated } = useCurrency();
+  const session = useSession();
+  const accessToken = session?.access_token;
+  const [planResult, setPlanResult] = useState<{
+    accessToken: string;
+    currentPlanKey: string | null;
+  } | null>(null);
+  const planRequestRef = useRef(0);
+
+  const currentPlanKey =
+    planResult && planResult.accessToken === accessToken ? planResult.currentPlanKey : null;
+  const planLoading = Boolean(accessToken) && planResult?.accessToken !== accessToken;
+
+  useEffect(() => {
+    const requestId = planRequestRef.current + 1;
+    planRequestRef.current = requestId;
+
+    if (!accessToken) return;
+
+    let cancelled = false;
+    void getAccount(accessToken)
+      .then((account) => {
+        if (cancelled || planRequestRef.current !== requestId) return;
+        setPlanResult({
+          accessToken,
+          currentPlanKey: account.plan.status !== "free" ? account.plan.key : null,
+        });
+      })
+      .catch(() => {
+        if (cancelled || planRequestRef.current !== requestId) return;
+        setPlanResult({ accessToken, currentPlanKey: null });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken]);
 
   const byKey = Object.fromEntries(plans.map((p) => [p.key, p]));
   const tiers: Tier[] = [
@@ -112,6 +150,10 @@ export default function PricingPlans({
           const price = isFree ? "Free" : rupees(plan.price_paise);
           const billingSuffix = isFree ? null : billing === "annual" ? "/yr" : "/mo";
           const usdPricingPending = !isFree && currency === "USD";
+          const isCurrentPlan = currentPlanKey != null && plan.key === currentPlanKey;
+          const isCurrentTier =
+            currentPlanKey != null &&
+            (tier.monthly?.key === currentPlanKey || tier.annual?.key === currentPlanKey);
 
           return (
             <Card
@@ -122,14 +164,21 @@ export default function PricingPlans({
                 tier.highlight && "border-heritage/40 shadow-soft-md",
               )}
             >
-              {tier.highlight && (
+              {isCurrentTier ? (
+                <Badge
+                  variant="heritage"
+                  className="absolute -top-3 left-1/2 -translate-x-1/2"
+                >
+                  Current plan
+                </Badge>
+              ) : tier.highlight ? (
                 <Badge
                   variant="heritage"
                   className="absolute -top-3 left-1/2 -translate-x-1/2"
                 >
                   Most popular
                 </Badge>
-              )}
+              ) : null}
               <CardHeader>
                 <CardTitle className="eyebrow">{tier.name}</CardTitle>
                 <div className="flex items-baseline gap-1.5">
@@ -169,11 +218,28 @@ export default function PricingPlans({
                   <Button variant="outline" className="w-full" disabled>
                     Included today
                   </Button>
+                ) : planLoading ? (
+                  <Button
+                    variant={tier.highlight ? "default" : "outline"}
+                    className="w-full"
+                    disabled
+                  >
+                    Loading…
+                  </Button>
+                ) : isCurrentPlan ? (
+                  <Button
+                    variant={tier.highlight ? "default" : "outline"}
+                    className="w-full"
+                    disabled
+                  >
+                    Current plan
+                  </Button>
                 ) : paymentsEnabled && currency === "INR" ? (
                   <SubscribeButton
                     planKey={plan.key}
                     planLabel={tier.name}
                     highlight={tier.highlight}
+                    label={isCurrentTier ? `Switch to ${billing}` : undefined}
                   />
                 ) : (
                   <WaitlistForm planLabel={tier.name} highlight={tier.highlight} />
