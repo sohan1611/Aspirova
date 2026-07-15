@@ -62,6 +62,12 @@ jobs:
           PYTHONUNBUFFERED: "1"
         run: uv run python -m crawlers.runner --tier 1 --group aggregator
 
+      - name: Retire listings gone from their boards
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONUNBUFFERED: "1"
+        run: uv run python -m scripts.expire_missing
+
       - name: Recompute hidden opportunities
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}

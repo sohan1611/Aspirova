@@ -266,6 +266,15 @@ def crawl_company_board(
             and state is not None
             and state.last_content_hash == fingerprint
         ):
+            # The skip must still advance both freshness signals, otherwise an
+            # unchanged board looks indistinguishable from a vanished one and
+            # the expiry sweep below would retire live listings.
+            session.execute(
+                update(models.Opportunity)
+                .where(models.Opportunity.company_id == company.id)
+                .values(last_seen_at=func.now())
+            )
+            state.last_crawled_at = datetime.now(timezone.utc)
             session.commit()
             return result  # change-detection skip: nothing changed since last crawl
 
