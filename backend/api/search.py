@@ -40,6 +40,7 @@ def search_opportunities(
     location: str | None = Query(None),
     scope: str | None = Query(None, pattern="^(abroad|domestic|both)$"),
     country: str | None = Query(None, min_length=2, max_length=2),
+    remote_abroad: bool = Query(False),
     source: str | None = Query(None, pattern="^(direct|unstop|remoteok|devpost)$"),
     top: int | None = Query(None, gt=0),
     page: int = Query(1, ge=1),
@@ -51,7 +52,7 @@ def search_opportunities(
         models.Opportunity.status == "active",
         exclude_closed_competitions(),
         *extra_filters,
-        *location_scope_filters(scope, country),
+        *location_scope_filters(scope, country, remote_abroad),
     ]
     if source is not None:
         base_filters.append(models.Opportunity.primary_source.in_(SOURCE_GROUPS[source]))

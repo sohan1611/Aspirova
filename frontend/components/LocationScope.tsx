@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import { CountryPicker } from "@/components/CountryPicker";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { storeCountryCode, useStoredCountryCode } from "@/lib/country";
 import { getCountry } from "@/lib/countries";
 import { useHydrated } from "@/lib/useHydrated";
@@ -37,8 +38,14 @@ export default function LocationScope() {
     requestedScope === "both" ? undefined : getCountry(searchParams.get("country"));
   const activeScope = scopedCountry ? requestedScope : "both";
   const country = scopedCountry ?? storedCountry;
+  const includeRemoteAbroad = searchParams.get("remote_abroad") === "true";
+  const showRemoteAbroadToggle = Boolean(scopedCountry) && activeScope === "domestic";
 
-  function updateScope(scope: Scope, code: string) {
+  function updateScope(
+    scope: Scope,
+    code: string,
+    remoteAbroad = includeRemoteAbroad,
+  ) {
     const params = new URLSearchParams(searchParams.toString());
 
     if (scope === "both") {
@@ -47,6 +54,12 @@ export default function LocationScope() {
     } else {
       params.set("scope", scope);
       params.set("country", code);
+    }
+
+    if (scope === "domestic" && remoteAbroad) {
+      params.set("remote_abroad", "true");
+    } else {
+      params.delete("remote_abroad");
     }
 
     params.delete("page");
@@ -61,6 +74,12 @@ export default function LocationScope() {
     if (!country) return;
 
     updateScope(scope, country.code);
+  }
+
+  function handleRemoteAbroadChange(checked: boolean) {
+    if (!scopedCountry || activeScope !== "domestic") return;
+
+    updateScope("domestic", scopedCountry.code, checked);
   }
 
   function handleCountrySelect(code: string) {
@@ -114,7 +133,8 @@ export default function LocationScope() {
     <div
       aria-busy={isPending}
       className={cn(
-        "flex min-w-0 items-center gap-1",
+        "flex min-w-0 flex-wrap items-center gap-x-1 gap-y-2",
+        showRemoteAbroadToggle && "w-full sm:w-auto",
         isPending && "pointer-events-none cursor-progress",
       )}
     >
@@ -163,6 +183,28 @@ export default function LocationScope() {
           <Pencil aria-hidden="true" />
         </Button>
       </CountryPicker>
+
+      {showRemoteAbroadToggle && (
+        <div className="flex min-w-0 basis-full items-start gap-2 rounded-md border border-border bg-muted px-2.5 py-1.5 sm:basis-auto">
+          <input
+            id="remote-abroad"
+            type="checkbox"
+            checked={includeRemoteAbroad}
+            disabled={isPending}
+            aria-describedby="remote-abroad-hint"
+            onChange={(event) => handleRemoteAbroadChange(event.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-border bg-background accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-wait disabled:opacity-50"
+          />
+          <div className="min-w-0">
+            <Label htmlFor="remote-abroad" className="cursor-pointer leading-tight">
+              Include remote roles based abroad
+            </Label>
+            <p id="remote-abroad-hint" className="mt-0.5 text-xs text-muted-foreground">
+              Remote roles tied to another country often require work authorization there.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

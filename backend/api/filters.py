@@ -66,10 +66,16 @@ def opportunity_filters(
     return filters
 
 
-def location_scope_filters(scope: str | None, country: str | None) -> list:
-    """Return country-scope filters; remote rows qualify only with no country.
+def location_scope_filters(
+    scope: str | None,
+    country: str | None,
+    include_remote_abroad: bool = False,
+) -> list:
+    """Return country-scope filters with an opt-in for foreign remote roles.
 
-    A "Remote - US" role is remote within the US, not available from India.
+    When enabled for a domestic scope, ``include_remote_abroad`` admits remote
+    roles tied to another country. Those roles usually mean remote within that
+    country and may require local work authorization, so the option is opt-in.
     """
     country_upper = country.strip().upper() if country else ""
     if (
@@ -78,6 +84,14 @@ def location_scope_filters(scope: str | None, country: str | None) -> list:
         or not country_upper.isalpha()
     ):
         return []
+
+    if scope == "domestic" and include_remote_abroad:
+        return [
+            or_(
+                models.Opportunity.country == country_upper,
+                models.Opportunity.is_remote.is_(True),
+            )
+        ]
 
     if scope == "domestic":
         return [

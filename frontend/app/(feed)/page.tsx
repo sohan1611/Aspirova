@@ -29,6 +29,7 @@ interface PageProps {
     top?: string;
     scope?: string;
     country?: string;
+    remote_abroad?: string;
     sort?: string;
     view?: string;
     fields?: string;
@@ -83,6 +84,7 @@ export default async function HomePage({ searchParams }: PageProps) {
     top: top && Number.isFinite(top) && top > 0 ? top : undefined,
     scope: params.scope as "abroad" | "domestic" | "both" | undefined,
     country: params.country,
+    remote_abroad: params.remote_abroad === "true" ? true : undefined,
   };
   const forYouFields = params.fields
     ?.split(",")
@@ -99,6 +101,7 @@ export default async function HomePage({ searchParams }: PageProps) {
       params.top ||
       params.scope ||
       params.country ||
+      params.remote_abroad === "true" ||
       params.sort === "deadline",
   );
   const isCleanDefaultFeed =

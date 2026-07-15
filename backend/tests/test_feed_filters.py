@@ -119,7 +119,7 @@ def test_feed_blank_company_and_location_filters_are_ignored(client: TestClient,
     assert blank_filters == baseline
 
 
-def test_feed_location_scope_keeps_only_countryless_remote_rows_in_every_scope(
+def test_feed_location_scope_excludes_foreign_remote_by_default_and_allows_opt_in(
     client: TestClient,
     db_session: Session,
 ) -> None:
@@ -190,22 +190,39 @@ def test_feed_location_scope_keeps_only_countryless_remote_rows_in_every_scope(
             "limit": 10,
         },
     ).json()
+    domestic_with_remote_abroad_body = client.get(
+        "/feed",
+        params={
+            "scope": "domestic",
+            "country": "IN",
+            "remote_abroad": True,
+            "location": location_token,
+            "limit": 10,
+        },
+    ).json()
     abroad_body = client.get(
         "/feed",
         params={
             "scope": "abroad",
             "country": "IN",
+            "remote_abroad": True,
             "location": location_token,
             "limit": 10,
         },
     ).json()
     domestic_slugs = {item["slug"] for item in domestic_body["items"]}
+    domestic_with_remote_abroad_slugs = {
+        item["slug"] for item in domestic_with_remote_abroad_body["items"]
+    }
     abroad_slugs = {item["slug"] for item in abroad_body["items"]}
 
     assert domestic.slug in domestic_slugs
     assert abroad.slug not in domestic_slugs
     assert foreign_remote.slug not in domestic_slugs
     assert remote.slug in domestic_slugs
+    assert domestic.slug in domestic_with_remote_abroad_slugs
+    assert foreign_remote.slug in domestic_with_remote_abroad_slugs
+    assert remote.slug in domestic_with_remote_abroad_slugs
     assert domestic.slug not in abroad_slugs
     assert abroad.slug in abroad_slugs
     assert foreign_remote.slug in abroad_slugs

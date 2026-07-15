@@ -35,6 +35,7 @@ def get_feed(
     location: str | None = Query(None),
     scope: str | None = Query(None, pattern="^(abroad|domestic|both)$"),
     country: str | None = Query(None, min_length=2, max_length=2),
+    remote_abroad: bool = Query(False),
     source: str | None = Query(None, pattern="^(direct|unstop|remoteok|devpost)$"),
     top: int | None = Query(None, gt=0),
     sort: str = Query("recent", pattern="^(recent|deadline)$"),
@@ -46,7 +47,7 @@ def get_feed(
         models.Opportunity.status == "active",
         exclude_closed_competitions(),
         *opportunity_filters(category, remote, company, location, top),
-        *location_scope_filters(scope, country),
+        *location_scope_filters(scope, country, remote_abroad),
     ]
     if kind == "competitions":
         base_filters.append(models.Opportunity.category.in_(["hackathon", "competition"]))
