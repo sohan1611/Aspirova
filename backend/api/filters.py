@@ -67,7 +67,10 @@ def opportunity_filters(
 
 
 def location_scope_filters(scope: str | None, country: str | None) -> list:
-    """Return country-scope filters while preserving remote opportunities."""
+    """Return country-scope filters; remote rows qualify only with no country.
+
+    A "Remote - US" role is remote within the US, not available from India.
+    """
     country_upper = country.strip().upper() if country else ""
     if (
         scope not in {"domestic", "abroad"}
@@ -80,7 +83,10 @@ def location_scope_filters(scope: str | None, country: str | None) -> list:
         return [
             or_(
                 models.Opportunity.country == country_upper,
-                models.Opportunity.is_remote.is_(True),
+                and_(
+                    models.Opportunity.is_remote.is_(True),
+                    models.Opportunity.country.is_(None),
+                ),
             )
         ]
 
@@ -90,6 +96,9 @@ def location_scope_filters(scope: str | None, country: str | None) -> list:
                 models.Opportunity.country.is_not(None),
                 models.Opportunity.country != country_upper,
             ),
-            models.Opportunity.is_remote.is_(True),
+            and_(
+                models.Opportunity.is_remote.is_(True),
+                models.Opportunity.country.is_(None),
+            ),
         )
     ]
