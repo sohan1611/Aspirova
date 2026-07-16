@@ -20,7 +20,10 @@ class Settings(BaseSettings):
     supabase_anon_key: str = ""
     supabase_service_key: str = ""
     cors_origins: str = "http://localhost:3000"
-    site_url: str = "https://aspirova.vercel.app"
+    # Public site base for links in outbound email. Must match the frontend's
+    # canonical SITE_URL (app/layout.tsx) exactly - the apex redirects to www,
+    # so a non-www link would cost every email click an extra hop.
+    site_url: str = "https://www.aspirova.org"
 
     # AI providers (Doc 05, Doc handoffs/PHASE-3-HANDOFF.md Part 1).
     # Blank keys select the deterministic local stub: no network call, no
