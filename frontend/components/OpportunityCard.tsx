@@ -2,6 +2,7 @@ import { Clock } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import CompanyFavicon from "@/components/CompanyFavicon";
+import { cleanLocation } from "@/lib/cleanLocation";
 import type { OpportunityListItem } from "@/lib/types";
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -12,7 +13,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 export default function OpportunityCard({ item }: { item: OpportunityListItem }) {
   const metaParts = [
     item.company?.name ?? "Unknown company",
-    item.location,
+    cleanLocation(item.location),
     item.is_remote ? "Remote" : null,
   ].filter(Boolean);
 

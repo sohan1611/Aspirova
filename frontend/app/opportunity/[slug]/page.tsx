@@ -8,6 +8,7 @@ import ShareButton from "@/components/ShareButton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getOpportunity } from "@/lib/api";
+import { cleanLocation } from "@/lib/cleanLocation";
 import { getSourceLabel } from "@/lib/sourceLabel";
 import type { OpportunityDetail } from "@/lib/types";
 
@@ -64,7 +65,7 @@ function buildJobPostingJsonLd(
     jsonLd.validThrough = opportunity.deadline;
   }
 
-  const location = nonEmpty(opportunity.location);
+  const location = nonEmpty(cleanLocation(opportunity.location));
   if (opportunity.is_remote) {
     jsonLd.jobLocationType = "TELECOMMUTE";
     if (location) {
@@ -123,6 +124,7 @@ export default async function OpportunityPage({ params }: PageProps) {
 
   const sourceLabel = getSourceLabel(opportunity.apply_url);
   const canonicalUrl = opportunityUrl(slug);
+  const displayLocation = cleanLocation(opportunity.location);
   const jobPostingJsonLd = buildJobPostingJsonLd(opportunity, canonicalUrl);
 
   return (
@@ -158,10 +160,10 @@ export default async function OpportunityPage({ params }: PageProps) {
             </Badge>
           )}
           {opportunity.is_remote && <Badge variant="secondary">Remote</Badge>}
-          {opportunity.location && (
+          {displayLocation && (
             <Badge variant="outline" className="gap-1 font-normal">
               <MapPin className="h-3 w-3" />
-              {opportunity.location}
+              {displayLocation}
             </Badge>
           )}
           {sourceLabel && (

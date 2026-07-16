@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 
 import { getOpportunity } from "../../../lib/api";
+import { cleanLocation } from "../../../lib/cleanLocation";
 
 export const alt = "Aspirova opportunity preview";
 export const size = {
@@ -110,13 +111,15 @@ function getRemoteText(opportunity: DataRecord): string {
 
 function getSecondaryLine(opportunity: DataRecord): string {
   const company = getCompanyName(opportunity);
-  const location = getString(opportunity, [
-    "location",
-    "location_text",
-    "locationText",
-    "location_display",
-    "locationDisplay",
-  ]);
+  const location = cleanLocation(
+    getString(opportunity, [
+      "location",
+      "location_text",
+      "locationText",
+      "location_display",
+      "locationDisplay",
+    ]),
+  );
   const remote = getRemoteText(opportunity);
   const parts = [company, location];
 
