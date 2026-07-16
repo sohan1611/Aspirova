@@ -1,6 +1,7 @@
 "use client";
 
 import { Check } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -250,6 +251,13 @@ export default function PricingPlans({
           );
         })}
       </div>
+
+      <p className="mt-5 text-center text-xs text-muted-foreground">
+        Cancel anytime · no refunds — see our{" "}
+        <Link className="underline underline-offset-4 hover:text-foreground" href="/refunds">
+          Refund Policy
+        </Link>
+      </p>
     </div>
   );
 }

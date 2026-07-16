@@ -5,7 +5,7 @@ export default function AppFooter() {
   return (
     <footer className="border-t border-border">
       <div className="mx-auto max-w-[1680px] px-4 py-12 sm:px-6 lg:px-10 lg:py-14 xl:px-12">
-        <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_1fr_1fr] lg:gap-12">
+        <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_1fr_1fr_1fr] lg:gap-12">
           <div>
             <Wordmark />
             <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground">
@@ -76,6 +76,32 @@ export default function AppFooter() {
               <li>
                 <Link className="text-muted-foreground hover:text-foreground" href="/report">
                   Report a problem
+                </Link>
+              </li>
+            </ul>
+          </nav>
+
+          <nav aria-label="Legal">
+            <p className="eyebrow">Legal</p>
+            <ul className="mt-4 space-y-3 text-sm">
+              <li>
+                <Link className="text-muted-foreground hover:text-foreground" href="/terms">
+                  Terms
+                </Link>
+              </li>
+              <li>
+                <Link className="text-muted-foreground hover:text-foreground" href="/privacy">
+                  Privacy
+                </Link>
+              </li>
+              <li>
+                <Link className="text-muted-foreground hover:text-foreground" href="/refunds">
+                  Refunds
+                </Link>
+              </li>
+              <li>
+                <Link className="text-muted-foreground hover:text-foreground" href="/contact">
+                  Contact
                 </Link>
               </li>
             </ul>
