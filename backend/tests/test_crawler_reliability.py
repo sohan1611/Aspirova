@@ -8,6 +8,7 @@ from core import models
 from core.adapters import NormalizedListing, RawListing
 from crawlers import runner
 from crawlers.unstop import UnstopAdapter
+from pipeline.ingest import BoardState
 
 
 def _raw_listing(external_id: str) -> RawListing:
@@ -88,7 +89,7 @@ def test_prefetched_board_skips_fetch_and_ingests_identically(monkeypatch) -> No
         session.ingested.append(raw.external_id)
         return object(), True
 
-    monkeypatch.setattr(runner, "load_board_state", lambda *_args: object())
+    monkeypatch.setattr(runner, "load_board_state", lambda *_args: BoardState())
     monkeypatch.setattr(runner, "ingest_one", fake_ingest)
 
     sequential_session = _MemorySession()
@@ -353,7 +354,7 @@ def test_aggregator_deadline_commits_completed_work_and_returns_partial(monkeypa
         # ingested, the next loop check crosses it and triggers a clean stop.
         return 11.0 if session.ingested else 0.0
 
-    monkeypatch.setattr(runner, "load_board_state", lambda *_args: object())
+    monkeypatch.setattr(runner, "load_board_state", lambda *_args: BoardState())
     monkeypatch.setattr(runner, "resolve_company", lambda *_args: SimpleNamespace(id=2))
     monkeypatch.setattr(runner, "ingest_one", fake_ingest)
     monkeypatch.setattr(runner.time, "monotonic", fake_monotonic)
@@ -405,7 +406,7 @@ def test_aggregator_forwards_deadline_controls_to_unstop(monkeypatch) -> None:
     source = SimpleNamespace(id=1, crawl_tier=1)
     deadline = runner.time.monotonic() + 60.0
 
-    monkeypatch.setattr(runner, "load_board_state", lambda *_args: object())
+    monkeypatch.setattr(runner, "load_board_state", lambda *_args: BoardState())
     monkeypatch.setattr(runner, "resolve_company", lambda *_args: SimpleNamespace(id=2))
     monkeypatch.setattr(
         runner,

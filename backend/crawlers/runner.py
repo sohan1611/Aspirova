@@ -318,6 +318,19 @@ def crawl_company_board(
                 result["status"] = "partial"
                 break
             try:
+                # Extend Doc 04 §6 change detection from per-board to per-listing
+                # so adapters with expensive parse() work (SmartRecruiters fetches
+                # one detail endpoint per listing) only pay it for new/changed
+                # listings. This also skips dedup and slug work for every unchanged
+                # listing.
+                raw_row = board_state.raw_by_external_id.get(raw.external_id)
+                if (
+                    raw_row is not None
+                    and raw_row.opportunity_id is not None
+                    and raw_row.content_hash == raw.content_hash
+                ):
+                    seen_opportunity_ids.add(raw_row.opportunity_id)
+                    continue
                 normalized = adapter.parse(raw)
                 _opportunity, is_new = ingest_one(
                     session,

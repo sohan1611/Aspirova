@@ -212,3 +212,123 @@ def test_failure_in_a_later_batch_does_not_roll_back_an_earlier_committed_batch(
         ).all()
     )
     assert titles == {f"Fake Job {i}" for i in range(1, 26)} | {"Fake Job 27"}
+
+
+def _make_counting_fake_adapter_class(listings: list[tuple[str, str, str]]) -> type:
+    """Return an adapter whose class-level counter is fresh for each crawl."""
+
+    class _CountingFakeAdapter:
+        requires_browser = False
+        source_slug = "greenhouse"
+        parse_calls = 0
+
+        def __init__(self, board_token: str, company_name: str) -> None:
+            self.board_token = board_token
+            self.company_name = company_name
+
+        def fetch(self) -> list[RawListing]:
+            return [
+                RawListing(
+                    source_slug="greenhouse",
+                    external_id=external_id,
+                    source_url=f"https://fake.test/{external_id}",
+                    content_hash=content_hash,
+                    raw_payload={"id": external_id, "title": title},
+                )
+                for external_id, content_hash, title in listings
+            ]
+
+        def parse(self, raw: RawListing) -> NormalizedListing:
+            type(self).parse_calls += 1
+            return NormalizedListing(
+                source_slug="greenhouse",
+                external_id=raw.external_id,
+                source_url=raw.source_url,
+                title=raw.raw_payload["title"],
+                company_name=self.company_name,
+                description_raw="fake description",
+                apply_url=raw.source_url,
+            )
+
+        def health(self) -> str:
+            return "ok"
+
+    return _CountingFakeAdapter
+
+
+def test_unchanged_listings_are_not_reparsed_when_the_board_changes(db_session, seeded):
+    """A board change must not make unchanged listings pay parse/dedup cost."""
+    source, company = seeded
+    initial_listings = [
+        ("1", "hash-1", "Fake Job 1"),
+        ("2", "hash-2", "Fake Job 2"),
+        ("3", "hash-3", "Fake Job 3"),
+    ]
+    initial_adapter = _make_counting_fake_adapter_class(initial_listings)
+
+    runner.crawl_company_board(db_session, source, company, initial_adapter)
+
+    assert initial_adapter.parse_calls == len(initial_listings)
+    before_last_seen = dict(
+        db_session.execute(
+            select(models.Opportunity.id, models.Opportunity.last_seen_at).where(
+                models.Opportunity.company_id == company.id
+            )
+        ).all()
+    )
+    assert len(before_last_seen) == len(initial_listings)
+    assert all(last_seen_at is not None for last_seen_at in before_last_seen.values())
+
+    # Adding one listing changes the board fingerprint, so the per-board
+    # change-detection fast path cannot hide the per-listing behavior.
+    updated_adapter = _make_counting_fake_adapter_class(
+        [*initial_listings, ("4", "hash-4", "Fake Job 4")]
+    )
+    runner.crawl_company_board(db_session, source, company, updated_adapter)
+
+    assert updated_adapter.parse_calls == 1
+    db_session.expire_all()
+    after_last_seen = dict(
+        db_session.execute(
+            select(models.Opportunity.id, models.Opportunity.last_seen_at).where(
+                models.Opportunity.company_id == company.id
+            )
+        ).all()
+    )
+    assert len(after_last_seen) == len(initial_listings) + 1
+    assert set(before_last_seen).issubset(after_last_seen)
+    assert all(
+        after_last_seen[opportunity_id] > before_last_seen[opportunity_id]
+        for opportunity_id in before_last_seen
+    )
+
+
+def test_changed_listing_is_reparsed(db_session, seeded):
+    """A changed raw content hash still takes the full ingest/update path."""
+    source, company = seeded
+    initial_adapter = _make_counting_fake_adapter_class(
+        [
+            ("1", "hash-1", "Fake Job 1"),
+            ("2", "hash-2", "Fake Job 2"),
+            ("3", "hash-3", "Fake Job 3"),
+        ]
+    )
+    runner.crawl_company_board(db_session, source, company, initial_adapter)
+
+    changed_adapter = _make_counting_fake_adapter_class(
+        [
+            ("1", "hash-1-updated", "Fake Job 1 Updated"),
+            ("2", "hash-2", "Fake Job 2"),
+            ("3", "hash-3", "Fake Job 3"),
+        ]
+    )
+    runner.crawl_company_board(db_session, source, company, changed_adapter)
+
+    assert changed_adapter.parse_calls == 1
+    title = db_session.scalar(
+        select(models.Opportunity.title).where(
+            models.Opportunity.company_id == company.id,
+            models.Opportunity.title == "Fake Job 1 Updated",
+        )
+    )
+    assert title == "Fake Job 1 Updated"

@@ -1,3 +1,15 @@
+"""SmartRecruiters adapter with lazy per-posting detail retrieval.
+
+``fetch()`` retrieves only the inexpensive paginated LIST endpoint. Its stable
+list-field hashes drive the board change detection described in Doc 04 §6.
+``parse()`` deliberately makes one DETAIL request per listing, so that cost is
+paid only when a board changed. ``raw_payload`` therefore contains the cheap
+LIST item rather than ``jobAd``; the description is captured into
+``opportunities.description_raw`` during parsing and is not read downstream
+from the raw payload. A failed detail request raises so an empty description is
+never ingested and stranded behind the list-based content hash.
+"""
+
 from datetime import datetime
 from typing import Any, Literal
 
@@ -34,34 +46,36 @@ class SmartRecruitersAdapter:
         return self._last_health
 
     def fetch(self) -> list[RawListing]:
-        posting_ids = self._fetch_posting_ids()
-        if posting_ids is None:
+        postings = self._fetch_postings()
+        if postings is None:
             return []
 
         listings: list[RawListing] = []
-        degraded = self._last_health == "degraded"
-
-        for posting_id in posting_ids:
-            detail = self._fetch_detail(posting_id)
-            if detail is None:
-                degraded = True
-                continue
-
+        for posting in postings:
             listings.append(
                 RawListing(
                     source_slug=self.source_slug,
-                    external_id=str(detail.get("id", posting_id)),
-                    source_url=(detail.get("postingUrl") or detail.get("applyUrl") or ""),
-                    raw_payload=detail,
-                    content_hash=_content_hash(detail),
+                    external_id=str(posting["id"]),
+                    source_url=(posting.get("postingUrl") or posting.get("applyUrl") or ""),
+                    raw_payload=posting,
+                    content_hash=_content_hash(
+                        {
+                            "id": posting.get("id"),
+                            "name": posting.get("name"),
+                            "releasedDate": posting.get("releasedDate"),
+                            "location": posting.get("location"),
+                        }
+                    ),
                 )
             )
 
-        self._last_health = "degraded" if degraded else "ok"
         return listings
 
     def parse(self, raw: RawListing) -> NormalizedListing:
-        detail = raw.raw_payload
+        detail = self._fetch_detail(raw.external_id)
+        if detail is None:
+            raise RuntimeError(f"SmartRecruiters detail fetch failed for posting {raw.external_id}")
+
         location = detail.get("location") or {}
         if not isinstance(location, dict):
             location = {}
@@ -83,8 +97,8 @@ class SmartRecruitersAdapter:
             category=classify_category(str(detail.get("name") or "")),
         )
 
-    def _fetch_posting_ids(self) -> list[str] | None:
-        posting_ids: list[str] = []
+    def _fetch_postings(self) -> list[dict[str, Any]] | None:
+        postings: list[dict[str, Any]] = []
         offset = 0
         limit = 100
 
@@ -121,14 +135,14 @@ class SmartRecruitersAdapter:
                 return None
             if not content:
                 self._last_health = "ok"
-                return posting_ids
+                return postings
 
             for posting in content:
                 if not isinstance(posting, dict):
                     continue
                 posting_id = posting.get("id")
                 if posting_id:
-                    posting_ids.append(str(posting_id))
+                    postings.append(posting)
 
             offset += limit
             total_found = payload.get("totalFound")
@@ -136,10 +150,10 @@ class SmartRecruitersAdapter:
                 try:
                     if offset >= int(total_found):
                         self._last_health = "ok"
-                        return posting_ids
+                        return postings
                 except (TypeError, ValueError):
                     self._last_health = "degraded"
-                    return posting_ids
+                    return postings
 
     def _fetch_detail(self, posting_id: str) -> dict[str, Any] | None:
         try:
