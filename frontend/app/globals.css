@@ -204,6 +204,41 @@
   animation: rise 0.5s var(--ease-premium) both;
 }
 
+@keyframes brand-letter-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.45rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes brand-wordmark-settle {
+  0%,
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 0.92;
+    transform: translateY(-1px);
+  }
+}
+
+.brand-loading__lockup {
+  animation: brand-wordmark-settle 3.6s ease-in-out 1.5s infinite both;
+}
+
+.brand-loading__letter {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(0.45rem);
+  animation: brand-letter-in 660ms var(--ease-premium) both;
+  will-change: opacity, transform;
+}
+
 /* Full a11y guard, not just a component-level concern - honored globally
    regardless of which future component introduces an animation. */
 @media (prefers-reduced-motion: reduce) {
@@ -214,6 +249,13 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  .brand-loading__lockup,
+  .brand-loading__letter {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
   }
 }
 

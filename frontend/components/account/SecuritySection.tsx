@@ -88,9 +88,7 @@ export default function SecuritySection({ user }: { user: User }) {
       <Card>
         <CardHeader>
           <CardTitle className="font-serif text-2xl">Security</CardTitle>
-          <CardDescription>
-            Manage how you access your Aspirova account.
-          </CardDescription>
+          <CardDescription>Sign-in and password.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-6">
           {canChangePassword && (

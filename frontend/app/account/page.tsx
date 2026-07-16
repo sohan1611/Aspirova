@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertCircle, Loader2, UserRound } from "lucide-react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import AccountAvatar from "@/components/account/AccountAvatar";
@@ -8,7 +9,6 @@ import AccountSidebar, {
   isAccountSection,
   type AccountSectionKey,
 } from "@/components/account/AccountSidebar";
-import AppearanceSection from "@/components/account/AppearanceSection";
 import NotificationsSection from "@/components/account/NotificationsSection";
 import ProfileSection from "@/components/account/ProfileSection";
 import SecuritySection from "@/components/account/SecuritySection";
@@ -25,7 +25,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getAccount } from "@/lib/api";
+import { getAccount, getBookmarks } from "@/lib/api";
 import { formatDate } from "@/lib/date";
 import type { AccountMe } from "@/lib/types";
 import { useSession } from "@/lib/useSession";
@@ -60,6 +60,11 @@ function AccountPageContent() {
   const [account, setAccount] = useState<AccountMe | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [bookmarkStats, setBookmarkStats] = useState<{
+    saved: number;
+    inProgress: number;
+  } | null>(null);
+  const [bookmarkStatsLoading, setBookmarkStatsLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     if (!accessToken) return;
@@ -89,6 +94,35 @@ function AccountPageContent() {
         if (cancelled) return;
         setError(true);
         setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken]);
+
+  useEffect(() => {
+    if (!accessToken) return;
+
+    let cancelled = false;
+    getBookmarks(accessToken)
+      .then((bookmarks) => {
+        if (cancelled) return;
+        setBookmarkStats({
+          saved: bookmarks.length,
+          inProgress: bookmarks.filter(
+            ({ bookmark_status }) =>
+              bookmark_status === "applied" ||
+              bookmark_status === "interviewing" ||
+              bookmark_status === "offer",
+          ).length,
+        });
+        setBookmarkStatsLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setBookmarkStats(null);
+        setBookmarkStatsLoading(false);
       });
 
     return () => {
@@ -172,29 +206,75 @@ function AccountPageContent() {
       </div>
 
       <Card className="mb-8 shadow-soft">
-        <CardContent className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-center gap-4">
-            <AccountAvatar
-              email={email}
-              avatarUrl={typeof avatarUrl === "string" ? avatarUrl : null}
-              className="size-14 text-lg"
-            />
-            <div className="min-w-0">
-              <p className="truncate font-serif text-xl font-semibold text-foreground">
-                {displayName}
-              </p>
-              <p className="mt-1 truncate text-sm text-muted-foreground">{email}</p>
+        <CardContent className="flex flex-col gap-5">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-4">
+              <AccountAvatar
+                email={email}
+                avatarUrl={typeof avatarUrl === "string" ? avatarUrl : null}
+                className="size-14 text-lg"
+              />
+              <div className="min-w-0">
+                <p className="truncate font-serif text-xl font-semibold text-foreground">
+                  {displayName}
+                </p>
+                <p className="mt-1 truncate text-sm text-muted-foreground">{email}</p>
+              </div>
             </div>
-          </div>
-          <div className="flex shrink-0 items-center justify-between gap-5 sm:flex-col sm:items-end sm:justify-center sm:gap-2">
-            <Badge variant={isFreePlan ? "secondary" : "heritage"}>
+            <Badge
+              className="self-start sm:self-auto"
+              variant={isFreePlan ? "secondary" : "heritage"}
+            >
               {planName(account.plan.key)}
             </Badge>
-            <p className="tnum text-sm text-muted-foreground">
-              Member since{" "}
-              {formatDate(account.created_at, "long")}
-            </p>
           </div>
+
+          {bookmarkStatsLoading ? (
+            <div
+              className="grid gap-3 border-t border-border pt-5 sm:grid-cols-3"
+              aria-hidden="true"
+            >
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="rounded-xl border border-border bg-secondary/25 px-4 py-3 shadow-soft"
+                >
+                  <Skeleton className="h-6 w-10" />
+                  <Skeleton className="mt-2 h-3 w-20" />
+                </div>
+              ))}
+            </div>
+          ) : bookmarkStats ? (
+            <div className="grid gap-3 border-t border-border pt-5 sm:grid-cols-3">
+              <Link
+                href="/saved"
+                className="rounded-xl border border-border bg-secondary/25 px-4 py-3 shadow-soft transition-colors duration-200 ease-premium hover:bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span className="tnum block font-serif text-xl font-semibold tracking-tight text-foreground">
+                  {bookmarkStats.saved.toLocaleString()}
+                </span>
+                <span className="mt-1 block text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                  Saved
+                </span>
+              </Link>
+              <div className="rounded-xl border border-border bg-secondary/25 px-4 py-3 shadow-soft">
+                <span className="tnum block font-serif text-xl font-semibold tracking-tight text-foreground">
+                  {bookmarkStats.inProgress.toLocaleString()}
+                </span>
+                <span className="mt-1 block text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                  In progress
+                </span>
+              </div>
+              <div className="rounded-xl border border-border bg-secondary/25 px-4 py-3 shadow-soft">
+                <span className="tnum block font-serif text-xl font-semibold tracking-tight text-foreground">
+                  {formatDate(account.created_at, "long")}
+                </span>
+                <span className="mt-1 block text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                  Member since
+                </span>
+              </div>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -226,7 +306,6 @@ function AccountPageContent() {
               onAccountChange={setAccount}
             />
           )}
-          {activeSection === "appearance" && <AppearanceSection />}
           {activeSection === "security" && <SecuritySection user={session.user} />}
         </section>
       </div>

@@ -1,3 +1,4 @@
+import BrandLoading from "@/components/BrandLoading";
 import OpportunityCardSkeleton from "@/components/OpportunityCardSkeleton";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -7,6 +8,8 @@ export default function Loading() {
       <span className="sr-only" role="status">
         Loading internships…
       </span>
+
+      <BrandLoading />
 
       <header className="mb-6" aria-hidden="true">
         <Skeleton className="h-3 w-24" />

@@ -1,7 +1,7 @@
 "use client";
 
 import type { User } from "@supabase/supabase-js";
-import { CalendarDays, ExternalLink, Loader2 } from "lucide-react";
+import { CalendarDays, ExternalLink, Loader2, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -45,6 +45,14 @@ export default function ProfileSection({
     account.graduation_year?.toString() ?? "",
   );
   const [submitting, setSubmitting] = useState(false);
+  const [completionNudgeVisible, setCompletionNudgeVisible] = useState(true);
+  const completedProfileFields = [
+    Boolean(account.display_name?.trim()),
+    Boolean(account.college?.trim()),
+    account.graduation_year !== null,
+  ].filter(Boolean).length;
+  const profileCompletion = (completedProfileFields / 3) * 100;
+  const showCompletionNudge = completionNudgeVisible && profileCompletion < 100;
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -92,11 +100,51 @@ export default function ProfileSection({
     <Card>
       <CardHeader>
         <CardTitle className="font-serif text-2xl">Profile</CardTitle>
-        <CardDescription>
-          Keep the details Aspirova uses to personalize your experience up to date.
-        </CardDescription>
+        <CardDescription>Your name and academic details.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-7">
+        {showCompletionNudge && (
+          <div className="rounded-lg border border-border bg-muted/40 px-4 py-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">
+                  Complete your profile{" "}
+                  <span className="tnum text-muted-foreground">
+                    ({completedProfileFields} of 3)
+                  </span>
+                </p>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  Add your remaining academic details to get more from Aspirova.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                className="-mr-1 -mt-1 shrink-0 text-muted-foreground"
+                onClick={() => setCompletionNudgeVisible(false)}
+                aria-label="Dismiss profile completion reminder"
+              >
+                <X aria-hidden="true" />
+              </Button>
+            </div>
+            <div
+              className="mt-3 h-1.5 overflow-hidden rounded-full bg-border/70"
+              role="progressbar"
+              aria-label="Profile completeness"
+              aria-valuemin={0}
+              aria-valuemax={3}
+              aria-valuenow={completedProfileFields}
+              aria-valuetext={`${completedProfileFields} of 3 profile details complete`}
+            >
+              <div
+                className="h-full rounded-full bg-muted-foreground/45"
+                style={{ width: `${profileCompletion}%` }}
+              />
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center gap-4">
           <AccountAvatar
             email={account.email ?? user.email}

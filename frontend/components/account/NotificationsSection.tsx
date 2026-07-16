@@ -73,9 +73,7 @@ export default function NotificationsSection({
     <Card>
       <CardHeader>
         <CardTitle className="font-serif text-2xl">Notifications</CardTitle>
-        <CardDescription>
-          Choose which career updates Aspirova sends you.
-        </CardDescription>
+        <CardDescription>Choose which emails you receive.</CardDescription>
       </CardHeader>
       <CardContent className="divide-y divide-border">
         {NOTIFICATIONS.map((notification) => {

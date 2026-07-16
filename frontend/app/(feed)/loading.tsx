@@ -1,3 +1,4 @@
+import BrandLoading from "@/components/BrandLoading";
 import OpportunityCardSkeleton from "@/components/OpportunityCardSkeleton";
 import SignedOutHero from "@/components/SignedOutHero";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,6 +12,8 @@ export default function Loading() {
       <span className="sr-only" role="status">
         Loading opportunities…
       </span>
+
+      <BrandLoading />
 
       <SignedOutHero />
 

@@ -108,9 +108,7 @@ export default function SubscriptionSection({
     <Card>
       <CardHeader>
         <CardTitle className="font-serif text-2xl">Subscription</CardTitle>
-        <CardDescription>
-          Review your current plan and manage your Aspirova subscription.
-        </CardDescription>
+        <CardDescription>Your plan and billing.</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="rounded-xl border border-border bg-background/60 p-5 sm:p-6">
