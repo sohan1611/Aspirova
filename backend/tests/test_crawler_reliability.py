@@ -82,7 +82,9 @@ def test_prefetched_board_skips_fetch_and_ingests_identically(monkeypatch) -> No
         ats_board_id="example-board",
     )
 
-    def fake_ingest(session, _board_state, _source_id, _company_id, raw, _normalized):
+    def fake_ingest(
+        session, _board_state, _source_id, _company_id, raw, _normalized, seen_opportunity_ids=None
+    ):
         session.ingested.append(raw.external_id)
         return object(), True
 
@@ -340,7 +342,9 @@ def test_aggregator_deadline_commits_completed_work_and_returns_partial(monkeypa
     )
     session.scalar_result = previous_state
 
-    def fake_ingest(_session, _board_state, _source_id, _company_id, raw, _normalized):
+    def fake_ingest(
+        _session, _board_state, _source_id, _company_id, raw, _normalized, seen_opportunity_ids=None
+    ):
         session.ingested.append(raw.external_id)
         return object(), True
 
@@ -403,7 +407,11 @@ def test_aggregator_forwards_deadline_controls_to_unstop(monkeypatch) -> None:
 
     monkeypatch.setattr(runner, "load_board_state", lambda *_args: object())
     monkeypatch.setattr(runner, "resolve_company", lambda *_args: SimpleNamespace(id=2))
-    monkeypatch.setattr(runner, "ingest_one", lambda *_args: (object(), True))
+    monkeypatch.setattr(
+        runner,
+        "ingest_one",
+        lambda *_args, seen_opportunity_ids=None: (object(), True),
+    )
 
     result = runner.crawl_aggregator(
         session,

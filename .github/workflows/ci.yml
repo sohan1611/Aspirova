@@ -22,7 +22,11 @@ concurrency:
 jobs:
   backend:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # The suite runs against the real Supabase-Mumbai DB from US-based runners
+    # (~250ms per round trip), so its ~7-minute local runtime stretches to
+    # ~15-20+ minutes here. At 15 the job was killed on EVERY run and CI
+    # validated nothing; 25 gives real headroom.
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: backend

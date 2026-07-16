@@ -6,7 +6,10 @@ import core.db as db
 
 
 def _use_local_database_url(monkeypatch) -> None:
-    settings = SimpleNamespace(database_url="postgresql+psycopg://user:password@localhost/test")
+    settings = SimpleNamespace(
+        database_url="postgresql+psycopg://user:password@localhost/test",
+        db_pool_mode="session",
+    )
     monkeypatch.setattr(db, "get_settings", lambda: settings)
 
 
