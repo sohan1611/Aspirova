@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from core import ai_budget, ai_client, email_client, models
 from core.config import get_settings
+from core.email_templates import email_layout, text_footer
 from core.gating import can
 from pipeline.notifications import wants
 
@@ -173,30 +174,57 @@ def _render_html_section(
     include_deadline: bool = False,
 ) -> str:
     if not opportunities:
-        body = f'<p style="color:#475569;margin:8px 0 0">{escape(empty_message)}</p>'
+        body = (
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            'style="background-color:#faf7f0;border:1px solid #e7e0d4;border-collapse:separate;'
+            'border-radius:8px;border-spacing:0;width:100%">'
+            '<tr><td style="padding:14px 16px">'
+            '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
+            'line-height:20px;margin:0">'
+            f"{escape(empty_message, quote=True)}</p>"
+            "</td></tr></table>"
+        )
     else:
-        items: list[str] = []
+        rows: list[str] = []
         for opportunity in opportunities:
             deadline = ""
             if include_deadline:
                 deadline = (
-                    '<br><span style="color:#475569;font-size:14px">'
-                    f"{escape(_deadline_note(opportunity))}</span>"
+                    '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
+                    'line-height:20px;margin:0 0 8px">'
+                    f"{escape(_deadline_note(opportunity), quote=True)}</p>"
                 )
-            items.append(
-                '<li style="margin:0 0 14px">'
-                f"<strong>{escape(opportunity.title)}</strong> at "
-                f"{escape(_company_name(opportunity))}{deadline}<br>"
+            rows.append(
+                '<tr><td style="border-bottom:1px solid #e7e0d4;padding:14px 0">'
+                "<p style=\"color:#2b2620;font-family:Georgia,'Times New Roman',"
+                "serif;font-size:16px;"
+                'font-weight:700;line-height:22px;margin:0 0 4px">'
+                f"{escape(opportunity.title, quote=True)}</p>"
+                '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
+                'line-height:20px;margin:0 0 8px">'
+                f"at {escape(_company_name(opportunity), quote=True)}</p>"
+                f"{deadline}"
                 f'<a href="{escape(opportunity.apply_url, quote=True)}" '
-                'style="color:#2563eb">View at source</a>'
-                "</li>"
+                'style="color:#5e2b47;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
+                'font-weight:700;text-decoration:underline">View at source</a>'
+                "</td></tr>"
             )
-        body = f'<ul style="padding-left:22px;margin:10px 0 0">{"".join(items)}</ul>'
+        body = (
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            'style="border-collapse:collapse;width:100%">'
+            f"{''.join(rows)}"
+            "</table>"
+        )
 
     return (
-        '<section style="border-top:1px solid #e2e8f0;padding:20px 0">'
-        f'<h2 style="font-size:18px;color:#0f172a;margin:0">{escape(heading)}</h2>'
-        f"{body}</section>"
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+        'style="border-collapse:collapse;width:100%">'
+        '<tr><td style="border-top:1px solid #e7e0d4;padding:20px 0">'
+        "<p style=\"color:#2b2620;font-family:Georgia,'Times New Roman',serif;font-size:18px;"
+        'font-weight:700;line-height:24px;margin:0 0 10px">'
+        f"{escape(heading, quote=True)}</p>"
+        f"{body}"
+        "</td></tr></table>"
     )
 
 
@@ -207,13 +235,22 @@ def _render_weekly_report(user: models.User, data: WeeklyReportData) -> tuple[st
         "Your Aspirova weekly career report",
         f"Hi {greeting_name},",
     ]
-    html_intro = ""
+    html_intro_parts = [
+        '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:15px;'
+        'line-height:22px;margin:0 0 18px">'
+        f"Hi {escape(greeting_name, quote=True)},</p>"
+    ]
     if data.intro:
         text_parts.append(f"AI-assisted overview: {data.intro}")
-        html_intro = (
-            '<p style="background:#eff6ff;border-radius:10px;color:#1e3a8a;'
-            'padding:14px 16px"><strong>AI-assisted overview:</strong> '
-            f"{escape(data.intro)}</p>"
+        html_intro_parts.append(
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            'style="background-color:#faf7f0;border:1px solid #e7e0d4;border-collapse:separate;'
+            'border-radius:8px;border-spacing:0;margin:0 0 20px;width:100%">'
+            '<tr><td style="padding:14px 16px">'
+            '<p style="color:#2b2620;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
+            'line-height:20px;margin:0"><strong>AI-assisted overview:</strong> '
+            f"{escape(data.intro, quote=True)}</p>"
+            "</td></tr></table>"
         )
 
     text_parts.extend(
@@ -235,6 +272,7 @@ def _render_weekly_report(user: models.User, data: WeeklyReportData) -> tuple[st
                 "No new hidden opportunities this week.",
             ),
             "Opportunity details can change. Always verify them at the linked source.",
+            text_footer(),
         ]
     )
     text = "\n\n".join(text_parts)
@@ -259,19 +297,22 @@ def _render_weekly_report(user: models.User, data: WeeklyReportData) -> tuple[st
             ),
         ]
     )
-    html = (
-        '<div style="background:#f8fafc;padding:24px;font-family:Arial,sans-serif;'
-        'color:#0f172a">'
-        '<div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;'
-        'margin:0 auto;max-width:640px;padding:28px">'
-        '<p style="color:#2563eb;font-size:14px;font-weight:700;letter-spacing:.04em;'
-        'margin:0 0 8px">ASPIROVA</p>'
-        '<h1 style="font-size:26px;margin:0 0 18px">Your weekly career report</h1>'
-        f'<p style="margin:0 0 18px">Hi {escape(greeting_name)},</p>'
-        f"{html_intro}{html_sections}"
-        '<p style="color:#64748b;font-size:12px;margin:18px 0 0">Opportunity details can '
-        "change. Always verify them at the linked source.</p>"
-        "</div></div>"
+    body_html = (
+        html_sections
+        + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+        'style="border-collapse:collapse;width:100%">'
+        '<tr><td style="padding:18px 0 0">'
+        '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:12px;'
+        'line-height:18px;margin:0">Opportunity details can change. Always verify them at the '
+        "linked source.</p>"
+        "</td></tr></table>"
+    )
+    html = email_layout(
+        title="Your weekly career report",
+        intro_html="".join(html_intro_parts),
+        body_html=body_html,
+        cta_label="Open Aspirova",
+        cta_url=get_settings().site_url,
     )
     return html, text
 

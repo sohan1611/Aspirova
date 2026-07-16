@@ -37,7 +37,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from core import models
+from core.config import get_settings
 from core.email_client import send_email
+from core.email_templates import email_layout, text_footer
 from core.gating import can
 
 
@@ -153,21 +155,79 @@ def _company_name(opportunity: models.Opportunity) -> str:
 
 def _render_digest(opportunities: list[models.Opportunity]) -> tuple[str, str]:
     lines = [f"- {o.title} at {_company_name(o)}: {o.apply_url}" for o in opportunities]
-    text = "New opportunities for you:\n\n" + "\n".join(lines)
-    html_items = "".join(
-        f'<li><a href="{o.apply_url}">{o.title}</a> at {_company_name(o)}</li>'
-        for o in opportunities
+    text = (
+        "Fresh opportunities matched to your interests — take a look while they're still open.\n\n"
+        + "\n".join(lines)
+        + "\n\n"
+        + text_footer()
     )
-    html = f"<p>New opportunities for you:</p><ul>{html_items}</ul>"
+    html_rows = "".join(
+        (
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            'style="border:1px solid #e7e0d4;border-collapse:separate;border-radius:8px;'
+            'border-spacing:0;margin:0 0 12px;width:100%">'
+            '<tr><td style="padding:16px">'
+            "<p style=\"color:#2b2620;font-family:Georgia,'Times New Roman',serif;font-size:17px;"
+            'font-weight:700;line-height:23px;margin:0 0 4px">'
+            f"{escape(opportunity.title, quote=True)}</p>"
+            '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
+            'line-height:20px;margin:0 0 10px">'
+            f"at {escape(_company_name(opportunity), quote=True)}</p>"
+            f'<a href="{escape(opportunity.apply_url, quote=True)}" '
+            'style="color:#5e2b47;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
+            'font-weight:700;text-decoration:underline">View &amp; apply &rarr;</a>'
+            "</td></tr></table>"
+        )
+        for opportunity in opportunities
+    )
+    html = email_layout(
+        title="Your daily opportunity digest",
+        intro_html=(
+            '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:15px;'
+            'line-height:22px;margin:0 0 20px">Fresh opportunities matched to your interests — '
+            "take a look while they're still open.</p>"
+        ),
+        body_html=html_rows,
+        cta_label="Browse all opportunities",
+        cta_url=get_settings().site_url,
+    )
     return html, text
 
 
 def _render_instant_alert(opportunity: models.Opportunity) -> tuple[str, str]:
     company_name = _company_name(opportunity)
-    text = f"{opportunity.title} at {company_name} was just posted: {opportunity.apply_url}"
-    html = (
-        f"<p><strong>{opportunity.title}</strong> at {company_name} was just posted.</p>"
-        f'<p><a href="{opportunity.apply_url}">Apply here</a></p>'
+    text = (
+        "A role just opened at a company you're tracking.\n\n"
+        f"{opportunity.title} at {company_name} was just posted.\n"
+        f"View & apply: {opportunity.apply_url}\n\n" + text_footer()
+    )
+    body_html = (
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+        'style="background-color:#faf7f0;border:1px solid #e7e0d4;border-collapse:separate;'
+        'border-radius:8px;border-spacing:0;width:100%">'
+        '<tr><td style="padding:20px">'
+        '<p style="color:#5e2b47;font-family:Arial,Helvetica,sans-serif;font-size:12px;'
+        "font-weight:700;letter-spacing:0.5px;line-height:16px;margin:0 0 8px;"
+        'text-transform:uppercase">'
+        "Just posted</p>"
+        "<p style=\"color:#2b2620;font-family:Georgia,'Times New Roman',serif;font-size:20px;"
+        'font-weight:700;line-height:27px;margin:0 0 6px">'
+        f"{escape(opportunity.title, quote=True)}</p>"
+        '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:15px;'
+        'line-height:22px;margin:0">'
+        f"at {escape(company_name, quote=True)}</p>"
+        "</td></tr></table>"
+    )
+    html = email_layout(
+        title="A new opportunity is waiting",
+        intro_html=(
+            '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:15px;'
+            'line-height:22px;margin:0 0 20px">A role just opened at a company '
+            "you're tracking.</p>"
+        ),
+        body_html=body_html,
+        cta_label="View & apply",
+        cta_url=opportunity.apply_url,
     )
     return html, text
 
@@ -190,21 +250,41 @@ def _render_closing_soon(
     else:
         subject = f"{len(opportunities)} opportunities closing soon"
 
-    html_items = "".join(
+    html_rows = "".join(
         (
-            '<li style="margin-bottom:12px">'
-            f'<a href="{escape(opportunity.apply_url, quote=True)}">'
-            f"{escape(opportunity.title)}</a><br>"
-            f"Deadline: {opportunity.deadline.strftime('%d %b %Y')}"
-            "</li>"
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            'style="border:1px solid #e7e0d4;border-collapse:separate;border-radius:8px;'
+            'border-spacing:0;margin:0 0 12px;width:100%">'
+            '<tr><td style="padding:16px">'
+            "<p style=\"color:#2b2620;font-family:Georgia,'Times New Roman',serif;font-size:17px;"
+            'font-weight:700;line-height:23px;margin:0 0 6px">'
+            f"{escape(opportunity.title, quote=True)}</p>"
+            '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
+            'line-height:20px;margin:0 0 10px">'
+            f"Deadline: {escape(opportunity.deadline.strftime('%d %b %Y'), quote=True)}</p>"
+            f'<a href="{escape(opportunity.apply_url, quote=True)}" '
+            'style="color:#5e2b47;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
+            'font-weight:700;text-decoration:underline">View &amp; apply &rarr;</a>'
+            "</td></tr></table>"
         )
         for opportunity in opportunities
         if opportunity.deadline is not None
     )
-    html = (
-        "<p>Your bookmarked opportunities are closing soon:</p>"
-        f"<ul>{html_items}</ul>"
-        "<p>Deadlines can change. Please verify them at the linked source.</p>"
+    body_html = (
+        html_rows + '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
+        'line-height:20px;margin:8px 0 0">Deadlines can change. Please verify them at the '
+        "linked source.</p>"
+    )
+    html = email_layout(
+        title="Opportunities closing soon",
+        intro_html=(
+            '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:15px;'
+            'line-height:22px;margin:0 0 20px">A quick reminder to review your saved '
+            "opportunities before their deadlines pass.</p>"
+        ),
+        body_html=body_html,
+        cta_label="Review your saved opportunities",
+        cta_url=f"{get_settings().site_url.rstrip('/')}/saved",
     )
     return subject, html
 
@@ -219,7 +299,8 @@ def _render_closing_soon_text(opportunities: list[models.Opportunity]) -> str:
     return (
         "Your bookmarked opportunities are closing soon:\n\n"
         + "\n".join(lines)
-        + "\n\nDeadlines can change. Please verify them at the linked source."
+        + "\n\nDeadlines can change. Please verify them at the linked source.\n\n"
+        + text_footer()
     )
 
 

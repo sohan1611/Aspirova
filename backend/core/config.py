@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     supabase_anon_key: str = ""
     supabase_service_key: str = ""
     cors_origins: str = "http://localhost:3000"
+    site_url: str = "https://aspirova.vercel.app"
 
     # AI providers (Doc 05, Doc handoffs/PHASE-3-HANDOFF.md Part 1).
     # Blank keys select the deterministic local stub: no network call, no

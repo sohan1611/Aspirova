@@ -131,6 +131,23 @@ def test_free_user_gets_generic_digest_when_no_dream_companies(
     assert any(e["to"] == user.email for e in sent_emails)
 
 
+def test_digest_html_escapes_crawled_opportunity_title(db_session, source_and_company) -> None:
+    _source, company = source_and_company
+    opportunity = _make_opportunity(
+        db_session,
+        company,
+        first_seen_at=datetime.now(timezone.utc),
+    )
+    opportunity.title = "Research <script> & Development"
+
+    html, _text = notifications_module._render_digest([opportunity])
+
+    assert "Research &lt;script&gt; &amp; Development" in html
+    assert "Research <script>" not in html
+    assert "Aspirova" in html
+    assert "/account?section=notifications" in html
+
+
 def test_digest_respects_frequency_cap(
     db_session, sent_emails, free_plan, source_and_company
 ) -> None:
