@@ -73,6 +73,11 @@ export default function AppFooter() {
                   Matches
                 </Link>
               </li>
+              <li>
+                <Link className="text-muted-foreground hover:text-foreground" href="/report">
+                  Report a problem
+                </Link>
+              </li>
             </ul>
           </nav>
         </div>

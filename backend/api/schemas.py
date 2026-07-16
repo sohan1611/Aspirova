@@ -335,3 +335,15 @@ class WaitlistSignupRequest(BaseModel):
 
 class WaitlistSignupResponse(BaseModel):
     ok: bool = True
+
+
+class BugReportRequest(BaseModel):
+    category: str
+    message: str
+    opportunity_slug: str | None = None
+    page_url: str | None = None
+    contact_email: str | None = None
+
+
+class BugReportResponse(BaseModel):
+    ok: bool = True

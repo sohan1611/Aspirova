@@ -36,6 +36,20 @@ export type BookmarkStage =
   | "offer"
   | "archived";
 
+export type BugReportCategory = "dead_link" | "wrong_info" | "bug" | "other";
+
+export interface BugReportRequest {
+  category: BugReportCategory;
+  message: string;
+  opportunity_slug?: string;
+  page_url?: string;
+  contact_email?: string;
+}
+
+export interface BugReportResponse {
+  ok: boolean;
+}
+
 export type SavedOpportunityItem = OpportunityListItem & {
   bookmark_status: BookmarkStage;
 };

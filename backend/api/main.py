@@ -14,6 +14,7 @@ from api import (
     payments,
     plans,
     referral,
+    reports,
     resume,
     search,
     sitemap,
@@ -60,6 +61,7 @@ app.include_router(resume.router)
 app.include_router(payments.router)
 app.include_router(plans.router)
 app.include_router(referral.router)
+app.include_router(reports.router)
 app.include_router(sitemap.router)
 app.include_router(stats.router)
 app.include_router(trending.router)

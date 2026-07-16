@@ -1,6 +1,8 @@
 import type {
   AccountMe,
   BookmarkStage,
+  BugReportRequest,
+  BugReportResponse,
   CompanyListItem,
   CompanyPage,
   CopilotResponse,
@@ -421,4 +423,20 @@ export async function joinWaitlist(email: string): Promise<void> {
     body: JSON.stringify({ email }),
   });
   if (!res.ok) throw new Error(`Failed to join waitlist: ${res.status}`);
+}
+
+export async function submitBugReport(
+  payload: BugReportRequest,
+  accessToken?: string,
+): Promise<BugReportResponse> {
+  const res = await fetch(`${API_URL}/reports`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`Failed to submit report: ${res.status}`);
+  return res.json();
 }

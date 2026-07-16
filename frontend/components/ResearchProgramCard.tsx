@@ -2,13 +2,47 @@ import { ExternalLink } from "lucide-react";
 import CompanyFavicon from "@/components/CompanyFavicon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { ResearchProgram } from "@/lib/researchPrograms";
+import {
+  isApplyWindowLikelyOpen,
+  type ResearchProgram,
+} from "@/lib/researchPrograms";
 
 interface ResearchProgramCardProps {
   program: ResearchProgram;
 }
 
+const MONTH_ABBREVIATIONS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
+function formatApplyWindow(program: ResearchProgram): string | null {
+  const { applyWindow } = program;
+
+  if (!applyWindow || applyWindow === "rolling") {
+    return null;
+  }
+
+  const fromMonth = MONTH_ABBREVIATIONS[applyWindow.fromMonth - 1];
+  const toMonth = MONTH_ABBREVIATIONS[applyWindow.toMonth - 1];
+
+  return fromMonth === toMonth ? `~${fromMonth}` : `~${fromMonth}–${toMonth}`;
+}
+
 export default function ResearchProgramCard({ program }: ResearchProgramCardProps) {
+  const isLikelyOpen = isApplyWindowLikelyOpen(program);
+  const applyWindowText = isLikelyOpen ? null : formatApplyWindow(program);
+
   return (
     <article className="flex h-full flex-col rounded-xl border border-border bg-card p-5 shadow-soft">
       <div className="flex items-start justify-between gap-3">
@@ -45,9 +79,15 @@ export default function ResearchProgramCard({ program }: ResearchProgramCardProp
       </div>
 
       <div className="mt-auto pt-6">
+        {!isLikelyOpen && applyWindowText && (
+          <p className="mb-3 text-xs leading-5 text-muted-foreground">
+            Applications usually open {applyWindowText} — likely closed right now. Check the
+            official page.
+          </p>
+        )}
         <Button asChild variant="outline" size="sm">
           <a href={program.applyUrl} target="_blank" rel="noopener noreferrer">
-            Apply on the official site
+            {isLikelyOpen ? "Apply on the official site" : "View programme page"}
             <ExternalLink aria-hidden="true" />
             <span className="sr-only"> (opens in a new tab)</span>
           </a>

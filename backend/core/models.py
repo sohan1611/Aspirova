@@ -411,3 +411,29 @@ class SourceState(Base):
     page_key: Mapped[str] = mapped_column(Text, primary_key=True)
     last_content_hash: Mapped[str | None] = mapped_column(Text)
     last_crawled_at: Mapped[datetime | None] = mapped_column()
+
+
+class BugReport(Base):
+    """A visitor-submitted issue report, optionally tied to a user and opportunity."""
+
+    __tablename__ = "bug_reports"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+    )
+    opportunity_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("opportunities.id", ondelete="SET NULL")
+    )
+    category: Mapped[str] = mapped_column(Text, nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    page_url: Mapped[str | None] = mapped_column(Text)
+    contact_email: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        server_default=text("'open'"),
+    )
+    created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
+
+    __table_args__ = (Index("ix_bug_reports_status_created_at", "status", "created_at"),)

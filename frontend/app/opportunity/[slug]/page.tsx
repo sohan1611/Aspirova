@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import BookmarkButton from "@/components/BookmarkButton";
 import CompanyFavicon from "@/components/CompanyFavicon";
 import RecordOpportunityView from "@/components/RecordOpportunityView";
+import ReportIssueDialog from "@/components/ReportIssueDialog";
 import ShareButton from "@/components/ShareButton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -231,9 +232,10 @@ export default async function OpportunityPage({ params }: PageProps) {
               Opens the company&apos;s own listing — Aspirova never mirrors applications.
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-3">
+          <div className="flex shrink-0 flex-wrap items-center gap-3">
             <BookmarkButton slug={opportunity.slug} />
             <ShareButton slug={opportunity.slug} />
+            <ReportIssueDialog opportunitySlug={opportunity.slug} />
           </div>
         </section>
 
