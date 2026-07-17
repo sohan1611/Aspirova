@@ -83,6 +83,29 @@ def _resolve_transaction_mode(database_url: str, configured_mode: str) -> bool:
         return False
 
 
+def verify_connection_guards(engine: Engine) -> None:
+    """Turn a silent timeout-guard misconfiguration into an immediate loud failure."""
+    with engine.begin() as conn:
+        actual_timeout = conn.exec_driver_sql("SHOW statement_timeout").scalar_one()
+        actual_timeout_ms_setting = conn.exec_driver_sql(
+            "SELECT setting FROM pg_settings WHERE name = 'statement_timeout'"
+        ).scalar_one()
+
+    try:
+        actual_timeout_ms = int(actual_timeout_ms_setting)
+    except (TypeError, ValueError):
+        actual_timeout_ms = None
+
+    if actual_timeout_ms != STATEMENT_TIMEOUT_MS:
+        raise RuntimeError(
+            "DB query-timeout guard NOT in effect "
+            f"(statement_timeout={actual_timeout}, expected {STATEMENT_TIMEOUT_MS}ms). "
+            "This usually means the pool mode does not match the connection "
+            "(e.g. session-mode settings against the :6543 transaction pooler). "
+            "Refusing to run to avoid an unbounded hang."
+        )
+
+
 def make_engine(**kwargs) -> Engine:
     settings = get_settings()
     transaction_mode = _resolve_transaction_mode(settings.database_url, settings.db_pool_mode)

@@ -31,7 +31,7 @@ from sqlalchemy.orm import Session
 
 from core import models
 from core.adapters import RawListing
-from core.db import make_engine
+from core.db import make_engine, verify_connection_guards
 from crawlers.amazon import AmazonAdapter
 from crawlers.ashby import AshbyAdapter
 from crawlers.devpost import DevpostAdapter
@@ -613,6 +613,8 @@ def run_tier(
         should_stop = _STOP_REQUESTED.is_set
 
     engine = make_engine()
+    # Fail fast if the query-timeout guard is missing; a pooler mismatch must never silently hang.
+    verify_connection_guards(engine)
 
     # Gather the (source_id, company_id) work list with one short-lived
     # session, then process each company with its OWN fresh session below -

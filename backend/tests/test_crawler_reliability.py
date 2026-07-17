@@ -305,6 +305,7 @@ def test_run_tier_ingests_other_boards_when_one_prefetch_fails(monkeypatch) -> N
 
     monkeypatch.setitem(runner.ATS_ADAPTERS, "runner-prefetch-test", _Adapter)
     monkeypatch.setattr(runner, "make_engine", lambda: object())
+    monkeypatch.setattr(runner, "verify_connection_guards", lambda _engine: None)
     monkeypatch.setattr(runner, "Session", session_factory)
     monkeypatch.setattr(runner, "crawl_company_board", fake_crawl)
 

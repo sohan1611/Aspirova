@@ -122,3 +122,66 @@ def test_resolve_transaction_mode_falls_back_to_session_for_invalid_url(
     database_url: str,
 ) -> None:
     assert db._resolve_transaction_mode(database_url, "session") is False
+
+
+class _ScalarResult:
+    def __init__(self, value: str) -> None:
+        self.value = value
+
+    def scalar_one(self) -> str:
+        return self.value
+
+
+class _GuardConnection:
+    def __init__(self, statement_timeout: str, statement_timeout_ms: str) -> None:
+        self.statement_timeout = statement_timeout
+        self.statement_timeout_ms = statement_timeout_ms
+        self.statements: list[str] = []
+
+    def exec_driver_sql(self, statement: str) -> _ScalarResult:
+        self.statements.append(statement)
+        if statement == "SHOW statement_timeout":
+            return _ScalarResult(self.statement_timeout)
+        if statement == "SELECT setting FROM pg_settings WHERE name = 'statement_timeout'":
+            return _ScalarResult(self.statement_timeout_ms)
+        raise AssertionError(f"Unexpected SQL: {statement}")
+
+
+class _GuardTransaction:
+    def __init__(self, connection: _GuardConnection) -> None:
+        self.connection = connection
+
+    def __enter__(self) -> _GuardConnection:
+        return self.connection
+
+    def __exit__(self, _exc_type, _exc_value, _traceback) -> None:
+        pass
+
+
+class _GuardEngine:
+    def __init__(self, connection: _GuardConnection) -> None:
+        self.connection = connection
+
+    def begin(self) -> _GuardTransaction:
+        return _GuardTransaction(self.connection)
+
+
+def test_verify_connection_guards_accepts_expected_statement_timeout() -> None:
+    connection = _GuardConnection("20s", str(db.STATEMENT_TIMEOUT_MS))
+
+    db.verify_connection_guards(_GuardEngine(connection))
+
+    assert connection.statements == [
+        "SHOW statement_timeout",
+        "SELECT setting FROM pg_settings WHERE name = 'statement_timeout'",
+    ]
+
+
+def test_verify_connection_guards_raises_when_statement_timeout_differs() -> None:
+    connection = _GuardConnection("2min", "120000")
+
+    with pytest.raises(
+        RuntimeError,
+        match=r"statement_timeout=2min, expected 20000ms",
+    ):
+        db.verify_connection_guards(_GuardEngine(connection))

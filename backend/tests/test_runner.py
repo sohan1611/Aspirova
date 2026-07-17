@@ -101,6 +101,7 @@ def test_run_tier_processes_only_selected_group(
     )
     session_factory = _SessionFactory([ats_source, aggregator_source], [company])
     calls: list[str] = []
+    events: list[str] = []
 
     def fake_crawl_company_board(_session, source, selected_company, adapter_class, **kwargs):
         assert source is ats_source
@@ -108,19 +109,28 @@ def test_run_tier_processes_only_selected_group(
         assert adapter_class is runner.ATS_ADAPTERS["greenhouse"]
         assert kwargs["prefetched"] == []
         assert kwargs["prefetched_health"] == "ok"
+        assert events == ["guard"]
         calls.append("ats")
         return {}
 
     def fake_crawl_aggregator(_session, source, adapter_class, **_kwargs):
         assert source is aggregator_source
         assert adapter_class is runner.AGGREGATOR_ADAPTERS["remoteok"]
+        assert events == ["guard"]
         calls.append("aggregator")
         return {}
 
     def fake_prefetch(jobs, **_kwargs):
+        assert events == ["guard"]
         return {job.company_slug: runner._PrefetchedBoard(listings=[], health="ok") for job in jobs}
 
-    monkeypatch.setattr(runner, "make_engine", lambda: object())
+    def fake_verify_connection_guards(engine) -> None:
+        assert engine is fake_engine
+        events.append("guard")
+
+    fake_engine = object()
+    monkeypatch.setattr(runner, "make_engine", lambda: fake_engine)
+    monkeypatch.setattr(runner, "verify_connection_guards", fake_verify_connection_guards)
     monkeypatch.setattr(runner, "Session", session_factory)
     monkeypatch.setattr(runner, "crawl_company_board", fake_crawl_company_board)
     monkeypatch.setattr(runner, "crawl_aggregator", fake_crawl_aggregator)
@@ -129,6 +139,7 @@ def test_run_tier_processes_only_selected_group(
     runner.run_tier(1, group=group)
 
     assert calls == [expected_call]
+    assert events == ["guard"]
     assert len(session_factory.sessions) == 2  # gather + exactly one selected job
     assert session_factory.sessions[0].scalars_calls == expected_gather_queries
 
@@ -148,6 +159,7 @@ def test_run_tier_processes_remoteok_after_competition_aggregators(monkeypatch) 
         return {}
 
     monkeypatch.setattr(runner, "make_engine", lambda: object())
+    monkeypatch.setattr(runner, "verify_connection_guards", lambda _engine: None)
     monkeypatch.setattr(runner, "Session", session_factory)
     monkeypatch.setattr(runner, "crawl_aggregator", fake_crawl_aggregator)
 
@@ -179,6 +191,7 @@ def test_run_tier_shares_the_aggregator_time_budget(monkeypatch) -> None:
         return {}
 
     monkeypatch.setattr(runner, "make_engine", lambda: object())
+    monkeypatch.setattr(runner, "verify_connection_guards", lambda _engine: None)
     monkeypatch.setattr(runner, "Session", session_factory)
     monkeypatch.setattr(runner, "crawl_aggregator", fake_crawl_aggregator)
     monkeypatch.setattr(runner.time, "monotonic", lambda: next(monotonic_values))
