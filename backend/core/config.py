@@ -10,11 +10,9 @@ class Settings(BaseSettings):
 
     env: str = "development"
     database_url: str = ""
-    # "session" (default; Supabase session pooler :5432) or "transaction"
-    # (Supabase transaction pooler :6543). Transaction mode removes the tight
-    # per-client session-pool ceiling but changes connection semantics -
-    # core/db.py adapts (NullPool, no server-side prepared statements, and
-    # statement_timeout via a startup option) when this is "transaction".
+    # Optional pool-mode override. Transaction mode is auto-detected from a
+    # Supabase :6543 URL; setting this to "transaction" forces transaction
+    # mode even on another port. The default "session" means "auto/session".
     db_pool_mode: str = "session"
     supabase_url: str = ""
     supabase_anon_key: str = ""

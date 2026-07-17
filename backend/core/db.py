@@ -40,6 +40,8 @@ server backends, while the rollback guarantees a returned connection cannot
 remain idle in an open transaction.
 """
 
+from urllib.parse import urlsplit
+
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 
@@ -62,9 +64,28 @@ DEFAULT_CONNECT_ARGS = {
 }
 
 
+def _resolve_transaction_mode(database_url: str, configured_mode: str) -> bool:
+    if configured_mode.strip().lower() == "transaction":
+        return True
+
+    # The port IS the pooler contract. DB_POOL_MODE was a second source of
+    # truth that silently drifted: GitHub Actions passes only DATABASE_URL and
+    # never DB_POOL_MODE, producing session-mode settings against Supabase's
+    # :6543 transaction pooler. Its connect-time statement_timeout is silently
+    # dropped, letting a stuck query hang forever. Deriving mode from the port
+    # makes this class of misconfiguration impossible.
+    if not database_url:
+        return False
+
+    try:
+        return urlsplit(database_url).port == 6543
+    except (TypeError, ValueError):
+        return False
+
+
 def make_engine(**kwargs) -> Engine:
     settings = get_settings()
-    transaction_mode = settings.db_pool_mode.strip().lower() == "transaction"
+    transaction_mode = _resolve_transaction_mode(settings.database_url, settings.db_pool_mode)
     connect_args = {**DEFAULT_CONNECT_ARGS, **kwargs.pop("connect_args", {})}
 
     if transaction_mode:
