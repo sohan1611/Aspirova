@@ -8,6 +8,7 @@ only covers GET - Doc handoffs/PHASE-2-HANDOFF.md sec 11.3), the same
 pattern api/bookmarks.py uses for its per-user write limit."""
 
 import re
+from html import escape
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -54,7 +55,7 @@ def join_waitlist(body: WaitlistSignupRequest) -> WaitlistSignupResponse:
         send_email(
             to=settings.waitlist_notify_email,
             subject="Aspirova pricing waitlist signup",
-            html=f"<p>New waitlist signup: {body.email}</p>",
+            html=f"<p>New waitlist signup: {escape(body.email, quote=True)}</p>",
             text=f"New waitlist signup: {body.email}",
         )
     # Always ok=True regardless of email delivery - a public marketing
