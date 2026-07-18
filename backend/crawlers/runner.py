@@ -67,6 +67,11 @@ AGGREGATOR_ADAPTERS: dict[str, type] = {
 
 ATS_FETCH_MAX_WORKERS = 10
 DEFAULT_AGGREGATOR_MAX_SECONDS = 600.0
+# Soft wall-clock budget for the ATS ingest phase. Well under the workflow's
+# 28-minute ATS step cap, so the loop exits cleanly (committing its work and
+# letting the aggregator + tail steps run) instead of being SIGKILL'd at the
+# hard cap and marking the whole run failed. Env-tunable (CRAWLER_ATS_MAX_SECONDS).
+DEFAULT_ATS_MAX_SECONDS = 1320.0
 _STOP_REQUESTED = threading.Event()
 
 
@@ -115,6 +120,24 @@ def _configured_aggregator_max_seconds() -> float:
             flush=True,
         )
         return DEFAULT_AGGREGATOR_MAX_SECONDS
+
+    return max(0.0, max_seconds)
+
+
+def _configured_ats_max_seconds() -> float:
+    raw_value = os.getenv("CRAWLER_ATS_MAX_SECONDS")
+    if raw_value is None:
+        return DEFAULT_ATS_MAX_SECONDS
+
+    try:
+        max_seconds = float(raw_value)
+    except ValueError:
+        print(
+            "WARNING: CRAWLER_ATS_MAX_SECONDS must be a number; "
+            f"using {DEFAULT_ATS_MAX_SECONDS:.0f} seconds",
+            flush=True,
+        )
+        return DEFAULT_ATS_MAX_SECONDS
 
     return max(0.0, max_seconds)
 
@@ -605,10 +628,13 @@ def run_tier(
     group: str = "all",
     *,
     aggregator_max_seconds: float | None = None,
+    ats_max_seconds: float | None = None,
     should_stop: Callable[[], bool] | None = None,
 ) -> None:
     if aggregator_max_seconds is None:
         aggregator_max_seconds = _configured_aggregator_max_seconds()
+    if ats_max_seconds is None:
+        ats_max_seconds = _configured_ats_max_seconds()
     if should_stop is None:
         should_stop = _STOP_REQUESTED.is_set
 
@@ -660,15 +686,47 @@ def run_tier(
 
         aggregator_jobs.sort(key=lambda job: job[1] == "remoteok")
 
+        # Crawl the STALEST boards first so the time-boxed ATS loop (below)
+        # rotates coverage fairly: a run that runs out of budget leaves the
+        # boards it did not reach as the most-stale, so the NEXT run does them
+        # first. Without this the fixed order meant the back half of the boards
+        # was never crawled at all. One set-based read (not per board): map
+        # (source_id, page_key) -> last_crawled_at; never-crawled boards (no
+        # SourceState row, last_crawled_at NULL) sort first via datetime.min.
+        if ats_jobs:
+            source_ids = {job.source_id for job in ats_jobs}
+            last_crawled_by_board: dict[tuple[int, str], datetime] = {}
+            for state in session.scalars(
+                select(models.SourceState).where(models.SourceState.source_id.in_(source_ids))
+            ).all():
+                if state.last_crawled_at is not None:
+                    last_crawled_by_board[(state.source_id, state.page_key)] = state.last_crawled_at
+            _stalest_first = datetime.min.replace(tzinfo=timezone.utc)
+            ats_jobs.sort(
+                key=lambda job: last_crawled_by_board.get(
+                    (job.source_id, job.board_token), _stalest_first
+                )
+            )
+
     # Fetches are pure HTTP and may safely overlap. The gather session above
     # is already closed here; worker threads never receive a Session or ORM
     # object. Ingest remains below in the original one-session-per-board
     # sequence, so the Supabase session-mode pool sees no extra connections.
     prefetched_boards = _prefetch_ats_boards(ats_jobs, should_stop=should_stop)
 
+    # Soft wall-clock budget: stop the ATS loop cleanly before the workflow's
+    # hard step cap, so committed boards persist and the aggregator + tail
+    # steps still run (a completed, GREEN run) instead of a SIGKILL at the cap.
+    # Stalest-first ordering above means the boards skipped here are done first
+    # next run. Only armed when there is ATS work (aggregator-only runs skip it).
+    ats_deadline_monotonic = time.monotonic() + ats_max_seconds if ats_jobs else 0.0
+
     for job in ats_jobs:
         if _is_stop_requested(should_stop):
             print("Stop requested; ending ATS ingestion after committed work", flush=True)
+            break
+        if time.monotonic() >= ats_deadline_monotonic:
+            print("ATS time budget reached; ending after committed work", flush=True)
             break
 
         prefetched = prefetched_boards.get(job.company_slug)

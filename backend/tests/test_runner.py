@@ -17,6 +17,13 @@ class _ScalarResult:
         return self.values
 
 
+def _is_source_state_query(query) -> bool:
+    try:
+        return query.column_descriptions[0]["entity"].__name__ == "SourceState"
+    except (AttributeError, IndexError, KeyError, TypeError):
+        return False
+
+
 class _FakeSession:
     def __init__(self, sources: list[object], companies: list[object]) -> None:
         self.sources = sources
@@ -29,7 +36,12 @@ class _FakeSession:
     def __exit__(self, _exc_type, _exc_value, _traceback) -> None:
         pass
 
-    def scalars(self, _query) -> _ScalarResult:
+    def scalars(self, query) -> _ScalarResult:
+        # The stalest-first ordering reads SourceState; no prior crawls exist
+        # in these unit tests, so return empty and leave the sources/companies
+        # positional sequence undisturbed.
+        if _is_source_state_query(query):
+            return _ScalarResult([])
         self.scalars_calls += 1
         values = self.sources if self.scalars_calls == 1 else self.companies
         return _ScalarResult(values)

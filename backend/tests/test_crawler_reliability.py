@@ -244,7 +244,13 @@ def test_run_tier_ingests_other_boards_when_one_prefetch_fails(monkeypatch) -> N
         def __exit__(self, _exc_type, _exc_value, _traceback) -> None:
             pass
 
-        def scalars(self, _query) -> _Result:
+        def scalars(self, query) -> _Result:
+            # Stalest-first ordering reads SourceState; none exist in this test.
+            try:
+                if query.column_descriptions[0]["entity"].__name__ == "SourceState":
+                    return _Result([])
+            except (AttributeError, IndexError, KeyError, TypeError):
+                pass
             self.calls += 1
             return _Result([source] if self.calls == 1 else companies)
 
@@ -427,3 +433,132 @@ def test_aggregator_forwards_deadline_controls_to_unstop(monkeypatch) -> None:
     assert adapter.received_should_stop() is False
     assert result["status"] == "partial"
     assert result["new_opps"] == 1
+
+
+def _run_tier_ats_scaffold(monkeypatch, companies, source_states, crawl_order):
+    """Shared harness: run_tier(group='ats') with prefetch + DB mocked out so
+    only run_tier's own time.monotonic calls are observable."""
+    source = SimpleNamespace(id=1, adapter_key="order-test")
+
+    class _Result:
+        def __init__(self, values):
+            self.values = values
+
+        def all(self):
+            return self.values
+
+    class _GatherSession:
+        def __init__(self):
+            self.calls = 0
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            pass
+
+        def scalars(self, query):
+            try:
+                if query.column_descriptions[0]["entity"].__name__ == "SourceState":
+                    return _Result(list(source_states))
+            except (AttributeError, IndexError, KeyError, TypeError):
+                pass
+            self.calls += 1
+            return _Result([source] if self.calls == 1 else companies)
+
+    class _IngestSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            pass
+
+        def get(self, _model, _sid):
+            return source
+
+        def scalar(self, _query):
+            return companies[0]
+
+        def rollback(self):
+            pass
+
+    class _Factory:
+        def __init__(self):
+            self.sessions = []
+
+        def __call__(self, _engine, **_kwargs):
+            s = _GatherSession() if not self.sessions else _IngestSession()
+            self.sessions.append(s)
+            return s
+
+    by_slug = {c.slug: c for c in companies}
+    prefetched = {
+        c.slug: runner._PrefetchedBoard(listings=[_raw_listing(c.slug)], health="ok")
+        for c in companies
+    }
+
+    def fake_crawl(_session, _source, _company, _adapter_class, **kwargs):
+        # Record from the prefetched listing (keyed per job/board), not the
+        # company object - the simplified fake session returns companies[0] for
+        # every scalar() lookup, so company identity there is not per-job.
+        crawl_order.append(kwargs["prefetched"][0].external_id)
+        return {}
+
+    monkeypatch.setitem(runner.ATS_ADAPTERS, "order-test", object)
+    monkeypatch.setattr(runner, "make_engine", lambda: object())
+    monkeypatch.setattr(runner, "verify_connection_guards", lambda _e: None)
+    monkeypatch.setattr(runner, "Session", _Factory())
+    monkeypatch.setattr(runner, "_prefetch_ats_boards", lambda jobs, should_stop=None: prefetched)
+    monkeypatch.setattr(
+        runner,
+        "crawl_company_board",
+        lambda s, src, company, ac, **kw: fake_crawl(s, src, company, ac, **kw),
+    )
+    monkeypatch.setattr(runner, "resolve_company", lambda *_a, **_k: SimpleNamespace(id=2))
+    return by_slug
+
+
+def test_run_tier_ats_stops_cleanly_at_time_budget(monkeypatch) -> None:
+    companies = [
+        SimpleNamespace(slug="c1", name="C1", ats_board_id="c1"),
+        SimpleNamespace(slug="c2", name="C2", ats_board_id="c2"),
+        SimpleNamespace(slug="c3", name="C3", ats_board_id="c3"),
+    ]
+    crawl_order: list[str] = []
+    _run_tier_ats_scaffold(monkeypatch, companies, [], crawl_order)
+    # ATS deadline setup -> 0.0 (=> deadline 50); iter1 check 1.0 (<50, process
+    # c1); iter2 check 100.0 (>=50, break); 4th value = the aggregator deadline
+    # setup that still runs for a group='ats' run (empty aggregator loop).
+    monkeypatch.setattr(runner.time, "monotonic", iter([0.0, 1.0, 100.0, 200.0]).__next__)
+
+    runner.run_tier(1, group="ats", ats_max_seconds=50.0)  # must NOT raise
+
+    assert crawl_order == ["c1"]  # stopped cleanly after the budget, not all 3
+
+
+def test_run_tier_ats_crawls_stalest_boards_first(monkeypatch) -> None:
+    from datetime import datetime, timezone
+
+    companies = [
+        SimpleNamespace(slug="fresh", name="Fresh", ats_board_id="fresh"),
+        SimpleNamespace(slug="never", name="Never", ats_board_id="never"),
+        SimpleNamespace(slug="old", name="Old", ats_board_id="old"),
+    ]
+    # fresh crawled today, old crawled long ago, never has no SourceState row.
+    states = [
+        SimpleNamespace(
+            source_id=1,
+            page_key="fresh",
+            last_crawled_at=datetime(2026, 7, 18, tzinfo=timezone.utc),
+        ),
+        SimpleNamespace(
+            source_id=1, page_key="old", last_crawled_at=datetime(2026, 7, 1, tzinfo=timezone.utc)
+        ),
+    ]
+    crawl_order: list[str] = []
+    _run_tier_ats_scaffold(monkeypatch, companies, states, crawl_order)
+
+    runner.run_tier(1, group="ats", ats_max_seconds=10_000.0)  # big budget: all run
+
+    # never-crawled first, then oldest, then freshest.
+    assert crawl_order == ["never", "old", "fresh"]
