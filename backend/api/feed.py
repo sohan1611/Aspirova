@@ -17,6 +17,7 @@ from api.deps import get_db
 from api.filters import (
     SOURCE_GROUPS,
     exclude_closed_competitions,
+    experience_filters,
     location_scope_filters,
     opportunity_filters,
 )
@@ -37,6 +38,7 @@ def get_feed(
     country: str | None = Query(None, min_length=2, max_length=2),
     remote_abroad: bool = Query(False),
     source: str | None = Query(None, pattern="^(direct|unstop|remoteok|devpost)$"),
+    experience: str | None = Query(None, pattern="^(early)$"),
     top: int | None = Query(None, gt=0),
     sort: str = Query("recent", pattern="^(recent|deadline)$"),
     page: int = Query(1, ge=1),
@@ -47,6 +49,7 @@ def get_feed(
         models.Opportunity.status == "active",
         exclude_closed_competitions(),
         *opportunity_filters(category, remote, company, location, top),
+        *experience_filters(experience),
         *location_scope_filters(scope, country, remote_abroad),
     ]
     if kind == "competitions":

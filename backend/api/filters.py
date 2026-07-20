@@ -1,6 +1,6 @@
 """Shared optional filters for opportunity query endpoints."""
 
-from sqlalchemy import and_, func, or_, text
+from sqlalchemy import and_, func, not_, or_, text
 
 from core import models
 
@@ -11,6 +11,11 @@ SOURCE_GROUPS = {
     "devpost": ["devpost"],
 }
 
+SENIOR_TITLE_PATTERN = (
+    r"(^|[^a-z])(senior|sr|staff|principal|director|vp|head of|lead|manager|"
+    r"architect|distinguished|fellow|executive)([^a-z]|$)"
+)
+
 
 def exclude_closed_competitions():
     """Exclude expiring categories whose deadline passed over 14 days ago."""
@@ -20,6 +25,18 @@ def exclude_closed_competitions():
         models.Opportunity.deadline < func.now() - text("interval '14 days'"),
     )
     return expired_opportunity.is_not(True)
+
+
+def experience_filters(experience: str | None) -> list:
+    if experience == "early":
+        return [
+            not_(
+                func.coalesce(models.Opportunity.title_normalized, "").op("~*")(
+                    SENIOR_TITLE_PATTERN
+                )
+            )
+        ]
+    return []
 
 
 def opportunity_filters(

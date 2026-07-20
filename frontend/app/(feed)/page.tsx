@@ -23,6 +23,7 @@ interface PageProps {
     category?: string;
     kind?: string;
     source?: string;
+    experience?: string;
     remote?: string;
     location?: string;
     company?: string;
@@ -78,6 +79,7 @@ export default async function HomePage({ searchParams }: PageProps) {
       | "remoteok"
       | "devpost"
       | undefined,
+    experience: params.experience as "early" | undefined,
     remote: params.remote === "true" ? true : params.remote === "false" ? false : undefined,
     location: params.location,
     company: params.company,
@@ -95,6 +97,7 @@ export default async function HomePage({ searchParams }: PageProps) {
     params.category ||
       params.kind ||
       params.source ||
+      params.experience ||
       params.remote !== undefined ||
       params.location ||
       params.company ||

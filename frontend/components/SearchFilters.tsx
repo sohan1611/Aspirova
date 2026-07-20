@@ -39,6 +39,11 @@ const SOURCE_OPTIONS = [
   { value: "devpost", label: "Devpost" },
 ];
 
+const EXPERIENCE_OPTIONS = [
+  { value: null, label: "All levels" },
+  { value: "early", label: "Early career" },
+];
+
 const REMOTE_OPTIONS = [
   { value: null, label: "Any" },
   { value: "true", label: "Remote" },
@@ -58,6 +63,7 @@ const FILTER_KEYS = [
   "q",
   "category",
   "source",
+  "experience",
   "remote",
   "location",
   "company",
@@ -152,6 +158,10 @@ export default function SearchFilters() {
     } else if (key === "source") {
       humanLabel =
         SOURCE_OPTIONS.find((option) => option.value === value)?.label ?? value;
+      label = humanLabel;
+    } else if (key === "experience") {
+      humanLabel =
+        EXPERIENCE_OPTIONS.find((option) => option.value === value)?.label ?? value;
       label = humanLabel;
     } else if (key === "remote") {
       humanLabel =
@@ -302,6 +312,30 @@ export default function SearchFilters() {
                     onSelect={(value) => updateParam("source", value)}
                     disabled={isPending}
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="filter-experience" className="eyebrow">
+                    Experience
+                  </Label>
+                  <Select
+                    value={searchParams.get("experience") ?? "all"}
+                    disabled={isPending}
+                    onValueChange={(value) =>
+                      updateParam("experience", value === "all" ? null : value)
+                    }
+                  >
+                    <SelectTrigger id="filter-experience" aria-label="Experience">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {EXPERIENCE_OPTIONS.map((option) => (
+                        <SelectItem key={option.label} value={option.value ?? "all"}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">

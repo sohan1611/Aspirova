@@ -59,6 +59,7 @@ export interface FeedParams {
   category?: "internship" | "job";
   kind?: "roles" | "competitions";
   source?: "direct" | "unstop" | "remoteok" | "devpost";
+  experience?: "early";
   remote?: boolean;
   location?: string;
   company?: string;
@@ -84,6 +85,7 @@ type SearchFilterParams = Pick<
   FeedParams,
   | "category"
   | "source"
+  | "experience"
   | "remote"
   | "location"
   | "company"
@@ -98,6 +100,7 @@ export async function getFeed(params: FeedParams = {}): Promise<FeedResponse> {
   if (params.category) search.set("category", params.category);
   if (params.kind) search.set("kind", params.kind);
   if (params.source) search.set("source", params.source);
+  if (params.experience) search.set("experience", params.experience);
   if (params.remote !== undefined) search.set("remote", String(params.remote));
   if (params.location) search.set("location", params.location);
   if (params.company) search.set("company", params.company);
@@ -164,6 +167,7 @@ export async function searchOpportunities(
   const search = new URLSearchParams({ q, page: String(page), limit: String(limit) });
   if (filters.category) search.set("category", filters.category);
   if (filters.source) search.set("source", filters.source);
+  if (filters.experience) search.set("experience", filters.experience);
   if (filters.remote !== undefined) search.set("remote", String(filters.remote));
   if (filters.location) search.set("location", filters.location);
   if (filters.company) search.set("company", filters.company);

@@ -119,6 +119,69 @@ def test_feed_blank_company_and_location_filters_are_ignored(client: TestClient,
     assert blank_filters == baseline
 
 
+def test_feed_early_experience_filter_excludes_senior_titles(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    suffix = uuid.uuid4().hex
+    seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    location_token = f"EarlyCareerFilterville-{suffix}"
+    company = models.Company(
+        slug=f"early-career-filter-company-{suffix}",
+        name=f"Early Career Filter Company {suffix}",
+    )
+    senior = models.Opportunity(
+        slug=f"early-career-filter-senior-{suffix}",
+        title="Senior Software Engineer",
+        title_normalized="senior software engineer",
+        company=company,
+        category="job",
+        location=location_token,
+        apply_url=f"https://example.com/early-career-filter/senior/{suffix}",
+        status="active",
+        last_seen_at=seen_at,
+    )
+    engineer = models.Opportunity(
+        slug=f"early-career-filter-engineer-{suffix}",
+        title="Software Engineer",
+        title_normalized="software engineer",
+        company=company,
+        category="job",
+        location=location_token,
+        apply_url=f"https://example.com/early-career-filter/engineer/{suffix}",
+        status="active",
+        last_seen_at=seen_at,
+    )
+    internship = models.Opportunity(
+        slug=f"early-career-filter-internship-{suffix}",
+        title="Software Engineering Intern",
+        title_normalized="software engineering intern",
+        company=company,
+        category="internship",
+        location=location_token,
+        apply_url=f"https://example.com/early-career-filter/internship/{suffix}",
+        status="active",
+        last_seen_at=seen_at,
+    )
+    db_session.add_all([company, senior, engineer, internship])
+    db_session.flush()
+
+    all_levels = client.get(
+        "/feed",
+        params={"location": location_token, "limit": 10},
+    ).json()
+    early_career = client.get(
+        "/feed",
+        params={"experience": "early", "location": location_token, "limit": 10},
+    ).json()
+    seeded_slugs = {senior.slug, engineer.slug, internship.slug}
+    all_level_slugs = {item["slug"] for item in all_levels["items"]}
+    early_career_slugs = {item["slug"] for item in early_career["items"]}
+
+    assert seeded_slugs <= all_level_slugs
+    assert early_career_slugs & seeded_slugs == {engineer.slug, internship.slug}
+
+
 def test_feed_location_scope_excludes_foreign_remote_by_default_and_allows_opt_in(
     client: TestClient,
     db_session: Session,
