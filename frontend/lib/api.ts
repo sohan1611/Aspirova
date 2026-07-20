@@ -67,7 +67,7 @@ export interface FeedParams {
   scope?: "abroad" | "domestic" | "both";
   country?: string;
   remote_abroad?: boolean;
-  sort?: "recent" | "deadline";
+  sort?: "student" | "recent" | "deadline";
   page?: number;
   limit?: number;
 }
@@ -108,7 +108,9 @@ export async function getFeed(params: FeedParams = {}): Promise<FeedResponse> {
   if (params.scope) search.set("scope", params.scope);
   if (params.country) search.set("country", params.country);
   if (params.remote_abroad) search.set("remote_abroad", "true");
-  if (params.sort) search.set("sort", params.sort);
+  if (params.sort === "recent" || params.sort === "deadline") {
+    search.set("sort", params.sort);
+  }
   if (params.page) search.set("page", String(params.page));
   if (params.limit) search.set("limit", String(params.limit));
 

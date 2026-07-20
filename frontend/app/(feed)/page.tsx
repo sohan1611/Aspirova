@@ -64,7 +64,12 @@ export default async function HomePage({ searchParams }: PageProps) {
   const rows = Math.min(20, Math.max(5, Number(params.rows ?? "10") || 10));
   const LIMIT = cols * rows;
   const top = params.top ? Number(params.top) : undefined;
-  const sort: "recent" | "deadline" = params.sort === "deadline" ? "deadline" : "recent";
+  const sort: "student" | "recent" | "deadline" =
+    params.sort === "deadline"
+      ? "deadline"
+      : params.sort === "recent"
+        ? "recent"
+        : "student";
   const kind = params.kind
     ? (params.kind as "roles" | "competitions")
     : params.category
@@ -105,6 +110,7 @@ export default async function HomePage({ searchParams }: PageProps) {
       params.scope ||
       params.country ||
       params.remote_abroad === "true" ||
+      params.sort === "recent" ||
       params.sort === "deadline",
   );
   const isCleanDefaultFeed =

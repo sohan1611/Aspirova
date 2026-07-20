@@ -45,6 +45,8 @@ def search_opportunities(
     source: str | None = Query(None, pattern="^(direct|unstop|remoteok|devpost)$"),
     experience: str | None = Query(None, pattern="^(early)$"),
     top: int | None = Query(None, gt=0),
+    # Search stays relevance-ranked, but accepts the feed control's sort values.
+    sort: str = Query("student", pattern="^(recent|deadline|student)$"),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),

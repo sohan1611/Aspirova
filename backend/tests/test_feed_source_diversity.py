@@ -143,7 +143,7 @@ def test_feed_recent_interleaves_sources_with_stable_pagination(
     db_session.add_all([company, *opportunities])
     db_session.flush()
 
-    params = {"location": location_token, "limit": 3}
+    params = {"location": location_token, "sort": "recent", "limit": 3}
     page_1 = client.get("/feed", params={**params, "page": 1})
     page_2 = client.get("/feed", params={**params, "page": 2})
     page_1_repeat = client.get("/feed", params={**params, "page": 1})

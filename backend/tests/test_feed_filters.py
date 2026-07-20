@@ -182,6 +182,73 @@ def test_feed_early_experience_filter_excludes_senior_titles(
     assert early_career_slugs & seeded_slugs == {engineer.slug, internship.slug}
 
 
+def test_feed_default_student_sort_prioritizes_internships_and_early_roles(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    suffix = uuid.uuid4().hex
+    seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    location_token = f"StudentFirstFilterville-{suffix}"
+    company = models.Company(
+        slug=f"student-first-filter-company-{suffix}",
+        name=f"Student First Filter Company {suffix}",
+    )
+    internship = models.Opportunity(
+        slug=f"student-first-filter-internship-{suffix}",
+        title="Software Engineering Intern",
+        title_normalized="software engineering intern",
+        company=company,
+        category="internship",
+        location=location_token,
+        apply_url=f"https://example.com/student-first-filter/internship/{suffix}",
+        primary_source="greenhouse",
+        status="active",
+        last_seen_at=seen_at - timedelta(minutes=2),
+    )
+    engineer = models.Opportunity(
+        slug=f"student-first-filter-engineer-{suffix}",
+        title="Software Engineer",
+        title_normalized="software engineer",
+        company=company,
+        category="job",
+        location=location_token,
+        apply_url=f"https://example.com/student-first-filter/engineer/{suffix}",
+        primary_source="greenhouse",
+        status="active",
+        last_seen_at=seen_at - timedelta(minutes=1),
+    )
+    senior = models.Opportunity(
+        slug=f"student-first-filter-senior-{suffix}",
+        title="Senior Staff Engineer",
+        title_normalized="senior staff engineer",
+        company=company,
+        category="job",
+        location=location_token,
+        apply_url=f"https://example.com/student-first-filter/senior/{suffix}",
+        primary_source="greenhouse",
+        status="active",
+        last_seen_at=seen_at,
+    )
+    db_session.add_all([company, internship, engineer, senior])
+    db_session.flush()
+
+    params = {"location": location_token, "limit": 10}
+    student_default = client.get("/feed", params=params).json()
+    recent = client.get("/feed", params={**params, "sort": "recent"}).json()
+    seeded_slugs = {internship.slug, engineer.slug, senior.slug}
+
+    assert [item["slug"] for item in student_default["items"] if item["slug"] in seeded_slugs] == [
+        internship.slug,
+        engineer.slug,
+        senior.slug,
+    ]
+    assert [item["slug"] for item in recent["items"] if item["slug"] in seeded_slugs] == [
+        senior.slug,
+        engineer.slug,
+        internship.slug,
+    ]
+
+
 def test_feed_location_scope_excludes_foreign_remote_by_default_and_allows_opt_in(
     client: TestClient,
     db_session: Session,
@@ -539,7 +606,7 @@ def test_feed_orders_open_and_real_roles_before_closed_and_competitions(
     ).json()
     recent = client.get(
         "/feed",
-        params={"location": location_token, "limit": 10},
+        params={"location": location_token, "sort": "recent", "limit": 10},
     ).json()
 
     assert deadline_sorted["total"] == 2
@@ -549,8 +616,8 @@ def test_feed_orders_open_and_real_roles_before_closed_and_competitions(
     ]
     assert roles["total"] == 4
     assert [item["slug"] for item in roles["items"]] == [
-        no_deadline_job.slug,
         open_internship.slug,
+        no_deadline_job.slug,
         ppi_competition.slug,
         closed_internship.slug,
     ]

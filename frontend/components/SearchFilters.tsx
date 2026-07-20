@@ -68,6 +68,7 @@ const FILTER_KEYS = [
   "location",
   "company",
   "top",
+  "sort",
 ] as const;
 
 interface ActiveFilterDescriptor {
@@ -140,10 +141,16 @@ export default function SearchFilters() {
   }
 
   const top = searchParams.get("top");
-  const sort = searchParams.get("sort") === "deadline" ? "deadline" : "recent";
+  const sort =
+    searchParams.get("sort") === "deadline"
+      ? "deadline"
+      : searchParams.get("sort") === "recent"
+        ? "recent"
+        : "student";
   const activeFilters: ActiveFilterDescriptor[] = FILTER_KEYS.flatMap((key) => {
     const value = searchParams.get(key);
     if (value === null) return [];
+    if (key === "sort" && value !== "recent" && value !== "deadline") return [];
 
     let humanLabel = value;
     let label: React.ReactNode = value;
@@ -175,6 +182,9 @@ export default function SearchFilters() {
           Top <span className="tnum">{topLabel}</span>
         </>
       );
+    } else if (key === "sort") {
+      humanLabel = value === "deadline" ? "Closing soon" : "Newest";
+      label = humanLabel;
     }
 
     return [{ key, label, humanLabel }];
@@ -190,8 +200,9 @@ export default function SearchFilters() {
       params.delete(key);
     }
     params.delete("page");
+    const query = params.toString();
     startTransition(() => {
-      router.push(`/?${params.toString()}`);
+      router.push(query ? `/?${query}` : "/");
     });
   }
 
@@ -217,11 +228,8 @@ export default function SearchFilters() {
   }
 
   function clearFilters() {
-    const params = new URLSearchParams();
-    const currentSort = searchParams.get("sort");
-    if (currentSort) params.set("sort", currentSort);
     startTransition(() => {
-      router.push(`/?${params.toString()}`);
+      router.push("/");
     });
   }
 
@@ -414,14 +422,21 @@ export default function SearchFilters() {
             value={sort}
             disabled={isPending}
             onValueChange={(value) =>
-              updateParam("sort", value === "recent" ? null : "deadline")
+              updateParam("sort", value === "student" ? null : value)
             }
           >
             <SelectTrigger aria-label="Sort opportunities">
               <ArrowUpDown aria-hidden="true" />
-              <SelectValue>{sort === "deadline" ? "Closing soon" : "Newest"}</SelectValue>
+              <SelectValue>
+                {sort === "deadline"
+                  ? "Closing soon"
+                  : sort === "recent"
+                    ? "Newest"
+                    : "For students"}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent align="end">
+              <SelectItem value="student">For students</SelectItem>
               <SelectItem value="recent">Newest</SelectItem>
               <SelectItem value="deadline">Closing soon</SelectItem>
             </SelectContent>

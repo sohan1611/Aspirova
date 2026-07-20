@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from api.deps import get_db
 from api.filters import (
+    SENIOR_TITLE_PATTERN,
     SOURCE_GROUPS,
     exclude_closed_competitions,
     experience_filters,
@@ -40,7 +41,7 @@ def get_feed(
     source: str | None = Query(None, pattern="^(direct|unstop|remoteok|devpost)$"),
     experience: str | None = Query(None, pattern="^(early)$"),
     top: int | None = Query(None, gt=0),
-    sort: str = Query("recent", pattern="^(recent|deadline)$"),
+    sort: str = Query("student", pattern="^(recent|deadline|student)$"),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -78,7 +79,7 @@ def get_feed(
         .label("source_rank")
     )
     selected_columns = [models.Opportunity, total_count]
-    if sort == "recent":
+    if sort != "deadline":
         selected_columns.append(source_rank)
     query = (
         select(*selected_columns)
@@ -108,6 +109,20 @@ def get_feed(
         )
         ordering.append(roles_first.asc())
 
+    student_rank = case(
+        (models.Opportunity.category == "internship", 0),
+        (
+            and_(
+                models.Opportunity.category == "job",
+                func.coalesce(models.Opportunity.title_normalized, "").op("~*")(
+                    SENIOR_TITLE_PATTERN
+                ),
+            ),
+            2,
+        ),
+        else_=1,
+    )
+
     if sort == "deadline":
         open_deadline = case(
             (is_closed == 0, models.Opportunity.deadline),
@@ -118,6 +133,15 @@ def get_feed(
                 open_deadline.asc().nullslast(),
                 models.Opportunity.deadline.desc().nullslast(),
                 models.Opportunity.id.asc(),
+            ]
+        )
+    elif sort == "student":
+        ordering.extend(
+            [
+                student_rank.asc(),
+                source_rank.asc(),
+                models.Opportunity.last_seen_at.desc(),
+                models.Opportunity.id.desc(),
             ]
         )
     else:
