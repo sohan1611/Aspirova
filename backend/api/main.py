@@ -16,6 +16,7 @@ from api import (
     referral,
     reports,
     resume,
+    saved_searches,
     search,
     sitemap,
     stats,
@@ -54,6 +55,7 @@ app.include_router(search.router)
 app.include_router(opportunity.router)
 app.include_router(company.router)
 app.include_router(bookmarks.router)
+app.include_router(saved_searches.router)
 app.include_router(notifications.router)
 app.include_router(copilot.router)
 app.include_router(dream_companies.router)

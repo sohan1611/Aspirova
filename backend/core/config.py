@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     rate_limit_ip_feed_search_per_minute: int = 60
     rate_limit_ip_opportunity_per_minute: int = 120
     rate_limit_user_bookmark_write_per_minute: int = 30
+    rate_limit_user_saved_search_write_per_minute: int = 20
     rate_limit_user_copilot_per_day: int = 20
     rate_limit_ip_waitlist_per_minute: int = 5
     rate_limit_ip_report_per_minute: int = 5

@@ -54,6 +54,32 @@ export type SavedOpportunityItem = OpportunityListItem & {
   bookmark_status: BookmarkStage;
 };
 
+export interface SavedSearchParams {
+  q?: string | null;
+  category?: "internship" | "job" | "hackathon" | "competition" | null;
+  kind?: "roles" | "competitions" | null;
+  remote?: boolean | null;
+  scope?: "abroad" | "domestic" | "both" | null;
+  country?: string | null;
+  source?: "direct" | "unstop" | "remoteok" | "devpost" | null;
+  experience?: "early" | null;
+}
+
+export interface SavedSearchCreate {
+  name?: string | null;
+  params: SavedSearchParams;
+  alerts_enabled?: boolean;
+}
+
+export interface SavedSearchItem {
+  id: number;
+  name: string | null;
+  params: SavedSearchParams;
+  alerts_enabled: boolean;
+  last_alerted_at: string | null;
+  created_at: string;
+}
+
 export interface MatchItem {
   opportunity: OpportunityListItem;
   score: number;

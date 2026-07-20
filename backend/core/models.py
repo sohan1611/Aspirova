@@ -256,6 +256,28 @@ class Bookmark(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
 
 
+class SavedSearch(Base):
+    """A user's reusable feed-filter state; alert delivery is added separately."""
+
+    __tablename__ = "saved_searches"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str | None] = mapped_column(Text)
+    params: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    alerts_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("true")
+    )
+    last_alerted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+    __table_args__ = (Index("ix_saved_searches_user_created_at", "user_id", "created_at"),)
+
+
 class Plan(Base):
     """The single source of feature gating (Doc 03 sec 4.1, Doc 08 sec 1:
     'MUST drive plan gating from plans.features via a single can(user,

@@ -11,6 +11,7 @@ import AccountSidebar, {
 } from "@/components/account/AccountSidebar";
 import NotificationsSection from "@/components/account/NotificationsSection";
 import ProfileSection from "@/components/account/ProfileSection";
+import SavedSearchesSection from "@/components/account/SavedSearchesSection";
 import SecuritySection from "@/components/account/SecuritySection";
 import SubscriptionSection from "@/components/account/SubscriptionSection";
 import HeaderAuth from "@/components/HeaderAuth";
@@ -305,6 +306,9 @@ function AccountPageContent() {
               accessToken={authenticatedAccessToken}
               onAccountChange={setAccount}
             />
+          )}
+          {activeSection === "saved" && (
+            <SavedSearchesSection accessToken={authenticatedAccessToken} />
           )}
           {activeSection === "security" && <SecuritySection user={session.user} />}
         </section>

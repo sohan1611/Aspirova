@@ -2,6 +2,7 @@
 
 import {
   Bell,
+  Bookmark,
   CreditCard,
   Shield,
   UserRound,
@@ -20,6 +21,7 @@ export const ACCOUNT_SECTIONS = [
   { key: "profile", label: "Profile", Icon: UserRound },
   { key: "subscription", label: "Subscription", Icon: CreditCard },
   { key: "notifications", label: "Notifications", Icon: Bell },
+  { key: "saved", label: "Saved searches", Icon: Bookmark },
   { key: "security", label: "Security", Icon: Shield },
 ] as const satisfies ReadonlyArray<{
   key: string;

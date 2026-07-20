@@ -5,7 +5,7 @@ mirrors it (Doc 01 sec 7 R1, Doc 04 sec 10)."""
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
 from core import models
 
@@ -118,6 +118,42 @@ class NotificationsResponse(BaseModel):
 
 class BookmarkStatusUpdate(BaseModel):
     status: Literal["saved", "applied", "interviewing", "offer", "archived"]
+
+
+class SavedSearchParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    q: str | None = None
+    category: str | None = None
+    kind: str | None = None
+    remote: bool | None = None
+    scope: str | None = None
+    country: str | None = None
+    source: str | None = None
+    experience: str | None = None
+
+
+class SavedSearchCreate(BaseModel):
+    name: str | None = Field(default=None, max_length=80)
+    params: SavedSearchParams
+    alerts_enabled: bool = True
+
+
+class SavedSearchItem(BaseModel):
+    id: int
+    name: str | None
+    params: SavedSearchParams
+    alerts_enabled: bool
+    last_alerted_at: datetime | None
+    created_at: datetime
+
+    @field_serializer("params")
+    def serialize_params(self, params: SavedSearchParams) -> dict[str, str | bool]:
+        return params.model_dump(exclude_none=True)
+
+
+class SavedSearchAlertsUpdate(BaseModel):
+    alerts_enabled: bool
 
 
 class ResumeUploadRequest(BaseModel):

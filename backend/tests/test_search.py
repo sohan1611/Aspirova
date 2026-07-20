@@ -166,6 +166,43 @@ def test_search_filters_restrict_fts_matches(
     assert {item["slug"] for item in body["items"]} == expected_slugs
 
 
+def test_search_kind_restricts_query_matches(client: TestClient, db_session: Session) -> None:
+    suffix = uuid.uuid4().hex
+    search_term = f"searchkind{suffix}"
+    company = models.Company(
+        slug=f"search-kind-company-{suffix}",
+        name=f"Search Kind Company {suffix}",
+    )
+    role = models.Opportunity(
+        slug=f"search-kind-role-{suffix}",
+        title=f"{search_term} internship",
+        company=company,
+        category="internship",
+        apply_url=f"https://example.com/search-kind/role/{suffix}",
+        status="active",
+    )
+    competition = models.Opportunity(
+        slug=f"search-kind-competition-{suffix}",
+        title=f"{search_term} hackathon",
+        company=company,
+        category="hackathon",
+        apply_url=f"https://example.com/search-kind/competition/{suffix}",
+        status="active",
+    )
+    db_session.add_all([company, role, competition])
+    db_session.flush()
+
+    response = client.get(
+        "/search",
+        params={"q": search_term, "kind": "competitions", "limit": 100},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 1
+    assert [item["slug"] for item in body["items"]] == [competition.slug]
+
+
 def test_search_keeps_grace_period_and_undated_rows_but_excludes_expired_categories(
     client: TestClient,
     db_session: Session,

@@ -14,6 +14,8 @@ import type {
   PlanPublic,
   ReferralClaimResult,
   ReferralMe,
+  SavedSearchCreate,
+  SavedSearchItem,
   SavedOpportunityItem,
   SearchResponse,
   StatsResponse,
@@ -84,6 +86,7 @@ export interface ForYouParams {
 type SearchFilterParams = Pick<
   FeedParams,
   | "category"
+  | "kind"
   | "source"
   | "experience"
   | "remote"
@@ -168,6 +171,7 @@ export async function searchOpportunities(
 ): Promise<SearchResponse> {
   const search = new URLSearchParams({ q, page: String(page), limit: String(limit) });
   if (filters.category) search.set("category", filters.category);
+  if (filters.kind) search.set("kind", filters.kind);
   if (filters.source) search.set("source", filters.source);
   if (filters.experience) search.set("experience", filters.experience);
   if (filters.remote !== undefined) search.set("remote", String(filters.remote));
@@ -250,6 +254,56 @@ export async function getBookmarks(accessToken: string): Promise<SavedOpportunit
     cache: "no-store",
   });
   if (!res.ok) throw new Error(`Failed to load bookmarks: ${res.status}`);
+  return res.json();
+}
+
+export async function createSavedSearch(
+  accessToken: string,
+  payload: SavedSearchCreate,
+): Promise<SavedSearchItem> {
+  const res = await fetch(`${API_URL}/saved-searches`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`Failed to save search: ${res.status}`);
+  return res.json();
+}
+
+export async function getSavedSearches(accessToken: string): Promise<SavedSearchItem[]> {
+  const res = await fetch(`${API_URL}/saved-searches`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`Failed to load saved searches: ${res.status}`);
+  return res.json();
+}
+
+export async function deleteSavedSearch(accessToken: string, id: number): Promise<void> {
+  const res = await fetch(`${API_URL}/saved-searches/${encodeURIComponent(String(id))}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error(`Failed to delete saved search: ${res.status}`);
+}
+
+export async function setSavedSearchAlerts(
+  accessToken: string,
+  id: number,
+  enabled: boolean,
+): Promise<SavedSearchItem> {
+  const res = await fetch(`${API_URL}/saved-searches/${encodeURIComponent(String(id))}`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ alerts_enabled: enabled }),
+  });
+  if (!res.ok) throw new Error(`Failed to update saved search alerts: ${res.status}`);
   return res.json();
 }
 

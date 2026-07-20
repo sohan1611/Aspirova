@@ -78,6 +78,7 @@ export default async function HomePage({ searchParams }: PageProps) {
 
   const filters = {
     category: params.category as "internship" | "job" | undefined,
+    kind: params.kind as "roles" | "competitions" | undefined,
     source: params.source as
       | "direct"
       | "unstop"

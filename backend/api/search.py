@@ -13,7 +13,7 @@ stays at one round-trip).
 """
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from api.deps import get_db
@@ -36,6 +36,7 @@ TRIGRAM_FALLBACK_THRESHOLD = 0.3
 def search_opportunities(
     q: str = Query(..., min_length=1, max_length=200),
     category: str | None = Query(None, pattern="^(internship|job|hackathon|competition)$"),
+    kind: str | None = Query(None, pattern="^(roles|competitions)$"),
     remote: bool | None = Query(None),
     company: str | None = Query(None),
     location: str | None = Query(None),
@@ -59,6 +60,16 @@ def search_opportunities(
         *experience_filters(experience),
         *location_scope_filters(scope, country, remote_abroad),
     ]
+    if kind == "competitions":
+        base_filters.append(models.Opportunity.category.in_(["hackathon", "competition"]))
+    elif kind == "roles":
+        base_filters.append(
+            or_(
+                models.Opportunity.category.in_(["internship", "job"]),
+                models.Opportunity.meta["offers_ppi"].as_boolean().is_(True),
+                models.Opportunity.meta["offers_ppo"].as_boolean().is_(True),
+            )
+        )
     if source is not None:
         base_filters.append(models.Opportunity.primary_source.in_(SOURCE_GROUPS[source]))
     tsquery = func.websearch_to_tsquery("english", q)
