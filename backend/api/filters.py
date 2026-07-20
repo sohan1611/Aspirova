@@ -133,3 +133,41 @@ def location_scope_filters(
             ),
         )
     ]
+
+
+def saved_search_base_filters(params: dict) -> list:
+    """Build the feed/search filters represented by stored saved-search params.
+
+    Saved searches persist only the shared, non-pagination filters. Full-text
+    matching and the alert window are intentionally added by the caller.
+    """
+
+    category = params.get("category")
+    kind = params.get("kind")
+    remote = params.get("remote")
+    scope = params.get("scope")
+    country = params.get("country")
+    source = params.get("source")
+    experience = params.get("experience")
+
+    base_filters = [
+        models.Opportunity.status == "active",
+        exclude_closed_competitions(),
+        *opportunity_filters(category, remote, None, None, None),
+        *experience_filters(experience),
+        *location_scope_filters(scope, country, False),
+    ]
+    if kind == "competitions":
+        base_filters.append(models.Opportunity.category.in_(["hackathon", "competition"]))
+    elif kind == "roles":
+        base_filters.append(
+            or_(
+                models.Opportunity.category.in_(["internship", "job"]),
+                models.Opportunity.meta["offers_ppi"].as_boolean().is_(True),
+                models.Opportunity.meta["offers_ppo"].as_boolean().is_(True),
+            )
+        )
+    if source is not None:
+        base_filters.append(models.Opportunity.primary_source.in_(SOURCE_GROUPS[source]))
+
+    return base_filters

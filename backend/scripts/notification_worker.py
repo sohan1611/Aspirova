@@ -6,6 +6,7 @@ Usage:
   uv run python -m scripts.notification_worker --digest
   uv run python -m scripts.notification_worker --instant-alerts
   uv run python -m scripts.notification_worker --closing-soon
+  uv run python -m scripts.notification_worker --saved-search-alerts
   uv run python -m scripts.notification_worker --weekly
 """
 
@@ -19,6 +20,7 @@ from pipeline.notifications import (
     send_daily_digests,
     send_instant_alerts,
 )
+from pipeline.saved_search_alerts import send_saved_search_alerts
 from pipeline.weekly_report import send_weekly_reports
 
 
@@ -32,6 +34,11 @@ def main() -> None:
     group.add_argument(
         "--closing-soon", action="store_true", help="Send bookmarked deadline alerts"
     )
+    group.add_argument(
+        "--saved-search-alerts",
+        action="store_true",
+        help="Send saved-search alert emails",
+    )
     group.add_argument("--weekly", action="store_true", help="Send weekly career reports")
     args = parser.parse_args()
 
@@ -40,6 +47,9 @@ def main() -> None:
         if args.digest:
             result = send_daily_digests(session)
             print(f"daily digests: {result}", flush=True)
+        elif args.saved_search_alerts:
+            result = send_saved_search_alerts(session)
+            print(f"saved-search alerts: {result}", flush=True)
         elif args.closing_soon:
             result = send_closing_soon_alerts(session)
             print(f"closing-soon alerts: {result}", flush=True)
