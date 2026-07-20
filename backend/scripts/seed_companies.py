@@ -48,6 +48,17 @@ GREENHOUSE_COMPANIES = [
     ("scaleai", "Scale AI", "scale.com"),
     ("sofi", "SoFi", "sofi.com"),
     ("twitch", "Twitch", "twitch.tv"),
+    ("postman", "Postman", "postman.com"),
+    ("phonepe", "PhonePe", "phonepe.com"),
+    ("druva", "Druva", "druva.com"),
+    ("razorpaysoftwareprivatelimited", "Razorpay", "razorpay.com"),
+    ("datadog", "Datadog", "datadoghq.com"),
+    ("verkada", "Verkada", "verkada.com"),
+    ("roblox", "Roblox", "roblox.com"),
+    ("gusto", "Gusto", "gusto.com"),
+    ("duolingo", "Duolingo", "duolingo.com"),
+    ("temporaltechnologies", "Temporal", "temporal.io"),
+    ("squarespace", "Squarespace", "squarespace.com"),
 ]
 
 # (board_token, company_name, domain) - verified live against
@@ -57,6 +68,9 @@ LEVER_COMPANIES = [
     ("angellist", "AngelList", "angellist.com"),
     ("wealthfront", "Wealthfront", "wealthfront.com"),
     ("spotify", "Spotify", "spotify.com"),
+    ("cred", "CRED", "cred.club"),
+    ("zeta", "Zeta", "zeta.tech"),
+    ("palantir", "Palantir", "palantir.com"),
 ]
 
 # (board_token, company_name, domain) - verified live against
@@ -77,6 +91,13 @@ ASHBY_COMPANIES = [
     ("sardine", "Sardine", "sardine.ai"),
     ("vanta", "Vanta", "vanta.com"),
     ("watershed", "Watershed", "watershed.com"),
+    ("harvey", "Harvey", "harvey.ai"),
+    ("sierra", "Sierra", "sierra.ai"),
+    ("decagon", "Decagon", "decagon.ai"),
+    ("supabase", "Supabase", "supabase.com"),
+    ("abridge", "Abridge", "abridge.com"),
+    ("character", "Character.AI", "character.ai"),
+    ("resend", "Resend", "resend.com"),
 ]
 
 # (board_token, company_name, domain) - verified live against
