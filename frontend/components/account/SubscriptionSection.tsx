@@ -88,6 +88,7 @@ export default function SubscriptionSection({
   const [cancelling, setCancelling] = useState(false);
   const { plan } = account;
   const isFree = plan.key === "free" || plan.status === "free";
+  const cancellationScheduled = plan.cancel_at_period_end;
   const features = featureLines(plan.features);
 
   async function handleCancel() {
@@ -130,10 +131,20 @@ export default function SubscriptionSection({
                   {plan.billing === "annual" ? "/yr" : "/mo"}
                 </p>
               )}
-              {plan.current_period_end && (
+              {cancellationScheduled ? (
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Renews on {formatDate(plan.current_period_end)}
+                  Your access ends{" "}
+                  {plan.current_period_end
+                    ? `on ${formatDate(plan.current_period_end)}`
+                    : "at the end of your current billing period"}
+                  . Your plan stays fully usable until then.
                 </p>
+              ) : (
+                plan.current_period_end && (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Renews on {formatDate(plan.current_period_end)}
+                  </p>
+                )
               )}
             </div>
           </div>
@@ -159,45 +170,47 @@ export default function SubscriptionSection({
                 <Button asChild variant="outline">
                   <Link href="/pricing">Change plan</Link>
                 </Button>
-                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    >
-                      Cancel subscription
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Cancel your subscription?</DialogTitle>
-                      <DialogDescription>
-                        You&apos;ll keep access until{" "}
-                        {plan.current_period_end
-                          ? formatDate(plan.current_period_end)
-                          : "the end of your current billing period"}
-                        .
-                      </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                      <DialogClose asChild>
-                        <Button variant="outline" disabled={cancelling}>
-                          Keep subscription
-                        </Button>
-                      </DialogClose>
+                {!cancellationScheduled && (
+                  <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                    <DialogTrigger asChild>
                       <Button
-                        variant="destructive"
-                        disabled={cancelling}
-                        onClick={() => void handleCancel()}
+                        variant="outline"
+                        className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
                       >
-                        {cancelling && (
-                          <Loader2 className="animate-spin" aria-hidden="true" />
-                        )}
-                        {cancelling ? "Scheduling…" : "Confirm cancellation"}
+                        Cancel subscription
                       </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Cancel your subscription?</DialogTitle>
+                        <DialogDescription>
+                          You&apos;ll keep access until{" "}
+                          {plan.current_period_end
+                            ? formatDate(plan.current_period_end)
+                            : "the end of your current billing period"}
+                          .
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter>
+                        <DialogClose asChild>
+                          <Button variant="outline" disabled={cancelling}>
+                            Keep subscription
+                          </Button>
+                        </DialogClose>
+                        <Button
+                          variant="destructive"
+                          disabled={cancelling}
+                          onClick={() => void handleCancel()}
+                        >
+                          {cancelling && (
+                            <Loader2 className="animate-spin" aria-hidden="true" />
+                          )}
+                          {cancelling ? "Scheduling…" : "Confirm cancellation"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                )}
               </>
             )}
           </div>

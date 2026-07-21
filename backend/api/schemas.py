@@ -314,6 +314,7 @@ class PlanState(BaseModel):
     features: dict
     status: str
     current_period_end: datetime | None
+    cancel_at_period_end: bool = False
 
 
 class AccountMe(BaseModel):

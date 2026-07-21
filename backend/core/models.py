@@ -313,6 +313,7 @@ class Subscription(Base):
     status: Mapped[str] = mapped_column(Text, nullable=False)
     razorpay_sub_id: Mapped[str | None] = mapped_column(Text, unique=True)
     current_period_end: Mapped[datetime | None] = mapped_column()
+    cancel_at_period_end: Mapped[bool] = mapped_column(server_default=text("false"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
 
     __table_args__ = (Index("ix_subscriptions_user_status", "user_id", "status"),)

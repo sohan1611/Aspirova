@@ -47,10 +47,12 @@ def _build_account_me(db: Session, user: models.User) -> AccountMe:
             )
         status = "free"
         current_period_end = None
+        cancel_at_period_end = False
     else:
         subscription, plan = active
         status = subscription.status
         current_period_end = subscription.current_period_end
+        cancel_at_period_end = subscription.cancel_at_period_end
 
     return AccountMe(
         email=user.email,
@@ -67,6 +69,7 @@ def _build_account_me(db: Session, user: models.User) -> AccountMe:
             features=features,
             status=status,
             current_period_end=current_period_end,
+            cancel_at_period_end=cancel_at_period_end,
         ),
     )
 
@@ -117,6 +120,12 @@ def cancel_subscription(
     if subscription is None:
         raise HTTPException(status_code=404, detail="No active subscription")
 
+    if subscription.cancel_at_period_end:
+        return {
+            "status": "cancel_scheduled",
+            "current_period_end": subscription.current_period_end,
+        }
+
     client = _razorpay_client()
     try:
         client.subscription.cancel(
@@ -127,6 +136,9 @@ def cancel_subscription(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except (razorpay.errors.GatewayError, razorpay.errors.ServerError) as exc:
         raise HTTPException(status_code=502, detail="Payment provider error") from exc
+
+    subscription.cancel_at_period_end = True
+    db.commit()
 
     return {
         "status": "cancel_scheduled",
