@@ -108,15 +108,21 @@ SMARTRECRUITERS_COMPANIES = [
     ("UniversalMusicGroup", "Universal Music Group", "universalmusic.com"),
 ]
 
+# Domains are NOT guessed: each is the `companyWebsite` the company itself
+# declares in its own Keka careers portal config
+# (/careers/api/organization/default/careerportalinfo), reduced to a bare
+# domain and verified to resolve 200. The four left None declare no website
+# there - a wrong domain would attach the wrong logo AND could collide with
+# the partial unique index on companies.domain, so None is the honest value.
 KEKA_COMPANIES = [
     ("clickpost", "ClickPost", None),
-    ("sjinnovation", "SJ Innovation", None),
+    ("sjinnovation", "SJ Innovation", "sjinnovation.com"),
     ("zluri", "Zluri", None),
-    ("qualminds", "QualMinds", None),
+    ("qualminds", "QualMinds", "qualminds.com"),
     ("talentformula", "Talent Formula", None),
-    ("arisinfra", "ArisInfra", None),
-    ("lumel", "Lumel", None),
-    ("auracloud", "Aura Cloud", None),
+    ("arisinfra", "ArisInfra", "aris.in"),
+    ("lumel", "Lumel", "lumel.com"),
+    ("auracloud", "Aura Cloud", "auracloud.com"),
     ("wealthindia", "WealthIndia", None),
 ]
 
