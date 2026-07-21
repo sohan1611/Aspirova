@@ -204,6 +204,58 @@ def _active_subscription_with_plan(db: Session, user: models.User):
     ).first()
 
 
+def _send_upgrade_reconciliation_alert(
+    db: Session,
+    subscription: models.Subscription,
+    target_plan: models.Plan,
+    upgrade: models.SubscriptionUpgrade,
+) -> None:
+    """Best-effort founder alert for a paid upgrade needing Razorpay repair."""
+
+    try:
+        settings = get_settings()
+        if not settings.waitlist_notify_email:
+            return
+
+        from_plan = db.get(models.Plan, upgrade.from_plan_id)
+        from_plan_key = from_plan.key if from_plan is not None else "unknown"
+        amount_rupees = upgrade.amount_paise / 100
+        reconciliation_sentence = (
+            "The customer HAS been charged and HAS local access, but Razorpay is still on the "
+            "old plan and will bill the old amount at renewal until this is reconciled."
+        )
+        text = (
+            "A paid subscription upgrade needs Razorpay reconciliation.\n\n"
+            f"subscription_upgrades.id: {upgrade.id}\n"
+            f"razorpay_sub_id: {subscription.razorpay_sub_id}\n"
+            f"from_plan.key: {from_plan_key}\n"
+            f"to_plan.key: {target_plan.key}\n"
+            f"Amount paid: ₹{amount_rupees:.2f}\n\n"
+            f"{reconciliation_sentence}"
+        )
+        html = (
+            "<p>A paid subscription upgrade needs Razorpay reconciliation.</p>"
+            "<p>"
+            f"subscription_upgrades.id: {escape(str(upgrade.id), quote=True)}<br>"
+            f"razorpay_sub_id: {escape(str(subscription.razorpay_sub_id), quote=True)}<br>"
+            f"from_plan.key: {escape(from_plan_key, quote=True)}<br>"
+            f"to_plan.key: {escape(target_plan.key, quote=True)}<br>"
+            f"Amount paid: ₹{amount_rupees:.2f}"
+            "</p>"
+            f"<p>{escape(reconciliation_sentence, quote=True)}</p>"
+        )
+        send_email(
+            to=settings.waitlist_notify_email,
+            subject="Aspirova paid subscription upgrade needs reconciliation",
+            html=html,
+            text=text,
+        )
+    except Exception:
+        logger.exception(
+            "founder reconciliation alert failed for subscription upgrade %s", upgrade.id
+        )
+
+
 def _apply_subscription_upgrade(
     db: Session,
     client: razorpay.Client,
@@ -235,6 +287,7 @@ def _apply_subscription_upgrade(
         )
         upgrade.status = "applied_with_error"
         db.commit()
+        _send_upgrade_reconciliation_alert(db, subscription, target_plan, upgrade)
         return
 
     upgrade.status = "applied"
