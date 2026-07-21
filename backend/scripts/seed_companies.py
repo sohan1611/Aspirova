@@ -123,7 +123,11 @@ KEKA_COMPANIES = [
     ("arisinfra", "ArisInfra", "aris.in"),
     ("lumel", "Lumel", "lumel.com"),
     ("auracloud", "Aura Cloud", "auracloud.com"),
-    ("wealthindia", "WealthIndia", None),
+    # wealthindia REMOVED (founder-authorized): its only listing was literally
+    # titled "Test HR Intern" - the company's own test posting - so the board
+    # contributed nothing but noise to a student feed. Removing it from this
+    # list is not sufficient on its own: the companies row must also be gone,
+    # because the crawl selects boards by companies.ats_type, not by this list.
     # Second wave, same verification: probed live for a resolvable tenant UUID,
     # a non-empty active-jobs array, and no test/dummy listings before being
     # written here. +123 jobs / 109 India roles / 6 internships.
