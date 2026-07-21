@@ -107,6 +107,7 @@ def test_run_tier_processes_only_selected_group(
     ats_source = SimpleNamespace(id=1, adapter_key="greenhouse")
     aggregator_source = SimpleNamespace(id=2, adapter_key="remoteok")
     company = SimpleNamespace(
+        id=1,
         slug="example-company",
         name="Example Company",
         ats_board_id="example-board",

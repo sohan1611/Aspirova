@@ -724,9 +724,14 @@ def run_tier(
         # was never crawled at all. One set-based read (not per board): map
         # (source_id, page_key) -> last_crawled_at; never-crawled boards (no
         # SourceState row, last_crawled_at NULL) sort first via datetime.min.
+        # Initialised OUTSIDE the `if` on purpose: an aggregator-only run
+        # (--group aggregator, which the daily workflow's RemoteOK step uses)
+        # produces zero ats_jobs, and binding this only inside the branch made
+        # the _order_ats_jobs call below raise UnboundLocalError and kill that
+        # whole step. Caught by CI on e75202d.
+        last_crawled_by_board: dict[tuple[int, str], datetime] = {}
         if ats_jobs:
             source_ids = {job.source_id for job in ats_jobs}
-            last_crawled_by_board: dict[tuple[int, str], datetime] = {}
             for state in session.scalars(
                 select(models.SourceState).where(models.SourceState.source_id.in_(source_ids))
             ).all():
