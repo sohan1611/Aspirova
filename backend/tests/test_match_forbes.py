@@ -22,12 +22,20 @@ def db_session(engine):
         connection.close()
 
 
-def _write_forbes_fixture(path: Path) -> None:
+def _write_forbes_fixture(path: Path, suffix: str) -> None:
     rows = [
-        {"rank": 12, "name": "Domain Matched", "domain": "domain-matched.example"},
-        {"rank": 42, "name": "Name Only Holdings", "domain": None},
-        {"rank": 5, "name": "Domain Beats Name", "domain": None},
-        {"rank": 80, "name": "Unrelated Domain Row", "domain": "domain-beats.example"},
+        {
+            "rank": 12,
+            "name": "Domain Matched",
+            "domain": f"domain-matched-{suffix}.example",
+        },
+        {"rank": 42, "name": f"Name Only Holdings {suffix}", "domain": None},
+        {"rank": 5, "name": f"Domain Beats Name {suffix}", "domain": None},
+        {
+            "rank": 80,
+            "name": "Unrelated Domain Row",
+            "domain": f"domain-beats-{suffix}.example",
+        },
     ]
     path.write_text(json.dumps(rows), encoding="utf-8")
 
@@ -37,16 +45,16 @@ def test_match_forbes_assigns_precise_domain_and_name_matches(
     tmp_path: Path,
 ) -> None:
     forbes_path = tmp_path / "forbes_global2000.json"
-    _write_forbes_fixture(forbes_path)
     suffix = str(uuid.uuid4())
+    _write_forbes_fixture(forbes_path, suffix)
     domain_match = models.Company(
         slug=f"forbes-domain-match-{suffix}",
         name=f"Local Domain Match {suffix}",
-        domain="DOMAIN-MATCHED.EXAMPLE",
+        domain=f"DOMAIN-MATCHED-{suffix}.EXAMPLE",
     )
     name_match = models.Company(
         slug=f"forbes-name-match-{suffix}",
-        name="Name Only Holdings LLC",
+        name=f"Name Only Holdings {suffix} LLC",
     )
     non_match = models.Company(
         slug=f"forbes-non-match-{suffix}",
@@ -55,8 +63,8 @@ def test_match_forbes_assigns_precise_domain_and_name_matches(
     )
     domain_beats_name = models.Company(
         slug=f"forbes-domain-beats-name-{suffix}",
-        name="Domain Beats Name",
-        domain="domain-beats.example",
+        name=f"Domain Beats Name {suffix}",
+        domain=f"domain-beats-{suffix}.example",
     )
     db_session.add_all([domain_match, name_match, non_match, domain_beats_name])
     db_session.flush()
