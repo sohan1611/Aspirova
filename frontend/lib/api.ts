@@ -52,6 +52,19 @@ export function isRateLimitedError(error: unknown): error is RateLimitedError {
   return error instanceof RateLimitedError;
 }
 
+export class CheckoutConflictError extends Error {
+  readonly status = 409;
+
+  constructor(detail: string) {
+    super(detail);
+    this.name = "CheckoutConflictError";
+  }
+}
+
+export function isCheckoutConflictError(error: unknown): error is CheckoutConflictError {
+  return error instanceof CheckoutConflictError;
+}
+
 function throwResumeApiError(res: Response, action: string): never {
   if (res.status === 403) throw new ProFeatureRequiredError();
   throw new Error(`${action}: ${res.status}`);
@@ -437,6 +450,14 @@ export async function createCheckout(
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}` },
   });
+  if (res.status === 409) {
+    const body = (await res.json().catch(() => null)) as { detail?: unknown } | null;
+    const detail =
+      typeof body?.detail === "string"
+        ? body.detail
+        : "Please cancel your current plan before switching plans.";
+    throw new CheckoutConflictError(detail);
+  }
   if (!res.ok) throw new Error(`Failed to start checkout: ${res.status}`);
   return res.json();
 }

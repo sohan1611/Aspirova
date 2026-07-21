@@ -24,7 +24,7 @@ from html import escape
 
 import razorpay
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from api.auth import get_current_user
@@ -176,6 +176,38 @@ def create_checkout(
         raise HTTPException(
             status_code=503,
             detail=f"Plan '{plan_key}' has not been provisioned on Razorpay yet",
+        )
+
+    active_subscription = db.scalar(
+        select(models.Subscription)
+        .where(
+            models.Subscription.user_id == user.id,
+            models.Subscription.status.in_(("active", "trialing")),
+            or_(
+                models.Subscription.razorpay_sub_id.isnot(None),
+                models.Subscription.current_period_end.is_(None),
+                models.Subscription.current_period_end > func.now(),
+            ),
+        )
+        .order_by(models.Subscription.created_at.desc())
+        .limit(1)
+    )
+    if active_subscription is not None:
+        if (
+            active_subscription.cancel_at_period_end
+            and active_subscription.current_period_end is not None
+        ):
+            period_end = active_subscription.current_period_end.date().isoformat()
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Your current plan is already ending on {period_end}. "
+                    "You can subscribe again after that date."
+                ),
+            )
+        raise HTTPException(
+            status_code=409,
+            detail="Please cancel your current plan before switching plans.",
         )
 
     client = _razorpay_client()

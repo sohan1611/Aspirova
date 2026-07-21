@@ -18,7 +18,7 @@ _UUID_PATTERN = re.compile(
     r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
     re.IGNORECASE,
 )
-_REMOTE_PATTERN = re.compile(r"\bremote\b", re.IGNORECASE)
+_REMOTE_PATTERN = re.compile(r"\bremote\b(?!\s+(?:sensing|sensors?)\b)", re.IGNORECASE)
 
 
 class KekaAdapter:

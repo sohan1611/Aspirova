@@ -5,7 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import HeaderAuth from "@/components/HeaderAuth";
 import { Button } from "@/components/ui/button";
-import { createCheckout } from "@/lib/api";
+import { createCheckout, isCheckoutConflictError } from "@/lib/api";
 import { useSession } from "@/lib/useSession";
 
 interface SubscribeButtonProps {
@@ -85,6 +85,8 @@ export default function SubscribeButton({
     } catch (error: unknown) {
       if (isPaymentsUnavailableError(error)) {
         toast.error("Payments aren't available yet.");
+      } else if (isCheckoutConflictError(error)) {
+        toast.error(error.message);
       } else {
         toast.error("Couldn't start checkout. Please try again.");
       }

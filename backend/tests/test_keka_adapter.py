@@ -59,6 +59,20 @@ def _mock_keka_get(
     return calls
 
 
+def _remote_test_listing(title: str, location: str) -> RawListing:
+    return RawListing(
+        source_slug="keka",
+        external_id="remote-test",
+        source_url="https://clickpost.keka.com/careers/jobdetails/remote-test",
+        raw_payload={
+            "id": "remote-test",
+            "title": title,
+            "jobLocations": [{"city": location}],
+        },
+        content_hash="remote-test",
+    )
+
+
 def test_adapter_identity_and_default_health() -> None:
     adapter = KekaAdapter(TENANT, COMPANY_NAME)
 
@@ -126,6 +140,39 @@ def test_parse_marks_remote_title_as_remote(
     parsed = adapter.parse(adapter.fetch()[2])
 
     assert parsed.is_remote is True
+
+
+@pytest.mark.parametrize("title", ["Remote Sensing Engineer", "Remote Sensor Lead"])
+def test_parse_does_not_mark_remote_descriptors_as_remote(title: str) -> None:
+    adapter = KekaAdapter(TENANT, COMPANY_NAME)
+
+    parsed = adapter.parse(_remote_test_listing(title, "Bengaluru"))
+
+    assert parsed.is_remote is False
+
+
+def test_parse_marks_remote_software_title_as_remote() -> None:
+    adapter = KekaAdapter(TENANT, COMPANY_NAME)
+
+    parsed = adapter.parse(_remote_test_listing("Remote Software Engineer", "Bengaluru"))
+
+    assert parsed.is_remote is True
+
+
+def test_parse_marks_remote_location_as_remote() -> None:
+    adapter = KekaAdapter(TENANT, COMPANY_NAME)
+
+    parsed = adapter.parse(_remote_test_listing("Software Engineer", "Remote"))
+
+    assert parsed.is_remote is True
+
+
+def test_parse_marks_ordinary_on_site_title_as_not_remote() -> None:
+    adapter = KekaAdapter(TENANT, COMPANY_NAME)
+
+    parsed = adapter.parse(_remote_test_listing("Software Engineer", "Bengaluru"))
+
+    assert parsed.is_remote is False
 
 
 def test_parse_handles_garbage_payload_without_raising() -> None:

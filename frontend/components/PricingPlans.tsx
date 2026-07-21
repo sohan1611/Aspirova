@@ -77,6 +77,7 @@ export default function PricingPlans({
   const currentPlanKey =
     planResult && planResult.accessToken === accessToken ? planResult.currentPlanKey : null;
   const planLoading = Boolean(accessToken) && planResult?.accessToken !== accessToken;
+  const hasActiveSubscription = currentPlanKey !== null;
 
   useEffect(() => {
     const requestId = planRequestRef.current + 1;
@@ -236,12 +237,19 @@ export default function PricingPlans({
                   >
                     Current plan
                   </Button>
+                ) : hasActiveSubscription ? (
+                  <Button
+                    variant={tier.highlight ? "default" : "outline"}
+                    className="w-full"
+                    disabled
+                  >
+                    Cancel your current plan to switch
+                  </Button>
                 ) : paymentsEnabled && currency === "INR" ? (
                   <SubscribeButton
                     planKey={plan.key}
                     planLabel={tier.name}
                     highlight={tier.highlight}
-                    label={isCurrentTier ? `Switch to ${billing}` : undefined}
                   />
                 ) : (
                   <WaitlistForm planLabel={tier.name} highlight={tier.highlight} />
