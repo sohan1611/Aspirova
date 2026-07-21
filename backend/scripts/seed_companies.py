@@ -124,6 +124,15 @@ KEKA_COMPANIES = [
     ("lumel", "Lumel", "lumel.com"),
     ("auracloud", "Aura Cloud", "auracloud.com"),
     ("wealthindia", "WealthIndia", None),
+    # Second wave, same verification: probed live for a resolvable tenant UUID,
+    # a non-empty active-jobs array, and no test/dummy listings before being
+    # written here. +123 jobs / 109 India roles / 6 internships.
+    # adda247 declares its own Keka careers URL as its "website", which is not a
+    # company domain, so it stays None rather than becoming a wrong logo.
+    ("cloudthat", "CloudThat", "cloudthat.com"),
+    ("satsure", "SatSure Analytics India", None),
+    ("adda247", "Adda247", None),
+    ("softprodigy", "SoftProdigy System Solutions", "softprodigy.com"),
 ]
 
 # BoschGroup (4667) and DeliveryHero (1110) are verified-available but held out
