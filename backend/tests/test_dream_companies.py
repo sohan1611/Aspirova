@@ -10,13 +10,35 @@ while still exercising the real route logic against real data.
 import uuid
 
 import pytest
+import upstash_ratelimit.limiter as upstash_limiter
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from api import dream_companies
 from api.auth import get_current_user
 from api.deps import get_db
 from api.main import app
 from core import models
+from core.config import get_settings
+
+
+class FakeAsyncRedis:
+    """Minimal async double for Upstash's fixed-window rate limiter."""
+
+    def __init__(self) -> None:
+        self._counters: dict[str, int] = {}
+
+    async def eval(self, script, keys, args):
+        key = keys[0]
+        increment_by = int(args[1])
+        self._counters[key] = self._counters.get(key, 0) + increment_by
+        return self._counters[key]
+
+
+@pytest.fixture(autouse=True)
+def freeze_rate_limit_time(monkeypatch) -> None:
+    """Keep write requests in a test within the same fixed-window bucket."""
+    monkeypatch.setattr(upstash_limiter, "now_ms", lambda: 1_750_000_000_000)
 
 
 @pytest.fixture
@@ -64,11 +86,15 @@ def seeded(db_session: Session):
 def client(db_session, seeded):
     app.dependency_overrides[get_db] = lambda: db_session
     app.dependency_overrides[get_current_user] = lambda: seeded["user"]
+    app.dependency_overrides[dream_companies.enforce_dream_company_write_limit] = lambda: seeded[
+        "user"
+    ]
     try:
         yield TestClient(app)
     finally:
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(dream_companies.enforce_dream_company_write_limit, None)
 
 
 def test_free_user_can_add_one_dream_company(client, seeded) -> None:
@@ -128,6 +154,20 @@ def test_removing_a_dream_company_frees_up_the_limit(client, seeded) -> None:
     listed = client.get("/dream-companies").json()
     assert len(listed) == 1
     assert listed[0]["company"]["slug"] == seeded["company_b"].slug
+
+
+def test_dream_company_write_limit_throttles_post_and_delete(client, seeded, monkeypatch) -> None:
+    fake = FakeAsyncRedis()
+    app.dependency_overrides.pop(dream_companies.enforce_dream_company_write_limit)
+    monkeypatch.setattr(dream_companies, "get_redis", lambda: fake)
+    monkeypatch.setattr(get_settings(), "rate_limit_user_dream_company_write_per_minute", 1)
+
+    added = client.post(f"/dream-companies/{seeded['company_a'].slug}")
+    throttled = client.delete(f"/dream-companies/{seeded['company_a'].slug}")
+
+    assert added.status_code == 204
+    assert throttled.status_code == 429
+    assert int(throttled.headers["Retry-After"]) >= 0
 
 
 def test_unknown_company_slug_returns_404(client) -> None:

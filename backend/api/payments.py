@@ -126,8 +126,19 @@ async def razorpay_webhook(
     if new_status is None:
         return {"status": "ignored", "event": event}
 
-    subscription_entity = payload["payload"]["subscription"]["entity"]
-    razorpay_sub_id = subscription_entity["id"]
+    event_payload = payload.get("payload")
+    subscription_payload = (
+        event_payload.get("subscription") if isinstance(event_payload, dict) else None
+    )
+    subscription_entity = (
+        subscription_payload.get("entity") if isinstance(subscription_payload, dict) else None
+    )
+    if not isinstance(subscription_entity, dict):
+        return {"status": "malformed_payload", "event": event}
+
+    razorpay_sub_id = subscription_entity.get("id")
+    if not isinstance(razorpay_sub_id, str):
+        return {"status": "malformed_payload", "event": event}
 
     subscription = db.scalar(
         select(models.Subscription).where(models.Subscription.razorpay_sub_id == razorpay_sub_id)

@@ -121,16 +121,27 @@ def _ensure_provenance(
     key = (opportunity.id, source_id, raw.source_url or "")
     existing_link = board_state.provenance_by_key.get(key)
     if existing_link is None:
-        link = models.OpportunitySource(
-            opportunity_id=opportunity.id,
-            source_id=source_id,
-            source_url=raw.source_url,
-            raw_listing_id=raw_row.id,
-            is_primary=is_primary,
+        existing_link = session.scalar(
+            select(models.OpportunitySource).where(
+                models.OpportunitySource.opportunity_id == opportunity.id,
+                models.OpportunitySource.source_id == source_id,
+                func.coalesce(models.OpportunitySource.source_url, "") == key[2],
+            )
         )
-        session.add(link)
-        board_state.provenance_by_key[key] = link
-    elif existing_link.raw_listing_id != raw_row.id:
+        if existing_link is None:
+            link = models.OpportunitySource(
+                opportunity_id=opportunity.id,
+                source_id=source_id,
+                source_url=raw.source_url,
+                raw_listing_id=raw_row.id,
+                is_primary=is_primary,
+            )
+            session.add(link)
+            board_state.provenance_by_key[key] = link
+            return
+        board_state.provenance_by_key[key] = existing_link
+
+    if existing_link.raw_listing_id != raw_row.id:
         # Keep provenance pointing at the current raw_listings row - it can
         # go stale if raw_listings was pruned and a fresh row created on a
         # later crawl (Doc 03 sec 8 retention).

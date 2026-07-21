@@ -11,9 +11,36 @@ from api.auth import get_current_user
 from api.deps import get_db
 from api.schemas import DreamCompanyItem
 from core import models
+from core.config import get_settings
 from core.gating import can
+from core.ratelimit import check_rate_limit
+from core.redis_client import get_redis
 
 router = APIRouter()
+
+
+async def enforce_dream_company_write_limit(
+    user: models.User = Depends(get_current_user),
+) -> models.User:
+    """Per-user write limit (Doc handoffs/PHASE-2-HANDOFF.md sec 11.4) -
+    enforced here, as a route dependency, rather than in the global ASGI
+    middleware: it needs the *authenticated* user, which only exists after
+    get_current_user has already run."""
+    settings = get_settings()
+    result = await check_rate_limit(
+        get_redis(),
+        bucket="dream_company_write",
+        identifier=str(user.id),
+        max_requests=settings.rate_limit_user_dream_company_write_per_minute,
+        window_seconds=60,
+    )
+    if not result.allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many requests",
+            headers={"Retry-After": str(result.retry_after_seconds)},
+        )
+    return user
 
 
 def _get_company_or_404(db: Session, slug: str) -> models.Company:
@@ -39,7 +66,7 @@ def _get_existing(db: Session, user_id, company_id) -> models.DreamCompany | Non
 def add_dream_company(
     company_slug: str,
     db: Session = Depends(get_db),
-    user: models.User = Depends(get_current_user),
+    user: models.User = Depends(enforce_dream_company_write_limit),
 ) -> None:
     company = _get_company_or_404(db, company_slug)
     existing = _get_existing(db, user.id, company.id)
@@ -67,7 +94,7 @@ def add_dream_company(
 def remove_dream_company(
     company_slug: str,
     db: Session = Depends(get_db),
-    user: models.User = Depends(get_current_user),
+    user: models.User = Depends(enforce_dream_company_write_limit),
 ) -> None:
     company = _get_company_or_404(db, company_slug)
     existing = _get_existing(db, user.id, company.id)

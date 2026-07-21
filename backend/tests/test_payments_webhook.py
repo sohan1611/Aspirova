@@ -237,6 +237,27 @@ def test_unrecognized_event_is_acknowledged_not_errored(client) -> None:
     assert response.json()["status"] == "ignored"
 
 
+def test_malformed_known_event_is_acknowledged_not_errored(client) -> None:
+    payload = {
+        "entity": "event",
+        "event": "subscription.activated",
+        "payload": {"subscription": {}},
+        "created_at": 1700000000,
+    }
+    body = json.dumps(payload).encode("utf-8")
+    response = client.post(
+        "/payments/webhook",
+        content=body,
+        headers={"X-Razorpay-Signature": _sign(body), "Content-Type": "application/json"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "malformed_payload",
+        "event": "subscription.activated",
+    }
+
+
 def test_unknown_subscription_id_is_acknowledged_not_errored(client) -> None:
     body = _subscription_event_body("subscription.activated", "sub_does_not_exist_anywhere")
     response = client.post(
