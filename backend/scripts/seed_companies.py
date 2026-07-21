@@ -59,6 +59,9 @@ GREENHOUSE_COMPANIES = [
     ("duolingo", "Duolingo", "duolingo.com"),
     ("temporaltechnologies", "Temporal", "temporal.io"),
     ("squarespace", "Squarespace", "squarespace.com"),
+    # India fintech, probed live 2026-07-22 (12 and 63 open roles).
+    ("groww", "Groww", "groww.in"),
+    ("slice", "Slice", "sliceit.com"),
 ]
 
 # (board_token, company_name, domain) - verified live against
@@ -71,6 +74,12 @@ LEVER_COMPANIES = [
     ("cred", "CRED", "cred.club"),
     ("zeta", "Zeta", "zeta.tech"),
     ("palantir", "Palantir", "palantir.com"),
+    # India supply. Probed live 2026-07-22 against a BOGUS-token control first:
+    # api.lever.co returns an error OBJECT (not a list) for unknown tokens, so a
+    # naive len() reads it as "2 jobs" and every guess looks like a real board.
+    # Only tokens returning an actual JSON list were kept.
+    ("meesho", "Meesho", "meesho.com"),
+    ("mindtickle", "Mindtickle", "mindtickle.com"),
 ]
 
 # (board_token, company_name, domain) - verified live against
@@ -98,6 +107,16 @@ ASHBY_COMPANIES = [
     ("abridge", "Abridge", "abridge.com"),
     ("character", "Character.AI", "character.ai"),
     ("resend", "Resend", "resend.com"),
+    # AI/dev-infra boards students target. Probed live 2026-07-22; the
+    # bogus-token control returns "Not Found", so these counts are real.
+    ("cursor", "Cursor", "cursor.com"),
+    ("langchain", "LangChain", "langchain.com"),
+    ("baseten", "Baseten", "baseten.co"),
+    ("deepgram", "Deepgram", "deepgram.com"),
+    ("fireworksai", "Fireworks AI", "fireworks.ai"),
+    ("railway", "Railway", "railway.app"),
+    ("neon", "Neon", "neon.tech"),
+    ("runway", "Runway", "runwayml.com"),
 ]
 
 # (board_token, company_name, domain) - verified live against

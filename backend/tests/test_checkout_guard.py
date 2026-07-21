@@ -1,7 +1,7 @@
 """Offline regression tests for checkout's active-subscription guard."""
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pytest
@@ -13,6 +13,7 @@ from api.auth import get_current_user
 from api.deps import get_db
 from api.main import app
 from core import models
+from core.config import get_settings
 
 
 @pytest.fixture
@@ -124,6 +125,32 @@ def test_checkout_rejects_active_subscription_without_calling_razorpay(
         db_session.query(models.Subscription).filter(models.Subscription.user_id == user.id).count()
     )
     assert count_after == count_before
+
+
+def test_checkout_allows_subscription_expired_beyond_grace_with_razorpay_id(
+    client: TestClient,
+    db_session: Session,
+    paid_plan: models.Plan,
+    razorpay_calls: list[dict[str, Any]],
+    user: models.User,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(get_settings(), "subscription_grace_days", 3)
+    db_session.add(
+        models.Subscription(
+            user_id=user.id,
+            plan_id=paid_plan.id,
+            status="active",
+            razorpay_sub_id=f"sub_expired_{uuid.uuid4().hex}",
+            current_period_end=datetime.now(timezone.utc) - timedelta(days=10),
+        )
+    )
+    db_session.flush()
+
+    response = client.post(f"/payments/checkout/{paid_plan.key}")
+
+    assert response.status_code == 200
+    assert len(razorpay_calls) == 1
 
 
 def test_checkout_rejects_scheduled_cancellation_and_includes_period_end(

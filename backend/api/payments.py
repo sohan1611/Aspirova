@@ -25,7 +25,7 @@ from html import escape
 import razorpay
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
-from sqlalchemy import func, or_, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from api.auth import get_current_user
@@ -34,6 +34,7 @@ from core import models
 from core.config import get_settings
 from core.email_client import send_email
 from core.email_templates import email_layout, text_footer
+from core.gating import active_subscription_filters
 
 router = APIRouter()
 
@@ -195,12 +196,7 @@ def _active_subscription_with_plan(db: Session, user: models.User):
         .join(models.Plan, models.Plan.id == models.Subscription.plan_id)
         .where(
             models.Subscription.user_id == user.id,
-            models.Subscription.status.in_(("active", "trialing")),
-            or_(
-                models.Subscription.razorpay_sub_id.isnot(None),
-                models.Subscription.current_period_end.is_(None),
-                models.Subscription.current_period_end > func.now(),
-            ),
+            *active_subscription_filters(),
         )
         .order_by(models.Subscription.created_at.desc())
         .limit(1)
@@ -471,12 +467,7 @@ def create_checkout(
         select(models.Subscription)
         .where(
             models.Subscription.user_id == user.id,
-            models.Subscription.status.in_(("active", "trialing")),
-            or_(
-                models.Subscription.razorpay_sub_id.isnot(None),
-                models.Subscription.current_period_end.is_(None),
-                models.Subscription.current_period_end > func.now(),
-            ),
+            *active_subscription_filters(),
         )
         .order_by(models.Subscription.created_at.desc())
         .limit(1)

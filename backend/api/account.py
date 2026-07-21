@@ -4,7 +4,7 @@ from datetime import datetime
 
 import razorpay
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, or_, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from api.auth import get_current_user
@@ -12,7 +12,7 @@ from api.deps import get_db
 from api.payments import _razorpay_client
 from api.schemas import AccountMe, AccountUpdate, PlanState
 from core import models
-from core.gating import get_features
+from core.gating import active_subscription_filters, get_features
 
 router = APIRouter()
 
@@ -23,12 +23,7 @@ def _active_subscription_query(user: models.User):
         .join(models.Plan, models.Plan.id == models.Subscription.plan_id)
         .where(
             models.Subscription.user_id == user.id,
-            models.Subscription.status.in_(("active", "trialing")),
-            or_(
-                models.Subscription.razorpay_sub_id.isnot(None),
-                models.Subscription.current_period_end.is_(None),
-                models.Subscription.current_period_end > func.now(),
-            ),
+            *active_subscription_filters(),
         )
         .order_by(models.Subscription.created_at.desc())
         .limit(1)

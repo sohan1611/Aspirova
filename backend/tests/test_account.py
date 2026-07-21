@@ -13,6 +13,7 @@ from api.auth import get_current_user
 from api.deps import get_db
 from api.main import app
 from core import models
+from core.config import get_settings
 from pipeline.notifications import wants
 
 
@@ -69,6 +70,40 @@ def test_get_account_me_returns_free_plan(client) -> None:
     assert response.status_code == 200
     assert response.json()["plan"]["status"] == "free"
     assert response.json()["plan"]["key"] == "free"
+
+
+def test_account_me_treats_subscription_expired_beyond_grace_as_free(
+    client,
+    db_session: Session,
+    free_plan: models.Plan,
+    user: models.User,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(get_settings(), "subscription_grace_days", 3)
+    paid_plan = models.Plan(
+        key=f"account-expired-{uuid.uuid4().hex}",
+        price_paise=4900,
+        billing="monthly",
+        features={"copilot": True},
+    )
+    db_session.add(paid_plan)
+    db_session.flush()
+    db_session.add(
+        models.Subscription(
+            user_id=user.id,
+            plan_id=paid_plan.id,
+            status="active",
+            razorpay_sub_id=f"sub_account_expired_{uuid.uuid4().hex}",
+            current_period_end=datetime.now(timezone.utc) - timedelta(days=10),
+        )
+    )
+    db_session.flush()
+
+    response = client.get("/account/me")
+
+    assert response.status_code == 200
+    assert response.json()["plan"]["status"] == "free"
+    assert response.json()["plan"]["key"] == free_plan.key
 
 
 def test_patch_account_updates_profile_and_merges_preferences(

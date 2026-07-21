@@ -4,21 +4,36 @@ if plan == 'pro' checks."). Every feature gate in the codebase goes
 through can() - never a scattered plan-string comparison.
 
 Reads the user's most recent subscription with status IN ('active',
-'trialing') (Doc 03 sec 4.1's status enum - 'past_due'/'canceled' do NOT
-grant paid features, matching how Razorpay itself treats a lapsed
-subscription) joined to that plan's features jsonb. An unauthenticated
-user or one with no such subscription resolves to the 'free' plan's
-features - there is always a fallback, never a KeyError.
+'trialing') whose period has not ended beyond the configured grace window.
+'past_due'/'canceled' subscriptions do NOT grant paid features, and neither
+does an ended period. The short grace window avoids locking out a paying user
+while a delayed Razorpay renewal webhook arrives. An unauthenticated user or
+one with no such subscription resolves to the 'free' plan's features - there
+is always a fallback, never a KeyError.
 """
 
+from datetime import timedelta
 from typing import Any
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from core import models
+from core.config import get_settings
 
 FREE_PLAN_KEY = "free"
+
+
+def active_subscription_filters() -> list[Any]:
+    """Criteria for subscriptions that currently retain paid access."""
+    grace_interval = timedelta(days=get_settings().subscription_grace_days)
+    return [
+        models.Subscription.status.in_(("active", "trialing")),
+        or_(
+            models.Subscription.current_period_end.is_(None),
+            models.Subscription.current_period_end > func.now() - grace_interval,
+        ),
+    ]
 
 
 def _free_features(db: Session) -> dict:
@@ -41,12 +56,7 @@ def get_features(db: Session, user: "models.User | None") -> dict:
         .join(models.Subscription, models.Subscription.plan_id == models.Plan.id)
         .where(
             models.Subscription.user_id == user.id,
-            models.Subscription.status.in_(("active", "trialing")),
-            or_(
-                models.Subscription.razorpay_sub_id.isnot(None),
-                models.Subscription.current_period_end.is_(None),
-                models.Subscription.current_period_end > func.now(),
-            ),
+            *active_subscription_filters(),
         )
         .order_by(models.Subscription.created_at.desc())
         .limit(1)

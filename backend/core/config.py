@@ -44,8 +44,9 @@ class Settings(BaseSettings):
     upstash_redis_rest_token: str = ""
     redis_timeout_seconds: float = 0.75
 
-    # Limits/TTL are config, not code (sec 11.4) - Sonnet may retune these,
-    # but they must stay env-driven.
+    # Subscription grace, limits/TTL are config, not code (sec 11.4) -
+    # Sonnet may retune these, but they must stay env-driven.
+    subscription_grace_days: int = 3
     rate_limit_ip_feed_search_per_minute: int = 60
     rate_limit_ip_opportunity_per_minute: int = 120
     rate_limit_user_bookmark_write_per_minute: int = 30
