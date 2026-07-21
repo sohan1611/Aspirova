@@ -18,7 +18,9 @@ This is a judgment call flagged for architect review, not a documented
 canon value.
 """
 
+import logging
 from datetime import datetime, timezone
+from html import escape
 
 import razorpay
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -29,8 +31,12 @@ from api.auth import get_current_user
 from api.deps import get_db
 from core import models
 from core.config import get_settings
+from core.email_client import send_email
+from core.email_templates import email_layout, text_footer
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
 
 _TOTAL_COUNT_BY_BILLING = {"monthly": 120, "annual": 10}
 
@@ -46,6 +52,106 @@ _STATUS_BY_EVENT = {
     "subscription.halted": "past_due",
 }
 _TERMINAL_STATUSES = frozenset({"canceled"})
+
+
+def _send_subscription_status_email(
+    db: Session, subscription: models.Subscription, new_status: str
+) -> None:
+    """Best-effort customer email plus delivery record after a status transition."""
+
+    try:
+        user = db.scalar(select(models.User).where(models.User.id == subscription.user_id))
+        if user is None or not user.email:
+            return
+
+        plan = db.scalar(select(models.Plan).where(models.Plan.id == subscription.plan_id))
+        if plan is None:
+            return
+
+        plan_name = escape(plan.key.replace("_", " ").title(), quote=True)
+        site_url = get_settings().site_url.rstrip("/")
+
+        if new_status == "active":
+            subject = "Your Aspirova Pro is active"
+            html = email_layout(
+                title="Your Aspirova Pro is active",
+                intro_html=(
+                    '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:15px;'
+                    'line-height:22px;margin:0 0 20px">'
+                    f"Your {plan_name} plan is now active."
+                    "</p>"
+                ),
+                body_html=(
+                    '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:15px;'
+                    'line-height:22px;margin:0 0 20px">'
+                    "Your Pro features are ready whenever you are."
+                    "</p>"
+                ),
+                cta_label="Open Aspirova",
+                cta_url=site_url,
+            )
+            text = (
+                f"Your {plan_name} plan is now active.\n\n"
+                "Your Pro features are ready whenever you are.\n"
+                f"Open Aspirova: {site_url}\n\n"
+                f"{text_footer()}"
+            )
+            notification_type = "subscription_activated"
+        else:
+            subject = "We couldn't process your payment"
+            html = email_layout(
+                title="We couldn't process your payment",
+                intro_html=(
+                    '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:15px;'
+                    'line-height:22px;margin:0 0 20px">'
+                    f"We couldn't process the payment for your {plan_name} plan."
+                    "</p>"
+                ),
+                body_html=(
+                    '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:15px;'
+                    'line-height:22px;margin:0 0 20px">'
+                    "Please update your payment method. Pro features are paused until your payment "
+                    "succeeds."
+                    "</p>"
+                ),
+                cta_label="View your subscription",
+                cta_url=f"{site_url}/account?section=subscription",
+            )
+            text = (
+                f"We couldn't process the payment for your {plan_name} plan.\n\n"
+                "Please update your payment method. Pro features are paused until your payment "
+                "succeeds.\n"
+                f"View your subscription: {site_url}/account?section=subscription\n\n"
+                f"{text_footer()}"
+            )
+            notification_type = "subscription_payment_failed"
+
+        try:
+            sent = send_email(user.email, subject, html, text)
+        except Exception:
+            logger.exception("subscription email send failed for subscription %s", subscription.id)
+            sent = False
+
+        now = datetime.now(timezone.utc)
+        db.add(
+            models.Notification(
+                user_id=user.id,
+                type=notification_type,
+                status="sent" if sent else "failed",
+                sent_at=now if sent else None,
+                meta={
+                    "subscription_id": subscription.id,
+                    "razorpay_sub_id": subscription.razorpay_sub_id,
+                },
+            )
+        )
+        db.commit()
+    except Exception:
+        # The subscription state was committed before this helper is called.
+        db.rollback()
+        logger.exception(
+            "subscription email notification failed for subscription %s", subscription.id
+        )
 
 
 def _razorpay_client() -> razorpay.Client:
@@ -155,6 +261,7 @@ async def razorpay_webhook(
     if subscription.status in _TERMINAL_STATUSES:
         return {"status": "ignored_terminal", "event": event}
 
+    previous_status = subscription.status
     subscription.status = new_status
     current_end = subscription_entity.get("current_end")
     if current_end:
@@ -166,4 +273,8 @@ async def razorpay_webhook(
             subscription.current_period_end = incoming_period_end
 
     db.commit()
+
+    if previous_status != new_status and new_status in {"active", "past_due"}:
+        _send_subscription_status_email(db, subscription, new_status)
+
     return {"status": "ok", "event": event}
