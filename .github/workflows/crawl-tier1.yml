@@ -62,19 +62,27 @@ jobs:
           PYTHONUNBUFFERED: "1"
         run: uv run python -m crawlers.runner --tier 1 --group aggregator
 
+      # success() || failure() - NOT always(): these must still run when the
+      # ATS step overruns its cap (run 29800767109 was SIGKILL'd there, which
+      # silently skipped all three, so dead listings stayed live in the feed
+      # and hidden/expired flags went stale). always() would also fire them on
+      # a cancelled run, and this workflow uses cancel-in-progress.
       - name: Retire listings gone from their boards
+        if: success() || failure()
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           PYTHONUNBUFFERED: "1"
         run: uv run python -m scripts.expire_missing
 
       - name: Recompute hidden opportunities
+        if: success() || failure()
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           PYTHONUNBUFFERED: "1"
         run: uv run python -m scripts.compute_hidden
 
       - name: Prune expired competitions
+        if: success() || failure()
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           PYTHONUNBUFFERED: "1"

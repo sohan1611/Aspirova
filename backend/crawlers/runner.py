@@ -69,11 +69,20 @@ AGGREGATOR_ADAPTERS: dict[str, type] = {
 
 ATS_FETCH_MAX_WORKERS = 10
 DEFAULT_AGGREGATOR_MAX_SECONDS = 600.0
-# Soft wall-clock budget for the ATS ingest phase. Well under the workflow's
-# 28-minute ATS step cap, so the loop exits cleanly (committing its work and
-# letting the aggregator + tail steps run) instead of being SIGKILL'd at the
-# hard cap and marking the whole run failed. Env-tunable (CRAWLER_ATS_MAX_SECONDS).
-DEFAULT_ATS_MAX_SECONDS = 1320.0
+# Soft wall-clock budget for the WHOLE ATS phase (prefetch + ingest), armed
+# before the prefetch below. Well under the workflow's 28-minute ATS step cap,
+# so the loop exits cleanly (committing its work and letting the aggregator +
+# tail steps run) instead of being SIGKILL'd at the hard cap and marking the
+# whole run failed. Env-tunable (CRAWLER_ATS_MAX_SECONDS).
+#
+# The gap to the 28-minute cap must exceed the SLOWEST SINGLE BOARD, because
+# the deadline only gates whether a board may START - once one is in flight it
+# runs to completion. Confirmed live (run 29800767109, 2026-07-21): at 1320s
+# armed after the prefetch, the effective deadline landed at ~25.5min, datadog
+# alone ingested for 8.5min, and the run was killed mid-board at the 28min cap
+# - which also skipped the tail steps, so dead listings were never retired.
+# 1080s + the ~3.5min prefetch inside it leaves ~10min for an in-flight board.
+DEFAULT_ATS_MAX_SECONDS = 1080.0
 _STOP_REQUESTED = threading.Event()
 
 
@@ -714,14 +723,20 @@ def run_tier(
     # is already closed here; worker threads never receive a Session or ORM
     # object. Ingest remains below in the original one-session-per-board
     # sequence, so the Supabase session-mode pool sees no extra connections.
-    prefetched_boards = _prefetch_ats_boards(ats_jobs, should_stop=should_stop)
-
     # Soft wall-clock budget: stop the ATS loop cleanly before the workflow's
     # hard step cap, so committed boards persist and the aggregator + tail
     # steps still run (a completed, GREEN run) instead of a SIGKILL at the cap.
     # Stalest-first ordering above means the boards skipped here are done first
     # next run. Only armed when there is ATS work (aggregator-only runs skip it).
+    #
+    # Armed BEFORE the prefetch, not after: the prefetch fetches every board's
+    # HTTP up front and took ~3.5min in run 29800767109, so arming it afterward
+    # silently pushed the real deadline ~3.5min past where the budget said it
+    # was - the run then started a fresh board at ~23min and was SIGKILL'd
+    # mid-ingest at the 28min cap. The budget has to cover the phase it bounds.
     ats_deadline_monotonic = time.monotonic() + ats_max_seconds if ats_jobs else 0.0
+
+    prefetched_boards = _prefetch_ats_boards(ats_jobs, should_stop=should_stop)
 
     for job in ats_jobs:
         if _is_stop_requested(should_stop):
