@@ -377,6 +377,95 @@ def test_upgrade_creates_order_and_pending_row_without_changing_subscription(
     assert upgrade.amount_paise == payload["amount_paise"]
 
 
+def test_upgrade_reuses_pending_order_when_proration_is_unchanged(
+    client: TestClient,
+    db_session: Session,
+    razorpay_client: FakeRazorpayClient,
+    user: models.User,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    current_plan = _create_plan(db_session, price_paise=39_900, billing="annual")
+    target_plan = _create_plan(db_session, price_paise=49_900, billing="annual")
+    subscription = _create_active_subscription(
+        db_session,
+        user,
+        current_plan,
+        current_period_end=datetime.now(timezone.utc) + timedelta(days=273),
+    )
+    monkeypatch.setattr(payments_module, "_prorated_top_up_paise", lambda *_args: 5_000)
+
+    first = client.post(f"/payments/upgrade/{target_plan.key}")
+    second = client.post(f"/payments/upgrade/{target_plan.key}")
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["razorpay_order_id"] == second.json()["razorpay_order_id"]
+    assert first.json()["amount_paise"] == second.json()["amount_paise"] == 5_000
+    pending_upgrades = list(
+        db_session.scalars(
+            select(models.SubscriptionUpgrade).where(
+                models.SubscriptionUpgrade.subscription_id == subscription.id,
+                models.SubscriptionUpgrade.to_plan_id == target_plan.id,
+                models.SubscriptionUpgrade.status == "pending",
+            )
+        )
+    )
+    assert len(pending_upgrades) == 1
+    assert pending_upgrades[0].razorpay_order_id == first.json()["razorpay_order_id"]
+    assert len(razorpay_client.order_calls) == 1
+
+
+def test_upgrade_replaces_pending_order_when_proration_drifts(
+    client: TestClient,
+    db_session: Session,
+    razorpay_client: FakeRazorpayClient,
+    user: models.User,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    current_plan = _create_plan(db_session, price_paise=39_900, billing="annual")
+    target_plan = _create_plan(db_session, price_paise=49_900, billing="annual")
+    subscription = _create_active_subscription(
+        db_session,
+        user,
+        current_plan,
+        current_period_end=datetime.now(timezone.utc) + timedelta(days=273),
+    )
+    top_ups = iter((5_000, 4_900))
+    monkeypatch.setattr(
+        payments_module,
+        "_prorated_top_up_paise",
+        lambda *_args: next(top_ups),
+    )
+
+    first = client.post(f"/payments/upgrade/{target_plan.key}")
+    second = client.post(f"/payments/upgrade/{target_plan.key}")
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["razorpay_order_id"] != second.json()["razorpay_order_id"]
+    assert first.json()["amount_paise"] == 5_000
+    assert second.json()["amount_paise"] == 4_900
+    upgrades = list(
+        db_session.scalars(
+            select(models.SubscriptionUpgrade).where(
+                models.SubscriptionUpgrade.subscription_id == subscription.id,
+                models.SubscriptionUpgrade.to_plan_id == target_plan.id,
+            )
+        )
+    )
+    stale_upgrade = next(
+        upgrade
+        for upgrade in upgrades
+        if upgrade.razorpay_order_id == first.json()["razorpay_order_id"]
+    )
+    pending_upgrades = [upgrade for upgrade in upgrades if upgrade.status == "pending"]
+    assert stale_upgrade.status == "failed"
+    assert len(pending_upgrades) == 1
+    assert pending_upgrades[0].amount_paise == second.json()["amount_paise"]
+    assert pending_upgrades[0].razorpay_order_id == second.json()["razorpay_order_id"]
+    assert len(razorpay_client.order_calls) == 2
+
+
 def test_upgrade_waives_sub_rupee_top_up_without_order(
     client: TestClient,
     db_session: Session,

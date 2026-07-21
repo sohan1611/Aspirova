@@ -2,16 +2,17 @@
 
 import { Check } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { getAccount } from "@/lib/api";
 import { useCurrency } from "@/lib/country";
-import type { PlanPublic } from "@/lib/types";
+import type { PlanPublic, PlanState } from "@/lib/types";
 import { useSession } from "@/lib/useSession";
 import { cn } from "@/lib/utils";
 import SubscribeButton from "./SubscribeButton";
+import UpgradeButton from "./UpgradeButton";
 import WaitlistForm from "./WaitlistForm";
 
 const FEATURE_LABELS: [string, (v: unknown) => string | null][] = [
@@ -70,39 +71,47 @@ export default function PricingPlans({
   const accessToken = session?.access_token;
   const [planResult, setPlanResult] = useState<{
     accessToken: string;
-    currentPlanKey: string | null;
+    currentPlan: PlanState | null;
   } | null>(null);
   const planRequestRef = useRef(0);
 
-  const currentPlanKey =
-    planResult && planResult.accessToken === accessToken ? planResult.currentPlanKey : null;
+  const currentPlan =
+    planResult && planResult.accessToken === accessToken ? planResult.currentPlan : null;
+  const currentPlanKey = currentPlan?.key ?? null;
   const planLoading = Boolean(accessToken) && planResult?.accessToken !== accessToken;
-  const hasActiveSubscription = currentPlanKey !== null;
+  const hasActiveSubscription = currentPlan !== null;
 
-  useEffect(() => {
+  const refreshPlan = useCallback(async () => {
     const requestId = planRequestRef.current + 1;
     planRequestRef.current = requestId;
 
     if (!accessToken) return;
 
-    let cancelled = false;
-    void getAccount(accessToken)
-      .then((account) => {
-        if (cancelled || planRequestRef.current !== requestId) return;
-        setPlanResult({
-          accessToken,
-          currentPlanKey: account.plan.status !== "free" ? account.plan.key : null,
-        });
-      })
-      .catch(() => {
-        if (cancelled || planRequestRef.current !== requestId) return;
-        setPlanResult({ accessToken, currentPlanKey: null });
+    try {
+      const account = await getAccount(accessToken);
+      if (planRequestRef.current !== requestId) return;
+      setPlanResult({
+        accessToken,
+        currentPlan: account.plan.status !== "free" ? account.plan : null,
       });
-
-    return () => {
-      cancelled = true;
-    };
+    } catch {
+      if (planRequestRef.current !== requestId) return;
+      setPlanResult({ accessToken, currentPlan: null });
+    }
   }, [accessToken]);
+
+  useEffect(() => {
+    // set-state-in-effect targets SYNCHRONOUS setState cascades. refreshPlan
+    // only sets state after an awaited fetch resolves, and guards every write
+    // behind planRequestRef so a stale response cannot land. It is extracted
+    // rather than inlined because UpgradeButton re-runs it after a successful
+    // upgrade; inlining to satisfy the rule would mean duplicating the fetch.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void refreshPlan();
+    return () => {
+      planRequestRef.current += 1;
+    };
+  }, [refreshPlan]);
 
   const byKey = Object.fromEntries(plans.map((p) => [p.key, p]));
   const tiers: Tier[] = [
@@ -110,6 +119,13 @@ export default function PricingPlans({
     { name: "Pro Lite", monthly: byKey.pro_lite_monthly, annual: byKey.pro_lite_annual },
     { name: "Pro", highlight: true, monthly: byKey.pro_monthly, annual: byKey.pro_annual },
   ];
+  const currentPlanLabel =
+    tiers.find(
+      (tier) =>
+        tier.free?.key === currentPlanKey ||
+        tier.monthly?.key === currentPlanKey ||
+        tier.annual?.key === currentPlanKey,
+    )?.name ?? "your current plan";
 
   return (
     <div>
@@ -163,6 +179,12 @@ export default function PricingPlans({
           const isCurrentTier =
             currentPlanKey != null &&
             (tier.monthly?.key === currentPlanKey || tier.annual?.key === currentPlanKey);
+          const canUpgrade =
+            currentPlan !== null &&
+            !isCurrentPlan &&
+            !currentPlan.cancel_at_period_end &&
+            plan.billing === currentPlan.billing &&
+            plan.price_paise > currentPlan.price_paise;
 
           return (
             <Card
@@ -237,6 +259,14 @@ export default function PricingPlans({
                   >
                     Current plan
                   </Button>
+                ) : canUpgrade ? (
+                  <UpgradeButton
+                    planKey={plan.key}
+                    planLabel={tier.name}
+                    highlight={tier.highlight}
+                    currentPlanLabel={currentPlanLabel}
+                    onUpgraded={refreshPlan}
+                  />
                 ) : hasActiveSubscription ? (
                   <Button
                     variant={tier.highlight ? "default" : "outline"}

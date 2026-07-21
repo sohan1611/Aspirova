@@ -20,6 +20,8 @@ import type {
   SearchResponse,
   StatsResponse,
   TrendingResponse,
+  UpgradePaymentRequired,
+  UpgradeResult,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -459,6 +461,46 @@ export async function createCheckout(
     throw new CheckoutConflictError(detail);
   }
   if (!res.ok) throw new Error(`Failed to start checkout: ${res.status}`);
+  return res.json();
+}
+
+export async function startUpgrade(
+  planKey: string,
+  accessToken: string,
+): Promise<UpgradeResult | UpgradePaymentRequired> {
+  const res = await fetch(`${API_URL}/payments/upgrade/${encodeURIComponent(planKey)}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (res.status === 409) {
+    const body = (await res.json().catch(() => null)) as { detail?: unknown } | null;
+    const detail =
+      typeof body?.detail === "string"
+        ? body.detail
+        : "Your current plan cannot be upgraded right now.";
+    throw new CheckoutConflictError(detail);
+  }
+  if (!res.ok) throw new Error(`Failed to start upgrade: ${res.status}`);
+  return res.json();
+}
+
+export async function verifyUpgrade(
+  payload: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+  },
+  accessToken: string,
+): Promise<UpgradeResult> {
+  const res = await fetch(`${API_URL}/payments/upgrade/verify`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`Failed to verify upgrade: ${res.status}`);
   return res.json();
 }
 

@@ -204,6 +204,7 @@ def _active_subscription_with_plan(db: Session, user: models.User):
         )
         .order_by(models.Subscription.created_at.desc())
         .limit(1)
+        .with_for_update(of=models.Subscription)
     ).first()
 
 
@@ -260,8 +261,21 @@ def verify_upgrade_payment(
     if upgrade.user_id != user.id:
         raise HTTPException(status_code=403, detail="This upgrade payment does not belong to you")
 
+    # Use the same lock as order creation/replacement so a payment from an
+    # already-open checkout cannot race a newly computed upgrade amount.
+    subscription = db.scalar(
+        select(models.Subscription)
+        .where(models.Subscription.id == upgrade.subscription_id)
+        .with_for_update()
+    )
+    if subscription is None:
+        raise RuntimeError(f"subscription upgrade {upgrade.id} has missing referenced records")
+    db.refresh(upgrade)
+
     if upgrade.status in {"applied", "applied_with_error"}:
         return {"status": "upgraded", "amount_paise": upgrade.amount_paise}
+    if upgrade.status == "failed":
+        raise HTTPException(status_code=409, detail="This upgrade payment is no longer valid")
 
     client = _razorpay_client()
     try:
@@ -277,9 +291,8 @@ def verify_upgrade_payment(
         db.commit()
         raise HTTPException(status_code=400, detail="Invalid payment signature") from exc
 
-    subscription = db.get(models.Subscription, upgrade.subscription_id)
     target_plan = db.get(models.Plan, upgrade.to_plan_id)
-    if subscription is None or target_plan is None:
+    if target_plan is None:
         raise RuntimeError(f"subscription upgrade {upgrade.id} has missing referenced records")
 
     upgrade.razorpay_payment_id = request.razorpay_payment_id
@@ -343,6 +356,53 @@ def create_subscription_upgrade(
         subscription.current_period_end,
         datetime.now(timezone.utc),
     )
+
+    # Locking the active subscription above serializes concurrent requests for
+    # this upgrade. Normalize any legacy duplicate pending rows as well, so
+    # this subscription/target pair has at most one payable order.
+    pending_upgrades = list(
+        db.scalars(
+            select(models.SubscriptionUpgrade)
+            .where(
+                models.SubscriptionUpgrade.subscription_id == subscription.id,
+                models.SubscriptionUpgrade.to_plan_id == plan.id,
+                models.SubscriptionUpgrade.status == "pending",
+            )
+            .order_by(
+                models.SubscriptionUpgrade.created_at.desc(),
+                models.SubscriptionUpgrade.id.desc(),
+            )
+        )
+    )
+    reusable_upgrade = next(
+        (
+            upgrade
+            for upgrade in pending_upgrades
+            if upgrade.amount_paise == top_up and upgrade.razorpay_order_id is not None
+        ),
+        None,
+    )
+
+    if reusable_upgrade is not None:
+        razorpay_order_id = reusable_upgrade.razorpay_order_id
+        amount_paise = reusable_upgrade.amount_paise
+        stale_pending_upgrades = [
+            upgrade for upgrade in pending_upgrades if upgrade is not reusable_upgrade
+        ]
+        for stale_upgrade in stale_pending_upgrades:
+            stale_upgrade.status = "failed"
+        if stale_pending_upgrades:
+            db.commit()
+        return {
+            "status": "payment_required",
+            "amount_paise": amount_paise,
+            "razorpay_order_id": razorpay_order_id,
+            "razorpay_key_id": get_settings().razorpay_key_id,
+        }
+
+    for stale_upgrade in pending_upgrades:
+        stale_upgrade.status = "failed"
+
     client = _razorpay_client()
 
     if top_up < 100:

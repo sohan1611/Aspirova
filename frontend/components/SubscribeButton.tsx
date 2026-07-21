@@ -15,11 +15,11 @@ interface SubscribeButtonProps {
   label?: string;
 }
 
-function isPaymentsUnavailableError(error: unknown): boolean {
+export function isPaymentsUnavailableError(error: unknown): boolean {
   return error instanceof Error && error.message.endsWith(": 503");
 }
 
-async function waitForRazorpay(): Promise<Window["Razorpay"]> {
+export async function waitForRazorpay(): Promise<Window["Razorpay"]> {
   if (typeof window === "undefined") return undefined;
   if (window.Razorpay) return window.Razorpay;
 
