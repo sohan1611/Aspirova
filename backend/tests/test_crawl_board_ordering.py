@@ -2,7 +2,7 @@ from dataclasses import fields
 from datetime import datetime, timezone
 from random import Random
 
-from crawlers.runner import _AtsJob, _order_ats_jobs
+from crawlers.runner import _AtsJob, _order_aggregator_jobs, _order_ats_jobs
 
 
 def _job(*, company_id: int, source_id: int, board_token: str) -> _AtsJob:
@@ -17,6 +17,10 @@ def _job(*, company_id: int, source_id: int, board_token: str) -> _AtsJob:
 
 def _board_tokens(jobs: list[_AtsJob]) -> list[str]:
     return [job.board_token for job in jobs]
+
+
+def _adapter_keys(jobs: list[tuple[int, str]]) -> list[str]:
+    return [adapter_key for _, adapter_key in jobs]
 
 
 def test_never_crawled_boards_sort_before_previously_crawled_boards() -> None:
@@ -125,3 +129,70 @@ def test_ats_job_ordering_is_deterministic_after_shuffle() -> None:
 
     assert _board_tokens(_order_ats_jobs(jobs, last_crawled_by_board)) == expected
     assert _board_tokens(_order_ats_jobs(shuffled, last_crawled_by_board)) == expected
+
+
+def test_never_crawled_aggregator_sorts_before_crawled_ones() -> None:
+    never_crawled = (1, "unstop")
+    crawled = (2, "devpost")
+
+    ordered = _order_aggregator_jobs(
+        [crawled, never_crawled],
+        {crawled[0]: datetime(2026, 7, 1, tzinfo=timezone.utc)},
+    )
+
+    assert _adapter_keys(ordered) == ["unstop", "devpost"]
+
+
+def test_stalest_crawled_aggregator_sorts_before_fresher_ones() -> None:
+    fresher = (1, "devpost")
+    stalest = (2, "unstop")
+
+    ordered = _order_aggregator_jobs(
+        [fresher, stalest],
+        {
+            fresher[0]: datetime(2026, 7, 21, tzinfo=timezone.utc),
+            stalest[0]: datetime(2026, 7, 11, tzinfo=timezone.utc),
+        },
+    )
+
+    assert _adapter_keys(ordered) == ["unstop", "devpost"]
+
+
+def test_stale_remoteok_sorts_first_in_regression_case() -> None:
+    jobs = [(1, "devpost"), (2, "remoteok"), (3, "unstop")]
+
+    ordered = _order_aggregator_jobs(
+        jobs,
+        {
+            1: datetime(2026, 7, 21, tzinfo=timezone.utc),
+            2: datetime(2026, 7, 10, tzinfo=timezone.utc),
+            3: datetime(2026, 7, 11, tzinfo=timezone.utc),
+        },
+    )
+
+    assert _adapter_keys(ordered) == ["remoteok", "unstop", "devpost"]
+
+
+def test_remoteok_sorts_last_when_timestamps_tie() -> None:
+    jobs = [(1, "unstop"), (2, "remoteok"), (3, "devpost")]
+    timestamp = datetime(2026, 7, 21, tzinfo=timezone.utc)
+
+    ordered = _order_aggregator_jobs(
+        jobs,
+        {source_id: timestamp for source_id, _ in jobs},
+    )
+
+    assert _adapter_keys(ordered) == ["devpost", "unstop", "remoteok"]
+
+
+def test_aggregator_ordering_is_deterministic_after_shuffle() -> None:
+    jobs = [(1, "unstop"), (2, "remoteok"), (3, "devpost")]
+    timestamp = datetime(2026, 7, 21, tzinfo=timezone.utc)
+    last_crawled_by_source = {source_id: timestamp for source_id, _ in jobs}
+    shuffled = jobs.copy()
+    Random(7).shuffle(shuffled)
+
+    expected = _adapter_keys(_order_aggregator_jobs(jobs, last_crawled_by_source))
+
+    assert _adapter_keys(_order_aggregator_jobs(jobs, last_crawled_by_source)) == expected
+    assert _adapter_keys(_order_aggregator_jobs(shuffled, last_crawled_by_source)) == expected

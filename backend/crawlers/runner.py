@@ -104,6 +104,26 @@ def _order_ats_jobs(
     )
 
 
+def _order_aggregator_jobs(
+    jobs: list[tuple[int, str]],
+    last_crawled_by_source: dict[int, datetime],
+) -> list[tuple[int, str]]:
+    _stalest_first = datetime.min.replace(tzinfo=timezone.utc)
+
+    # Crawl aggregators stalest-first so the shared budget rotates coverage.
+    # RemoteOK remains last only when equally stale: always placing it last
+    # left it 11 days stale when Unstop exhausted the aggregator budget.
+    # The adapter key makes equal non-RemoteOK timestamps deterministic.
+    return sorted(
+        jobs,
+        key=lambda job: (
+            last_crawled_by_source.get(job[0], _stalest_first),
+            job[1] == "remoteok",
+            job[1],
+        ),
+    )
+
+
 @dataclass(frozen=True)
 class _AtsJob:
     company_id: int
@@ -715,8 +735,6 @@ def run_tier(
                 aggregator_jobs.append((source.id, source.adapter_key))
             # else: adapter_key not registered in either dict - skip
 
-        aggregator_jobs.sort(key=lambda job: job[1] == "remoteok")
-
         # Crawl the STALEST boards first so the time-boxed ATS loop (below)
         # rotates coverage fairly: a run that runs out of budget leaves the
         # boards it did not reach as the most-stale, so the NEXT run does them
@@ -740,6 +758,22 @@ def run_tier(
         # Among equal staleness timestamps, prefer the newest-seeded company
         # so an arbitrary tie cannot leave new boards unreached for days.
         ats_jobs = _order_ats_jobs(ats_jobs, last_crawled_by_board)
+
+        # Read every SourceState row for these sources once, then retain each
+        # source's latest crawl time without assuming a particular page_key.
+        last_crawled_by_source: dict[int, datetime] = {}
+        if aggregator_jobs:
+            aggregator_source_ids = {source_id for source_id, _ in aggregator_jobs}
+            for state in session.scalars(
+                select(models.SourceState).where(
+                    models.SourceState.source_id.in_(aggregator_source_ids)
+                )
+            ).all():
+                if state.last_crawled_at is not None:
+                    previous_crawl = last_crawled_by_source.get(state.source_id)
+                    if previous_crawl is None or state.last_crawled_at > previous_crawl:
+                        last_crawled_by_source[state.source_id] = state.last_crawled_at
+        aggregator_jobs = _order_aggregator_jobs(aggregator_jobs, last_crawled_by_source)
 
     # Fetches are pure HTTP and may safely overlap. The gather session above
     # is already closed here; worker threads never receive a Session or ORM
