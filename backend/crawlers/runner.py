@@ -36,6 +36,7 @@ from crawlers.amazon import AmazonAdapter
 from crawlers.ashby import AshbyAdapter
 from crawlers.devpost import DevpostAdapter
 from crawlers.greenhouse import GreenhouseAdapter
+from crawlers.keka import KekaAdapter
 from crawlers.lever import LeverAdapter
 from crawlers.remoteok import RemoteOkAdapter
 from crawlers.smartrecruiters import SmartRecruitersAdapter
@@ -50,6 +51,7 @@ from pipeline.ingest import ingest_one, load_board_state
 ATS_ADAPTERS: dict[str, type] = {
     "amazon": AmazonAdapter,
     "greenhouse": GreenhouseAdapter,
+    "keka": KekaAdapter,
     "lever": LeverAdapter,
     "ashby": AshbyAdapter,
     "smartrecruiters": SmartRecruitersAdapter,

@@ -1,0 +1,76 @@
+[
+  {
+    "id": 134778,
+    "title": "Software Engineering Intern",
+    "description": "<h1>Software Engineering Intern</h1><p>Build reliable tools for students.</p>",
+    "excerpt": "Build reliable tools for students.",
+    "departmentName": "Engineering",
+    "departmentIdentifier": "5f7d5bd9-3af5-4cb2-b24e-57cd7d1c9f31",
+    "jobLocations": [
+      {
+        "id": 6916,
+        "name": "Hyderabad",
+        "city": "Hyderabad",
+        "state": "TG",
+        "countryCode": "IN",
+        "countryName": "India"
+      }
+    ],
+    "jobType": 2,
+    "experience": "0-1 years",
+    "publishedOn": "2026-07-14T12:54:39.03Z",
+    "publishedSinceDays": 7,
+    "salaryRange": {
+      "currency": "INR",
+      "salaryPeriod": 0,
+      "cultureInfo": "en-IN"
+    },
+    "skillNames": ["Python", "FastAPI"]
+  },
+  {
+    "id": 134779,
+    "title": "Backend Engineer",
+    "description": "",
+    "excerpt": "Build backend services for customers.",
+    "departmentName": "Platform Engineering",
+    "departmentIdentifier": "5f7d5bd9-3af5-4cb2-b24e-57cd7d1c9f31",
+    "jobLocations": [],
+    "jobType": 2,
+    "experience": "2+ years",
+    "publishedSinceDays": 3,
+    "salaryRange": {
+      "currency": "INR",
+      "salaryPeriod": 0,
+      "cultureInfo": "en-IN"
+    },
+    "skillNames": []
+  },
+  {
+    "id": 134780,
+    "title": "Product Designer (Remote)",
+    "description": "<p>Design thoughtful product experiences.</p>",
+    "excerpt": "Design thoughtful product experiences.",
+    "departmentName": "Product",
+    "departmentIdentifier": "5f7d5bd9-3af5-4cb2-b24e-57cd7d1c9f31",
+    "jobLocations": [
+      {
+        "id": 6920,
+        "name": "Bengaluru",
+        "city": "Bengaluru",
+        "state": "KA",
+        "countryCode": "IN",
+        "countryName": "India"
+      }
+    ],
+    "jobType": 1,
+    "experience": "3+ years",
+    "publishedOn": "2026-07-16T09:00:00Z",
+    "publishedSinceDays": 1,
+    "salaryRange": {
+      "currency": "INR",
+      "salaryPeriod": 0,
+      "cultureInfo": "en-IN"
+    },
+    "skillNames": ["Figma"]
+  }
+]

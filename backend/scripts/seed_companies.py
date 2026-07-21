@@ -108,6 +108,18 @@ SMARTRECRUITERS_COMPANIES = [
     ("UniversalMusicGroup", "Universal Music Group", "universalmusic.com"),
 ]
 
+KEKA_COMPANIES = [
+    ("clickpost", "ClickPost", None),
+    ("sjinnovation", "SJ Innovation", None),
+    ("zluri", "Zluri", None),
+    ("qualminds", "QualMinds", None),
+    ("talentformula", "Talent Formula", None),
+    ("arisinfra", "ArisInfra", None),
+    ("lumel", "Lumel", None),
+    ("auracloud", "Aura Cloud", None),
+    ("wealthindia", "WealthIndia", None),
+]
+
 # BoschGroup (4667) and DeliveryHero (1110) are verified-available but held out
 # for now to bound crawl duration until async/lazy detail fetch is added.
 
@@ -116,7 +128,7 @@ SMARTRECRUITERS_COMPANIES = [
 AMAZON_COMPANIES = [("amazon", "Amazon", "amazon.com")]
 
 # adapter_key -> (source slug/name/base_url, company list)
-_ADAPTER_SOURCES: dict[str, tuple[str, str, str, list[tuple[str, str, str]]]] = {
+_ADAPTER_SOURCES: dict[str, tuple[str, str, str, list[tuple[str, str, str | None]]]] = {
     "greenhouse": (
         "greenhouse",
         "Greenhouse",
@@ -131,6 +143,7 @@ _ADAPTER_SOURCES: dict[str, tuple[str, str, str, list[tuple[str, str, str]]]] = 
         "https://api.smartrecruiters.com",
         SMARTRECRUITERS_COMPANIES,
     ),
+    "keka": ("keka", "Keka", "https://www.keka.com", KEKA_COMPANIES),
     "amazon": ("amazon", "Amazon", "https://www.amazon.jobs", AMAZON_COMPANIES),
 }
 
