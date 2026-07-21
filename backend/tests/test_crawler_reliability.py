@@ -146,6 +146,7 @@ def test_ats_prefetch_is_bounded_and_isolates_failed_boards(monkeypatch) -> None
     board_tokens = [*(f"board-{number}" for number in range(12)), "bad-board"]
     jobs = [
         runner._AtsJob(
+            company_id=1,
             source_id=1,
             company_slug=f"company-{board_token}",
             adapter_key="concurrent-test",
@@ -187,6 +188,7 @@ def test_ats_prefetch_stops_queued_work_after_a_stop_signal(monkeypatch) -> None
     monkeypatch.setitem(runner.ATS_ADAPTERS, "blocking-test", _BlockingAdapter)
     jobs = [
         runner._AtsJob(
+            company_id=1,
             source_id=1,
             company_slug=f"company-{number}",
             adapter_key="blocking-test",
@@ -209,18 +211,25 @@ def test_ats_prefetch_stops_queued_work_after_a_stop_signal(monkeypatch) -> None
 
 def test_run_tier_ingests_other_boards_when_one_prefetch_fails(monkeypatch) -> None:
     source = SimpleNamespace(id=1, adapter_key="runner-prefetch-test")
+    # Descending ids: these boards are all never-crawled, so they tie on the
+    # primary staleness key and _order_ats_jobs falls through to -company_id.
+    # Numbering them downward keeps crawl order == list order, so this test
+    # stays about prefetch isolation rather than about ordering.
     companies = [
         SimpleNamespace(
+            id=3,
             slug="good-one",
             name="Good One",
             ats_board_id="good-one",
         ),
         SimpleNamespace(
+            id=2,
             slug="bad-one",
             name="Bad One",
             ats_board_id="bad-one",
         ),
         SimpleNamespace(
+            id=1,
             slug="good-two",
             name="Good Two",
             ats_board_id="good-two",
@@ -519,10 +528,12 @@ def _run_tier_ats_scaffold(monkeypatch, companies, source_states, crawl_order):
 
 
 def test_run_tier_ats_stops_cleanly_at_time_budget(monkeypatch) -> None:
+    # Descending ids so the never-crawled tie-break (-company_id) preserves
+    # list order; this test is about the time budget, not about ordering.
     companies = [
-        SimpleNamespace(slug="c1", name="C1", ats_board_id="c1"),
-        SimpleNamespace(slug="c2", name="C2", ats_board_id="c2"),
-        SimpleNamespace(slug="c3", name="C3", ats_board_id="c3"),
+        SimpleNamespace(id=3, slug="c1", name="C1", ats_board_id="c1"),
+        SimpleNamespace(id=2, slug="c2", name="C2", ats_board_id="c2"),
+        SimpleNamespace(id=1, slug="c3", name="C3", ats_board_id="c3"),
     ]
     crawl_order: list[str] = []
     _run_tier_ats_scaffold(monkeypatch, companies, [], crawl_order)
@@ -539,10 +550,12 @@ def test_run_tier_ats_stops_cleanly_at_time_budget(monkeypatch) -> None:
 def test_run_tier_ats_crawls_stalest_boards_first(monkeypatch) -> None:
     from datetime import datetime, timezone
 
+    # Ids are irrelevant here: all three have DISTINCT primary staleness keys,
+    # so -company_id is never reached.
     companies = [
-        SimpleNamespace(slug="fresh", name="Fresh", ats_board_id="fresh"),
-        SimpleNamespace(slug="never", name="Never", ats_board_id="never"),
-        SimpleNamespace(slug="old", name="Old", ats_board_id="old"),
+        SimpleNamespace(id=1, slug="fresh", name="Fresh", ats_board_id="fresh"),
+        SimpleNamespace(id=2, slug="never", name="Never", ats_board_id="never"),
+        SimpleNamespace(id=3, slug="old", name="Old", ats_board_id="old"),
     ]
     # fresh crawled today, old crawled long ago, never has no SourceState row.
     states = [

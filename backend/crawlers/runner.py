@@ -86,8 +86,27 @@ DEFAULT_ATS_MAX_SECONDS = 1080.0
 _STOP_REQUESTED = threading.Event()
 
 
+def _order_ats_jobs(
+    jobs: list["_AtsJob"],
+    last_crawled_by_board: dict[tuple[int, str], datetime],
+) -> list["_AtsJob"]:
+    _stalest_first = datetime.min.replace(tzinfo=timezone.utc)
+
+    # Keep never-crawled boards first, then crawl the stalest boards. When
+    # primary timestamps tie, prioritize the newest-seeded company so an
+    # arbitrary database-order tie cannot leave new boards unreached for days.
+    return sorted(
+        jobs,
+        key=lambda job: (
+            last_crawled_by_board.get((job.source_id, job.board_token), _stalest_first),
+            -job.company_id,
+        ),
+    )
+
+
 @dataclass(frozen=True)
 class _AtsJob:
+    company_id: int
     source_id: int
     company_slug: str
     adapter_key: str
@@ -683,6 +702,7 @@ def run_tier(
                 ).all()
                 ats_jobs.extend(
                     _AtsJob(
+                        company_id=company.id,
                         source_id=source.id,
                         company_slug=company.slug,
                         adapter_key=source.adapter_key,
@@ -712,12 +732,9 @@ def run_tier(
             ).all():
                 if state.last_crawled_at is not None:
                     last_crawled_by_board[(state.source_id, state.page_key)] = state.last_crawled_at
-            _stalest_first = datetime.min.replace(tzinfo=timezone.utc)
-            ats_jobs.sort(
-                key=lambda job: last_crawled_by_board.get(
-                    (job.source_id, job.board_token), _stalest_first
-                )
-            )
+        # Among equal staleness timestamps, prefer the newest-seeded company
+        # so an arbitrary tie cannot leave new boards unreached for days.
+        ats_jobs = _order_ats_jobs(ats_jobs, last_crawled_by_board)
 
     # Fetches are pure HTTP and may safely overlap. The gather session above
     # is already closed here; worker threads never receive a Session or ORM
