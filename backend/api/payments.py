@@ -24,6 +24,7 @@ from html import escape
 
 import razorpay
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from pydantic import BaseModel
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
@@ -159,6 +160,234 @@ def _razorpay_client() -> razorpay.Client:
     if not (settings.razorpay_key_id and settings.razorpay_key_secret):
         raise HTTPException(status_code=503, detail="Payments are not configured yet")
     return razorpay.Client(auth=(settings.razorpay_key_id, settings.razorpay_key_secret))
+
+
+class UpgradeVerificationRequest(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+
+
+def _prorated_top_up_paise(
+    current_price_paise: int,
+    new_price_paise: int,
+    billing: str,
+    current_period_end: datetime,
+    now: datetime,
+) -> int:
+    """Return the remaining-period price difference in paise.
+
+    Billing periods deliberately use nominal 365-day annual and 30-day monthly
+    lengths. This is an approximation (rather than adding dateutil); at these
+    plan-price differences its error is sub-rupee.
+    """
+
+    nominal_days = 365 if billing == "annual" else 30
+    remaining_days = (current_period_end - now).total_seconds() / 86_400
+    fraction = max(0.0, min(1.0, remaining_days / nominal_days))
+    top_up = round((new_price_paise - current_price_paise) * fraction)
+    return max(0, int(top_up))
+
+
+def _active_subscription_with_plan(db: Session, user: models.User):
+    return db.execute(
+        select(models.Subscription, models.Plan)
+        .join(models.Plan, models.Plan.id == models.Subscription.plan_id)
+        .where(
+            models.Subscription.user_id == user.id,
+            models.Subscription.status.in_(("active", "trialing")),
+            or_(
+                models.Subscription.razorpay_sub_id.isnot(None),
+                models.Subscription.current_period_end.is_(None),
+                models.Subscription.current_period_end > func.now(),
+            ),
+        )
+        .order_by(models.Subscription.created_at.desc())
+        .limit(1)
+    ).first()
+
+
+def _apply_subscription_upgrade(
+    db: Session,
+    client: razorpay.Client,
+    subscription: models.Subscription,
+    target_plan: models.Plan,
+    upgrade: models.SubscriptionUpgrade,
+) -> None:
+    # The local entitlement and the Razorpay schedule are independent money/state
+    # operations with no shared transaction. Commit local access first: the worst
+    # case is a customer has what they paid for and Razorpay needs reconciliation,
+    # never a customer who paid and got nothing.
+    subscription.plan_id = target_plan.id
+    db.commit()
+
+    try:
+        client.subscription.edit(
+            subscription.razorpay_sub_id,
+            {
+                "plan_id": target_plan.razorpay_plan_id,
+                "schedule_change_at": "cycle_end",
+            },
+        )
+    except Exception:
+        logger.exception(
+            "Razorpay subscription plan change failed after local upgrade "
+            "for subscription %s / upgrade %s",
+            subscription.id,
+            upgrade.id,
+        )
+        upgrade.status = "applied_with_error"
+        db.commit()
+        return
+
+    upgrade.status = "applied"
+    db.commit()
+
+
+@router.post("/payments/upgrade/verify")
+def verify_upgrade_payment(
+    request: UpgradeVerificationRequest,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+) -> dict:
+    upgrade = db.scalar(
+        select(models.SubscriptionUpgrade).where(
+            models.SubscriptionUpgrade.razorpay_order_id == request.razorpay_order_id
+        )
+    )
+    if upgrade is None:
+        raise HTTPException(status_code=404, detail="Upgrade payment not found")
+    if upgrade.user_id != user.id:
+        raise HTTPException(status_code=403, detail="This upgrade payment does not belong to you")
+
+    if upgrade.status in {"applied", "applied_with_error"}:
+        return {"status": "upgraded", "amount_paise": upgrade.amount_paise}
+
+    client = _razorpay_client()
+    try:
+        client.utility.verify_payment_signature(
+            {
+                "razorpay_order_id": request.razorpay_order_id,
+                "razorpay_payment_id": request.razorpay_payment_id,
+                "razorpay_signature": request.razorpay_signature,
+            }
+        )
+    except razorpay.errors.SignatureVerificationError as exc:
+        upgrade.status = "failed"
+        db.commit()
+        raise HTTPException(status_code=400, detail="Invalid payment signature") from exc
+
+    subscription = db.get(models.Subscription, upgrade.subscription_id)
+    target_plan = db.get(models.Plan, upgrade.to_plan_id)
+    if subscription is None or target_plan is None:
+        raise RuntimeError(f"subscription upgrade {upgrade.id} has missing referenced records")
+
+    upgrade.razorpay_payment_id = request.razorpay_payment_id
+    upgrade.status = "paid"
+    db.commit()
+    _apply_subscription_upgrade(db, client, subscription, target_plan, upgrade)
+
+    return {"status": "upgraded", "amount_paise": upgrade.amount_paise}
+
+
+@router.post("/payments/upgrade/{plan_key}")
+def create_subscription_upgrade(
+    plan_key: str,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+) -> dict:
+    plan = db.scalar(select(models.Plan).where(models.Plan.key == plan_key))
+    if plan is None:
+        raise HTTPException(status_code=404, detail="Unknown plan")
+    if plan.key == "free":
+        raise HTTPException(status_code=400, detail="The free plan has no checkout")
+    if plan.razorpay_plan_id is None:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Plan '{plan_key}' has not been provisioned on Razorpay yet",
+        )
+
+    active = _active_subscription_with_plan(db, user)
+    if active is None:
+        raise HTTPException(status_code=409, detail="You do not have an active plan to upgrade.")
+
+    subscription, current_plan = active
+    if subscription.cancel_at_period_end:
+        raise HTTPException(
+            status_code=409,
+            detail="Your current plan is already scheduled to end and cannot be upgraded.",
+        )
+    if plan.billing != current_plan.billing:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Only same-period upgrades are supported; "
+                f"{current_plan.billing} to {plan.billing} is not available."
+            ),
+        )
+    if plan.price_paise <= current_plan.price_paise:
+        raise HTTPException(
+            status_code=409,
+            detail="You can only upgrade to a higher-priced plan.",
+        )
+    if subscription.current_period_end is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot prorate an upgrade without a current period end.",
+        )
+
+    top_up = _prorated_top_up_paise(
+        current_plan.price_paise,
+        plan.price_paise,
+        current_plan.billing or "monthly",
+        subscription.current_period_end,
+        datetime.now(timezone.utc),
+    )
+    client = _razorpay_client()
+
+    if top_up < 100:
+        upgrade = models.SubscriptionUpgrade(
+            user_id=user.id,
+            subscription_id=subscription.id,
+            from_plan_id=current_plan.id,
+            to_plan_id=plan.id,
+            amount_paise=0,
+            status="pending",
+        )
+        db.add(upgrade)
+        _apply_subscription_upgrade(db, client, subscription, plan, upgrade)
+        return {"status": "upgraded", "amount_paise": 0, "waived": True}
+
+    razorpay_order = client.order.create(
+        {
+            "amount": top_up,
+            "currency": "INR",
+            "notes": {
+                "user_id": str(user.id),
+                "from_plan": current_plan.key,
+                "to_plan": plan.key,
+                "subscription_id": str(subscription.id),
+            },
+        }
+    )
+    upgrade = models.SubscriptionUpgrade(
+        user_id=user.id,
+        subscription_id=subscription.id,
+        from_plan_id=current_plan.id,
+        to_plan_id=plan.id,
+        amount_paise=top_up,
+        razorpay_order_id=razorpay_order["id"],
+        status="pending",
+    )
+    db.add(upgrade)
+    db.commit()
+
+    return {
+        "status": "payment_required",
+        "amount_paise": top_up,
+        "razorpay_order_id": razorpay_order["id"],
+        "razorpay_key_id": get_settings().razorpay_key_id,
+    }
 
 
 @router.post("/payments/checkout/{plan_key}")

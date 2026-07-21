@@ -319,6 +319,27 @@ class Subscription(Base):
     __table_args__ = (Index("ix_subscriptions_user_status", "user_id", "status"),)
 
 
+class SubscriptionUpgrade(Base):
+    """An auditable one-time top-up for a same-period plan upgrade."""
+
+    __tablename__ = "subscription_upgrades"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    subscription_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("subscriptions.id"), nullable=False
+    )
+    from_plan_id: Mapped[int] = mapped_column(SmallInteger, ForeignKey("plans.id"), nullable=False)
+    to_plan_id: Mapped[int] = mapped_column(SmallInteger, ForeignKey("plans.id"), nullable=False)
+    amount_paise: Mapped[int] = mapped_column(Integer, nullable=False)
+    razorpay_order_id: Mapped[str | None] = mapped_column(Text, unique=True)
+    razorpay_payment_id: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
+
+
 class DreamCompany(Base):
     """A user's tracked company for instant alerts (Doc 03 sec 4.2),
     limited per plan via plans.features.dream_companies_limit + can()."""
