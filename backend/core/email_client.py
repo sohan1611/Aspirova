@@ -27,7 +27,7 @@ def send_email(to: str, subject: str, html: str, text: str) -> bool:
     try:
         resend.Emails.send(
             {
-                "from": settings.resend_from_email,
+                "from": _format_from(settings.resend_from_name, settings.resend_from_email),
                 "to": [to],
                 "subject": subject,
                 "html": html,
@@ -38,3 +38,17 @@ def send_email(to: str, subject: str, html: str, text: str) -> bool:
     except Exception:
         logger.warning("email send failed for %s", to, exc_info=True)
         return False
+
+
+def _format_from(name: str, email: str) -> str:
+    """Return a display-name From header when one is configured."""
+    if "<" in email:
+        return email
+
+    if not name.strip():
+        return email
+
+    if any(character in name for character in ',;:<>@"'):
+        return f'"{name}" <{email}>'
+
+    return f"{name} <{email}>"

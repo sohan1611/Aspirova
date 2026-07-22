@@ -85,6 +85,7 @@ class Settings(BaseSettings):
     # skipped send instead of silently no-oping, so gaps are visible.
     resend_api_key: str = ""
     resend_from_email: str = ""
+    resend_from_name: str = "Aspirova"
 
     # Pricing-page waitlist (Doc handoffs/PHASE-2.5-HANDOFF.md sec 3.7) -
     # the honest Razorpay dummy: no checkout, just a founder notification
