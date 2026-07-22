@@ -65,7 +65,9 @@ export default function PricingPlans({
   plans: PlanPublic[];
   paymentsEnabled: boolean;
 }) {
-  const [billing, setBilling] = useState<"monthly" | "annual">("annual");
+  const [billingOverride, setBillingOverride] = useState<
+    "monthly" | "annual" | null
+  >(null);
   const { currency, hydrated } = useCurrency();
   const session = useSession();
   const accessToken = session?.access_token;
@@ -77,6 +79,13 @@ export default function PricingPlans({
 
   const currentPlan =
     planResult && planResult.accessToken === accessToken ? planResult.currentPlan : null;
+  // Default the toggle to the subscriber's own billing period (annual for
+  // signed-out/free); once they click the toggle their override wins.
+  const billing: "monthly" | "annual" =
+    billingOverride ??
+    (currentPlan?.billing === "monthly" || currentPlan?.billing === "annual"
+      ? currentPlan.billing
+      : "annual");
   const currentPlanKey = currentPlan?.key ?? null;
   const planLoading = Boolean(accessToken) && planResult?.accessToken !== accessToken;
   const hasActiveSubscription = currentPlan !== null;
@@ -141,7 +150,7 @@ export default function PricingPlans({
                 key={period}
                 type="button"
                 aria-pressed={billing === period}
-                onClick={() => setBilling(period)}
+                  onClick={() => setBillingOverride(period)}
                 className={cn(
                   "rounded-sm px-4 py-1.5 text-sm font-medium capitalize outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring",
                   billing === period
@@ -195,7 +204,7 @@ export default function PricingPlans({
                 tier.highlight && "border-heritage/40 shadow-soft-md",
               )}
             >
-              {isCurrentTier ? (
+              {isCurrentPlan ? (
                 <Badge variant="heritage" className={EDGE_BADGE_CLASS_NAME}>
                   Current plan
                 </Badge>
@@ -273,7 +282,15 @@ export default function PricingPlans({
                     className="w-full"
                     disabled
                   >
-                    Cancel your current plan to switch
+                    {currentPlan.cancel_at_period_end
+                      ? "Plan ends soon"
+                      : isCurrentTier && !isCurrentPlan
+                        ? `Current plan · billed ${currentPlan.billing}`
+                        : !isCurrentTier &&
+                            plan.price_paise > currentPlan.price_paise &&
+                            plan.billing !== currentPlan.billing
+                          ? `Switch to ${currentPlan.billing} to upgrade`
+                          : "Cancel your current plan to change"}
                   </Button>
                 ) : paymentsEnabled && currency === "INR" ? (
                   <SubscribeButton
