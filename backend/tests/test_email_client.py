@@ -44,6 +44,7 @@ def test_send_email_returns_false_when_unconfigured(monkeypatch) -> None:
             to="student@example.com",
             subject="Test email",
             html="<p>Test email</p>",
+            text="Test email",
         )
         is False
     )
