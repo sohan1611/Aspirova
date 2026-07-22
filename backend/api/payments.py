@@ -19,7 +19,7 @@ canon value.
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from html import escape
 
 import razorpay
@@ -169,6 +169,12 @@ class UpgradeVerificationRequest(BaseModel):
     razorpay_signature: str
 
 
+class AnnualSwitchVerificationRequest(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+
+
 def _prorated_top_up_paise(
     current_price_paise: int,
     new_price_paise: int,
@@ -190,6 +196,21 @@ def _prorated_top_up_paise(
     return max(0, int(top_up))
 
 
+def _switch_to_annual_charge_paise(
+    monthly_price_paise: int,
+    annual_price_paise: int,
+    current_period_end: datetime,
+    now: datetime,
+) -> int:
+    """Return the annual charge after crediting unused nominal monthly days."""
+
+    remaining_days = (current_period_end - now).total_seconds() / 86_400
+    remaining_fraction = max(0.0, min(1.0, remaining_days / 30))
+    credit = round(monthly_price_paise * remaining_fraction)
+    charge = annual_price_paise - credit
+    return max(int(charge), 0)
+
+
 def _active_subscription_with_plan(db: Session, user: models.User):
     return db.execute(
         select(models.Subscription, models.Plan)
@@ -209,8 +230,9 @@ def _send_upgrade_reconciliation_alert(
     subscription: models.Subscription,
     target_plan: models.Plan,
     upgrade: models.SubscriptionUpgrade,
+    old_razorpay_sub_id: str | None = None,
 ) -> None:
-    """Best-effort founder alert for a paid upgrade needing Razorpay repair."""
+    """Best-effort founder alert for a paid plan change needing Razorpay repair."""
 
     try:
         settings = get_settings()
@@ -220,24 +242,38 @@ def _send_upgrade_reconciliation_alert(
         from_plan = db.get(models.Plan, upgrade.from_plan_id)
         from_plan_key = from_plan.key if from_plan is not None else "unknown"
         amount_rupees = upgrade.amount_paise / 100
-        reconciliation_sentence = (
-            "The customer HAS been charged and HAS local access, but Razorpay is still on the "
-            "old plan and will bill the old amount at renewal until this is reconciled."
+        razorpay_sub_id = (
+            old_razorpay_sub_id if old_razorpay_sub_id is not None else subscription.razorpay_sub_id
         )
+        if upgrade.kind == "monthly_to_annual_switch":
+            alert_title = "A paid annual switch needs manual Razorpay cancellation."
+            subject = "Aspirova annual switch needs manual Razorpay cancellation"
+            reconciliation_sentence = (
+                "The customer paid for annual and has annual access, but their OLD MONTHLY "
+                f"subscription {razorpay_sub_id} is still active in Razorpay and must be "
+                "CANCELLED MANUALLY in the dashboard to stop double-billing."
+            )
+        else:
+            alert_title = "A paid subscription upgrade needs Razorpay reconciliation."
+            subject = "Aspirova paid subscription upgrade needs reconciliation"
+            reconciliation_sentence = (
+                "The customer HAS been charged and HAS local access, but Razorpay is still on the "
+                "old plan and will bill the old amount at renewal until this is reconciled."
+            )
         text = (
-            "A paid subscription upgrade needs Razorpay reconciliation.\n\n"
+            f"{alert_title}\n\n"
             f"subscription_upgrades.id: {upgrade.id}\n"
-            f"razorpay_sub_id: {subscription.razorpay_sub_id}\n"
+            f"razorpay_sub_id: {razorpay_sub_id}\n"
             f"from_plan.key: {from_plan_key}\n"
             f"to_plan.key: {target_plan.key}\n"
             f"Amount paid: ₹{amount_rupees:.2f}\n\n"
             f"{reconciliation_sentence}"
         )
         html = (
-            "<p>A paid subscription upgrade needs Razorpay reconciliation.</p>"
+            f"<p>{escape(alert_title, quote=True)}</p>"
             "<p>"
             f"subscription_upgrades.id: {escape(str(upgrade.id), quote=True)}<br>"
-            f"razorpay_sub_id: {escape(str(subscription.razorpay_sub_id), quote=True)}<br>"
+            f"razorpay_sub_id: {escape(str(razorpay_sub_id), quote=True)}<br>"
             f"from_plan.key: {escape(from_plan_key, quote=True)}<br>"
             f"to_plan.key: {escape(target_plan.key, quote=True)}<br>"
             f"Amount paid: ₹{amount_rupees:.2f}"
@@ -246,7 +282,7 @@ def _send_upgrade_reconciliation_alert(
         )
         send_email(
             to=settings.waitlist_notify_email,
-            subject="Aspirova paid subscription upgrade needs reconciliation",
+            subject=subject,
             html=html,
             text=text,
         )
@@ -290,6 +326,57 @@ def _apply_subscription_upgrade(
         _send_upgrade_reconciliation_alert(db, subscription, target_plan, upgrade)
         return
 
+    upgrade.status = "applied"
+    db.commit()
+
+
+def _apply_annual_switch(
+    db: Session,
+    client: razorpay.Client,
+    subscription: models.Subscription,
+    target_plan: models.Plan,
+    upgrade: models.SubscriptionUpgrade,
+) -> None:
+    # 1. Capture the old monthly Razorpay ID before changing anything so the
+    # immediate cancellation always targets the subscription being replaced.
+    old_razorpay_sub_id = subscription.razorpay_sub_id
+
+    # 2. Grant locally first: the customer has paid, so access must not depend on
+    # a later remote call succeeding. Its existing active status is untouched.
+    subscription.plan_id = target_plan.id
+    subscription.current_period_end = datetime.now(timezone.utc) + timedelta(days=365)
+    subscription.cancel_at_period_end = False
+    # v1 deliberately creates a local prepaid annual term, not a new Razorpay
+    # recurring subscription. It will not auto-renew; renewal email is handled later.
+    db.commit()
+
+    # 3. The prepaid annual replaces the monthly plan now, so cancel immediately
+    # rather than allowing Razorpay to collect another monthly charge.
+    try:
+        client.subscription.cancel(old_razorpay_sub_id, {"cancel_at_cycle_end": 0})
+    except Exception:
+        logger.exception(
+            "Razorpay monthly subscription cancellation failed after local annual switch "
+            "for subscription %s / upgrade %s",
+            subscription.id,
+            upgrade.id,
+        )
+        # 5. Do not roll back the annual grant: the customer keeps what they paid
+        # for, while the retained old ID permits manual double-billing repair.
+        upgrade.status = "applied_with_error"
+        db.commit()
+        _send_upgrade_reconciliation_alert(
+            db,
+            subscription,
+            target_plan,
+            upgrade,
+            old_razorpay_sub_id=old_razorpay_sub_id,
+        )
+        return
+
+    # 4. Null the old ID only after Razorpay confirms cancellation. The resulting
+    # subscription.cancelled webhook cannot match and revoke the new annual access.
+    subscription.razorpay_sub_id = None
     upgrade.status = "applied"
     db.commit()
 
@@ -494,6 +581,200 @@ def create_subscription_upgrade(
     return {
         "status": "payment_required",
         "amount_paise": top_up,
+        "razorpay_order_id": razorpay_order["id"],
+        "razorpay_key_id": get_settings().razorpay_key_id,
+    }
+
+
+@router.post("/payments/switch-to-annual/verify")
+def verify_annual_switch_payment(
+    request: AnnualSwitchVerificationRequest,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+) -> dict:
+    upgrade = db.scalar(
+        select(models.SubscriptionUpgrade).where(
+            models.SubscriptionUpgrade.razorpay_order_id == request.razorpay_order_id
+        )
+    )
+    if upgrade is None:
+        raise HTTPException(status_code=404, detail="Annual switch payment not found")
+    if upgrade.user_id != user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="This annual switch payment does not belong to you",
+        )
+    if upgrade.kind != "monthly_to_annual_switch":
+        raise HTTPException(
+            status_code=400,
+            detail="This payment is not a monthly-to-annual switch",
+        )
+
+    # Serialize payment application with checkout creation/replacement for this
+    # subscription before inspecting its current upgrade state.
+    subscription = db.scalar(
+        select(models.Subscription)
+        .where(models.Subscription.id == upgrade.subscription_id)
+        .with_for_update()
+    )
+    if subscription is None:
+        raise RuntimeError(f"subscription upgrade {upgrade.id} has missing referenced records")
+    db.refresh(upgrade)
+
+    if upgrade.kind != "monthly_to_annual_switch":
+        raise HTTPException(
+            status_code=400,
+            detail="This payment is not a monthly-to-annual switch",
+        )
+    if upgrade.status in {"applied", "applied_with_error"}:
+        return {"status": "switched_to_annual", "amount_paise": upgrade.amount_paise}
+    if upgrade.status == "failed":
+        raise HTTPException(status_code=409, detail="This annual switch payment is no longer valid")
+
+    client = _razorpay_client()
+    try:
+        client.utility.verify_payment_signature(
+            {
+                "razorpay_order_id": request.razorpay_order_id,
+                "razorpay_payment_id": request.razorpay_payment_id,
+                "razorpay_signature": request.razorpay_signature,
+            }
+        )
+    except razorpay.errors.SignatureVerificationError as exc:
+        upgrade.status = "failed"
+        db.commit()
+        raise HTTPException(status_code=400, detail="Invalid payment signature") from exc
+
+    target_plan = db.get(models.Plan, upgrade.to_plan_id)
+    if target_plan is None:
+        raise RuntimeError(f"subscription upgrade {upgrade.id} has missing referenced records")
+
+    upgrade.razorpay_payment_id = request.razorpay_payment_id
+    upgrade.status = "paid"
+    db.commit()
+    _apply_annual_switch(db, client, subscription, target_plan, upgrade)
+
+    return {"status": "switched_to_annual", "amount_paise": upgrade.amount_paise}
+
+
+@router.post("/payments/switch-to-annual/{plan_key}")
+def create_annual_switch(
+    plan_key: str,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+) -> dict:
+    plan = db.scalar(select(models.Plan).where(models.Plan.key == plan_key))
+    if plan is None:
+        raise HTTPException(status_code=404, detail="Unknown plan")
+    if plan.key == "free":
+        raise HTTPException(status_code=400, detail="The free plan has no checkout")
+    if plan.razorpay_plan_id is None:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Plan '{plan_key}' has not been provisioned on Razorpay yet",
+        )
+
+    # This helper locks the active subscription before the pending-order guard
+    # below, serializing concurrent switch requests for the same subscription.
+    active = _active_subscription_with_plan(db, user)
+    if active is None:
+        raise HTTPException(status_code=409, detail="You do not have an active plan to switch.")
+
+    subscription, current_plan = active
+    if current_plan.billing != "monthly":
+        raise HTTPException(status_code=409, detail="Only monthly plans can switch to annual here.")
+    if subscription.cancel_at_period_end:
+        raise HTTPException(
+            status_code=409,
+            detail="Your current plan has a cancellation scheduled and cannot be switched.",
+        )
+    if subscription.current_period_end is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot credit a switch without a current period end.",
+        )
+    if plan.billing != "annual":
+        raise HTTPException(status_code=409, detail="Switch target must be an annual plan.")
+
+    charge = _switch_to_annual_charge_paise(
+        current_plan.price_paise,
+        plan.price_paise,
+        subscription.current_period_end,
+        datetime.now(timezone.utc),
+    )
+
+    # Keep exactly one payable switch order for this subscription/target pair.
+    # A changed credit amount makes an older order unsafe, so retire it before
+    # creating a new one instead of presenting two different charges.
+    pending_switches = list(
+        db.scalars(
+            select(models.SubscriptionUpgrade)
+            .where(
+                models.SubscriptionUpgrade.subscription_id == subscription.id,
+                models.SubscriptionUpgrade.to_plan_id == plan.id,
+                models.SubscriptionUpgrade.kind == "monthly_to_annual_switch",
+                models.SubscriptionUpgrade.status == "pending",
+            )
+            .order_by(
+                models.SubscriptionUpgrade.created_at.desc(),
+                models.SubscriptionUpgrade.id.desc(),
+            )
+        )
+    )
+    reusable_switch = next(
+        (
+            switch
+            for switch in pending_switches
+            if switch.amount_paise == charge and switch.razorpay_order_id is not None
+        ),
+        None,
+    )
+    if reusable_switch is not None:
+        stale_switches = [switch for switch in pending_switches if switch is not reusable_switch]
+        for stale_switch in stale_switches:
+            stale_switch.status = "failed"
+        if stale_switches:
+            db.commit()
+        return {
+            "status": "payment_required",
+            "amount_paise": reusable_switch.amount_paise,
+            "razorpay_order_id": reusable_switch.razorpay_order_id,
+            "razorpay_key_id": get_settings().razorpay_key_id,
+        }
+
+    for stale_switch in pending_switches:
+        stale_switch.status = "failed"
+
+    client = _razorpay_client()
+    razorpay_order = client.order.create(
+        {
+            "amount": charge,
+            "currency": "INR",
+            "notes": {
+                "user_id": str(user.id),
+                "from_plan": current_plan.key,
+                "to_plan": plan.key,
+                "subscription_id": str(subscription.id),
+                "kind": "monthly_to_annual_switch",
+            },
+        }
+    )
+    switch = models.SubscriptionUpgrade(
+        user_id=user.id,
+        subscription_id=subscription.id,
+        from_plan_id=current_plan.id,
+        to_plan_id=plan.id,
+        amount_paise=charge,
+        kind="monthly_to_annual_switch",
+        razorpay_order_id=razorpay_order["id"],
+        status="pending",
+    )
+    db.add(switch)
+    db.commit()
+
+    return {
+        "status": "payment_required",
+        "amount_paise": charge,
         "razorpay_order_id": razorpay_order["id"],
         "razorpay_key_id": get_settings().razorpay_key_id,
     }

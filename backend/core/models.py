@@ -320,7 +320,7 @@ class Subscription(Base):
 
 
 class SubscriptionUpgrade(Base):
-    """An auditable one-time top-up for a same-period plan upgrade."""
+    """An auditable one-time payment record for a subscription plan change."""
 
     __tablename__ = "subscription_upgrades"
 
@@ -334,6 +334,9 @@ class SubscriptionUpgrade(Base):
     from_plan_id: Mapped[int] = mapped_column(SmallInteger, ForeignKey("plans.id"), nullable=False)
     to_plan_id: Mapped[int] = mapped_column(SmallInteger, ForeignKey("plans.id"), nullable=False)
     amount_paise: Mapped[int] = mapped_column(Integer, nullable=False)
+    kind: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'same_period_upgrade'")
+    )
     razorpay_order_id: Mapped[str | None] = mapped_column(Text, unique=True)
     razorpay_payment_id: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(Text, nullable=False)
