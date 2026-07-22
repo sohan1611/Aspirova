@@ -312,44 +312,54 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
     result = {"sent": 0, "failed": 0, "skipped_capped": 0, "skipped_empty": 0}
 
     for user in session.scalars(select(models.User)).all():
-        if not can(session, user, "daily_digest"):
-            continue
-        if not wants(user, "daily_digest"):
-            continue
-        if _already_sent_recently(session, user.id, "digest", cap_since):
-            result["skipped_capped"] += 1
-            continue
+        try:
+            if not can(session, user, "daily_digest"):
+                continue
+            if not wants(user, "daily_digest"):
+                continue
+            if _already_sent_recently(session, user.id, "digest", cap_since):
+                result["skipped_capped"] += 1
+                continue
 
-        opportunities = _dream_company_opportunities(session, user.id, since)
-        opportunities = [o for o in opportunities if not _already_alerted(session, user.id, o.id)]
-        if not opportunities:
-            # The generic fallback is a separate, unrelated query (all
-            # recent active opportunities, not just dream-company ones) -
-            # it must ALSO exclude already-alerted ones, or an opportunity
-            # excluded above (because a Pro user's dream company already
-            # got it as an instant alert) can leak right back in here,
-            # since it's still a perfectly real, recent, active
-            # opportunity as far as this second query is concerned.
+            opportunities = _dream_company_opportunities(session, user.id, since)
             opportunities = [
-                o
-                for o in _generic_recent_opportunities(session, since, DIGEST_GENERIC_SAMPLE_SIZE)
-                if not _already_alerted(session, user.id, o.id)
+                o for o in opportunities if not _already_alerted(session, user.id, o.id)
             ]
-        if not opportunities:
-            result["skipped_empty"] += 1
-            continue
+            if not opportunities:
+                # The generic fallback is a separate, unrelated query (all
+                # recent active opportunities, not just dream-company ones) -
+                # it must ALSO exclude already-alerted ones, or an opportunity
+                # excluded above (because a Pro user's dream company already
+                # got it as an instant alert) can leak right back in here,
+                # since it's still a perfectly real, recent, active
+                # opportunity as far as this second query is concerned.
+                opportunities = [
+                    o
+                    for o in _generic_recent_opportunities(
+                        session, since, DIGEST_GENERIC_SAMPLE_SIZE
+                    )
+                    if not _already_alerted(session, user.id, o.id)
+                ]
+            if not opportunities:
+                result["skipped_empty"] += 1
+                continue
 
-        html, text = _render_digest(opportunities)
-        sent = send_email(user.email, "Your Aspirova daily digest", html, text)
-        _record_notification(
-            session,
-            user.id,
-            "digest",
-            opportunity_id=None,
-            status="sent" if sent else "failed",
-            meta={"opportunity_ids": [o.id for o in opportunities]},
-        )
-        result["sent" if sent else "failed"] += 1
+            html, text = _render_digest(opportunities)
+            sent = send_email(user.email, "Your Aspirova daily digest", html, text)
+            _record_notification(
+                session,
+                user.id,
+                "digest",
+                opportunity_id=None,
+                status="sent" if sent else "failed",
+                meta={"opportunity_ids": [o.id for o in opportunities]},
+            )
+            result["sent" if sent else "failed"] += 1
+        except Exception:
+            session.rollback()
+            logger.exception("daily digest failed for user %s", user.id)
+            result["failed"] += 1
+            continue
 
     return result
 
@@ -367,29 +377,35 @@ def send_instant_alerts(session: Session, *, now: datetime | None = None) -> dic
     ).all()
 
     for user_id, opportunity in matches:
-        user = session.get(models.User, user_id)
-        if (
-            user is None
-            or not can(session, user, "instant_alerts")
-            or not wants(user, "instant_alerts")
-        ):
-            result["skipped_not_eligible"] += 1
-            continue
-        if _already_alerted(session, user_id, opportunity.id):
-            result["skipped_already_alerted"] += 1
-            continue
+        try:
+            user = session.get(models.User, user_id)
+            if (
+                user is None
+                or not can(session, user, "instant_alerts")
+                or not wants(user, "instant_alerts")
+            ):
+                result["skipped_not_eligible"] += 1
+                continue
+            if _already_alerted(session, user_id, opportunity.id):
+                result["skipped_already_alerted"] += 1
+                continue
 
-        html, text = _render_instant_alert(opportunity)
-        subject = f"New at {_company_name(opportunity)}: {opportunity.title}"
-        sent = send_email(user.email, subject, html, text)
-        _record_notification(
-            session,
-            user_id,
-            "instant_alert",
-            opportunity_id=opportunity.id,
-            status="sent" if sent else "failed",
-        )
-        result["sent" if sent else "failed"] += 1
+            html, text = _render_instant_alert(opportunity)
+            subject = f"New at {_company_name(opportunity)}: {opportunity.title}"
+            sent = send_email(user.email, subject, html, text)
+            _record_notification(
+                session,
+                user_id,
+                "instant_alert",
+                opportunity_id=opportunity.id,
+                status="sent" if sent else "failed",
+            )
+            result["sent" if sent else "failed"] += 1
+        except Exception:
+            session.rollback()
+            logger.exception("instant alert failed for user %s", user_id)
+            result["failed"] += 1
+            continue
 
     return result
 
@@ -402,55 +418,61 @@ def send_closing_soon_alerts(
     result = {"users_notified": 0, "opportunities": 0, "failed": 0}
 
     for user in session.scalars(select(models.User)).all():
-        if not wants(user, "closing_soon"):
-            continue
+        try:
+            if not wants(user, "closing_soon"):
+                continue
 
-        opportunities = list(
-            session.scalars(
-                select(models.Opportunity)
-                .join(
-                    models.Bookmark,
-                    models.Bookmark.opportunity_id == models.Opportunity.id,
-                )
-                .where(
-                    models.Bookmark.user_id == user.id,
-                    models.Opportunity.status == "active",
-                    models.Opportunity.deadline.is_not(None),
-                    models.Opportunity.deadline.between(now, cutoff),
-                )
-                .order_by(models.Opportunity.deadline.asc(), models.Opportunity.id.asc())
-            ).all()
-        )
-        opportunities = [
-            opportunity
-            for opportunity in opportunities
-            if not _already_alerted(
-                session,
-                user.id,
-                opportunity.id,
-                notification_type="closing_soon",
+            opportunities = list(
+                session.scalars(
+                    select(models.Opportunity)
+                    .join(
+                        models.Bookmark,
+                        models.Bookmark.opportunity_id == models.Opportunity.id,
+                    )
+                    .where(
+                        models.Bookmark.user_id == user.id,
+                        models.Opportunity.status == "active",
+                        models.Opportunity.deadline.is_not(None),
+                        models.Opportunity.deadline.between(now, cutoff),
+                    )
+                    .order_by(models.Opportunity.deadline.asc(), models.Opportunity.id.asc())
+                ).all()
             )
-        ]
-        if not opportunities:
-            continue
+            opportunities = [
+                opportunity
+                for opportunity in opportunities
+                if not _already_alerted(
+                    session,
+                    user.id,
+                    opportunity.id,
+                    notification_type="closing_soon",
+                )
+            ]
+            if not opportunities:
+                continue
 
-        subject, html = _render_closing_soon(opportunities, now)
-        text = _render_closing_soon_text(opportunities)
-        sent = send_email(user.email, subject, html, text)
-        status = "sent" if sent else "failed"
-        for opportunity in opportunities:
-            _record_notification(
-                session,
-                user.id,
-                "closing_soon",
-                opportunity_id=opportunity.id,
-                status=status,
-            )
+            subject, html = _render_closing_soon(opportunities, now)
+            text = _render_closing_soon_text(opportunities)
+            sent = send_email(user.email, subject, html, text)
+            status = "sent" if sent else "failed"
+            for opportunity in opportunities:
+                _record_notification(
+                    session,
+                    user.id,
+                    "closing_soon",
+                    opportunity_id=opportunity.id,
+                    status=status,
+                )
 
-        if sent:
-            result["users_notified"] += 1
-            result["opportunities"] += len(opportunities)
-        else:
+            if sent:
+                result["users_notified"] += 1
+                result["opportunities"] += len(opportunities)
+            else:
+                result["failed"] += 1
+        except Exception:
+            session.rollback()
+            logger.exception("closing-soon alert failed for user %s", user.id)
             result["failed"] += 1
+            continue
 
     return result

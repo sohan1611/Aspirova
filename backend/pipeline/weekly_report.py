@@ -417,25 +417,33 @@ def send_weekly_reports(session: Session, *, now: datetime | None = None) -> dic
     intro_cache: dict[str, str | None] = {}
 
     for user in recipients:
-        data = WeeklyReportData(
-            dream_company_matches=_recent_dream_company_matches(session, user.id, since, current),
-            closing_soon=closing_soon,
-            hidden_opportunities=hidden_opportunities,
-            intro=_cohort_intro(
-                session,
-                cohort=WEEKLY_REPORT_COHORT,
-                cache=intro_cache,
-                now=current,
-            ),
-        )
-        html, text = _render_weekly_report(user, data)
-        sent = email_client.send_email(
-            user.email,
-            "Your Aspirova weekly career report",
-            html,
-            text,
-        )
-        _record_delivery(session, user, data, now=current, sent=sent)
-        result["sent" if sent else "failed"] += 1
+        try:
+            data = WeeklyReportData(
+                dream_company_matches=_recent_dream_company_matches(
+                    session, user.id, since, current
+                ),
+                closing_soon=closing_soon,
+                hidden_opportunities=hidden_opportunities,
+                intro=_cohort_intro(
+                    session,
+                    cohort=WEEKLY_REPORT_COHORT,
+                    cache=intro_cache,
+                    now=current,
+                ),
+            )
+            html, text = _render_weekly_report(user, data)
+            sent = email_client.send_email(
+                user.email,
+                "Your Aspirova weekly career report",
+                html,
+                text,
+            )
+            _record_delivery(session, user, data, now=current, sent=sent)
+            result["sent" if sent else "failed"] += 1
+        except Exception:
+            session.rollback()
+            logger.exception("weekly report failed for user %s", user.id)
+            result["failed"] += 1
+            continue
 
     return result
