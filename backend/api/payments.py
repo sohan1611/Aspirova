@@ -41,6 +41,20 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 _TOTAL_COUNT_BY_BILLING = {"monthly": 120, "annual": 10}
+PLAN_CHANGE_POLICY_DETAIL = (
+    "Plan changes aren't supported while a subscription is active - Razorpay "
+    "can't modify an active subscription. Cancel your current plan (you keep "
+    "access until it ends), then subscribe to the plan you want."
+)
+
+# Plans deliberately withdrawn from sale (founder decision 2026-07-22).
+# pro_lite_annual: under the cancel-then-resubscribe policy, a mistaken Pro
+# Lite Annual purchase would lock the customer into the bottom tier for a FULL
+# YEAR with no way up. The plans row and the Razorpay plan object remain
+# (Razorpay plans cannot be deleted; the row is historical data) - checkout
+# simply refuses it. Verified in prod before retiring: nobody was ever
+# subscribed to it.
+RETIRED_PLAN_KEYS = frozenset({"pro_lite_annual"})
 
 # Razorpay subscription-lifecycle events this handler acts on -> our
 # subscriptions.status. Events not listed here (e.g. subscription.
@@ -445,145 +459,10 @@ def create_subscription_upgrade(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ) -> dict:
-    plan = db.scalar(select(models.Plan).where(models.Plan.key == plan_key))
-    if plan is None:
-        raise HTTPException(status_code=404, detail="Unknown plan")
-    if plan.key == "free":
-        raise HTTPException(status_code=400, detail="The free plan has no checkout")
-    if plan.razorpay_plan_id is None:
-        raise HTTPException(
-            status_code=503,
-            detail=f"Plan '{plan_key}' has not been provisioned on Razorpay yet",
-        )
-
-    active = _active_subscription_with_plan(db, user)
-    if active is None:
-        raise HTTPException(status_code=409, detail="You do not have an active plan to upgrade.")
-
-    subscription, current_plan = active
-    if subscription.cancel_at_period_end:
-        raise HTTPException(
-            status_code=409,
-            detail="Your current plan is already scheduled to end and cannot be upgraded.",
-        )
-    if plan.billing != current_plan.billing:
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                "Only same-period upgrades are supported; "
-                f"{current_plan.billing} to {plan.billing} is not available."
-            ),
-        )
-    if plan.price_paise <= current_plan.price_paise:
-        raise HTTPException(
-            status_code=409,
-            detail="You can only upgrade to a higher-priced plan.",
-        )
-    if subscription.current_period_end is None:
-        raise HTTPException(
-            status_code=409,
-            detail="Cannot prorate an upgrade without a current period end.",
-        )
-
-    top_up = _prorated_top_up_paise(
-        current_plan.price_paise,
-        plan.price_paise,
-        current_plan.billing or "monthly",
-        subscription.current_period_end,
-        datetime.now(timezone.utc),
+    raise HTTPException(
+        status_code=409,
+        detail=PLAN_CHANGE_POLICY_DETAIL,
     )
-
-    # Locking the active subscription above serializes concurrent requests for
-    # this upgrade. Normalize any legacy duplicate pending rows as well, so
-    # this subscription/target pair has at most one payable order.
-    pending_upgrades = list(
-        db.scalars(
-            select(models.SubscriptionUpgrade)
-            .where(
-                models.SubscriptionUpgrade.subscription_id == subscription.id,
-                models.SubscriptionUpgrade.to_plan_id == plan.id,
-                models.SubscriptionUpgrade.status == "pending",
-            )
-            .order_by(
-                models.SubscriptionUpgrade.created_at.desc(),
-                models.SubscriptionUpgrade.id.desc(),
-            )
-        )
-    )
-    reusable_upgrade = next(
-        (
-            upgrade
-            for upgrade in pending_upgrades
-            if upgrade.amount_paise == top_up and upgrade.razorpay_order_id is not None
-        ),
-        None,
-    )
-
-    if reusable_upgrade is not None:
-        razorpay_order_id = reusable_upgrade.razorpay_order_id
-        amount_paise = reusable_upgrade.amount_paise
-        stale_pending_upgrades = [
-            upgrade for upgrade in pending_upgrades if upgrade is not reusable_upgrade
-        ]
-        for stale_upgrade in stale_pending_upgrades:
-            stale_upgrade.status = "failed"
-        if stale_pending_upgrades:
-            db.commit()
-        return {
-            "status": "payment_required",
-            "amount_paise": amount_paise,
-            "razorpay_order_id": razorpay_order_id,
-            "razorpay_key_id": get_settings().razorpay_key_id,
-        }
-
-    for stale_upgrade in pending_upgrades:
-        stale_upgrade.status = "failed"
-
-    client = _razorpay_client()
-
-    if top_up < 100:
-        upgrade = models.SubscriptionUpgrade(
-            user_id=user.id,
-            subscription_id=subscription.id,
-            from_plan_id=current_plan.id,
-            to_plan_id=plan.id,
-            amount_paise=0,
-            status="pending",
-        )
-        db.add(upgrade)
-        _apply_subscription_upgrade(db, client, subscription, plan, upgrade)
-        return {"status": "upgraded", "amount_paise": 0, "waived": True}
-
-    razorpay_order = client.order.create(
-        {
-            "amount": top_up,
-            "currency": "INR",
-            "notes": {
-                "user_id": str(user.id),
-                "from_plan": current_plan.key,
-                "to_plan": plan.key,
-                "subscription_id": str(subscription.id),
-            },
-        }
-    )
-    upgrade = models.SubscriptionUpgrade(
-        user_id=user.id,
-        subscription_id=subscription.id,
-        from_plan_id=current_plan.id,
-        to_plan_id=plan.id,
-        amount_paise=top_up,
-        razorpay_order_id=razorpay_order["id"],
-        status="pending",
-    )
-    db.add(upgrade)
-    db.commit()
-
-    return {
-        "status": "payment_required",
-        "amount_paise": top_up,
-        "razorpay_order_id": razorpay_order["id"],
-        "razorpay_key_id": get_settings().razorpay_key_id,
-    }
 
 
 @router.post("/payments/switch-to-annual/verify")
@@ -663,121 +542,10 @@ def create_annual_switch(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ) -> dict:
-    plan = db.scalar(select(models.Plan).where(models.Plan.key == plan_key))
-    if plan is None:
-        raise HTTPException(status_code=404, detail="Unknown plan")
-    if plan.key == "free":
-        raise HTTPException(status_code=400, detail="The free plan has no checkout")
-    if plan.razorpay_plan_id is None:
-        raise HTTPException(
-            status_code=503,
-            detail=f"Plan '{plan_key}' has not been provisioned on Razorpay yet",
-        )
-
-    # This helper locks the active subscription before the pending-order guard
-    # below, serializing concurrent switch requests for the same subscription.
-    active = _active_subscription_with_plan(db, user)
-    if active is None:
-        raise HTTPException(status_code=409, detail="You do not have an active plan to switch.")
-
-    subscription, current_plan = active
-    if current_plan.billing != "monthly":
-        raise HTTPException(status_code=409, detail="Only monthly plans can switch to annual here.")
-    if subscription.cancel_at_period_end:
-        raise HTTPException(
-            status_code=409,
-            detail="Your current plan has a cancellation scheduled and cannot be switched.",
-        )
-    if subscription.current_period_end is None:
-        raise HTTPException(
-            status_code=409,
-            detail="Cannot credit a switch without a current period end.",
-        )
-    if plan.billing != "annual":
-        raise HTTPException(status_code=409, detail="Switch target must be an annual plan.")
-
-    charge = _switch_to_annual_charge_paise(
-        current_plan.price_paise,
-        plan.price_paise,
-        subscription.current_period_end,
-        datetime.now(timezone.utc),
+    raise HTTPException(
+        status_code=409,
+        detail=PLAN_CHANGE_POLICY_DETAIL,
     )
-
-    # Keep exactly one payable switch order for this subscription/target pair.
-    # A changed credit amount makes an older order unsafe, so retire it before
-    # creating a new one instead of presenting two different charges.
-    pending_switches = list(
-        db.scalars(
-            select(models.SubscriptionUpgrade)
-            .where(
-                models.SubscriptionUpgrade.subscription_id == subscription.id,
-                models.SubscriptionUpgrade.to_plan_id == plan.id,
-                models.SubscriptionUpgrade.kind == "monthly_to_annual_switch",
-                models.SubscriptionUpgrade.status == "pending",
-            )
-            .order_by(
-                models.SubscriptionUpgrade.created_at.desc(),
-                models.SubscriptionUpgrade.id.desc(),
-            )
-        )
-    )
-    reusable_switch = next(
-        (
-            switch
-            for switch in pending_switches
-            if switch.amount_paise == charge and switch.razorpay_order_id is not None
-        ),
-        None,
-    )
-    if reusable_switch is not None:
-        stale_switches = [switch for switch in pending_switches if switch is not reusable_switch]
-        for stale_switch in stale_switches:
-            stale_switch.status = "failed"
-        if stale_switches:
-            db.commit()
-        return {
-            "status": "payment_required",
-            "amount_paise": reusable_switch.amount_paise,
-            "razorpay_order_id": reusable_switch.razorpay_order_id,
-            "razorpay_key_id": get_settings().razorpay_key_id,
-        }
-
-    for stale_switch in pending_switches:
-        stale_switch.status = "failed"
-
-    client = _razorpay_client()
-    razorpay_order = client.order.create(
-        {
-            "amount": charge,
-            "currency": "INR",
-            "notes": {
-                "user_id": str(user.id),
-                "from_plan": current_plan.key,
-                "to_plan": plan.key,
-                "subscription_id": str(subscription.id),
-                "kind": "monthly_to_annual_switch",
-            },
-        }
-    )
-    switch = models.SubscriptionUpgrade(
-        user_id=user.id,
-        subscription_id=subscription.id,
-        from_plan_id=current_plan.id,
-        to_plan_id=plan.id,
-        amount_paise=charge,
-        kind="monthly_to_annual_switch",
-        razorpay_order_id=razorpay_order["id"],
-        status="pending",
-    )
-    db.add(switch)
-    db.commit()
-
-    return {
-        "status": "payment_required",
-        "amount_paise": charge,
-        "razorpay_order_id": razorpay_order["id"],
-        "razorpay_key_id": get_settings().razorpay_key_id,
-    }
 
 
 @router.post("/payments/checkout/{plan_key}")
@@ -791,6 +559,9 @@ def create_checkout(
         raise HTTPException(status_code=404, detail="Unknown plan")
     if plan.key == "free":
         raise HTTPException(status_code=400, detail="The free plan has no checkout")
+    if plan.key in RETIRED_PLAN_KEYS:
+        # 410 Gone: the plan existed but is deliberately no longer offered.
+        raise HTTPException(status_code=410, detail="This plan is no longer offered.")
     if plan.razorpay_plan_id is None:
         raise HTTPException(
             status_code=503,

@@ -6,7 +6,6 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 import api.payments as payments_module
@@ -203,215 +202,21 @@ def test_switch_to_annual_charge_clamps_clock_skew_credit_to_monthly_price() -> 
     assert _switch_to_annual_charge_paise(3_900, 39_900, now + timedelta(days=45), now) == 36_000
 
 
-def test_switch_to_annual_rejects_non_monthly_current_plan(
+def test_annual_switch_creation_is_refused_by_plan_change_policy(
     client: TestClient,
-    db_session: Session,
     razorpay_client: FakeRazorpayClient,
-    user: models.User,
 ) -> None:
-    current_plan = _create_plan(db_session, price_paise=39_900, billing="annual")
-    target_plan = _create_plan(db_session, price_paise=49_900, billing="annual")
-    _create_active_subscription(
-        db_session,
-        user,
-        current_plan,
-        current_period_end=datetime.now(timezone.utc) + timedelta(days=200),
-    )
-
-    response = client.post(f"/payments/switch-to-annual/{target_plan.key}")
+    response = client.post("/payments/switch-to-annual/any-plan")
 
     assert response.status_code == 409
-    assert response.json() == {"detail": "Only monthly plans can switch to annual here."}
-    assert razorpay_client.order_calls == []
-
-
-def test_switch_to_annual_rejects_non_annual_target(
-    client: TestClient,
-    db_session: Session,
-    razorpay_client: FakeRazorpayClient,
-    user: models.User,
-) -> None:
-    current_plan = _create_plan(db_session, price_paise=3_900, billing="monthly")
-    target_plan = _create_plan(db_session, price_paise=4_900, billing="monthly")
-    _create_active_subscription(
-        db_session,
-        user,
-        current_plan,
-        current_period_end=datetime.now(timezone.utc) + timedelta(days=20),
-    )
-
-    response = client.post(f"/payments/switch-to-annual/{target_plan.key}")
-
-    assert response.status_code == 409
-    assert response.json() == {"detail": "Switch target must be an annual plan."}
-    assert razorpay_client.order_calls == []
-
-
-def test_switch_to_annual_rejects_scheduled_cancellation(
-    client: TestClient,
-    db_session: Session,
-    razorpay_client: FakeRazorpayClient,
-    user: models.User,
-) -> None:
-    current_plan = _create_plan(db_session, price_paise=3_900, billing="monthly")
-    target_plan = _create_plan(db_session, price_paise=39_900, billing="annual")
-    _create_active_subscription(
-        db_session,
-        user,
-        current_plan,
-        current_period_end=datetime.now(timezone.utc) + timedelta(days=20),
-        cancel_at_period_end=True,
-    )
-
-    response = client.post(f"/payments/switch-to-annual/{target_plan.key}")
-
-    assert response.status_code == 409
-    assert "cancellation scheduled" in response.json()["detail"]
-    assert razorpay_client.order_calls == []
-
-
-def test_switch_to_annual_creates_order_and_pending_row_without_changing_subscription(
-    client: TestClient,
-    db_session: Session,
-    razorpay_client: FakeRazorpayClient,
-    user: models.User,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    current_plan = _create_plan(db_session, price_paise=3_900, billing="monthly")
-    target_plan = _create_plan(db_session, price_paise=39_900, billing="annual")
-    original_period_end = datetime.now(timezone.utc) + timedelta(days=20)
-    subscription = _create_active_subscription(
-        db_session,
-        user,
-        current_plan,
-        current_period_end=original_period_end,
-    )
-    original_razorpay_sub_id = subscription.razorpay_sub_id
-    monkeypatch.setattr(payments_module, "_switch_to_annual_charge_paise", lambda *_args: 37_300)
-
-    response = client.post(f"/payments/switch-to-annual/{target_plan.key}")
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["status"] == "payment_required"
-    assert payload["amount_paise"] == 37_300
-    assert razorpay_client.order_calls == [
-        {
-            "amount": 37_300,
-            "currency": "INR",
-            "notes": {
-                "user_id": str(user.id),
-                "from_plan": current_plan.key,
-                "to_plan": target_plan.key,
-                "subscription_id": str(subscription.id),
-                "kind": "monthly_to_annual_switch",
-            },
-        }
-    ]
-
-    db_session.refresh(subscription)
-    assert subscription.plan_id == current_plan.id
-    assert subscription.current_period_end == original_period_end
-    assert subscription.razorpay_sub_id == original_razorpay_sub_id
-    assert subscription.cancel_at_period_end is False
-    assert subscription.status == "active"
-    switch = db_session.scalar(
-        select(models.SubscriptionUpgrade).where(
-            models.SubscriptionUpgrade.razorpay_order_id == payload["razorpay_order_id"]
+    assert response.json() == {
+        "detail": (
+            "Plan changes aren't supported while a subscription is active - Razorpay "
+            "can't modify an active subscription. Cancel your current plan (you keep "
+            "access until it ends), then subscribe to the plan you want."
         )
-    )
-    assert switch is not None
-    assert switch.kind == "monthly_to_annual_switch"
-    assert switch.status == "pending"
-    assert switch.amount_paise == 37_300
-
-
-def test_switch_to_annual_reuses_pending_order_when_charge_is_unchanged(
-    client: TestClient,
-    db_session: Session,
-    razorpay_client: FakeRazorpayClient,
-    user: models.User,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    current_plan = _create_plan(db_session, price_paise=3_900, billing="monthly")
-    target_plan = _create_plan(db_session, price_paise=39_900, billing="annual")
-    subscription = _create_active_subscription(
-        db_session,
-        user,
-        current_plan,
-        current_period_end=datetime.now(timezone.utc) + timedelta(days=20),
-    )
-    monkeypatch.setattr(payments_module, "_switch_to_annual_charge_paise", lambda *_args: 37_300)
-
-    first = client.post(f"/payments/switch-to-annual/{target_plan.key}")
-    second = client.post(f"/payments/switch-to-annual/{target_plan.key}")
-
-    assert first.status_code == 200
-    assert second.status_code == 200
-    assert first.json()["razorpay_order_id"] == second.json()["razorpay_order_id"]
-    assert first.json()["amount_paise"] == second.json()["amount_paise"] == 37_300
-    pending_switches = list(
-        db_session.scalars(
-            select(models.SubscriptionUpgrade).where(
-                models.SubscriptionUpgrade.subscription_id == subscription.id,
-                models.SubscriptionUpgrade.to_plan_id == target_plan.id,
-                models.SubscriptionUpgrade.kind == "monthly_to_annual_switch",
-                models.SubscriptionUpgrade.status == "pending",
-            )
-        )
-    )
-    assert len(pending_switches) == 1
-    assert pending_switches[0].razorpay_order_id == first.json()["razorpay_order_id"]
-    assert len(razorpay_client.order_calls) == 1
-
-
-def test_switch_to_annual_replaces_pending_order_when_credit_drifts(
-    client: TestClient,
-    db_session: Session,
-    razorpay_client: FakeRazorpayClient,
-    user: models.User,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    current_plan = _create_plan(db_session, price_paise=3_900, billing="monthly")
-    target_plan = _create_plan(db_session, price_paise=39_900, billing="annual")
-    subscription = _create_active_subscription(
-        db_session,
-        user,
-        current_plan,
-        current_period_end=datetime.now(timezone.utc) + timedelta(days=20),
-    )
-    charges = iter((37_300, 37_299))
-    monkeypatch.setattr(
-        payments_module,
-        "_switch_to_annual_charge_paise",
-        lambda *_args: next(charges),
-    )
-
-    first = client.post(f"/payments/switch-to-annual/{target_plan.key}")
-    second = client.post(f"/payments/switch-to-annual/{target_plan.key}")
-
-    assert first.status_code == 200
-    assert second.status_code == 200
-    assert first.json()["razorpay_order_id"] != second.json()["razorpay_order_id"]
-    switches = list(
-        db_session.scalars(
-            select(models.SubscriptionUpgrade).where(
-                models.SubscriptionUpgrade.subscription_id == subscription.id,
-                models.SubscriptionUpgrade.to_plan_id == target_plan.id,
-                models.SubscriptionUpgrade.kind == "monthly_to_annual_switch",
-            )
-        )
-    )
-    stale_switch = next(
-        switch
-        for switch in switches
-        if switch.razorpay_order_id == first.json()["razorpay_order_id"]
-    )
-    pending_switches = [switch for switch in switches if switch.status == "pending"]
-    assert stale_switch.status == "failed"
-    assert len(pending_switches) == 1
-    assert pending_switches[0].amount_paise == 37_299
-    assert len(razorpay_client.order_calls) == 2
+    }
+    assert razorpay_client.order_calls == []
 
 
 def test_switch_to_annual_verify_bad_signature_marks_failed_without_subscription_change(

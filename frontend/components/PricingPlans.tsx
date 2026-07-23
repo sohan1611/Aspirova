@@ -12,7 +12,6 @@ import type { PlanPublic, PlanState } from "@/lib/types";
 import { useSession } from "@/lib/useSession";
 import { cn } from "@/lib/utils";
 import SubscribeButton from "./SubscribeButton";
-import UpgradeButton from "./UpgradeButton";
 import WaitlistForm from "./WaitlistForm";
 
 const FEATURE_LABELS: [string, (v: unknown) => string | null][] = [
@@ -41,6 +40,15 @@ function featureLines(features: PlanPublic["features"]): string[] {
 
 function rupees(paise: number): string {
   return `₹${Math.round(paise / 100)}`;
+}
+
+function formatDate(date: string): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(date));
 }
 
 interface Tier {
@@ -112,9 +120,7 @@ export default function PricingPlans({
   useEffect(() => {
     // set-state-in-effect targets SYNCHRONOUS setState cascades. refreshPlan
     // only sets state after an awaited fetch resolves, and guards every write
-    // behind planRequestRef so a stale response cannot land. It is extracted
-    // rather than inlined because UpgradeButton re-runs it after a successful
-    // upgrade; inlining to satisfy the rule would mean duplicating the fetch.
+    // behind planRequestRef so a stale response cannot land.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refreshPlan();
     return () => {
@@ -125,17 +131,15 @@ export default function PricingPlans({
   const byKey = Object.fromEntries(plans.map((p) => [p.key, p]));
   const tiers: Tier[] = [
     { name: "Free", free: byKey.free },
-    { name: "Pro Lite", monthly: byKey.pro_lite_monthly, annual: byKey.pro_lite_annual },
+    // Pro Lite Annual RETIRED (founder decision 2026-07-22): under the
+    // cancel-then-resubscribe policy, a mistaken Pro Lite Annual purchase would
+    // lock the customer into the bottom tier for a FULL YEAR with no way up.
+    // No `annual` mapping means the Pro Lite card simply doesn't render on the
+    // Annual toggle (the `if (!plan) return null` below). Nobody was ever
+    // subscribed to it - verified in prod before retiring.
+    { name: "Pro Lite", monthly: byKey.pro_lite_monthly },
     { name: "Pro", highlight: true, monthly: byKey.pro_monthly, annual: byKey.pro_annual },
   ];
-  const currentPlanLabel =
-    tiers.find(
-      (tier) =>
-        tier.free?.key === currentPlanKey ||
-        tier.monthly?.key === currentPlanKey ||
-        tier.annual?.key === currentPlanKey,
-    )?.name ?? "your current plan";
-
   return (
     <div>
       <div className="flex justify-center">
@@ -188,12 +192,10 @@ export default function PricingPlans({
           const isCurrentTier =
             currentPlanKey != null &&
             (tier.monthly?.key === currentPlanKey || tier.annual?.key === currentPlanKey);
-          const canUpgrade =
-            currentPlan !== null &&
-            !isCurrentPlan &&
-            !currentPlan.cancel_at_period_end &&
-            plan.billing === currentPlan.billing &&
-            plan.price_paise > currentPlan.price_paise;
+          const availableAfter =
+            currentPlan?.cancel_at_period_end && currentPlan.current_period_end
+              ? `Available after ${formatDate(currentPlan.current_period_end)}`
+              : null;
 
           return (
             <Card
@@ -268,29 +270,17 @@ export default function PricingPlans({
                   >
                     Current plan
                   </Button>
-                ) : canUpgrade ? (
-                  <UpgradeButton
-                    planKey={plan.key}
-                    planLabel={tier.name}
-                    highlight={tier.highlight}
-                    currentPlanLabel={currentPlanLabel}
-                    onUpgraded={refreshPlan}
-                  />
                 ) : hasActiveSubscription ? (
                   <Button
                     variant={tier.highlight ? "default" : "outline"}
                     className="w-full"
                     disabled
                   >
-                    {currentPlan.cancel_at_period_end
-                      ? "Plan ends soon"
+                    {availableAfter
+                      ? availableAfter
                       : isCurrentTier && !isCurrentPlan
                         ? `Current plan · billed ${currentPlan.billing}`
-                        : !isCurrentTier &&
-                            plan.price_paise > currentPlan.price_paise &&
-                            plan.billing !== currentPlan.billing
-                          ? `Switch to ${currentPlan.billing} to upgrade`
-                          : "Cancel your current plan to change"}
+                        : "Cancel your current plan to switch"}
                   </Button>
                 ) : paymentsEnabled && currency === "INR" ? (
                   <SubscribeButton
@@ -307,7 +297,20 @@ export default function PricingPlans({
         })}
       </div>
 
-      <p className="mt-5 text-center text-xs text-muted-foreground">
+      {hasActiveSubscription && (
+        <p className="mt-5 text-center text-xs text-muted-foreground">
+          <strong>Changing plans?</strong> Razorpay can&apos;t modify an active subscription.
+          Cancel your current plan &mdash; you&apos;ll keep full access until it ends &mdash; then
+          subscribe to any plan you like.
+        </p>
+      )}
+
+      <p
+        className={cn(
+          "text-center text-xs text-muted-foreground",
+          hasActiveSubscription ? "mt-3" : "mt-5",
+        )}
+      >
         Cancel anytime · no refunds — see our{" "}
         <Link className="underline underline-offset-4 hover:text-foreground" href="/refunds">
           Refund Policy

@@ -237,3 +237,18 @@ def test_checkout_unprovisioned_paid_plan_still_returns_503(
         "detail": f"Plan '{plan.key}' has not been provisioned on Razorpay yet"
     }
     assert razorpay_calls == []
+
+
+def test_checkout_retired_plan_returns_410(
+    client: TestClient, razorpay_calls: list[dict[str, Any]]
+) -> None:
+    """pro_lite_annual is withdrawn from sale (founder decision 2026-07-22):
+    under the cancel-then-resubscribe policy a mistaken purchase would lock the
+    customer into the bottom tier for a full year. The plans row still exists -
+    checkout must refuse it even via a direct API call, before any Razorpay
+    interaction."""
+    response = client.post("/payments/checkout/pro_lite_annual")
+
+    assert response.status_code == 410
+    assert response.json() == {"detail": "This plan is no longer offered."}
+    assert razorpay_calls == []

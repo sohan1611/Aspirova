@@ -158,19 +158,6 @@ export interface PlanState {
   cancel_at_period_end: boolean;
 }
 
-export interface UpgradeResult {
-  status: "upgraded";
-  amount_paise: number;
-  waived?: boolean;
-}
-
-export interface UpgradePaymentRequired {
-  status: "payment_required";
-  amount_paise: number;
-  razorpay_order_id: string;
-  razorpay_key_id: string;
-}
-
 export interface AccountMe {
   email: string | null;
   display_name: string | null;

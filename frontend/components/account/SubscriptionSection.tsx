@@ -137,7 +137,7 @@ export default function SubscriptionSection({
                   {plan.current_period_end
                     ? `on ${formatDate(plan.current_period_end)}`
                     : "at the end of your current billing period"}
-                  . Your plan stays fully usable until then.
+                  . Your plan stays fully usable until then. After that, you can subscribe to any plan from the Pricing page.
                 </p>
               ) : (
                 plan.current_period_end && (
