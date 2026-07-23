@@ -61,8 +61,8 @@ export default function SecuritySection({ user }: { user: User }) {
 
   async function handlePasswordSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (password.length < 6) {
-      toast.error("Password must be at least 6 characters.");
+    if (password.length < 8) {
+      toast.error("Password must be at least 8 characters.");
       return;
     }
 
@@ -97,7 +97,7 @@ export default function SecuritySection({ user }: { user: User }) {
                 <div>
                   <h3 className="font-medium text-foreground">Change password</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Use at least 6 characters for your new password.
+                    Use at least 8 characters for your new password.
                   </p>
                 </div>
                 <div className="grid max-w-sm gap-2">
@@ -105,7 +105,7 @@ export default function SecuritySection({ user }: { user: User }) {
                   <Input
                     id="account-new-password"
                     type="password"
-                    minLength={6}
+                    minLength={8}
                     autoComplete="new-password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
@@ -150,10 +150,37 @@ export default function SecuritySection({ user }: { user: User }) {
                 End your session on this device.
               </p>
             </div>
-            <Button variant="outline" onClick={() => void supabase.auth.signOut()}>
-              <LogOut aria-hidden="true" />
-              Sign out
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => void supabase.auth.signOut()}>
+                <LogOut aria-hidden="true" />
+                Sign out
+              </Button>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline">Sign out of all devices</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Sign out of all devices?</DialogTitle>
+                    <DialogDescription>
+                      This ends your session on every device, including this one.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <DialogClose asChild>
+                      <Button variant="outline">Cancel</Button>
+                    </DialogClose>
+                    <Button
+                      onClick={() =>
+                        void supabase.auth.signOut({ scope: "global" })
+                      }
+                    >
+                      Sign out of all devices
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
         </CardContent>
       </Card>

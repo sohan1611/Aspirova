@@ -19,10 +19,21 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { updateAccount } from "@/lib/api";
 import { storeCountryCode, useStoredCountryCode } from "@/lib/country";
 import { getCountry } from "@/lib/countries";
 import { formatDate } from "@/lib/date";
+import {
+  getProfileCompleteness,
+  PROFILE_COMPLETENESS_TOTAL,
+} from "@/lib/profileCompleteness";
 import type { AccountMe } from "@/lib/types";
 import { useHydrated } from "@/lib/useHydrated";
 
@@ -36,6 +47,26 @@ interface ProfileSectionProps {
 function avatarUrlFor(user: User): string | null {
   const avatarUrl: unknown = user.user_metadata?.avatar_url;
   return typeof avatarUrl === "string" ? avatarUrl : null;
+}
+
+function getProfilePatch(
+  account: AccountMe,
+  displayName: string,
+  college: string,
+  graduationYear: string,
+): Partial<Pick<AccountMe, "display_name" | "college" | "graduation_year">> {
+  const normalizedName = displayName.trim() || null;
+  const normalizedCollege = college.trim() || null;
+  const normalizedYear = graduationYear ? Number(graduationYear) : null;
+  const patch: Partial<
+    Pick<AccountMe, "display_name" | "college" | "graduation_year">
+  > = {};
+
+  if (normalizedName !== account.display_name) patch.display_name = normalizedName;
+  if (normalizedCollege !== account.college) patch.college = normalizedCollege;
+  if (normalizedYear !== account.graduation_year) patch.graduation_year = normalizedYear;
+
+  return patch;
 }
 
 export default function ProfileSection({
@@ -55,13 +86,23 @@ export default function ProfileSection({
   const storedCountryCode = useStoredCountryCode();
   const hydrated = useHydrated();
   const selectedCountry = hydrated ? getCountry(storedCountryCode) : undefined;
-  const completedProfileFields = [
-    Boolean(account.display_name?.trim()),
-    Boolean(account.college?.trim()),
-    account.graduation_year !== null,
-  ].filter(Boolean).length;
-  const profileCompletion = (completedProfileFields / 3) * 100;
-  const showCompletionNudge = completionNudgeVisible && profileCompletion < 100;
+  const { completedFields, percentage: profileCompletion } = getProfileCompleteness(account);
+  const showCompletionNudge =
+    completionNudgeVisible && completedFields < PROFILE_COMPLETENESS_TOTAL;
+  const currentYear = new Date().getFullYear();
+  const graduationYears = Array.from(
+    { length: 17 },
+    (_, index) => currentYear - 8 + index,
+  );
+  const hasLegacyGraduationYear =
+    Boolean(graduationYear) && !graduationYears.includes(Number(graduationYear));
+  const profilePatch = getProfilePatch(
+    account,
+    displayName,
+    college,
+    graduationYear,
+  );
+  const isDirty = Object.keys(profilePatch).length > 0;
 
   function handleCountrySelect(code: string) {
     storeCountryCode(code);
@@ -71,33 +112,11 @@ export default function ProfileSection({
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const normalizedName = displayName.trim() || null;
-    const normalizedCollege = college.trim() || null;
-    const normalizedYear = graduationYear ? Number(graduationYear) : null;
-
-    if (
-      normalizedYear !== null &&
-      (!Number.isInteger(normalizedYear) || normalizedYear < 2000 || normalizedYear > 2100)
-    ) {
-      toast.error("Graduation year must be between 2000 and 2100.");
-      return;
-    }
-
-    const patch: Partial<
-      Pick<AccountMe, "display_name" | "college" | "graduation_year">
-    > = {};
-    if (normalizedName !== account.display_name) patch.display_name = normalizedName;
-    if (normalizedCollege !== account.college) patch.college = normalizedCollege;
-    if (normalizedYear !== account.graduation_year) patch.graduation_year = normalizedYear;
-
-    if (Object.keys(patch).length === 0) {
-      toast.message("Your profile is already up to date.");
-      return;
-    }
+    if (!isDirty) return;
 
     setSubmitting(true);
     try {
-      const updated = await updateAccount(accessToken, patch);
+      const updated = await updateAccount(accessToken, profilePatch);
       onAccountChange(updated);
       setDisplayName(updated.display_name ?? "");
       setCollege(updated.college ?? "");
@@ -124,7 +143,7 @@ export default function ProfileSection({
                 <p className="text-sm font-medium text-foreground">
                   Complete your profile{" "}
                   <span className="tnum text-muted-foreground">
-                    ({completedProfileFields} of 3)
+                    ({completedFields} of {PROFILE_COMPLETENESS_TOTAL})
                   </span>
                 </p>
                 <p className="mt-0.5 text-sm text-muted-foreground">
@@ -147,9 +166,9 @@ export default function ProfileSection({
               role="progressbar"
               aria-label="Profile completeness"
               aria-valuemin={0}
-              aria-valuemax={3}
-              aria-valuenow={completedProfileFields}
-              aria-valuetext={`${completedProfileFields} of 3 profile details complete`}
+              aria-valuemax={PROFILE_COMPLETENESS_TOTAL}
+              aria-valuenow={completedFields}
+              aria-valuetext={`${completedFields} of ${PROFILE_COMPLETENESS_TOTAL} profile details complete`}
             >
               <div
                 className="h-full rounded-full bg-muted-foreground/45"
@@ -304,21 +323,30 @@ export default function ProfileSection({
               <Label className="eyebrow" htmlFor="account-graduation-year">
                 Graduation year
               </Label>
-              <Input
-                id="account-graduation-year"
-                type="number"
-                min={2000}
-                max={2100}
-                inputMode="numeric"
-                value={graduationYear}
-                onChange={(event) => setGraduationYear(event.target.value)}
-                placeholder="2027"
-              />
+              <Select
+                value={graduationYear || "none"}
+                onValueChange={(value) => setGraduationYear(value === "none" ? "" : value)}
+              >
+                <SelectTrigger id="account-graduation-year" className="w-full">
+                  <SelectValue placeholder="Select your graduation year" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">—</SelectItem>
+                  {hasLegacyGraduationYear && (
+                    <SelectItem value={graduationYear}>{graduationYear}</SelectItem>
+                  )}
+                  {graduationYears.map((year) => (
+                    <SelectItem key={year} value={year.toString()}>
+                      {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
           <div className="flex justify-end border-t border-border pt-6">
-            <Button type="submit" disabled={submitting}>
+            <Button type="submit" disabled={submitting || !isDirty}>
               {submitting && <Loader2 className="animate-spin" aria-hidden="true" />}
               {submitting ? "Saving…" : "Save changes"}
             </Button>

@@ -28,6 +28,10 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAccount, getBookmarks } from "@/lib/api";
 import { formatDate } from "@/lib/date";
+import {
+  getProfileCompleteness,
+  PROFILE_COMPLETENESS_TOTAL,
+} from "@/lib/profileCompleteness";
 import type { AccountMe } from "@/lib/types";
 import { useSession } from "@/lib/useSession";
 
@@ -192,7 +196,15 @@ function AccountPageContent() {
   const displayName =
     account.display_name?.trim() || email?.split("@")[0] || "Aspirova member";
   const avatarUrl: unknown = session.user.user_metadata?.avatar_url;
-  const isFreePlan = account.plan.key === "free";
+  const isFreePlan = account.plan.key === "free" || account.plan.status === "free";
+  const { completedFields, percentage: profileCompletion } = getProfileCompleteness(account);
+  const planTileHref = isFreePlan ? "/pricing" : "/account?section=subscription";
+  const planTileValue = isFreePlan ? "Free plan" : planName(account.plan.key);
+  const planTileCaption = isFreePlan
+    ? "Upgrade →"
+    : account.plan.current_period_end
+      ? `${account.plan.cancel_at_period_end ? "Cancels" : "Renews"} ${formatDate(account.plan.current_period_end)}`
+      : "Manage plan";
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-10">
@@ -258,24 +270,56 @@ function AccountPageContent() {
                   Saved
                 </span>
               </Link>
-              <div className="rounded-xl border border-border bg-secondary/25 px-4 py-3 shadow-soft">
+              <Link
+                href="/saved"
+                className="rounded-xl border border-border bg-secondary/25 px-4 py-3 shadow-soft transition-colors duration-200 ease-premium hover:bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
                 <span className="tnum block font-serif text-xl font-semibold tracking-tight text-foreground">
                   {bookmarkStats.inProgress.toLocaleString()}
                 </span>
                 <span className="mt-1 block text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
                   In progress
                 </span>
-              </div>
-              <div className="rounded-xl border border-border bg-secondary/25 px-4 py-3 shadow-soft">
+              </Link>
+              <Link
+                href={planTileHref}
+                className="rounded-xl border border-border bg-secondary/25 px-4 py-3 shadow-soft transition-colors duration-200 ease-premium hover:bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
                 <span className="tnum block font-serif text-xl font-semibold tracking-tight text-foreground">
-                  {formatDate(account.created_at, "long")}
+                  {planTileValue}
                 </span>
                 <span className="mt-1 block text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                  Member since
+                  {planTileCaption}
                 </span>
-              </div>
+              </Link>
             </div>
           ) : null}
+
+          {completedFields < PROFILE_COMPLETENESS_TOTAL && (
+            <Link
+              href="/account?section=profile"
+              className="block rounded-lg border border-border bg-muted/30 px-4 py-3 transition-colors duration-200 ease-premium hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <p className="text-sm font-medium text-foreground">
+                Profile {completedFields} of {PROFILE_COMPLETENESS_TOTAL}{" "}
+                <span aria-hidden="true">·</span> Finish your profile
+              </p>
+              <div
+                className="mt-2 h-1 overflow-hidden rounded-full bg-border/70"
+                role="progressbar"
+                aria-label="Profile completeness"
+                aria-valuemin={0}
+                aria-valuemax={PROFILE_COMPLETENESS_TOTAL}
+                aria-valuenow={completedFields}
+                aria-valuetext={`${completedFields} of ${PROFILE_COMPLETENESS_TOTAL} profile details complete`}
+              >
+                <div
+                  className="h-full rounded-full bg-muted-foreground/45"
+                  style={{ width: `${profileCompletion}%` }}
+                />
+              </div>
+            </Link>
+          )}
         </CardContent>
       </Card>
 

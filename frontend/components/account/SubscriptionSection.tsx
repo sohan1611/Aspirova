@@ -75,6 +75,21 @@ function planName(key: string): string {
     .join(" ");
 }
 
+function billingSummary(plan: PlanState, isFree: boolean): string {
+  if (isFree) return "You’re on the free plan.";
+
+  const periodEnd = plan.current_period_end
+    ? formatDate(plan.current_period_end)
+    : "the end of your current billing period";
+
+  if (plan.cancel_at_period_end) {
+    return `Access until ${periodEnd} · resubscribe anytime from Pricing.`;
+  }
+
+  const billingPeriod = plan.billing === "annual" ? "year" : "month";
+  return `₹${plan.price_paise / 100}/${billingPeriod} · renews ${periodEnd}`;
+}
+
 export default function SubscriptionSection({
   account,
   accessToken,
@@ -125,27 +140,9 @@ export default function SubscriptionSection({
                       : plan.status}
                 </Badge>
               </div>
-              {!isFree && (
-                <p className="mt-2 text-lg font-semibold text-foreground">
-                  ₹{plan.price_paise / 100}
-                  {plan.billing === "annual" ? "/yr" : "/mo"}
-                </p>
-              )}
-              {cancellationScheduled ? (
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Your access ends{" "}
-                  {plan.current_period_end
-                    ? `on ${formatDate(plan.current_period_end)}`
-                    : "at the end of your current billing period"}
-                  . Your plan stays fully usable until then. After that, you can subscribe to any plan from the Pricing page.
-                </p>
-              ) : (
-                plan.current_period_end && (
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Renews on {formatDate(plan.current_period_end)}
-                  </p>
-                )
-              )}
+              <p className="mt-2 text-sm text-muted-foreground">
+                {billingSummary(plan, isFree)}
+              </p>
             </div>
           </div>
 
