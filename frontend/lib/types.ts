@@ -1,3 +1,5 @@
+import type { FieldProfile } from "@/lib/taxonomy";
+
 // Mirrors backend/api/schemas.py - keep these in sync by hand (Phase 1 has
 // no shared schema generation yet).
 
@@ -163,6 +165,7 @@ export interface AccountMe {
   display_name: string | null;
   college: string | null;
   graduation_year: number | null;
+  field_profile: FieldProfile | null;
   created_at: string;
   invite_code: string | null;
   notification_prefs: Record<string, boolean>;

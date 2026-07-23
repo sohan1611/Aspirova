@@ -3,7 +3,7 @@
 import { AlertCircle, Loader2, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import AccountAvatar from "@/components/account/AccountAvatar";
 import AccountSidebar, {
   isAccountSection,
@@ -28,10 +28,12 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAccount, getBookmarks } from "@/lib/api";
 import { formatDate } from "@/lib/date";
+import { readStoredFieldProfile, storeFieldProfile } from "@/lib/fieldProfile";
 import {
   getProfileCompleteness,
   PROFILE_COMPLETENESS_TOTAL,
 } from "@/lib/profileCompleteness";
+import type { FieldProfile } from "@/lib/taxonomy";
 import type { AccountMe } from "@/lib/types";
 import { useSession } from "@/lib/useSession";
 
@@ -43,6 +45,20 @@ function planName(key: string): string {
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function hasFieldProfileSelections(profile: FieldProfile | null): profile is FieldProfile {
+  return Boolean(profile?.stream || profile?.divisions.length || profile?.interests.length);
+}
+
+function fieldProfilesMatch(left: FieldProfile, right: FieldProfile): boolean {
+  return (
+    left.stream === right.stream &&
+    left.divisions.length === right.divisions.length &&
+    left.divisions.every((division, index) => division === right.divisions[index]) &&
+    left.interests.length === right.interests.length &&
+    left.interests.every((interest, index) => interest === right.interests[index])
+  );
 }
 
 export default function AccountPage() {
@@ -70,27 +86,58 @@ function AccountPageContent() {
     inProgress: number;
   } | null>(null);
   const [bookmarkStatsLoading, setBookmarkStatsLoading] = useState(true);
+  const hydratedFieldProfileTokenRef = useRef<string | null>(null);
+
+  const seedFieldProfileFromAccount = useCallback(
+    (loadedAccount: AccountMe, localProfileAtRequest: FieldProfile) => {
+      if (!accessToken || hydratedFieldProfileTokenRef.current === accessToken) return;
+
+      const serverProfile = loadedAccount.field_profile;
+      if (!hasFieldProfileSelections(serverProfile)) {
+        hydratedFieldProfileTokenRef.current = accessToken;
+        return;
+      }
+
+      const currentLocalProfile = readStoredFieldProfile();
+      if (!fieldProfilesMatch(currentLocalProfile, localProfileAtRequest)) {
+        // The local profile changed while the account request was in flight.
+        hydratedFieldProfileTokenRef.current = accessToken;
+        return;
+      }
+
+      if (!fieldProfilesMatch(currentLocalProfile, serverProfile)) {
+        storeFieldProfile(serverProfile);
+      }
+      hydratedFieldProfileTokenRef.current = accessToken;
+    },
+    [accessToken],
+  );
 
   const refresh = useCallback(async () => {
     if (!accessToken) return;
     setLoading(true);
     setError(false);
+    const localProfileAtRequest = readStoredFieldProfile();
     try {
-      setAccount(await getAccount(accessToken));
+      const loadedAccount = await getAccount(accessToken);
+      seedFieldProfileFromAccount(loadedAccount, localProfileAtRequest);
+      setAccount(loadedAccount);
     } catch {
       setError(true);
     } finally {
       setLoading(false);
     }
-  }, [accessToken]);
+  }, [accessToken, seedFieldProfileFromAccount]);
 
   useEffect(() => {
     if (!accessToken) return;
 
     let cancelled = false;
+    const localProfileAtRequest = readStoredFieldProfile();
     getAccount(accessToken)
       .then((loadedAccount) => {
         if (cancelled) return;
+        seedFieldProfileFromAccount(loadedAccount, localProfileAtRequest);
         setAccount(loadedAccount);
         setError(false);
         setLoading(false);
@@ -104,7 +151,7 @@ function AccountPageContent() {
     return () => {
       cancelled = true;
     };
-  }, [accessToken]);
+  }, [accessToken, seedFieldProfileFromAccount]);
 
   useEffect(() => {
     if (!accessToken) return;

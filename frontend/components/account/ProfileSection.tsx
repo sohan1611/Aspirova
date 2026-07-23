@@ -30,10 +30,13 @@ import { updateAccount } from "@/lib/api";
 import { storeCountryCode, useStoredCountryCode } from "@/lib/country";
 import { getCountry } from "@/lib/countries";
 import { formatDate } from "@/lib/date";
+import { useFieldProfile } from "@/lib/fieldProfile";
+import { requestOnboarding } from "@/lib/interests";
 import {
   getProfileCompleteness,
   PROFILE_COMPLETENESS_TOTAL,
 } from "@/lib/profileCompleteness";
+import { getDivision, getStream, interestsFor } from "@/lib/taxonomy";
 import type { AccountMe } from "@/lib/types";
 import { useHydrated } from "@/lib/useHydrated";
 
@@ -86,6 +89,14 @@ export default function ProfileSection({
   const storedCountryCode = useStoredCountryCode();
   const hydrated = useHydrated();
   const selectedCountry = hydrated ? getCountry(storedCountryCode) : undefined;
+  const { profile: fieldProfile, hydrated: fieldProfileHydrated } = useFieldProfile();
+  const fieldStream = getStream(fieldProfile.stream);
+  const fieldDivisionLabels = fieldProfile.divisions
+    .map((divisionKey) => getDivision(fieldProfile.stream, divisionKey)?.label)
+    .filter((label): label is string => Boolean(label));
+  const fieldInterestLabels = interestsFor(fieldProfile.stream, fieldProfile.divisions)
+    .filter((interest) => fieldProfile.interests.includes(interest.key))
+    .map((interest) => interest.label);
   const { completedFields, percentage: profileCompletion } = getProfileCompleteness(account);
   const showCompletionNudge =
     completionNudgeVisible && completedFields < PROFILE_COMPLETENESS_TOTAL;
@@ -344,6 +355,60 @@ export default function ProfileSection({
               </Select>
             </div>
           </div>
+
+          <section
+            aria-labelledby="account-field-interests"
+            className="grid gap-3 rounded-lg border border-border bg-muted/20 p-4"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p id="account-field-interests" className="eyebrow">
+                  Fields &amp; interests
+                </p>
+                {!fieldProfileHydrated ? (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Loading your field preferences…
+                  </p>
+                ) : !fieldStream ? (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Add your field and interests to personalise your feed.
+                  </p>
+                ) : (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Used to personalise the opportunities you see first.
+                  </p>
+                )}
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={requestOnboarding}>
+                Edit
+              </Button>
+            </div>
+
+            {fieldProfileHydrated && fieldStream && (
+              <dl className="grid gap-3 text-sm sm:grid-cols-3">
+                <div>
+                  <dt className="text-muted-foreground">Field</dt>
+                  <dd className="mt-1 font-medium text-foreground">{fieldStream.label}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Specialisation</dt>
+                  <dd className="mt-1 font-medium text-foreground">
+                    {fieldDivisionLabels.length > 0
+                      ? fieldDivisionLabels.join(", ")
+                      : "Not selected"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Interests</dt>
+                  <dd className="mt-1 font-medium text-foreground">
+                    {fieldInterestLabels.length > 0
+                      ? fieldInterestLabels.join(", ")
+                      : "No interests selected"}
+                  </dd>
+                </div>
+              </dl>
+            )}
+          </section>
 
           <div className="flex justify-end border-t border-border pt-6">
             <Button type="submit" disabled={submitting || !isDirty}>
