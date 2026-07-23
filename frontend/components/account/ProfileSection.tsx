@@ -225,7 +225,7 @@ export default function ProfileSection({
           </div>
 
           <div className="grid gap-6 sm:grid-cols-2">
-            <div className="grid gap-2.5">
+            <div className="grid gap-2.5 content-start">
               <Label className="eyebrow" htmlFor="account-college">
                 College
               </Label>
@@ -319,7 +319,7 @@ export default function ProfileSection({
                 </div>
               )}
             </div>
-            <div className="grid gap-2.5">
+            <div className="grid gap-2.5 content-start">
               <Label className="eyebrow" htmlFor="account-graduation-year">
                 Graduation year
               </Label>

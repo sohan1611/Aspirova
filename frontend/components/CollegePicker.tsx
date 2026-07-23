@@ -12,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const collegeListCache = new Map<string, Promise<string[]>>();
+const COLLEGE_BATCH_SIZE = 200;
 
 function loadColleges(countryCode: string): Promise<string[]> {
   const cachedColleges = collegeListCache.get(countryCode);
@@ -53,6 +54,9 @@ export function CollegePicker({
     countryCode: string;
     colleges: string[];
   } | null>(null);
+  const [visibleCollegeCount, setVisibleCollegeCount] = React.useState(
+    COLLEGE_BATCH_SIZE,
+  );
   const searchInputRef = React.useRef<HTMLInputElement>(null);
   const searchInputId = React.useId();
   const collegeListId = React.useId();
@@ -67,6 +71,7 @@ export function CollegePicker({
     void loadColleges(normalizedCountryCode).then((colleges) => {
       if (!cancelled) {
         setLoadedCollegeList({ countryCode: normalizedCountryCode, colleges });
+        setVisibleCollegeCount(COLLEGE_BATCH_SIZE);
       }
     });
 
@@ -91,10 +96,29 @@ export function CollegePicker({
     );
   }, [colleges, query]);
 
+  const visibleMatchingColleges = React.useMemo(
+    () => matchingColleges.slice(0, visibleCollegeCount),
+    [matchingColleges, visibleCollegeCount],
+  );
+
   const handleOpenChange = React.useCallback((nextOpen: boolean) => {
+    setVisibleCollegeCount(COLLEGE_BATCH_SIZE);
     setOpen(nextOpen);
     if (!nextOpen) setQuery("");
   }, []);
+
+  const handleCollegeListScroll = React.useCallback(
+    (event: React.UIEvent<HTMLUListElement>) => {
+      const list = event.currentTarget;
+
+      if (list.scrollTop + list.clientHeight >= list.scrollHeight - 200) {
+        setVisibleCollegeCount((count) =>
+          Math.min(count + COLLEGE_BATCH_SIZE, matchingColleges.length),
+        );
+      }
+    },
+    [matchingColleges.length],
+  );
 
   function handleSelect(college: string) {
     onSelect(college);
@@ -148,7 +172,10 @@ export function CollegePicker({
             id={searchInputId}
             type="search"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setVisibleCollegeCount(COLLEGE_BATCH_SIZE);
+              setQuery(event.target.value);
+            }}
             placeholder="Search colleges..."
             autoComplete="off"
             aria-controls={collegeListId}
@@ -170,6 +197,7 @@ export function CollegePicker({
           id={collegeListId}
           aria-label="Colleges"
           className="mt-2 max-h-72 space-y-0.5 overflow-y-auto pr-1"
+          onScroll={handleCollegeListScroll}
         >
           {colleges === null ? (
             <li className="px-2 py-6 text-center text-sm text-muted-foreground">
@@ -184,7 +212,7 @@ export function CollegePicker({
               No colleges match “{query.trim()}”.
             </li>
           ) : (
-            matchingColleges.map((college) => {
+            visibleMatchingColleges.map((college) => {
               const isSelected = college === value;
 
               return (
