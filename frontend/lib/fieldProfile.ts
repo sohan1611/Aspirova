@@ -4,6 +4,7 @@ import { useHydrated } from "@/lib/useHydrated";
 
 export const FIELD_PROFILE_STORAGE_KEY = "aspirova.field_profile";
 export const FIELD_PROFILE_EVENT = "aspirova:field-profile-change";
+export const OPEN_ONBOARDING_EVENT = "aspirova:open-onboarding";
 
 interface FieldProfileSnapshot {
   profile: FieldProfile;
@@ -139,6 +140,12 @@ export function storeFieldProfile(profile: FieldProfile): void {
   }
 
   window.dispatchEvent(new Event(FIELD_PROFILE_EVENT));
+}
+
+/** Opens the globally mounted field-profile dialog from any client component. */
+export function requestOnboarding(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(OPEN_ONBOARDING_EVENT));
 }
 
 export function useFieldProfile(): {

@@ -30,8 +30,7 @@ import { updateAccount } from "@/lib/api";
 import { storeCountryCode, useStoredCountryCode } from "@/lib/country";
 import { getCountry } from "@/lib/countries";
 import { formatDate } from "@/lib/date";
-import { useFieldProfile } from "@/lib/fieldProfile";
-import { requestOnboarding } from "@/lib/interests";
+import { requestOnboarding, useFieldProfile } from "@/lib/fieldProfile";
 import {
   getProfileCompleteness,
   PROFILE_COMPLETENESS_TOTAL,

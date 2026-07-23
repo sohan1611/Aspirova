@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useSyncExternalStore, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { getCountry } from "@/lib/countries";
-import { requestOnboarding, useInterests } from "@/lib/interests";
+import { requestOnboarding, useFieldProfile } from "@/lib/fieldProfile";
+import { expandToSearchTerms } from "@/lib/taxonomy";
 import { cn } from "@/lib/utils";
 
 const COUNTRY_STORAGE_KEY = "aspirova.country";
@@ -37,7 +38,7 @@ function hrefFor(params: URLSearchParams): string {
 export default function ForYouControl() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { fields, hydrated } = useInterests();
+  const { profile, hydrated } = useFieldProfile();
   const [isPending, startTransition] = useTransition();
   const storedCountryCode = useSyncExternalStore(
     subscribeStoredCountry,
@@ -45,10 +46,11 @@ export default function ForYouControl() {
     () => null,
   );
   const countryCode = storedCountryCode && getCountry(storedCountryCode) ? storedCountryCode : null;
+  const terms = expandToSearchTerms(profile);
   const isForYou = searchParams.get("view") === "foryou" && !searchParams.get("q");
 
   function activateForYou() {
-    if (fields.length === 0) {
+    if (profile.interests.length === 0) {
       requestOnboarding();
       return;
     }
@@ -56,7 +58,8 @@ export default function ForYouControl() {
     const params = new URLSearchParams(searchParams.toString());
     params.delete("q");
     params.set("view", "foryou");
-    params.set("fields", fields.join(","));
+    params.delete("fields");
+    params.set("terms", terms.join(","));
     if (countryCode) params.set("country", countryCode);
     params.delete("page");
 
@@ -69,6 +72,7 @@ export default function ForYouControl() {
     const params = new URLSearchParams(searchParams.toString());
     params.delete("view");
     params.delete("fields");
+    params.delete("terms");
     params.delete("page");
 
     startTransition(() => {

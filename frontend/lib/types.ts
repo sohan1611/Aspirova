@@ -166,6 +166,8 @@ export interface AccountMe {
   college: string | null;
   graduation_year: number | null;
   field_profile: FieldProfile | null;
+  skills: { name: string; source: "resume" | "manual" }[] | null;
+  exposure: { experience: string | null; notes: string | null } | null;
   created_at: string;
   invite_code: string | null;
   notification_prefs: Record<string, boolean>;

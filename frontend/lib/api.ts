@@ -1,3 +1,4 @@
+import type { FieldProfile } from "@/lib/taxonomy";
 import type {
   AccountMe,
   BookmarkStage,
@@ -88,6 +89,7 @@ export interface FeedParams {
 }
 
 export interface ForYouParams {
+  terms?: string[];
   fields?: string[];
   categories?: string[];
   country?: string;
@@ -158,7 +160,11 @@ export async function getTrending(limit?: number): Promise<TrendingResponse> {
 
 export async function getForYou(params: ForYouParams = {}): Promise<FeedResponse> {
   const search = new URLSearchParams();
-  if (params.fields?.length) search.set("fields", params.fields.join(","));
+  if (params.terms?.length) {
+    search.set("terms", params.terms.join(","));
+  } else if (params.fields?.length) {
+    search.set("fields", params.fields.join(","));
+  }
   if (params.categories?.length) search.set("categories", params.categories.join(","));
   if (params.country) search.set("country", params.country);
   if (params.scope) search.set("scope", params.scope);
@@ -473,8 +479,18 @@ export async function getAccount(accessToken: string): Promise<AccountMe> {
 
 export async function updateAccount(
   accessToken: string,
-  patch: Partial<Pick<AccountMe, "display_name" | "college" | "graduation_year">> & {
+  patch: Partial<
+    Pick<
+      AccountMe,
+      | "display_name"
+      | "college"
+      | "graduation_year"
+      | "skills"
+      | "exposure"
+    >
+  > & {
     notification_prefs?: Record<string, boolean>;
+    field_profile?: FieldProfile | null;
   },
 ): Promise<AccountMe> {
   const res = await fetch(`${API_URL}/account/me`, {

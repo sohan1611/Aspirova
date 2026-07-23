@@ -17,9 +17,10 @@ from core import models
 router = APIRouter()
 
 
-# Keep these keys in sync with frontend/lib/interests.ts. Multi-word entries
-# are deliberately passed through websearch_to_tsquery, rather than assembled
-# with to_tsquery syntax, so this stays safe if the curated terms evolve.
+# These legacy field keys remain supported for backwards compatibility.
+# Multi-word entries are deliberately passed through websearch_to_tsquery,
+# rather than assembled with to_tsquery syntax, so this stays safe if the
+# curated terms evolve.
 FIELD_KEYWORDS: dict[str, list[str]] = {
     "software": [
         "software",
@@ -123,6 +124,11 @@ def _selected_keywords(fields: str | None) -> list[str]:
     return keywords
 
 
+def _selected_terms(terms: str | None) -> list[str]:
+    """Parse CSV search terms supplied by the field-profile feed."""
+    return [term.strip() for term in (terms or "").split(",") if term.strip()]
+
+
 def _selected_categories(categories: str | None) -> list[str]:
     """Parse the CSV category parameter while retaining FastAPI's 422 contract."""
     selected: list[str] = []
@@ -140,6 +146,7 @@ def _selected_categories(categories: str | None) -> list[str]:
 @router.get("/for-you", response_model=FeedResponse)
 def get_for_you(
     fields: str | None = Query(None, max_length=500),
+    terms: str | None = Query(None, max_length=500),
     categories: str | None = Query(None, max_length=200),
     country: str | None = Query(None, min_length=2, max_length=2),
     scope: str | None = Query(None, pattern="^(abroad|domestic|both)$"),
@@ -166,7 +173,10 @@ def get_for_you(
             )
         )
 
-    keywords = _selected_keywords(fields)
+    # A supplied terms parameter represents the richer field profile. Its
+    # presence intentionally takes precedence over legacy fields, even when
+    # CSV cleanup leaves no usable terms.
+    keywords = _selected_terms(terms) if terms is not None else _selected_keywords(fields)
     total_count = func.count().over().label("total_count")
     query = (
         select(models.Opportunity, total_count)
@@ -177,7 +187,7 @@ def get_for_you(
     if keywords:
         # websearch_to_tsquery is the same resilient parser used by /search:
         # it safely handles phrases such as "full stack" and never treats a
-        # curated string as raw tsquery syntax.
+        # input as raw tsquery syntax.
         tsquery = func.websearch_to_tsquery("english", " OR ".join(keywords))
         matches_fts = models.Opportunity.search_tsv.op("@@")(tsquery)
         rank = func.ts_rank(models.Opportunity.search_tsv, tsquery)

@@ -23,8 +23,11 @@ import {
 } from "@/components/ui/dialog";
 import { updateAccount } from "@/lib/api";
 import { getCountry } from "@/lib/countries";
-import { storeFieldProfile, useFieldProfile } from "@/lib/fieldProfile";
-import { OPEN_ONBOARDING_EVENT } from "@/lib/interests";
+import {
+  OPEN_ONBOARDING_EVENT,
+  storeFieldProfile,
+  useFieldProfile,
+} from "@/lib/fieldProfile";
 import {
   expandToSearchTerms,
   getDivision,
@@ -320,12 +323,8 @@ export default function OnboardingDialog() {
       storeFieldProfile(profile);
 
       if (session?.access_token) {
-        const fieldProfilePatch: Parameters<typeof updateAccount>[1] & {
-          field_profile: FieldProfile;
-        } = { field_profile: profile };
-
         try {
-          await updateAccount(session.access_token, fieldProfilePatch);
+          await updateAccount(session.access_token, { field_profile: profile });
         } catch {
           toast.error("Saved on this device, but we couldn't sync your interests to your account.");
         }
