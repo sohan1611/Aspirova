@@ -325,6 +325,9 @@ class AccountMe(BaseModel):
     created_at: datetime
     invite_code: str | None
     notification_prefs: dict[str, bool]
+    field_profile: dict | None
+    skills: list | None
+    exposure: dict | None
     plan: PlanState
 
 
@@ -333,6 +336,9 @@ class AccountUpdate(BaseModel):
     college: str | None = None
     graduation_year: int | None = None
     notification_prefs: dict[str, bool] | None = None
+    field_profile: dict | None = None
+    skills: list | None = None
+    exposure: dict | None = None
 
     @field_validator("display_name", "college")
     @classmethod
@@ -364,6 +370,104 @@ class AccountUpdate(BaseModel):
         ):
             raise ValueError("notification_prefs values must be bool")
         return value
+
+    @field_validator("field_profile", mode="before")
+    @classmethod
+    def validate_field_profile(cls, value: object) -> dict[str, object] | None:
+        if value is None:
+            return None
+        if not isinstance(value, dict):
+            raise ValueError("field_profile must be an object")
+
+        stream = value.get("stream")
+        if isinstance(stream, str):
+            stream = stream.strip() or None
+            if stream is not None and len(stream) > 64:
+                raise ValueError("field_profile.stream must be at most 64 characters")
+        elif stream is not None:
+            stream = None
+
+        return {
+            "stream": stream,
+            "divisions": cls._normalize_field_profile_keys(value.get("divisions")),
+            "interests": cls._normalize_field_profile_keys(value.get("interests")),
+        }
+
+    @staticmethod
+    def _normalize_field_profile_keys(value: object) -> list[str]:
+        if not isinstance(value, list):
+            return []
+
+        normalized: list[str] = []
+        seen: set[str] = set()
+        for item in value:
+            if not isinstance(item, str):
+                continue
+            key = item.strip()
+            if not key:
+                continue
+            if len(key) > 64:
+                raise ValueError("field_profile keys must be at most 64 characters")
+            if key in seen:
+                continue
+            seen.add(key)
+            normalized.append(key)
+            if len(normalized) == 64:
+                break
+
+        return normalized
+
+    @field_validator("skills", mode="before")
+    @classmethod
+    def validate_skills(cls, value: object) -> list[dict[str, str]] | None:
+        if value is None:
+            return None
+        if not isinstance(value, list):
+            raise ValueError("skills must be a list")
+
+        normalized: list[dict[str, str]] = []
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name")
+            if not isinstance(name, str):
+                continue
+            name = name.strip()
+            if not 1 <= len(name) <= 80:
+                continue
+
+            source = item.get("source", "manual")
+            if not isinstance(source, str) or source not in {"resume", "manual"}:
+                continue
+
+            normalized.append({"name": name, "source": source})
+            if len(normalized) == 100:
+                break
+
+        return normalized
+
+    @field_validator("exposure", mode="before")
+    @classmethod
+    def validate_exposure(cls, value: object) -> dict[str, str | None] | None:
+        if value is None:
+            return None
+        if not isinstance(value, dict):
+            raise ValueError("exposure must be an object")
+
+        return {
+            "experience": cls._normalize_exposure_text(value.get("experience")),
+            "notes": cls._normalize_exposure_text(value.get("notes")),
+        }
+
+    @staticmethod
+    def _normalize_exposure_text(value: object) -> str | None:
+        if not isinstance(value, str):
+            return None
+
+        normalized = value.strip()
+        if len(normalized) > 2_000:
+            raise ValueError("exposure text must be at most 2000 characters")
+        return normalized or None
 
 
 class WaitlistSignupRequest(BaseModel):

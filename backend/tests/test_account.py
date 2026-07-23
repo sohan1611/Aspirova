@@ -68,8 +68,12 @@ def test_get_account_me_returns_free_plan(client) -> None:
     response = client.get("/account/me")
 
     assert response.status_code == 200
-    assert response.json()["plan"]["status"] == "free"
-    assert response.json()["plan"]["key"] == "free"
+    payload = response.json()
+    assert payload["plan"]["status"] == "free"
+    assert payload["plan"]["key"] == "free"
+    assert payload["field_profile"] is None
+    assert payload["skills"] is None
+    assert payload["exposure"] is None
 
 
 def test_account_me_treats_subscription_expired_beyond_grace_as_free(
@@ -136,6 +140,150 @@ def test_patch_account_updates_profile_and_merges_preferences(
 
     db_session.refresh(user)
     assert user.notification_prefs == payload["notification_prefs"]
+
+
+def test_patch_account_sets_and_replaces_smart_profile_data(client) -> None:
+    first = client.patch(
+        "/account/me",
+        json={
+            "field_profile": {
+                "stream": "engineering",
+                "divisions": ["cse", "it"],
+                "interests": ["web_dev", "cloud_devops"],
+            },
+            "skills": [
+                {"name": "Python", "source": "resume"},
+                {"name": "Figma", "source": "manual"},
+            ],
+            "exposure": {
+                "experience": "One software internship",
+                "notes": "Interested in product teams",
+            },
+        },
+    )
+
+    assert first.status_code == 200
+    assert first.json()["field_profile"] == {
+        "stream": "engineering",
+        "divisions": ["cse", "it"],
+        "interests": ["web_dev", "cloud_devops"],
+    }
+    assert first.json()["skills"] == [
+        {"name": "Python", "source": "resume"},
+        {"name": "Figma", "source": "manual"},
+    ]
+    assert first.json()["exposure"] == {
+        "experience": "One software internship",
+        "notes": "Interested in product teams",
+    }
+
+    replacement = client.patch(
+        "/account/me",
+        json={
+            "field_profile": {
+                "stream": "management",
+                "divisions": ["marketing"],
+                "interests": ["growth"],
+            },
+            "skills": [],
+            "exposure": {"experience": None, "notes": "Changing fields"},
+        },
+    )
+
+    assert replacement.status_code == 200
+    payload = replacement.json()
+    assert payload["field_profile"] == {
+        "stream": "management",
+        "divisions": ["marketing"],
+        "interests": ["growth"],
+    }
+    assert payload["skills"] == []
+    assert payload["exposure"] == {"experience": None, "notes": "Changing fields"}
+
+    read_back = client.get("/account/me")
+    assert read_back.status_code == 200
+    assert read_back.json()["field_profile"] == payload["field_profile"]
+    assert read_back.json()["skills"] == payload["skills"]
+    assert read_back.json()["exposure"] == payload["exposure"]
+
+
+def test_patch_account_normalizes_smart_profile_data(client) -> None:
+    response = client.patch(
+        "/account/me",
+        json={
+            "field_profile": {
+                "stream": " engineering ",
+                "divisions": [" cse ", 7, "cse", "", "it"],
+                "interests": [" web_dev ", None, "web_dev", "data_science"],
+            },
+            "skills": [
+                {"name": " Python ", "source": "resume"},
+                {"name": "SQL"},
+                {"name": "", "source": "manual"},
+                {"name": 7, "source": "manual"},
+                {"name": "x" * 81, "source": "manual"},
+                {"name": "Figma", "source": "unknown"},
+                "not a skill",
+            ],
+            "exposure": {
+                "experience": "  Two internships  ",
+                "notes": "   ",
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["field_profile"] == {
+        "stream": "engineering",
+        "divisions": ["cse", "it"],
+        "interests": ["web_dev", "data_science"],
+    }
+    assert payload["skills"] == [
+        {"name": "Python", "source": "resume"},
+        {"name": "SQL", "source": "manual"},
+    ]
+    assert payload["exposure"] == {"experience": "Two internships", "notes": None}
+
+
+def test_patch_account_clamps_smart_profile_collection_caps(client) -> None:
+    response = client.patch(
+        "/account/me",
+        json={
+            "field_profile": {
+                "stream": "engineering",
+                "divisions": [f"division-{index}" for index in range(70)],
+                "interests": [f"interest-{index}" for index in range(70)],
+            },
+            "skills": [{"name": f"Skill {index}"} for index in range(105)],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["field_profile"]["divisions"] == [f"division-{index}" for index in range(64)]
+    assert payload["field_profile"]["interests"] == [f"interest-{index}" for index in range(64)]
+    assert payload["skills"] == [
+        {"name": f"Skill {index}", "source": "manual"} for index in range(100)
+    ]
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"field_profile": []},
+        {"skills": {}},
+        {"exposure": []},
+        {"field_profile": {"stream": "x" * 65}},
+        {"field_profile": {"divisions": ["x" * 65]}},
+        {"field_profile": {"interests": ["x" * 65]}},
+        {"exposure": {"notes": "x" * 2_001}},
+    ],
+)
+def test_patch_account_rejects_invalid_smart_profile_shape_or_size(client, payload) -> None:
+    response = client.patch("/account/me", json=payload)
+
+    assert response.status_code == 422
 
 
 def test_patch_account_rejects_invalid_graduation_year(client) -> None:

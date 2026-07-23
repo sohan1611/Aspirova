@@ -57,6 +57,9 @@ def _build_account_me(db: Session, user: models.User) -> AccountMe:
         created_at=user.created_at,
         invite_code=user.invite_code,
         notification_prefs=user.notification_prefs or {},
+        field_profile=user.field_profile,
+        skills=user.skills,
+        exposure=user.exposure,
         plan=PlanState(
             key=plan.key,
             price_paise=plan.price_paise,
@@ -92,6 +95,10 @@ def update_account_me(
             **(user.notification_prefs or {}),
             **request.notification_prefs,
         }
+
+    for field in ("field_profile", "skills", "exposure"):
+        if field in request.model_fields_set:
+            setattr(user, field, getattr(request, field))
 
     db.commit()
     return _build_account_me(db, user)
