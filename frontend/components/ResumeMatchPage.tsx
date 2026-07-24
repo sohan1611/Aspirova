@@ -38,6 +38,7 @@ import {
 import { computeAtsScore } from "@/lib/atsScore";
 import { useFieldProfile } from "@/lib/fieldProfile";
 import { extractPdfText, PdfTextExtractionError } from "@/lib/pdfText";
+import { storeSkillNames } from "@/lib/personalizationSkills";
 import { extractSkills } from "@/lib/resumeSkills";
 import { expandToSearchTerms } from "@/lib/taxonomy";
 import type { AccountMe, MatchItem } from "@/lib/types";
@@ -225,6 +226,7 @@ function SignedInResumeWorkspace({ accessToken }: { accessToken: string }) {
         const accountExposure = toExposureValues(account.exposure);
 
         setSavedSkills(accountSkills);
+        storeSkillNames(accountSkills.map((skill) => skill.name));
         setSavedExposure(accountExposure);
         setSkills((currentSkills) => mergeSkills(accountSkills, currentSkills));
         setExposure((currentExposure) =>
@@ -358,6 +360,7 @@ function SignedInResumeWorkspace({ accessToken }: { accessToken: string }) {
 
       setSkills(nextSkills);
       setSavedSkills(nextSkills);
+      storeSkillNames(nextSkills.map((skill) => skill.name));
       setExposure(nextExposure);
       setSavedExposure(nextExposure);
       exposureTouchedRef.current = false;

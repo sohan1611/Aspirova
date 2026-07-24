@@ -89,3 +89,35 @@ export function expandToSearchTerms(profile: FieldProfile): string[] {
 
   return terms;
 }
+
+export function buildFeedTerms(
+  profile: FieldProfile,
+  skillNames: readonly string[],
+  maxChars = 480,
+): string[] {
+  const interestTerms = expandToSearchTerms(profile);
+  const terms: string[] = [];
+  const seenTerms = new Set<string>();
+
+  for (const candidate of [...interestTerms, ...skillNames]) {
+    if (typeof candidate !== "string") continue;
+
+    const term = candidate.trim().toLowerCase();
+    if (!term || seenTerms.has(term)) continue;
+
+    seenTerms.add(term);
+    terms.push(term);
+  }
+
+  const cappedTerms: string[] = [];
+  let csvLength = 0;
+  for (const term of terms) {
+    const nextLength = csvLength + (cappedTerms.length > 0 ? 1 : 0) + term.length;
+    if (nextLength > maxChars) break;
+
+    cappedTerms.push(term);
+    csvLength = nextLength;
+  }
+
+  return cappedTerms;
+}

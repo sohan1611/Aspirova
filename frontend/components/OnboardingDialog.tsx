@@ -28,8 +28,9 @@ import {
   storeFieldProfile,
   useFieldProfile,
 } from "@/lib/fieldProfile";
+import { readStoredSkillNames } from "@/lib/personalizationSkills";
 import {
-  expandToSearchTerms,
+  buildFeedTerms,
   getDivision,
   getStream,
   interestsFor,
@@ -338,7 +339,7 @@ export default function OnboardingDialog() {
       params.delete("q");
       params.delete("fields");
       params.set("view", "foryou");
-      const terms = expandToSearchTerms(profile);
+      const terms = buildFeedTerms(profile, readStoredSkillNames());
       if (terms.length > 0) {
         params.set("terms", terms.join(","));
       } else {

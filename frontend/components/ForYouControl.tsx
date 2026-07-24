@@ -6,7 +6,8 @@ import { useSyncExternalStore, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { getCountry } from "@/lib/countries";
 import { requestOnboarding, useFieldProfile } from "@/lib/fieldProfile";
-import { expandToSearchTerms } from "@/lib/taxonomy";
+import { useSkillNames } from "@/lib/personalizationSkills";
+import { buildFeedTerms } from "@/lib/taxonomy";
 import { cn } from "@/lib/utils";
 
 const COUNTRY_STORAGE_KEY = "aspirova.country";
@@ -39,6 +40,7 @@ export default function ForYouControl() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { profile, hydrated } = useFieldProfile();
+  const { skillNames, hydrated: skillsHydrated } = useSkillNames();
   const [isPending, startTransition] = useTransition();
   const storedCountryCode = useSyncExternalStore(
     subscribeStoredCountry,
@@ -46,11 +48,11 @@ export default function ForYouControl() {
     () => null,
   );
   const countryCode = storedCountryCode && getCountry(storedCountryCode) ? storedCountryCode : null;
-  const terms = expandToSearchTerms(profile);
+  const terms = buildFeedTerms(profile, skillNames);
   const isForYou = searchParams.get("view") === "foryou" && !searchParams.get("q");
 
   function activateForYou() {
-    if (profile.interests.length === 0) {
+    if (profile.interests.length === 0 && skillNames.length === 0) {
       requestOnboarding();
       return;
     }
@@ -80,7 +82,7 @@ export default function ForYouControl() {
     });
   }
 
-  if (!hydrated) {
+  if (!hydrated || !skillsHydrated) {
     return <div className="h-8 w-52" aria-hidden="true" />;
   }
 
