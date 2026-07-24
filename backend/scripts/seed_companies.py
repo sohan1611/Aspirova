@@ -77,6 +77,19 @@ GREENHOUSE_COMPANIES = [
     ("monzo", "Monzo", "monzo.com"),
     ("gocardless", "GoCardless", "gocardless.com"),
     ("remotecom", "Remote", "remote.com"),
+    # Lever A wave 2, probed live 2026-07-24.
+    ("twilio", "Twilio", "twilio.com"),
+    ("algolia", "Algolia", "algolia.com"),
+    ("contentful", "Contentful", "contentful.com"),
+    ("planetscale", "PlanetScale", "planetscale.com"),
+    ("clickhouse", "ClickHouse", "clickhouse.com"),
+    ("starburst", "Starburst", "starburst.io"),
+    ("labelbox", "Labelbox", "labelbox.com"),
+    ("tailscale", "Tailscale", "tailscale.com"),
+    ("marqeta", "Marqeta", "marqeta.com"),
+    ("mercury", "Mercury", "mercury.com"),
+    ("stabilityai", "Stability AI", "stability.ai"),
+    ("block", "Block", "block.xyz"),
 ]
 
 # (board_token, company_name, domain) - verified live against
@@ -143,6 +156,14 @@ ASHBY_COMPANIES = [
     ("zed", "Zed", "zed.dev"),
     ("warp", "Warp", "warp.dev"),
     ("mintlify", "Mintlify", "mintlify.com"),
+    # Lever A wave 2, probed live 2026-07-24.
+    ("cartesia", "Cartesia", "cartesia.ai"),
+    ("krea", "Krea", "krea.ai"),
+    ("ideogram", "Ideogram", "ideogram.ai"),
+    ("tavus", "Tavus", "tavus.io"),
+    ("synthesia", "Synthesia", "synthesia.io"),
+    ("gamma", "Gamma", "gamma.app"),
+    ("granola", "Granola", "granola.ai"),
 ]
 
 # (board_token, company_name, domain) - verified live against
