@@ -22,11 +22,25 @@ concurrency:
 jobs:
   backend:
     runs-on: ubuntu-latest
-    # The suite runs against the real Supabase-Mumbai DB from US-based runners
-    # (~250ms per round trip), so its ~7-minute local runtime stretches to
-    # ~15-20+ minutes here. At 15 the job was killed on EVERY run and CI
-    # validated nothing; 25 gives real headroom.
-    timeout-minutes: 25
+    # The suite uses an ephemeral local pgvector Postgres service. Migrations
+    # and deterministic seeds run before pytest, so CI never touches Supabase.
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/aspirova_test
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: aspirova_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     defaults:
       run:
         working-directory: backend
@@ -49,14 +63,18 @@ jobs:
       - name: Format check (black)
         run: uv run black --check .
 
-      # Integration tests (test_ingest.py, test_api.py) run against the real
-      # dev database, not an ephemeral one - they were deliberately built
-      # that way (rollback-transaction fixtures, read-only assertions
-      # against real crawled data) and assume that data already exists.
-      # Same DATABASE_URL secret the crawl workflow uses.
+      # Read-only API tests consume the deterministic corpus below; all other
+      # tests use their own fixtures. The production DATABASE_URL is not used.
+      - name: Apply migrations
+        run: uv run alembic upgrade head
+
+      - name: Seed plans
+        run: uv run python -m scripts.seed_plans
+
+      - name: Seed test data
+        run: uv run python -m scripts.seed_ci
+
       - name: Test
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: uv run pytest -v
 
   frontend:
