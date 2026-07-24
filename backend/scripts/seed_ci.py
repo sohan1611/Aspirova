@@ -15,9 +15,9 @@ from core.models import Company, Opportunity
 
 # (slug, name, domain, global_rank, prestige_rank)
 COMPANIES = [
-    ("ci-seed-acme", "Acme", "acme.example.com", 101, 11),
-    ("ci-seed-globex", "Globex", "globex.example.com", 202, 22),
-    ("ci-seed-initech", "Initech", "initech.example.com", 303, 33),
+    ("ci-seed-acme", "CI Seed Alpha Labs", "ciseed-alpha.example.com", 101, 11),
+    ("ci-seed-globex", "CI Seed Bravo Systems", "ciseed-bravo.example.com", 202, 22),
+    ("ci-seed-initech", "CI Seed Charlie Works", "ciseed-charlie.example.com", 303, 33),
 ]
 
 # (slug, company_slug, title, category, location, country, is_remote, primary_source)
