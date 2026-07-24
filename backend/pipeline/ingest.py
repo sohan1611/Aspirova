@@ -47,6 +47,7 @@ from core.textclean import fix_text
 from pipeline.dedup import find_matching_opportunity
 from pipeline.location_country import derive_country
 from pipeline.normalize import normalize_title
+from pipeline.skills import extract_opportunity_skills
 
 
 def _slugify(text: str) -> str:
@@ -218,6 +219,11 @@ def ingest_one(
             opportunity.deadline = normalized.deadline
             opportunity.meta = normalized.meta
             opportunity.deadline_confidence = normalized.deadline_confidence
+            opportunity.skills = extract_opportunity_skills(
+                normalized.title,
+                opportunity.description_raw or "",
+                company_name=normalized.company_name,
+            )
             opportunity.summary = None
             opportunity.embedding = None
             opportunity.embedding_model = None
@@ -261,6 +267,11 @@ def ingest_one(
     if match is not None:
         if len(normalized.description_raw or "") > len(match.description_raw or ""):
             match.description_raw = normalized.description_raw
+            match.skills = extract_opportunity_skills(
+                match.title,
+                match.description_raw or "",
+                company_name=normalized.company_name,
+            )
         mark_seen(match)
         opportunity, is_new = match, False
     else:
@@ -276,6 +287,11 @@ def ingest_one(
             opportunity = existing_by_slug
             if len(normalized.description_raw or "") > len(opportunity.description_raw or ""):
                 opportunity.description_raw = normalized.description_raw
+                opportunity.skills = extract_opportunity_skills(
+                    opportunity.title,
+                    opportunity.description_raw or "",
+                    company_name=normalized.company_name,
+                )
             mark_seen(opportunity)
             is_new = False
         else:
@@ -285,6 +301,11 @@ def ingest_one(
                 title=normalized.title,
                 title_normalized=title_normalized,
                 category=normalized.category,
+                skills=extract_opportunity_skills(
+                    normalized.title,
+                    normalized.description_raw or "",
+                    company_name=normalized.company_name,
+                ),
                 primary_source=raw.source_slug,
                 location=normalized.location,
                 country=country,
