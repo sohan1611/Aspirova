@@ -1,7 +1,7 @@
 """Unit tests for DevpostAdapter using a captured real API response."""
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -96,7 +96,7 @@ def test_parse_maps_hackathon_deadline_organizer_and_meta(
     assert normalized.company_name == hackathon["organization_name"]
     assert normalized.company_domain is None
     assert normalized.apply_url == hackathon["url"]
-    assert normalized.deadline == datetime(2026, 8, 17)
+    assert normalized.deadline == datetime(2026, 8, 17, tzinfo=UTC)
     assert normalized.deadline_confidence == "explicit"
     assert normalized.meta == {
         "platform": "devpost",
@@ -112,7 +112,7 @@ def test_parse_maps_hackathon_deadline_organizer_and_meta(
 @pytest.mark.parametrize(
     ("date_value", "expected_deadline"),
     [
-        ("Aug 17, 2026", datetime(2026, 8, 17)),
+        ("Aug 17, 2026", datetime(2026, 8, 17, tzinfo=UTC)),
         ("not a real date", None),
         (None, None),
     ],
@@ -133,3 +133,35 @@ def test_parse_handles_single_missing_and_weird_dates(
     assert normalized.deadline == expected_deadline
     expected_confidence = "explicit" if expected_deadline is not None else "unknown"
     assert normalized.deadline_confidence == expected_confidence
+
+
+def test_parse_keeps_near_future_devpost_deadline_explicit(
+    adapter: DevpostAdapter,
+    fixture_payload: dict,
+) -> None:
+    deadline = datetime.now(UTC) + timedelta(days=90)
+    expected_deadline = datetime(deadline.year, deadline.month, deadline.day, tzinfo=UTC)
+    hackathon = {
+        **fixture_payload["hackathons"][0],
+        "submission_period_dates": deadline.strftime("%b %d, %Y"),
+    }
+
+    normalized = adapter.parse(_raw_listing_for(hackathon))
+
+    assert normalized.deadline == expected_deadline
+    assert normalized.deadline_confidence == "explicit"
+
+
+def test_parse_marks_implausible_devpost_deadline_unknown(
+    adapter: DevpostAdapter,
+    fixture_payload: dict,
+) -> None:
+    hackathon = {
+        **fixture_payload["hackathons"][0],
+        "submission_period_dates": "Jan 01, 2059",
+    }
+
+    normalized = adapter.parse(_raw_listing_for(hackathon))
+
+    assert normalized.deadline is None
+    assert normalized.deadline_confidence == "unknown"

@@ -7,7 +7,7 @@ from typing import Any, Callable, Literal
 import httpx
 
 from core.adapters import NormalizedListing, RawListing
-from crawlers.common import USER_AGENT, content_hash, extract_text
+from crawlers.common import USER_AGENT, content_hash, extract_text, is_plausible_deadline
 
 _API_URL = "https://unstop.com/api/public/opportunity/search-result"
 _OPPORTUNITY_TYPES = ("internships", "competitions", "hackathons")
@@ -251,11 +251,14 @@ def _registration_deadline(item: Any) -> datetime | None:
     if not isinstance(item, dict):
         return None
     reqs = item.get("regnRequirements")
+    candidate = None
     if isinstance(reqs, dict):
         regn = _parse_iso_datetime(reqs.get("end_regn_dt"))
         if regn is not None:
-            return regn
-    return _parse_iso_datetime(item.get("end_date"))
+            candidate = regn
+    if candidate is None:
+        candidate = _parse_iso_datetime(item.get("end_date"))
+    return candidate if is_plausible_deadline(candidate) else None
 
 
 def _as_text(value: Any) -> str:

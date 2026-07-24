@@ -8,12 +8,14 @@ everywhere.
 import hashlib
 import html
 import json
+from datetime import UTC, datetime, timedelta
 
 from bs4 import BeautifulSoup
 
 USER_AGENT = (
     "AspirovaBot/0.1 (+https://github.com/sohan1611/Aspirova; student project, contact via repo)"
 )
+MAX_DEADLINE_HORIZON = timedelta(days=550)
 
 
 def content_hash(payload: dict) -> str:
@@ -31,3 +33,11 @@ def extract_text(raw_html: str | None) -> str:
         return ""
     unescaped = html.unescape(raw_html)
     return BeautifulSoup(unescaped, "html.parser").get_text(separator=" ", strip=True)
+
+
+def is_plausible_deadline(dt: datetime | None) -> bool:
+    if dt is None:
+        return False
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    return dt <= datetime.now(UTC) + MAX_DEADLINE_HORIZON

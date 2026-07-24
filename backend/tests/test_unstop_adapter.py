@@ -295,6 +295,52 @@ def test_parse_maps_pre_placement_prizes_to_offer_flags(
     assert normalized.meta["offers_ppo"] is True
 
 
+def test_parse_keeps_near_future_registration_deadline_explicit(
+    adapter: UnstopAdapter,
+    fixture_payload: dict,
+) -> None:
+    deadline = datetime.now(UTC) + timedelta(days=90)
+    opportunity = {
+        **_fixture_items(fixture_payload)[0],
+        "end_date": "2059-01-01T00:00:00+05:30",
+        "regnRequirements": {"end_regn_dt": deadline.isoformat()},
+    }
+
+    normalized = adapter.parse(_raw_listing_for(opportunity))
+
+    assert normalized.deadline == deadline
+    assert normalized.deadline_confidence == "explicit"
+
+
+@pytest.mark.parametrize(
+    "date_overrides",
+    [
+        {
+            "end_date": "2059-01-01T00:00:00+05:30",
+            "regnRequirements": {},
+        },
+        {
+            "end_date": (datetime.now(UTC) + timedelta(days=90)).isoformat(),
+            "regnRequirements": {"end_regn_dt": "2059-01-01T00:00:00+05:30"},
+        },
+    ],
+)
+def test_parse_marks_implausible_unstop_deadlines_unknown(
+    adapter: UnstopAdapter,
+    fixture_payload: dict,
+    date_overrides: dict,
+) -> None:
+    opportunity = {
+        **_fixture_items(fixture_payload)[0],
+        **date_overrides,
+    }
+
+    normalized = adapter.parse(_raw_listing_for(opportunity))
+
+    assert normalized.deadline is None
+    assert normalized.deadline_confidence == "unknown"
+
+
 @pytest.mark.parametrize("date_value", [None, "not a real date"])
 def test_parse_handles_missing_and_weird_dates_without_raising(
     adapter: UnstopAdapter,
@@ -312,16 +358,17 @@ def test_parse_handles_missing_and_weird_dates_without_raising(
     assert normalized.deadline_confidence == "unknown"
 
 
-def test_parse_assumes_utc_for_naive_date(
+def test_parse_assumes_utc_for_plausible_naive_date(
     adapter: UnstopAdapter,
     fixture_payload: dict,
 ) -> None:
+    deadline = (datetime.now(UTC) + timedelta(days=90)).replace(tzinfo=None)
     opportunity = {
         **_fixture_items(fixture_payload)[0],
-        "end_date": "2099-01-02T03:04:05",
+        "end_date": deadline.isoformat(),
     }
 
     normalized = adapter.parse(_raw_listing_for(opportunity))
 
-    assert normalized.deadline == datetime(2099, 1, 2, 3, 4, 5, tzinfo=UTC)
+    assert normalized.deadline == deadline.replace(tzinfo=UTC)
     assert normalized.deadline_confidence == "explicit"

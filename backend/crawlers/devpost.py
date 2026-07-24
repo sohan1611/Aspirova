@@ -2,14 +2,14 @@
 
 import html
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 import httpx
 from bs4 import BeautifulSoup
 
 from core.adapters import NormalizedListing, RawListing
-from crawlers.common import USER_AGENT, content_hash, extract_text
+from crawlers.common import USER_AGENT, content_hash, extract_text, is_plausible_deadline
 
 _API_URL = "https://devpost.com/api/hackathons"
 _MAX_PAGES = 10
@@ -155,9 +155,12 @@ def _parse_submission_deadline(value: Any) -> datetime | None:
     # submission deadline and always carries the year.
     deadline_text = re.split(r"\s+[-\u2013\u2014]\s+", text)[-1].strip()
     try:
-        return datetime.strptime(deadline_text, "%b %d, %Y")
+        parsed = datetime.strptime(deadline_text, "%b %d, %Y")
     except ValueError:
         return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed if is_plausible_deadline(parsed) else None
 
 
 def _strip_html(value: Any) -> str:
