@@ -6,7 +6,8 @@ provide a fast, shared ranking primitive without adding per-user state or AI.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import and_, case, func, or_, select
+from sqlalchemy import Text, and_, any_, bindparam, case, cast, func, or_, select
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Session, joinedload
 
 from api.deps import get_db
@@ -110,6 +111,7 @@ FIELD_KEYWORDS: dict[str, list[str]] = {
 }
 
 VALID_CATEGORIES = frozenset({"internship", "job", "hackathon", "competition"})
+MAX_SELECTED_SKILLS = 30
 
 
 def _selected_keywords(fields: str | None) -> list[str]:
@@ -127,6 +129,24 @@ def _selected_keywords(fields: str | None) -> list[str]:
 def _selected_terms(terms: str | None) -> list[str]:
     """Parse CSV search terms supplied by the field-profile feed."""
     return [term.strip() for term in (terms or "").split(",") if term.strip()]
+
+
+def _selected_skills(skills: str | None) -> list[str]:
+    """Parse user skill names from CSV while preserving first-seen casing."""
+    selected: list[str] = []
+    seen: set[str] = set()
+    for skill in (skills or "").split(","):
+        normalized = skill.strip()
+        if not normalized:
+            continue
+        key = normalized.casefold()
+        if key in seen:
+            continue
+        selected.append(normalized)
+        seen.add(key)
+        if len(selected) == MAX_SELECTED_SKILLS:
+            break
+    return selected
 
 
 def _selected_categories(categories: str | None) -> list[str]:
@@ -147,6 +167,7 @@ def _selected_categories(categories: str | None) -> list[str]:
 def get_for_you(
     fields: str | None = Query(None, max_length=500),
     terms: str | None = Query(None, max_length=500),
+    skills: str | None = Query(None, max_length=1000),
     categories: str | None = Query(None, max_length=200),
     country: str | None = Query(None, min_length=2, max_length=2),
     scope: str | None = Query(None, pattern="^(abroad|domestic|both)$"),
@@ -155,6 +176,7 @@ def get_for_you(
     db: Session = Depends(get_db),
 ) -> FeedResponse:
     selected_categories = _selected_categories(categories)
+    user_skills = _selected_skills(skills)
     base_filters = [
         models.Opportunity.status == "active",
         exclude_closed_competitions(),
@@ -184,7 +206,29 @@ def get_for_you(
         .where(*base_filters)
     )
 
-    if keywords:
+    if user_skills:
+        skill_values = cast(
+            bindparam("user_skills", value=user_skills, type_=ARRAY(Text())),
+            ARRAY(Text()),
+        )
+        skill_element = (
+            func.jsonb_array_elements_text(models.Opportunity.skills)
+            .table_valued("skill")
+            .render_derived(name="skill")
+        )
+        overlap_count = (
+            select(func.count())
+            .select_from(skill_element)
+            .where(skill_element.c.skill == any_(skill_values))
+            .correlate(models.Opportunity.__table__)
+            .scalar_subquery()
+        )
+        query = query.where(models.Opportunity.skills.op("?|")(skill_values)).order_by(
+            overlap_count.desc(),
+            models.Opportunity.last_seen_at.desc(),
+            models.Opportunity.id.desc(),
+        )
+    elif keywords:
         # websearch_to_tsquery is the same resilient parser used by /search:
         # it safely handles phrases such as "full stack" and never treats a
         # input as raw tsquery syntax.

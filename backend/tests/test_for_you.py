@@ -232,6 +232,260 @@ def test_for_you_terms_take_precedence_over_fields(
     assert fields_match.slug not in {item["slug"] for item in body["items"]}
 
 
+def test_for_you_skills_filter_and_rank_by_overlap(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    suffix = uuid.uuid4().hex
+    now = datetime.now(UTC)
+    company = models.Company(
+        slug=f"for-you-skills-company-{suffix}",
+        name=f"For You Skills Company {suffix}",
+    )
+    full_overlap = models.Opportunity(
+        slug=f"for-you-skills-full-overlap-{suffix}",
+        title="Backend engineer",
+        company=company,
+        category="job",
+        skills=["Python", "SQL"],
+        country="AQ",
+        is_remote=False,
+        apply_url=f"https://example.com/for-you/skills/full/{suffix}",
+        status="active",
+        last_seen_at=now - timedelta(days=7),
+    )
+    one_overlap = models.Opportunity(
+        slug=f"for-you-skills-one-overlap-{suffix}",
+        title="Data analyst",
+        company=company,
+        category="job",
+        skills=["SQL"],
+        country="AQ",
+        is_remote=False,
+        apply_url=f"https://example.com/for-you/skills/one/{suffix}",
+        status="active",
+        last_seen_at=now,
+    )
+    nonmatch = models.Opportunity(
+        slug=f"for-you-skills-nonmatch-{suffix}",
+        title="Frontend engineer",
+        company=company,
+        category="job",
+        skills=["React"],
+        country="AQ",
+        is_remote=False,
+        apply_url=f"https://example.com/for-you/skills/nonmatch/{suffix}",
+        status="active",
+        last_seen_at=now,
+    )
+    db_session.add_all([company, full_overlap, one_overlap, nonmatch])
+    db_session.flush()
+
+    response = client.get(
+        "/for-you",
+        params={
+            "skills": "Python,SQL",
+            "categories": "job",
+            "scope": "domestic",
+            "country": "AQ",
+            "limit": 10,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 2
+    assert [item["slug"] for item in body["items"]] == [
+        full_overlap.slug,
+        one_overlap.slug,
+    ]
+    assert nonmatch.slug not in {item["slug"] for item in body["items"]}
+
+
+def test_for_you_empty_and_whitespace_skills_behave_like_no_skills(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    suffix = uuid.uuid4().hex
+    now = datetime.now(UTC)
+    company = models.Company(
+        slug=f"for-you-empty-skills-company-{suffix}",
+        name=f"For You Empty Skills Company {suffix}",
+    )
+    recent_open = models.Opportunity(
+        slug=f"for-you-empty-skills-recent-open-{suffix}",
+        title="Recent generalist job",
+        company=company,
+        category="job",
+        skills=["Python"],
+        country="AQ",
+        is_remote=False,
+        apply_url=f"https://example.com/for-you/empty-skills/recent-open/{suffix}",
+        status="active",
+        last_seen_at=now,
+    )
+    db_session.add_all([company, recent_open])
+    db_session.flush()
+
+    params = {
+        "categories": "job",
+        "scope": "domestic",
+        "country": "AQ",
+        "limit": 10,
+    }
+    no_skills_response = client.get("/for-you", params=params)
+    empty_skills_response = client.get("/for-you", params={**params, "skills": ""})
+    whitespace_skills_response = client.get(
+        "/for-you",
+        params={**params, "skills": " ,   , "},
+    )
+
+    assert no_skills_response.status_code == 200
+    assert empty_skills_response.status_code == 200
+    assert whitespace_skills_response.status_code == 200
+    no_skills_body = no_skills_response.json()
+    assert empty_skills_response.json() == no_skills_body
+    assert whitespace_skills_response.json() == no_skills_body
+    assert recent_open.slug in {item["slug"] for item in no_skills_body["items"]}
+
+
+def test_for_you_unknown_skill_returns_empty_page(client: TestClient) -> None:
+    suffix = uuid.uuid4().hex
+    response = client.get(
+        "/for-you",
+        params={
+            "skills": f"UnknownSkill{suffix}",
+            "categories": "job",
+            "scope": "domestic",
+            "country": "AQ",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["items"] == []
+    assert response.json()["total"] == 0
+
+
+def test_for_you_skills_take_precedence_over_terms_ranking(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    suffix = uuid.uuid4().hex
+    keyword = "skillterm" + "".join(character for character in suffix if character.isalpha())
+    now = datetime.now(UTC)
+    company = models.Company(
+        slug=f"for-you-skills-precedence-company-{suffix}",
+        name=f"For You Skills Precedence Company {suffix}",
+    )
+    stronger_skill_match = models.Opportunity(
+        slug=f"for-you-skills-precedence-stronger-skill-{suffix}",
+        title="Backend platform role",
+        company=company,
+        category="job",
+        skills=["Python", "SQL"],
+        country="AQ",
+        is_remote=False,
+        apply_url=f"https://example.com/for-you/skills-precedence/strong/{suffix}",
+        status="active",
+        last_seen_at=now - timedelta(days=7),
+    )
+    weaker_skill_match = models.Opportunity(
+        slug=f"for-you-skills-precedence-weaker-skill-{suffix}",
+        title=f"{keyword} {keyword} {keyword}",
+        company=company,
+        category="job",
+        skills=["Python"],
+        country="AQ",
+        is_remote=False,
+        apply_url=f"https://example.com/for-you/skills-precedence/weak/{suffix}",
+        status="active",
+        last_seen_at=now,
+    )
+    terms_only_match = models.Opportunity(
+        slug=f"for-you-skills-precedence-terms-only-{suffix}",
+        title=f"{keyword} {keyword} {keyword}",
+        company=company,
+        category="job",
+        skills=["React"],
+        country="AQ",
+        is_remote=False,
+        apply_url=f"https://example.com/for-you/skills-precedence/terms/{suffix}",
+        status="active",
+        last_seen_at=now,
+    )
+    db_session.add_all([company, stronger_skill_match, weaker_skill_match, terms_only_match])
+    db_session.flush()
+
+    response = client.get(
+        "/for-you",
+        params={
+            "skills": "Python,SQL",
+            "terms": keyword,
+            "categories": "job",
+            "scope": "domestic",
+            "country": "AQ",
+            "limit": 10,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 2
+    assert [item["slug"] for item in body["items"]] == [
+        stronger_skill_match.slug,
+        weaker_skill_match.slug,
+    ]
+    assert terms_only_match.slug not in {item["slug"] for item in body["items"]}
+
+
+def test_opportunity_detail_returns_skills_but_for_you_item_does_not(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    suffix = uuid.uuid4().hex
+    skill_name = f"DetailSkill{suffix}"
+    now = datetime.now(UTC)
+    company = models.Company(
+        slug=f"detail-skills-company-{suffix}",
+        name=f"Detail Skills Company {suffix}",
+    )
+    opportunity = models.Opportunity(
+        slug=f"detail-skills-opportunity-{suffix}",
+        title="Detail skills role",
+        company=company,
+        category="job",
+        description_raw="Role description with deterministic skills.",
+        skills=[skill_name, "SQL"],
+        country="AQ",
+        is_remote=False,
+        apply_url=f"https://example.com/opportunity/detail-skills/{suffix}",
+        status="active",
+        last_seen_at=now,
+    )
+    db_session.add_all([company, opportunity])
+    db_session.flush()
+
+    detail_response = client.get(f"/opportunity/{opportunity.slug}")
+    feed_response = client.get(
+        "/for-you",
+        params={
+            "skills": skill_name,
+            "categories": "job",
+            "scope": "domestic",
+            "country": "AQ",
+            "limit": 10,
+        },
+    )
+
+    assert detail_response.status_code == 200
+    assert detail_response.json()["skills"] == [skill_name, "SQL"]
+    assert feed_response.status_code == 200
+    feed_item = next(
+        item for item in feed_response.json()["items"] if item["slug"] == opportunity.slug
+    )
+    assert "skills" not in feed_item
+
+
 def test_for_you_applies_csv_category_and_country_scope_filters(
     client: TestClient,
     db_session: Session,

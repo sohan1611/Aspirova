@@ -222,6 +222,7 @@ class OpportunityDetail(OpportunityListItem):
     description_raw: str
     summary: str | None
     apply_url: str
+    skills: list[str] = []
     reopen_estimate: ReopenEstimateSchema | None = None
 
     @classmethod
@@ -249,6 +250,7 @@ class OpportunityDetail(OpportunityListItem):
             description_raw=o.description_raw or "",
             summary=o.summary,
             apply_url=o.apply_url,
+            skills=list(o.skills or []),
             reopen_estimate=reopen_estimate,
         )
 
