@@ -49,7 +49,9 @@ export default function ForYouControl() {
   );
   const countryCode = storedCountryCode && getCountry(storedCountryCode) ? storedCountryCode : null;
   const terms = buildFeedTerms(profile, skillNames);
-  const isForYou = searchParams.get("view") === "foryou" && !searchParams.get("q");
+  const isForYou =
+    (searchParams.get("view") === "foryou" || Boolean(searchParams.get("skills")?.trim())) &&
+    !searchParams.get("q");
 
   function activateForYou() {
     if (profile.interests.length === 0 && skillNames.length === 0) {
@@ -62,6 +64,11 @@ export default function ForYouControl() {
     params.set("view", "foryou");
     params.delete("fields");
     params.set("terms", terms.join(","));
+    if (skillNames.length > 0) {
+      params.set("skills", skillNames.join(","));
+    } else {
+      params.delete("skills");
+    }
     if (countryCode) params.set("country", countryCode);
     params.delete("page");
 
@@ -75,6 +82,7 @@ export default function ForYouControl() {
     params.delete("view");
     params.delete("fields");
     params.delete("terms");
+    params.delete("skills");
     params.delete("page");
 
     startTransition(() => {

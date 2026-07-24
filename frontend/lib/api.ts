@@ -90,6 +90,7 @@ export interface FeedParams {
 
 export interface ForYouParams {
   terms?: string[];
+  skills?: string[];
   fields?: string[];
   categories?: string[];
   country?: string;
@@ -164,6 +165,9 @@ export async function getForYou(params: ForYouParams = {}): Promise<FeedResponse
     search.set("terms", params.terms.join(","));
   } else if (params.fields?.length) {
     search.set("fields", params.fields.join(","));
+  }
+  if (params.skills?.length) {
+    search.set("skills", params.skills.join(","));
   }
   if (params.categories?.length) search.set("categories", params.categories.join(","));
   if (params.country) search.set("country", params.country);

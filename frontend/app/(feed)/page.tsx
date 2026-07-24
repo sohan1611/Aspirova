@@ -35,6 +35,7 @@ interface PageProps {
     view?: string;
     fields?: string;
     terms?: string;
+    skills?: string;
     page?: string;
     cols?: string;
     rows?: string;
@@ -103,7 +104,11 @@ export default async function HomePage({ searchParams }: PageProps) {
     ?.split(",")
     .map((term) => term.trim())
     .filter(Boolean);
-  const isForYou = params.view === "foryou" && !params.q;
+  const forYouSkills = params.skills
+    ?.split(",")
+    .map((skill) => skill.trim())
+    .filter(Boolean);
+  const isForYou = (params.view === "foryou" || Boolean(forYouSkills?.length)) && !params.q;
   const hasActiveFilters = Boolean(
     params.category ||
       params.kind ||
@@ -124,6 +129,7 @@ export default async function HomePage({ searchParams }: PageProps) {
     params.view !== "foryou" &&
     !params.fields &&
     !params.terms &&
+    !params.skills &&
     !hasActiveFilters &&
     page === 1;
 
@@ -134,6 +140,7 @@ export default async function HomePage({ searchParams }: PageProps) {
     : isForYou
       ? await getForYou({
           terms: forYouTerms,
+          skills: forYouSkills,
           fields: forYouFields,
           categories: params.category ? [params.category] : undefined,
           country: params.country,

@@ -252,6 +252,29 @@ export default async function OpportunityPage({ params }: PageProps) {
           </div>
         )}
 
+        {opportunity.skills.length > 0 && (
+          <section className="mt-8 max-w-3xl" aria-labelledby="opportunity-skills-heading">
+            <p id="opportunity-skills-heading" className="eyebrow">
+              Skills for this role
+            </p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Skills we detected for this role.
+            </p>
+            <ul className="mt-4 flex flex-wrap gap-2" aria-label="Detected skills for this role">
+              {opportunity.skills.map((skill) => (
+                <li key={skill}>
+                  <Badge
+                    variant="secondary"
+                    className="rounded-full px-2.5 py-1 normal-case tracking-normal"
+                  >
+                    {skill}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         {(opportunity.summary || opportunity.reopen_estimate) && (
           <aside className="mt-8 max-w-3xl rounded-xl border border-border bg-card p-6 shadow-soft sm:p-7">
             {opportunity.summary && (
