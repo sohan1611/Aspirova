@@ -1,12 +1,22 @@
 "use client";
 
-import { FileSearch, Info, Loader2, Plus, RefreshCw, Sparkles, X } from "lucide-react";
+import {
+  ChevronDown,
+  FileSearch,
+  Info,
+  Loader2,
+  RefreshCw,
+  Search,
+  Sparkles,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import {
   type ChangeEvent,
   type FormEvent,
   type RefObject,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -40,9 +50,11 @@ import { useFieldProfile } from "@/lib/fieldProfile";
 import { extractPdfText, PdfTextExtractionError } from "@/lib/pdfText";
 import { storeSkillNames } from "@/lib/personalizationSkills";
 import { extractSkills } from "@/lib/resumeSkills";
+import { catalogSkills } from "@/lib/skillsCatalog";
 import { expandToSearchTerms } from "@/lib/taxonomy";
 import type { AccountMe, MatchItem } from "@/lib/types";
 import { useSession } from "@/lib/useSession";
+import { cn } from "@/lib/utils";
 
 type ProfileSkill = NonNullable<AccountMe["skills"]>[number];
 
@@ -186,7 +198,6 @@ function SignedInResumeWorkspace({ accessToken }: { accessToken: string }) {
   const [hasPdfExtraction, setHasPdfExtraction] = useState(false);
   const [skills, setSkills] = useState<ProfileSkill[]>([]);
   const [savedSkills, setSavedSkills] = useState<ProfileSkill[]>([]);
-  const [manualSkill, setManualSkill] = useState("");
   const [exposure, setExposure] = useState<ExposureValues>(EMPTY_EXPOSURE);
   const [savedExposure, setSavedExposure] = useState<ExposureValues>(EMPTY_EXPOSURE);
   const [accountLoading, setAccountLoading] = useState(true);
@@ -311,28 +322,26 @@ function SignedInResumeWorkspace({ accessToken }: { accessToken: string }) {
     );
   }
 
-  function handleAddManualSkill(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const name = manualSkill.trim();
+  function handleAddManualSkill(value: string): boolean {
+    const name = value.trim();
     const key = getSkillKey(name);
-    if (!key) return;
+    if (!key) return false;
 
     if (skills.some((skill) => getSkillKey(skill.name) === key)) {
       toast.error("That skill is already in your list.");
-      return;
+      return false;
     }
 
     if (skills.length >= MAX_PROFILE_SKILLS) {
       toast.error("You can save up to 100 skills.");
-      return;
+      return false;
     }
 
     dismissedSkillNamesRef.current.delete(key);
     setSkills((currentSkills) =>
       mergeSkills(currentSkills, [{ name, source: "manual" }]),
     );
-    setManualSkill("");
+    return true;
   }
 
   function handleExposureChange(field: keyof ExposureValues, value: string) {
@@ -425,12 +434,11 @@ function SignedInResumeWorkspace({ accessToken }: { accessToken: string }) {
             <AtsScoreCard result={atsResult} />
             <SkillsExposureCard
               skills={skills}
-              manualSkill={manualSkill}
+              streamKey={profile.stream}
               exposure={exposure}
               accountLoading={accountLoading}
               savingProfile={savingProfile}
               profileIsDirty={profileIsDirty}
-              onManualSkillChange={setManualSkill}
               onAddManualSkill={handleAddManualSkill}
               onRemoveSkill={handleRemoveSkill}
               onExposureChange={handleExposureChange}
@@ -624,30 +632,31 @@ function AtsScoreCard({ result }: { result: ReturnType<typeof computeAtsScore> }
 
 function SkillsExposureCard({
   skills,
-  manualSkill,
+  streamKey,
   exposure,
   accountLoading,
   savingProfile,
   profileIsDirty,
-  onManualSkillChange,
   onAddManualSkill,
   onRemoveSkill,
   onExposureChange,
   onSaveProfile,
 }: {
   skills: ProfileSkill[];
-  manualSkill: string;
+  streamKey: string | null;
   exposure: ExposureValues;
   accountLoading: boolean;
   savingProfile: boolean;
   profileIsDirty: boolean;
-  onManualSkillChange: (value: string) => void;
-  onAddManualSkill: (event: FormEvent<HTMLFormElement>) => void;
+  onAddManualSkill: (value: string) => boolean;
   onRemoveSkill: (index: number) => void;
   onExposureChange: (field: keyof ExposureValues, value: string) => void;
   onSaveProfile: () => void;
 }) {
-  const canAddSkill = Boolean(manualSkill.trim()) && skills.length < MAX_PROFILE_SKILLS;
+  const excludedSkillNames = useMemo(
+    () => new Set(skills.map((skill) => getSkillKey(skill.name))),
+    [skills],
+  );
 
   return (
     <Card className="h-full border-primary/20 shadow-soft-md">
@@ -661,9 +670,7 @@ function SkillsExposureCard({
       <CardContent className="grid gap-6 px-5 sm:px-6">
         <div className="grid gap-3">
           <div className="flex items-center justify-between gap-3">
-            <Label className="eyebrow" htmlFor="manual-skill">
-              Skills
-            </Label>
+            <span className="eyebrow">Skills</span>
             <span className="text-xs text-muted-foreground">{skills.length}/100</span>
           </div>
 
@@ -697,20 +704,18 @@ function SkillsExposureCard({
             </p>
           )}
 
-          <form onSubmit={onAddManualSkill} className="flex gap-2">
-            <Input
+          <div className="grid gap-2">
+            <Label className="eyebrow" htmlFor="manual-skill">
+              Add a skill
+            </Label>
+            <SkillCatalogPicker
               id="manual-skill"
-              value={manualSkill}
-              onChange={(event) => onManualSkillChange(event.target.value)}
-              placeholder="Add a skill"
-              maxLength={80}
-              aria-describedby="manual-skill-help"
+              streamKey={streamKey}
+              exclude={excludedSkillNames}
+              describedById="manual-skill-help"
+              onAddSkill={onAddManualSkill}
             />
-            <Button type="submit" variant="outline" disabled={!canAddSkill}>
-              <Plus aria-hidden="true" />
-              Add
-            </Button>
-          </form>
+          </div>
           <p id="manual-skill-help" className="text-xs leading-5 text-muted-foreground">
             Add or remove suggestions before saving. You can save up to 100 skills.
           </p>
@@ -766,6 +771,159 @@ function SkillsExposureCard({
         </Button>
       </CardFooter>
     </Card>
+  );
+}
+
+function SkillCatalogPicker({
+  id,
+  streamKey,
+  exclude,
+  describedById,
+  onAddSkill,
+}: {
+  id: string;
+  streamKey: string | null;
+  exclude: ReadonlySet<string>;
+  describedById?: string;
+  onAddSkill: (value: string) => boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchInputId = useId();
+  const skillListId = useId();
+  const resultCountId = useId();
+  const trimmedQuery = query.trim();
+  const matchingSkills = useMemo(
+    () => catalogSkills({ streamKey, query, exclude, limit: 60 }),
+    [exclude, query, streamKey],
+  );
+
+  function handleOpenChange(nextOpen: boolean) {
+    setOpen(nextOpen);
+    if (!nextOpen) setQuery("");
+  }
+
+  function handleSelect(skillName: string) {
+    if (onAddSkill(skillName)) {
+      handleOpenChange(false);
+    }
+  }
+
+  function handleOther() {
+    if (!trimmedQuery) {
+      searchInputRef.current?.focus();
+      return;
+    }
+
+    if (onAddSkill(trimmedQuery)) {
+      handleOpenChange(false);
+    }
+  }
+
+  return (
+    <Popover open={open} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>
+        <Button
+          id={id}
+          type="button"
+          variant="outline"
+          className="w-full justify-between font-normal"
+          aria-expanded={open}
+          aria-describedby={describedById}
+        >
+          <span className="min-w-0 flex-1 truncate text-left">Add a skill</span>
+          <ChevronDown className="shrink-0 text-muted-foreground" aria-hidden="true" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        aria-label="Add a skill"
+        className="w-[min(22rem,calc(100vw-2rem))] p-2"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          searchInputRef.current?.focus();
+        }}
+      >
+        <div className="relative">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+          />
+          <label htmlFor={searchInputId} className="sr-only">
+            Search skills
+          </label>
+          <Input
+            ref={searchInputRef}
+            id={searchInputId}
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search skills..."
+            maxLength={80}
+            autoComplete="off"
+            aria-controls={skillListId}
+            aria-describedby={resultCountId}
+            className="pl-9"
+          />
+        </div>
+
+        <p id={resultCountId} className="sr-only" aria-live="polite">
+          {matchingSkills.length +
+            " " +
+            (matchingSkills.length === 1 ? "skill" : "skills") +
+            " available"}
+        </p>
+
+        <ul
+          id={skillListId}
+          aria-label="Skills"
+          className="mt-2 max-h-72 space-y-0.5 overflow-y-auto pr-1"
+        >
+          {matchingSkills.length === 0 ? (
+            <li className="px-2 py-6 text-center text-sm text-muted-foreground">
+              {trimmedQuery
+                ? "No skills match \"" + trimmedQuery + "\"."
+                : "No skills available."}
+            </li>
+          ) : (
+            matchingSkills.map((skill) => (
+              <li key={skill.name}>
+                <button
+                  type="button"
+                  aria-pressed={false}
+                  onClick={() => handleSelect(skill.name)}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-sm px-2 py-2 text-left text-sm transition-colors duration-200 ease-[var(--ease-premium)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    "hover:bg-accent/70 hover:text-accent-foreground",
+                  )}
+                >
+                  <span className="min-w-0 flex-1 truncate">{skill.name}</span>
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+
+        <div className="mt-2 border-t border-border pt-2">
+          <button
+            type="button"
+            aria-pressed={false}
+            onClick={handleOther}
+            className={cn(
+              "flex w-full items-center rounded-sm px-2 py-2 text-left text-sm transition-colors duration-200 ease-[var(--ease-premium)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "hover:bg-accent/70 hover:text-accent-foreground",
+            )}
+          >
+            <span className="min-w-0 flex-1 truncate">
+              {trimmedQuery
+                ? "Other — add \"" + trimmedQuery + "\""
+                : "Other — type a custom skill"}
+            </span>
+          </button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
