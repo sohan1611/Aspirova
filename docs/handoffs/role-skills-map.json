@@ -2,68 +2,359 @@
   "version": 1,
   "note": "Role-title phrase -> implied canonical skills. Matched as a lowercase substring/phrase in the opportunity TITLE only. Values MUST be intersected with skillsLexicon.json canonical names at load time (drop unknowns) so this can never introduce a non-canonical skill. Copy to backend/pipeline/role_skills.json.",
   "roles": {
-    "forward deployed": ["Python", "SQL", "Data Analysis", "REST APIs", "Communication"],
-    "frontend": ["React", "JavaScript", "TypeScript", "HTML", "CSS"],
-    "front end": ["React", "JavaScript", "TypeScript", "HTML", "CSS"],
-    "front-end": ["React", "JavaScript", "TypeScript", "HTML", "CSS"],
-    "backend": ["REST APIs", "SQL", "PostgreSQL", "Docker"],
-    "back end": ["REST APIs", "SQL", "PostgreSQL", "Docker"],
-    "back-end": ["REST APIs", "SQL", "PostgreSQL", "Docker"],
-    "full stack": ["React", "Node.js", "REST APIs", "SQL", "JavaScript"],
-    "fullstack": ["React", "Node.js", "REST APIs", "SQL", "JavaScript"],
-    "full-stack": ["React", "Node.js", "REST APIs", "SQL", "JavaScript"],
-    "web develop": ["HTML", "CSS", "JavaScript", "React"],
-    "data scientist": ["Python", "Machine Learning", "Statistics", "SQL", "Data Analysis"],
-    "data science": ["Python", "Machine Learning", "Statistics", "SQL"],
-    "data analyst": ["SQL", "Excel", "Data Analysis", "Data Visualization", "Python"],
-    "data analytics": ["SQL", "Data Analysis", "Data Visualization", "Python"],
-    "business analyst": ["SQL", "Excel", "Data Analysis", "Business Analysis"],
-    "data engineer": ["SQL", "Python", "Big Data", "Apache Airflow", "PostgreSQL"],
-    "machine learning": ["Machine Learning", "Python", "Deep Learning", "PyTorch", "TensorFlow"],
-    "ml engineer": ["Machine Learning", "Python", "Deep Learning", "PyTorch"],
-    "ai engineer": ["Machine Learning", "Python", "Deep Learning", "Generative AI"],
-    "applied ai": ["Machine Learning", "Python", "Generative AI", "Deep Learning"],
-    "deep learning": ["Deep Learning", "PyTorch", "TensorFlow", "Python"],
-    "nlp": ["Natural Language Processing", "Python", "Machine Learning"],
-    "computer vision": ["Computer Vision", "Python", "PyTorch", "Deep Learning"],
-    "devops": ["Docker", "Kubernetes", "CI/CD", "AWS", "Linux", "Terraform"],
-    "site reliability": ["Kubernetes", "Docker", "Linux", "CI/CD", "AWS"],
-    "platform engineer": ["Kubernetes", "Docker", "AWS", "CI/CD", "Terraform"],
-    "infrastructure engineer": ["Kubernetes", "Docker", "AWS", "Linux", "Terraform"],
-    "cloud engineer": ["AWS", "Kubernetes", "Docker", "Terraform"],
-    "security engineer": ["Cybersecurity", "Networking", "Linux", "Python"],
-    "cybersecurity": ["Cybersecurity", "Networking", "Linux"],
-    "penetration test": ["Cybersecurity", "Linux", "Networking"],
-    "ios": ["Swift", "iOS"],
-    "android": ["Kotlin", "Java", "Android"],
-    "mobile": ["React Native", "Flutter", "iOS", "Android"],
-    "blockchain": ["Blockchain", "JavaScript", "Solidity"],
-    "product manager": ["Product Management", "Agile / Scrum", "Data Analysis", "Communication"],
-    "product management": ["Product Management", "Agile / Scrum", "Communication"],
-    "ux": ["UI/UX Design", "Figma", "Wireframing", "Prototyping"],
-    "ui/ux": ["UI/UX Design", "Figma", "Wireframing"],
-    "product design": ["Figma", "UI/UX Design", "Prototyping"],
-    "graphic design": ["Adobe Photoshop", "Adobe Illustrator", "Canva"],
-    "marketing": ["Digital Marketing", "SEO", "Google Analytics", "Social Media Marketing"],
-    "growth": ["Digital Marketing", "SEO", "Google Analytics", "Data Analysis"],
-    "content writ": ["Content Writing", "SEO", "Social Media Marketing"],
-    "social media": ["Social Media Marketing", "Content Writing", "Canva"],
-    "financial analyst": ["Financial Analysis", "Excel", "Valuation"],
-    "investment": ["Financial Analysis", "Valuation", "Excel"],
-    "accounting": ["Accounting", "Excel", "Taxation"],
-    "consultant": ["Problem Solving", "Communication", "Data Analysis", "Excel"],
-    "consulting": ["Problem Solving", "Communication", "Excel"],
-    "sales": ["Communication", "Salesforce", "Negotiation"],
-    "account executive": ["Communication", "Salesforce", "Negotiation"],
-    "business development": ["Communication", "Negotiation", "Market Research"],
-    "research scientist": ["Research", "Python", "Statistics", "Machine Learning"],
-    "qa": ["QA & Test Automation", "Selenium", "Playwright"],
-    "quality assurance": ["QA & Test Automation", "Selenium"],
-    "test engineer": ["QA & Test Automation", "Selenium", "Python"],
-    "sdet": ["QA & Test Automation", "Selenium", "Java"],
-    "embedded": ["Embedded Systems", "C", "C++", "IoT"],
-    "firmware": ["Embedded Systems", "C", "C++"],
-    "vlsi": ["VLSI", "Verilog / VHDL"],
-    "mechanical": ["SolidWorks", "AutoCAD"]
+    "forward deployed": [
+      "Python",
+      "SQL",
+      "Data Analysis",
+      "REST APIs"
+    ],
+    "frontend": [
+      "React",
+      "JavaScript",
+      "TypeScript",
+      "HTML",
+      "CSS"
+    ],
+    "front end": [
+      "React",
+      "JavaScript",
+      "TypeScript",
+      "HTML",
+      "CSS"
+    ],
+    "front-end": [
+      "React",
+      "JavaScript",
+      "TypeScript",
+      "HTML",
+      "CSS"
+    ],
+    "backend": [
+      "REST APIs",
+      "SQL",
+      "PostgreSQL",
+      "Docker"
+    ],
+    "back end": [
+      "REST APIs",
+      "SQL",
+      "PostgreSQL",
+      "Docker"
+    ],
+    "back-end": [
+      "REST APIs",
+      "SQL",
+      "PostgreSQL",
+      "Docker"
+    ],
+    "full stack": [
+      "React",
+      "Node.js",
+      "REST APIs",
+      "SQL",
+      "JavaScript"
+    ],
+    "fullstack": [
+      "React",
+      "Node.js",
+      "REST APIs",
+      "SQL",
+      "JavaScript"
+    ],
+    "full-stack": [
+      "React",
+      "Node.js",
+      "REST APIs",
+      "SQL",
+      "JavaScript"
+    ],
+    "web develop": [
+      "HTML",
+      "CSS",
+      "JavaScript",
+      "React"
+    ],
+    "data scientist": [
+      "Python",
+      "Machine Learning",
+      "Statistics",
+      "SQL",
+      "Data Analysis"
+    ],
+    "data science": [
+      "Python",
+      "Machine Learning",
+      "Statistics",
+      "SQL"
+    ],
+    "data analyst": [
+      "SQL",
+      "Excel",
+      "Data Analysis",
+      "Data Visualization",
+      "Python"
+    ],
+    "data analytics": [
+      "SQL",
+      "Data Analysis",
+      "Data Visualization",
+      "Python"
+    ],
+    "business analyst": [
+      "SQL",
+      "Excel",
+      "Data Analysis",
+      "Business Analysis"
+    ],
+    "data engineer": [
+      "SQL",
+      "Python",
+      "Big Data",
+      "Apache Airflow",
+      "PostgreSQL"
+    ],
+    "machine learning": [
+      "Machine Learning",
+      "Python",
+      "Deep Learning",
+      "PyTorch",
+      "TensorFlow"
+    ],
+    "ml engineer": [
+      "Machine Learning",
+      "Python",
+      "Deep Learning",
+      "PyTorch"
+    ],
+    "ai engineer": [
+      "Machine Learning",
+      "Python",
+      "Deep Learning",
+      "Generative AI"
+    ],
+    "applied ai": [
+      "Machine Learning",
+      "Python",
+      "Generative AI",
+      "Deep Learning"
+    ],
+    "deep learning": [
+      "Deep Learning",
+      "PyTorch",
+      "TensorFlow",
+      "Python"
+    ],
+    "nlp": [
+      "Natural Language Processing",
+      "Python",
+      "Machine Learning"
+    ],
+    "computer vision": [
+      "Computer Vision",
+      "Python",
+      "PyTorch",
+      "Deep Learning"
+    ],
+    "devops": [
+      "Docker",
+      "Kubernetes",
+      "CI/CD",
+      "AWS",
+      "Linux",
+      "Terraform"
+    ],
+    "site reliability": [
+      "Kubernetes",
+      "Docker",
+      "Linux",
+      "CI/CD",
+      "AWS"
+    ],
+    "platform engineer": [
+      "Kubernetes",
+      "Docker",
+      "AWS",
+      "CI/CD",
+      "Terraform"
+    ],
+    "infrastructure engineer": [
+      "Kubernetes",
+      "Docker",
+      "AWS",
+      "Linux",
+      "Terraform"
+    ],
+    "cloud engineer": [
+      "AWS",
+      "Kubernetes",
+      "Docker",
+      "Terraform"
+    ],
+    "security engineer": [
+      "Cybersecurity",
+      "Networking",
+      "Linux",
+      "Python"
+    ],
+    "cybersecurity": [
+      "Cybersecurity",
+      "Networking",
+      "Linux"
+    ],
+    "penetration test": [
+      "Cybersecurity",
+      "Linux",
+      "Networking"
+    ],
+    "ios": [
+      "Swift",
+      "iOS"
+    ],
+    "android": [
+      "Kotlin",
+      "Java",
+      "Android"
+    ],
+    "mobile": [
+      "React Native",
+      "Flutter",
+      "iOS",
+      "Android"
+    ],
+    "blockchain": [
+      "Blockchain",
+      "JavaScript",
+      "Solidity"
+    ],
+    "product manager": [
+      "Product Management",
+      "Agile / Scrum",
+      "Data Analysis"
+    ],
+    "product management": [
+      "Product Management",
+      "Agile / Scrum"
+    ],
+    "ux": [
+      "UI/UX Design",
+      "Figma",
+      "Wireframing",
+      "Prototyping"
+    ],
+    "ui/ux": [
+      "UI/UX Design",
+      "Figma",
+      "Wireframing"
+    ],
+    "product design": [
+      "Figma",
+      "UI/UX Design",
+      "Prototyping"
+    ],
+    "graphic design": [
+      "Adobe Photoshop",
+      "Adobe Illustrator",
+      "Canva"
+    ],
+    "marketing": [
+      "Digital Marketing",
+      "SEO",
+      "Google Analytics",
+      "Social Media Marketing"
+    ],
+    "growth": [
+      "Digital Marketing",
+      "SEO",
+      "Google Analytics",
+      "Data Analysis"
+    ],
+    "content writ": [
+      "Content Writing",
+      "SEO",
+      "Social Media Marketing"
+    ],
+    "social media": [
+      "Social Media Marketing",
+      "Content Writing",
+      "Canva"
+    ],
+    "financial analyst": [
+      "Financial Analysis",
+      "Excel",
+      "Valuation"
+    ],
+    "investment": [
+      "Financial Analysis",
+      "Valuation",
+      "Excel"
+    ],
+    "accounting": [
+      "Accounting",
+      "Excel",
+      "Taxation"
+    ],
+    "consultant": [
+      "Problem Solving",
+      "Data Analysis",
+      "Excel"
+    ],
+    "consulting": [
+      "Problem Solving",
+      "Excel"
+    ],
+    "sales": [
+      "Negotiation"
+    ],
+    "account executive": [
+      "Negotiation"
+    ],
+    "business development": [
+      "Negotiation",
+      "Market Research"
+    ],
+    "research scientist": [
+      "Research",
+      "Python",
+      "Statistics",
+      "Machine Learning"
+    ],
+    "qa": [
+      "QA & Test Automation",
+      "Selenium",
+      "Playwright"
+    ],
+    "quality assurance": [
+      "QA & Test Automation",
+      "Selenium"
+    ],
+    "test engineer": [
+      "QA & Test Automation",
+      "Selenium",
+      "Python"
+    ],
+    "sdet": [
+      "QA & Test Automation",
+      "Selenium",
+      "Java"
+    ],
+    "embedded": [
+      "Embedded Systems",
+      "C",
+      "C++",
+      "IoT"
+    ],
+    "firmware": [
+      "Embedded Systems",
+      "C",
+      "C++"
+    ],
+    "vlsi": [
+      "VLSI",
+      "Verilog / VHDL"
+    ],
+    "mechanical": [
+      "SolidWorks",
+      "AutoCAD"
+    ]
   }
 }

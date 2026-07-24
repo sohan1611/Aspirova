@@ -9,7 +9,19 @@ from re import Pattern
 from typing import Any
 
 MAX_OPPORTUNITY_SKILLS = 12
-OPPORTUNITY_ALIAS_STOPLIST = frozenset({"compliance", "design", "research", "spring", "notion"})
+OPPORTUNITY_ALIAS_STOPLIST = frozenset(
+    {
+        "compliance",
+        "design",
+        "research",
+        "spring",
+        "notion",
+        "audit",
+        "tax",
+        "user experience",
+        "user interface",
+    }
+)
 REGEXP_SPECIAL_CHARACTERS = frozenset(
     {".", "*", "+", "?", "^", "$", "{", "}", "(", ")", "|", "[", "]", "\\"}
 )
@@ -54,6 +66,13 @@ def _compile_alias_patterns(aliases: list[str]) -> tuple[Pattern[str], ...]:
     return tuple(patterns)
 
 
+def _compile_role_phrase_pattern(phrase: str) -> Pattern[str]:
+    return re.compile(
+        r"(?:^|[^a-z0-9])" + _escape_regexp(phrase) + r"(?=$|[^a-z0-9])",
+        re.ASCII,
+    )
+
+
 def _remove_company_name(haystack: str, company_name: str) -> str:
     normalized_company_name = company_name.strip().lower()
     if len(normalized_company_name) < 2:
@@ -73,12 +92,13 @@ _ALIAS_PATTERNS: tuple[tuple[str, str, tuple[Pattern[str], ...]], ...] = tuple(
     for skill in _LEXICON["skills"]
 )
 _CANONICAL_NAMES = frozenset(name for name, _field, _patterns in _ALIAS_PATTERNS)
-_ROLE_SKILLS: tuple[tuple[str, tuple[str, ...]], ...] = tuple(
+_ROLE_SKILLS: tuple[tuple[Pattern[str], tuple[str, ...]], ...] = tuple(
     (
-        phrase.strip().lower(),
+        _compile_role_phrase_pattern(phrase.strip().lower()),
         tuple(skill_name for skill_name in skill_names if skill_name in _CANONICAL_NAMES),
     )
     for phrase, skill_names in _ROLE_MAP["roles"].items()
+    if phrase.strip()
 )
 
 
@@ -106,8 +126,8 @@ def extract_opportunity_skills(title: str, description: str, company_name: str =
             if _append_skill(extracted, seen_names, name):
                 return extracted
 
-    for phrase, skill_names in _ROLE_SKILLS:
-        if phrase and phrase in title_l:
+    for phrase_pattern, skill_names in _ROLE_SKILLS:
+        if phrase_pattern.search(title_l):
             for skill_name in skill_names:
                 if _append_skill(extracted, seen_names, skill_name):
                     return extracted

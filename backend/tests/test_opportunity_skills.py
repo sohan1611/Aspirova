@@ -86,15 +86,16 @@ def test_soft_generic_skills_can_still_come_from_role_map():
         "Join client project teams and help structure ambiguous business problems.",
     )
 
-    assert "Communication" in skills
     assert "Problem Solving" in skills
+    assert "Data Analysis" in skills
 
 
 def test_ambiguous_bare_aliases_are_ignored_for_opportunities():
     skills = extract_opportunity_skills(
         "Generalist Intern",
         "This role includes compliance tasks, design reviews, research planning, "
-        "spring hiring support, and notion documentation.",
+        "spring hiring support, notion documentation, audit prep, tax planning, "
+        "user experience reviews, and user interface notes.",
     )
 
     assert "Regulatory Compliance" not in skills
@@ -102,19 +103,48 @@ def test_ambiguous_bare_aliases_are_ignored_for_opportunities():
     assert "Research" not in skills
     assert "Spring Boot" not in skills
     assert "Notion" not in skills
+    assert "Auditing" not in skills
+    assert "Taxation" not in skills
 
 
 def test_non_ambiguous_aliases_for_stoplisted_skills_still_match():
     skills = extract_opportunity_skills(
         "Software Engineer",
         "Build Spring Boot services, perform regulatory compliance work, "
-        "run literature review, and partner with ux design teams.",
+        "run literature review, lead auditing and taxation, and partner with "
+        "ux design teams.",
     )
 
     assert "Spring Boot" in skills
     assert "Regulatory Compliance" in skills
     assert "Research" in skills
+    assert "Auditing" in skills
+    assert "Taxation" in skills
     assert "UI/UX Design" in skills
+
+
+def test_role_phrases_match_boundaries_not_substrings():
+    salesforce_skills = extract_opportunity_skills(
+        "Salesforce Developer",
+        "Build CRM workflows for customer teams.",
+    )
+    auxiliary_skills = extract_opportunity_skills(
+        "Auxiliary Program Intern",
+        "Support operational planning for student programs.",
+    )
+    front_end_skills = extract_opportunity_skills(
+        "Front-end Engineer Intern",
+        "Build accessible product flows.",
+    )
+    ui_ux_skills = extract_opportunity_skills(
+        "UI/UX Design Intern",
+        "Prototype student-facing product surfaces.",
+    )
+
+    assert "Negotiation" not in salesforce_skills
+    assert "UI/UX Design" not in auxiliary_skills
+    assert "React" in front_end_skills
+    assert "UI/UX Design" in ui_ux_skills
 
 
 def test_result_is_capped_deduped_and_canonical():
