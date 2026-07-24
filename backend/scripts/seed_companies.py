@@ -62,6 +62,21 @@ GREENHOUSE_COMPANIES = [
     # India fintech, probed live 2026-07-22 (12 and 63 open roles).
     ("groww", "Groww", "groww.in"),
     ("slice", "Slice", "sliceit.com"),
+    # Lever A batch, probed live 2026-07-24 (HTTP 200 + non-empty jobs).
+    ("checkr", "Checkr", "checkr.com"),
+    ("webflow", "Webflow", "webflow.com"),
+    ("calendly", "Calendly", "calendly.com"),
+    ("amplitude", "Amplitude", "amplitude.com"),
+    ("mixpanel", "Mixpanel", "mixpanel.com"),
+    ("launchdarkly", "LaunchDarkly", "launchdarkly.com"),
+    ("pagerduty", "PagerDuty", "pagerduty.com"),
+    ("elastic", "Elastic", "elastic.co"),
+    ("circleci", "CircleCI", "circleci.com"),
+    ("vercel", "Vercel", "vercel.com"),
+    ("fivetran", "Fivetran", "fivetran.com"),
+    ("monzo", "Monzo", "monzo.com"),
+    ("gocardless", "GoCardless", "gocardless.com"),
+    ("remotecom", "Remote", "remote.com"),
 ]
 
 # (board_token, company_name, domain) - verified live against
@@ -117,6 +132,17 @@ ASHBY_COMPANIES = [
     ("railway", "Railway", "railway.app"),
     ("neon", "Neon", "neon.tech"),
     ("runway", "Runway", "runwayml.com"),
+    # Lever A batch, probed live 2026-07-24 (bogus-token control = "Not Found").
+    ("prefect", "Prefect", "prefect.io"),
+    ("writer", "Writer", "writer.com"),
+    ("pika", "Pika", "pika.art"),
+    ("suno", "Suno", "suno.com"),
+    ("poolside", "Poolside", "poolside.ai"),
+    ("lovable", "Lovable", "lovable.dev"),
+    ("cognition", "Cognition AI", "cognition.ai"),
+    ("zed", "Zed", "zed.dev"),
+    ("warp", "Warp", "warp.dev"),
+    ("mintlify", "Mintlify", "mintlify.com"),
 ]
 
 # (board_token, company_name, domain) - verified live against
