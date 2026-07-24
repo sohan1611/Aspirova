@@ -123,9 +123,7 @@ class Opportunity(Base):
     title: Mapped[str] = mapped_column(Text, nullable=False)
     title_normalized: Mapped[str | None] = mapped_column(Text)
     category: Mapped[str | None] = mapped_column(Text)
-    skills: Mapped[list] = mapped_column(
-        JSONB, nullable=False, server_default=text("'[]'::jsonb")
-    )
+    skills: Mapped[list] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
     primary_source: Mapped[str | None] = mapped_column(Text)
     location: Mapped[str | None] = mapped_column(Text)
     country: Mapped[str | None] = mapped_column(String(2))
