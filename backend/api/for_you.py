@@ -8,10 +8,11 @@ provide a fast, shared ranking primitive without adding per-user state or AI.
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import Text, and_, any_, bindparam, case, cast, func, or_, select
 from sqlalchemy.dialects.postgresql import ARRAY
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from api.deps import get_db
 from api.filters import exclude_closed_competitions, location_scope_filters
+from api.opportunity_loading import opportunity_list_load_options
 from api.schemas import FeedResponse, OpportunityListItem
 from core import models
 
@@ -202,7 +203,7 @@ def get_for_you(
     total_count = func.count().over().label("total_count")
     query = (
         select(models.Opportunity, total_count)
-        .options(joinedload(models.Opportunity.company))
+        .options(*opportunity_list_load_options())
         .where(*base_filters)
     )
 

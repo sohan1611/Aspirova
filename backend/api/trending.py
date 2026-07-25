@@ -4,11 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from api.deps import get_db
 from api.filters import exclude_closed_competitions
 from api.middleware import client_ip
+from api.opportunity_loading import opportunity_list_load_options
 from api.schemas import OpportunityListItem, TrendingResponse
 from core import models
 from core.config import get_settings
@@ -91,7 +92,7 @@ def get_trending(
             models.OpportunityViewCount,
             models.OpportunityViewCount.opportunity_id == models.Opportunity.id,
         )
-        .options(joinedload(models.Opportunity.company))
+        .options(*opportunity_list_load_options())
         .where(
             models.Opportunity.status == "active",
             exclude_closed_competitions(),

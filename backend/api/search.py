@@ -14,7 +14,7 @@ stays at one round-trip).
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, or_, select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from api.deps import get_db
 from api.filters import (
@@ -24,6 +24,7 @@ from api.filters import (
     location_scope_filters,
     opportunity_filters,
 )
+from api.opportunity_loading import opportunity_list_load_options
 from api.schemas import OpportunityListItem, SearchResponse
 from core import models
 
@@ -83,7 +84,7 @@ def search_opportunities(
     # (same class of bug as api/feed.py's pagination - verified there).
     fts_query = (
         select(models.Opportunity, total_count)
-        .options(joinedload(models.Opportunity.company))
+        .options(*opportunity_list_load_options())
         .where(*base_filters)
         .where(matches_fts)
         .order_by(rank.desc(), models.Opportunity.id.desc())
@@ -113,7 +114,7 @@ def search_opportunities(
     similarity = func.similarity(models.Opportunity.title_normalized, q.lower())
     fallback_query = (
         select(models.Opportunity, total_count)
-        .options(joinedload(models.Opportunity.company))
+        .options(*opportunity_list_load_options())
         .where(*base_filters)
         .where(similarity >= TRIGRAM_FALLBACK_THRESHOLD)
         .order_by(similarity.desc(), models.Opportunity.id.desc())

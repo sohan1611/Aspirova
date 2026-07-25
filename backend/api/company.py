@@ -2,9 +2,10 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import desc, func, select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from api.deps import get_db
+from api.opportunity_loading import opportunity_list_load_options
 from api.schemas import (
     CompanyListItem,
     CompanyPage,
@@ -67,7 +68,7 @@ def get_company_page(
     total_count = func.count().over().label("total_count")
     query = (
         select(models.Opportunity, total_count)
-        .options(joinedload(models.Opportunity.company))
+        .options(*opportunity_list_load_options())
         .where(
             models.Opportunity.company_id == company.id,
             models.Opportunity.status == "active",
