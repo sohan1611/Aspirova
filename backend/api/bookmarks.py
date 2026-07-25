@@ -3,10 +3,11 @@ in Phase 1."""
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from api.auth import get_current_user
 from api.deps import get_db
+from api.opportunity_loading import opportunity_list_load_options
 from api.schemas import BookmarkStatusUpdate, SavedOpportunityItem
 from core import models
 from core.config import get_settings
@@ -97,7 +98,7 @@ def list_bookmarks(
     rows = db.execute(
         select(models.Opportunity, models.Bookmark.status)
         .join(models.Bookmark, models.Bookmark.opportunity_id == models.Opportunity.id)
-        .options(joinedload(models.Opportunity.company))
+        .options(*opportunity_list_load_options())
         .where(models.Bookmark.user_id == user.id)
         .order_by(models.Bookmark.created_at.desc())
     ).all()

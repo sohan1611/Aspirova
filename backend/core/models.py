@@ -140,7 +140,7 @@ class Opportunity(Base):
     first_seen_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
     last_seen_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
     # Populated by a DB trigger (title + company + summary + description), not the ORM. See migration.
-    search_tsv: Mapped[str | None] = mapped_column(TSVECTOR)
+    search_tsv: Mapped[str | None] = mapped_column(TSVECTOR, deferred=True)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(1536))
     embedding_model: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))

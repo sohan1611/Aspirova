@@ -11,7 +11,7 @@ measured p50 248-272ms / p95 up to 1254ms against the same real data.
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import and_, case, func, or_, select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from api.deps import get_db
 from api.filters import (
@@ -22,6 +22,7 @@ from api.filters import (
     location_scope_filters,
     opportunity_filters,
 )
+from api.opportunity_loading import opportunity_list_load_options
 from api.schemas import FeedResponse, OpportunityListItem
 from core import models
 
@@ -81,11 +82,7 @@ def get_feed(
     selected_columns = [models.Opportunity, total_count]
     if sort != "deadline":
         selected_columns.append(source_rank)
-    query = (
-        select(*selected_columns)
-        .options(joinedload(models.Opportunity.company))
-        .where(*base_filters)
-    )
+    query = select(*selected_columns).options(*opportunity_list_load_options()).where(*base_filters)
     # id is a required tie-breaker, not cosmetic: many rows share the exact
     # same last_seen_at (same crawl batch) or deadline (often null), and
     # Postgres gives no ordering guarantee among tied rows across separate

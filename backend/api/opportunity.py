@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from api.deps import get_db
 from api.filters import exclude_closed_competitions
+from api.opportunity_loading import opportunity_list_load_options
 from api.schemas import OpportunityDetail, OpportunityListItem, ReopenEstimateSchema
 from core import models
 from pipeline.reopen import reopen_estimate
@@ -68,7 +69,7 @@ def get_similar_opportunities(
     candidates = db.scalars(
         select(models.Opportunity)
         .outerjoin(models.Company)
-        .options(joinedload(models.Opportunity.company))
+        .options(*opportunity_list_load_options())
         .where(*filters)
         .order_by(
             relevance.asc(),
