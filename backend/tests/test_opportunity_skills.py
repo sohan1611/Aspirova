@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from pipeline.skills import extract_opportunity_skills
 
 LEXICON_PATH = Path(__file__).resolve().parents[1] / "pipeline" / "skills_lexicon.json"
@@ -67,6 +69,36 @@ def test_company_name_guard_removes_company_aliases_from_haystack():
     )
 
     assert "Git" not in skills
+
+
+@pytest.mark.parametrize(
+    "description",
+    [
+        "You will excel at building great products.",
+        "Candidates who excel in fast-paced environments.",
+        "We help you excel in your career.",
+        "Driven individuals who consistently excel.",
+    ],
+)
+def test_excel_verb_usage_does_not_extract_excel(description):
+    skills = extract_opportunity_skills("Generalist Intern", description)
+
+    assert "Excel" not in skills
+
+
+@pytest.mark.parametrize(
+    "description",
+    [
+        "Proficiency in Microsoft Excel and SQL.",
+        "Skills: Excel, PowerPoint, SQL.",
+        "Advanced Excel including pivot tables.",
+        "Strong Excel skills required.",
+    ],
+)
+def test_excel_tool_usage_extracts_excel(description):
+    skills = extract_opportunity_skills("Generalist Intern", description)
+
+    assert "Excel" in skills
 
 
 def test_soft_generic_skills_do_not_match_from_prose():
