@@ -7,6 +7,7 @@ import type {
   CompanyListItem,
   CompanyPage,
   CopilotResponse,
+  Facets,
   FeedResponse,
   MatchItem,
   NotificationsResponse,
@@ -183,6 +184,12 @@ export async function getForYou(params: ForYouParams = {}): Promise<FeedResponse
 export async function getStats(): Promise<StatsResponse> {
   const res = await fetch(`${API_URL}/stats`, { next: { revalidate: 300 } });
   if (!res.ok) throw new Error(`Failed to load stats: ${res.status}`);
+  return res.json();
+}
+
+export async function getFacets(): Promise<Facets> {
+  const res = await fetch(`${API_URL}/facets`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Failed to load facets: ${res.status}`);
   return res.json();
 }
 

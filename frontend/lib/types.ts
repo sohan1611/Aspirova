@@ -130,6 +130,11 @@ export interface StatsResponse {
   updated_at: string | null;
 }
 
+export interface Facets {
+  companies: string[];
+  locations: string[];
+}
+
 export interface CompanyPage {
   company: CompanySummary;
   items: OpportunityListItem[];

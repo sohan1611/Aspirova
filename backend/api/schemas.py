@@ -281,6 +281,11 @@ class StatsResponse(BaseModel):
     updated_at: datetime | None
 
 
+class FacetsResponse(BaseModel):
+    companies: list[str]
+    locations: list[str]
+
+
 class CompanyPage(BaseModel):
     company: CompanySummary
     items: list[OpportunityListItem]
