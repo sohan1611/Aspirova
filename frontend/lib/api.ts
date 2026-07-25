@@ -78,8 +78,8 @@ export interface FeedParams {
   source?: "direct" | "unstop" | "remoteok" | "devpost";
   experience?: "early";
   remote?: boolean;
-  location?: string;
-  company?: string;
+  location?: string | string[];
+  company?: string | string[];
   top?: number;
   scope?: "abroad" | "domestic" | "both";
   country?: string;
@@ -115,6 +115,18 @@ type SearchFilterParams = Pick<
   | "remote_abroad"
 >;
 
+function appendRepeatedParam(
+  search: URLSearchParams,
+  key: "company" | "location",
+  value: string | string[] | undefined,
+) {
+  const values = Array.isArray(value) ? value : value ? [value] : [];
+  for (const item of values) {
+    const nextValue = item.trim();
+    if (nextValue) search.append(key, nextValue);
+  }
+}
+
 export async function getFeed(params: FeedParams = {}): Promise<FeedResponse> {
   const search = new URLSearchParams();
   if (params.category) search.set("category", params.category);
@@ -122,8 +134,8 @@ export async function getFeed(params: FeedParams = {}): Promise<FeedResponse> {
   if (params.source) search.set("source", params.source);
   if (params.experience) search.set("experience", params.experience);
   if (params.remote !== undefined) search.set("remote", String(params.remote));
-  if (params.location) search.set("location", params.location);
-  if (params.company) search.set("company", params.company);
+  appendRepeatedParam(search, "location", params.location);
+  appendRepeatedParam(search, "company", params.company);
   if (params.top) search.set("top", String(params.top));
   if (params.scope) search.set("scope", params.scope);
   if (params.country) search.set("country", params.country);
@@ -205,8 +217,8 @@ export async function searchOpportunities(
   if (filters.source) search.set("source", filters.source);
   if (filters.experience) search.set("experience", filters.experience);
   if (filters.remote !== undefined) search.set("remote", String(filters.remote));
-  if (filters.location) search.set("location", filters.location);
-  if (filters.company) search.set("company", filters.company);
+  appendRepeatedParam(search, "location", filters.location);
+  appendRepeatedParam(search, "company", filters.company);
   if (filters.top) search.set("top", String(filters.top));
   if (filters.scope) search.set("scope", filters.scope);
   if (filters.country) search.set("country", filters.country);

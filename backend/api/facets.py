@@ -13,31 +13,32 @@ router = APIRouter()
 
 @router.get("/facets", response_model=FacetsResponse)
 def get_facets(db: Session = Depends(get_db)) -> FacetsResponse:
-    company_count = func.count(models.Opportunity.id).label("active_count")
     company_rows = db.execute(
-        select(models.Company.name, company_count)
+        select(models.Company.name)
         .join(
             models.Opportunity,
             models.Opportunity.company_id == models.Company.id,
         )
         .where(models.Opportunity.status == "active")
         .group_by(models.Company.name)
-        .order_by(company_count.desc(), models.Company.name.asc())
+        .order_by(func.lower(models.Company.name).asc(), models.Company.name.asc())
     ).all()
 
-    location_count = func.count(models.Opportunity.id).label("active_count")
     location_rows = db.execute(
-        select(models.Opportunity.location, location_count)
+        select(models.Opportunity.location)
         .where(
             models.Opportunity.status == "active",
             models.Opportunity.location.is_not(None),
             models.Opportunity.location != "",
         )
         .group_by(models.Opportunity.location)
-        .order_by(location_count.desc(), models.Opportunity.location.asc())
+        .order_by(
+            func.lower(models.Opportunity.location).asc(),
+            models.Opportunity.location.asc(),
+        )
     ).all()
 
     return FacetsResponse(
-        companies=[name for name, _active_count in company_rows],
-        locations=[location for location, _active_count in location_rows if location is not None],
+        companies=[name for (name,) in company_rows],
+        locations=[location for (location,) in location_rows if location is not None],
     )

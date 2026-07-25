@@ -39,17 +39,17 @@ def test_facets_return_distinct_active_companies_and_locations(
 ) -> None:
     suffix = str(uuid.uuid4())
     seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
-    high_location = f"Facet High Location {suffix}"
-    low_location = f"Facet Low Location {suffix}"
+    high_location = f"Facet Zulu Location {suffix}"
+    low_location = f"facet Alpha Location {suffix}"
     inactive_location = f"Facet Inactive Location {suffix}"
 
     high_count_company = models.Company(
         slug=f"facet-high-count-{suffix}",
-        name=f"Facet High Count {suffix}",
+        name=f"Facet Zulu High Count {suffix}",
     )
     low_count_company = models.Company(
         slug=f"facet-low-count-{suffix}",
-        name=f"Facet Low Count {suffix}",
+        name=f"facet Alpha Low Count {suffix}",
     )
     blank_location_company = models.Company(
         slug=f"facet-blank-location-{suffix}",
@@ -132,11 +132,11 @@ def test_facets_return_distinct_active_companies_and_locations(
 
     assert companies.count(high_count_company.name) == 1
     assert companies.count(low_count_company.name) == 1
-    assert companies.index(high_count_company.name) < companies.index(low_count_company.name)
+    assert companies.index(low_count_company.name) < companies.index(high_count_company.name)
     assert inactive_company.name not in companies
 
     assert locations.count(high_location) == 1
     assert locations.count(low_location) == 1
-    assert locations.index(high_location) < locations.index(low_location)
+    assert locations.index(low_location) < locations.index(high_location)
     assert inactive_location not in locations
     assert "" not in locations

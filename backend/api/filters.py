@@ -42,8 +42,8 @@ def experience_filters(experience: str | None) -> list:
 def opportunity_filters(
     category: str | None,
     remote: bool | None,
-    company: str | None,
-    location: str | None,
+    company: list[str] | None,
+    location: list[str] | None,
     top: int | None,
 ) -> list:
     filters = []
@@ -51,19 +51,26 @@ def opportunity_filters(
         filters.append(models.Opportunity.category == category)
     if remote is not None:
         filters.append(models.Opportunity.is_remote == remote)
-    company_filter = company.strip() if company else ""
-    if company_filter:
+    company_values = [value.strip() for value in (company or []) if value and value.strip()]
+    if company_values:
         filters.append(
             models.Opportunity.company.has(
                 or_(
-                    models.Company.slug == company_filter,
-                    models.Company.name.ilike(f"%{company_filter}%"),
+                    *[
+                        or_(
+                            models.Company.slug == value,
+                            models.Company.name.ilike(f"%{value}%"),
+                        )
+                        for value in company_values
+                    ]
                 )
             )
         )
-    location_filter = location.strip() if location else ""
-    if location_filter:
-        filters.append(models.Opportunity.location.ilike(f"%{location_filter}%"))
+    location_values = [value.strip() for value in (location or []) if value and value.strip()]
+    if location_values:
+        filters.append(
+            or_(*[models.Opportunity.location.ilike(f"%{value}%") for value in location_values])
+        )
     if top is not None:
         filters.append(
             models.Opportunity.company.has(
