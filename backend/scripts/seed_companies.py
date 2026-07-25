@@ -108,7 +108,27 @@ LEVER_COMPANIES = [
     # Only tokens returning an actual JSON list were kept.
     ("meesho", "Meesho", "meesho.com"),
     ("mindtickle", "Mindtickle", "mindtickle.com"),
+    # Lever expansion, probed live 2026-07-25 against api.lever.co (real JSON
+    # postings list; bogus-token control returns an error object). Counts at
+    # probe time: veeva ~831, includedhealth 144, ro 51, anchorage 46, kavak 4,
+    # ledger 1.
+    ("veeva", "Veeva Systems", "veeva.com"),
+    ("includedhealth", "Included Health", "includedhealth.com"),
+    ("ro", "Ro", "ro.co"),
+    ("anchorage", "Anchorage Digital", "anchoragedigital.com"),
+    ("kavak", "Kavak", "kavak.com"),
+    ("ledger", "Ledger", "ledger.com"),
 ]
+
+# Held out (verified live 2026-07-25 but excluded on purpose):
+#  - gopuff (Gopuff, ~836 jobs): overwhelmingly hourly warehouse/driver/ops
+#    roles, which would dilute a student/early-career feed - same quality bar
+#    that removed wealthindia and held out Bosch/DeliveryHero.
+#  - paytm (Paytm, ~230 jobs): a "Paytm" company already exists in prod
+#    (slug paytm-2b1da9c8, no ATS, aggregator-created). Seeding a fresh
+#    "paytm" slug here would DUPLICATE it, since this script keys idempotency
+#    on Company.slug == board_token.lower(). Needs an attach-to-existing step,
+#    not a plain seed entry - separate follow-up.
 
 # (board_token, company_name, domain) - verified live against
 # https://api.ashbyhq.com/posting-api/job-board/{token}
