@@ -1,9 +1,18 @@
 "use client";
 
-import { ArrowUpDown, Bookmark, Loader2, Search, SlidersHorizontal, X } from "lucide-react";
+import {
+  ArrowUpDown,
+  Bookmark,
+  ChevronDown,
+  Loader2,
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import FacetPicker from "@/components/FacetPicker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,9 +40,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { createSavedSearch } from "@/lib/api";
+import { createSavedSearch, getFacets } from "@/lib/api";
 import { getCountry } from "@/lib/countries";
-import type { SavedSearchParams } from "@/lib/types";
+import type { Facets, SavedSearchParams } from "@/lib/types";
 import { useSession } from "@/lib/useSession";
 import { cn } from "@/lib/utils";
 
@@ -205,15 +214,20 @@ export default function SearchFilters() {
   const accessToken = session?.access_token;
   const [isPending, startTransition] = useTransition();
   const [q, setQ] = useState(searchParams.get("q") ?? "");
-  const [location, setLocation] = useState(searchParams.get("location") ?? "");
-  const [company, setCompany] = useState(searchParams.get("company") ?? "");
+  const [facets, setFacets] = useState<Facets | null>(null);
+  const [facetsStatus, setFacetsStatus] = useState<
+    "idle" | "loading" | "loaded" | "error"
+  >("idle");
+  const [facetError, setFacetError] = useState<string | null>(null);
+  const [locationPickerOpen, setLocationPickerOpen] = useState(false);
+  const [companyPickerOpen, setCompanyPickerOpen] = useState(false);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [saveName, setSaveName] = useState("");
   const [saveAlertsEnabled, setSaveAlertsEnabled] = useState(true);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSavingSearch, setIsSavingSearch] = useState(false);
 
-  // Resync inputs to the URL when params change externally (Clear all / Back),
+  // Resync the search input to the URL when params change externally (Clear all / Back),
   // without remounting — so the Filter popover stays open across selections.
   // React's "adjust state during render" pattern (guarded), not an effect.
   const paramsSignature = searchParams.toString();
@@ -221,11 +235,11 @@ export default function SearchFilters() {
   if (paramsSignature !== syncedSignature) {
     setSyncedSignature(paramsSignature);
     setQ(searchParams.get("q") ?? "");
-    setLocation(searchParams.get("location") ?? "");
-    setCompany(searchParams.get("company") ?? "");
   }
 
   const top = searchParams.get("top");
+  const selectedLocation = searchParams.get("location") || null;
+  const selectedCompany = searchParams.get("company") || null;
   const sort =
     searchParams.get("sort") === "deadline"
       ? "deadline"
@@ -300,19 +314,40 @@ export default function SearchFilters() {
     updateParam(key, nextValue);
   }
 
+  function loadFacetsIfNeeded() {
+    if (facetsStatus === "loading" || facetsStatus === "loaded") return;
+
+    setFacetsStatus("loading");
+    setFacetError(null);
+    void getFacets()
+      .then((nextFacets) => {
+        setFacets(nextFacets);
+        setFacetsStatus("loaded");
+      })
+      .catch(() => {
+        setFacets({ companies: [], locations: [] });
+        setFacetsStatus("error");
+        setFacetError("Could not load the live list. Reopen to retry.");
+      });
+  }
+
+  function handleLocationPickerOpenChange(open: boolean) {
+    setLocationPickerOpen(open);
+    if (open) loadFacetsIfNeeded();
+  }
+
+  function handleCompanyPickerOpenChange(open: boolean) {
+    setCompanyPickerOpen(open);
+    if (open) loadFacetsIfNeeded();
+  }
+
+  function handleFacetSelect(key: "company" | "location", value: string | null) {
+    commitTextParam(key, value ?? "");
+  }
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     updateParam("q", q || null);
-  }
-
-  function handleLocationSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    commitTextParam("location", location);
-  }
-
-  function handleCompanySubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    commitTextParam("company", company);
   }
 
   function clearFilters() {
@@ -475,33 +510,67 @@ export default function SearchFilters() {
                   />
                 </div>
 
-                <form onSubmit={handleLocationSubmit} className="space-y-2">
-                  <Label htmlFor="filter-location" className="eyebrow">
-                    Location
-                  </Label>
-                  <Input
-                    id="filter-location"
-                    aria-label="Location"
-                    placeholder="City, country…"
-                    value={location}
-                    onBlur={() => commitTextParam("location", location)}
-                    onChange={(e) => setLocation(e.target.value)}
+                <div className="space-y-2">
+                  <p className="eyebrow">Location</p>
+                  <FacetPicker
+                    label="location"
+                    options={facets?.locations ?? []}
+                    value={selectedLocation}
+                    open={locationPickerOpen}
+                    onOpenChange={handleLocationPickerOpenChange}
+                    onSelect={(value) => handleFacetSelect("location", value)}
+                    isLoading={facetsStatus === "loading"}
+                    error={facetError}
+                    trigger={
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={isPending}
+                        aria-label="Choose location filter"
+                        className="w-full justify-between"
+                      >
+                        <span className="min-w-0 truncate text-left">
+                          {selectedLocation || "Any location"}
+                        </span>
+                        <ChevronDown
+                          className="h-4 w-4 shrink-0 text-muted-foreground"
+                          aria-hidden="true"
+                        />
+                      </Button>
+                    }
                   />
-                </form>
+                </div>
 
-                <form onSubmit={handleCompanySubmit} className="space-y-2">
-                  <Label htmlFor="filter-company" className="eyebrow">
-                    Company
-                  </Label>
-                  <Input
-                    id="filter-company"
-                    aria-label="Company"
-                    placeholder="Company name…"
-                    value={company}
-                    onBlur={() => commitTextParam("company", company)}
-                    onChange={(e) => setCompany(e.target.value)}
+                <div className="space-y-2">
+                  <p className="eyebrow">Company</p>
+                  <FacetPicker
+                    label="company"
+                    options={facets?.companies ?? []}
+                    value={selectedCompany}
+                    open={companyPickerOpen}
+                    onOpenChange={handleCompanyPickerOpenChange}
+                    onSelect={(value) => handleFacetSelect("company", value)}
+                    isLoading={facetsStatus === "loading"}
+                    error={facetError}
+                    trigger={
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={isPending}
+                        aria-label="Choose company filter"
+                        className="w-full justify-between"
+                      >
+                        <span className="min-w-0 truncate text-left">
+                          {selectedCompany || "Any company"}
+                        </span>
+                        <ChevronDown
+                          className="h-4 w-4 shrink-0 text-muted-foreground"
+                          aria-hidden="true"
+                        />
+                      </Button>
+                    }
                   />
-                </form>
+                </div>
 
                 <div className="space-y-2">
                   <p className="eyebrow">Top companies</p>

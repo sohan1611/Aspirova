@@ -63,6 +63,7 @@ _CACHEABLE_PREFIXES = (
     "/opportunity/",
     "/company/",
     "/companies",
+    "/facets",
     "/plans",
     "/sitemap-opportunities",
     "/sitemap-companies",
