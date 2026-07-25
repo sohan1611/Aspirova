@@ -25,6 +25,34 @@ OPPORTUNITY_ALIAS_STOPLIST = frozenset(
 REGEXP_SPECIAL_CHARACTERS = frozenset(
     {".", "*", "+", "?", "^", "$", "{", "}", "(", ")", "|", "[", "]", "\\"}
 )
+EXCEL_WORD_PATTERN = re.compile(r"\bexcel\b", re.ASCII)
+EXCEL_VERB_CONTINUATION_PATTERN = re.compile(
+    r"^\s+(?:at|in|as|when|beyond|past|here|there|within|under)\b",
+    re.ASCII,
+)
+EXCEL_VERB_PRECEDERS = frozenset(
+    {
+        "and",
+        "can",
+        "could",
+        "consistently",
+        "help",
+        "helping",
+        "helps",
+        "i",
+        "must",
+        "really",
+        "should",
+        "they",
+        "to",
+        "truly",
+        "we",
+        "who",
+        "will",
+        "would",
+        "you",
+    }
+)
 
 
 def _load_json(filename: str) -> dict[str, Any]:
@@ -80,6 +108,20 @@ def _remove_company_name(haystack: str, company_name: str) -> str:
     return haystack.replace(normalized_company_name, " ")
 
 
+def _has_tool_excel(haystack: str) -> bool:
+    for match in EXCEL_WORD_PATTERN.finditer(haystack):
+        if EXCEL_VERB_CONTINUATION_PATTERN.search(haystack[match.end() :]):
+            continue
+
+        prefix = haystack[: match.start()].rstrip()
+        previous_word_match = re.search(r"[a-z]+$", prefix, re.ASCII)
+        if previous_word_match is not None and previous_word_match.group(0) in EXCEL_VERB_PRECEDERS:
+            continue
+
+        return True
+    return False
+
+
 _LEXICON = _load_json("skills_lexicon.json")
 _ROLE_MAP = _load_json("role_skills.json")
 
@@ -123,6 +165,8 @@ def extract_opportunity_skills(title: str, description: str, company_name: str =
         if field == "other":
             continue
         if any(pattern.search(haystack) for pattern in patterns):
+            if name == "Excel" and not _has_tool_excel(haystack):
+                continue
             if _append_skill(extracted, seen_names, name):
                 return extracted
 
