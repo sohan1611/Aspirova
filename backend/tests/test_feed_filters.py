@@ -97,10 +97,53 @@ def test_feed_company_slug_and_name_filters_narrow_results(client: TestClient, f
     assert {item["slug"] for item in by_name["items"]} == expected_slugs
 
 
+def test_feed_company_filter_accepts_repeated_values_as_or(
+    client: TestClient,
+    feed_rows,
+) -> None:
+    company_a, company_b, opportunities, _location_token, _suffix = feed_rows
+
+    body = client.get(
+        "/feed",
+        params=[
+            ("company", company_a.slug),
+            ("company", company_b.slug),
+            ("limit", "10"),
+        ],
+    ).json()
+
+    assert body["total"] == 3
+    assert {item["slug"] for item in body["items"]} == {
+        opportunity.slug for opportunity in opportunities
+    }
+
+
 def test_feed_location_filter_narrows_results(client: TestClient, feed_rows) -> None:
     _company_a, _company_b, opportunities, location_token, _suffix = feed_rows
 
     body = client.get("/feed", params={"location": location_token, "limit": 10}).json()
+
+    assert body["total"] == 2
+    assert {item["slug"] for item in body["items"]} == {
+        opportunities[0].slug,
+        opportunities[2].slug,
+    }
+
+
+def test_feed_location_filter_accepts_repeated_values_as_or(
+    client: TestClient,
+    feed_rows,
+) -> None:
+    _company_a, _company_b, opportunities, location_token, _suffix = feed_rows
+
+    body = client.get(
+        "/feed",
+        params=[
+            ("location", f"{location_token}, North"),
+            ("location", f"{location_token}, South"),
+            ("limit", "10"),
+        ],
+    ).json()
 
     assert body["total"] == 2
     assert {item["slug"] for item in body["items"]} == {

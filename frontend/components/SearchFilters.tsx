@@ -106,9 +106,10 @@ const SAVED_SEARCH_PARAM_KEYS = [
 ] as const;
 
 interface ActiveFilterDescriptor {
-  key: (typeof FILTER_KEYS)[number];
+  id: string;
   label: React.ReactNode;
   humanLabel: string;
+  onRemove: () => void;
 }
 
 interface SearchParamReader {
@@ -162,6 +163,15 @@ function savedSearchNamePlaceholder(params: SavedSearchParams): string {
   if (params.experience === "early") parts.push("Early career");
 
   return parts.join(" · ") || "My saved search";
+}
+
+function multiFacetButtonLabel(
+  label: "company" | "location",
+  values: string[],
+): string {
+  if (values.length === 0) return `Any ${label}`;
+  if (values.length === 1) return values[0];
+  return `${values.length} ${label === "company" ? "companies" : "locations"}`;
 }
 
 function SegmentedGroup({
@@ -238,56 +248,83 @@ export default function SearchFilters() {
   }
 
   const top = searchParams.get("top");
-  const selectedLocation = searchParams.get("location") || null;
-  const selectedCompany = searchParams.get("company") || null;
+  const selectedLocations = searchParams
+    .getAll("location")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const selectedCompanies = searchParams
+    .getAll("company")
+    .map((value) => value.trim())
+    .filter(Boolean);
   const sort =
     searchParams.get("sort") === "deadline"
       ? "deadline"
       : searchParams.get("sort") === "recent"
         ? "recent"
         : "student";
-  const activeFilters: ActiveFilterDescriptor[] = FILTER_KEYS.flatMap((key) => {
-    const value = searchParams.get(key);
-    if (value === null) return [];
-    if (key === "sort" && value !== "recent" && value !== "deadline") return [];
+  const activeFilters: ActiveFilterDescriptor[] = FILTER_KEYS.flatMap(
+    (key): ActiveFilterDescriptor[] => {
+      if (key === "company" || key === "location") {
+        const values = searchParams
+          .getAll(key)
+          .map((value) => value.trim())
+          .filter(Boolean);
 
-    let humanLabel = value;
-    let label: React.ReactNode = value;
+        return values.map((value, index) => ({
+          id: `${key}:${index}:${value}`,
+          label: value,
+          humanLabel: `${key === "company" ? "Company" : "Location"}: ${value}`,
+          onRemove: () =>
+            commitMultiParam(
+              key,
+              values.filter((_currentValue, currentIndex) => currentIndex !== index),
+            ),
+        }));
+      }
 
-    if (key === "q") {
-      humanLabel = `Search: "${value}"`;
-      label = humanLabel;
-    } else if (key === "category") {
-      humanLabel =
-        CATEGORY_OPTIONS.find((option) => option.value === value)?.label ?? value;
-      label = humanLabel;
-    } else if (key === "source") {
-      humanLabel =
-        SOURCE_OPTIONS.find((option) => option.value === value)?.label ?? value;
-      label = humanLabel;
-    } else if (key === "experience") {
-      humanLabel =
-        EXPERIENCE_OPTIONS.find((option) => option.value === value)?.label ?? value;
-      label = humanLabel;
-    } else if (key === "remote") {
-      humanLabel =
-        REMOTE_OPTIONS.find((option) => option.value === value)?.label ?? value;
-      label = humanLabel;
-    } else if (key === "top") {
-      const topLabel = TOP_OPTIONS.find((option) => option.value === value)?.label ?? value;
-      humanLabel = `Top ${topLabel}`;
-      label = (
-        <>
-          Top <span className="tnum">{topLabel}</span>
-        </>
-      );
-    } else if (key === "sort") {
-      humanLabel = value === "deadline" ? "Closing soon" : "Newest";
-      label = humanLabel;
-    }
+      const value = searchParams.get(key);
+      if (value === null) return [];
+      if (key === "sort" && value !== "recent" && value !== "deadline") return [];
 
-    return [{ key, label, humanLabel }];
-  });
+      let humanLabel = value;
+      let label: React.ReactNode = value;
+
+      if (key === "q") {
+        humanLabel = `Search: "${value}"`;
+        label = humanLabel;
+      } else if (key === "category") {
+        humanLabel =
+          CATEGORY_OPTIONS.find((option) => option.value === value)?.label ?? value;
+        label = humanLabel;
+      } else if (key === "source") {
+        humanLabel =
+          SOURCE_OPTIONS.find((option) => option.value === value)?.label ?? value;
+        label = humanLabel;
+      } else if (key === "experience") {
+        humanLabel =
+          EXPERIENCE_OPTIONS.find((option) => option.value === value)?.label ?? value;
+        label = humanLabel;
+      } else if (key === "remote") {
+        humanLabel =
+          REMOTE_OPTIONS.find((option) => option.value === value)?.label ?? value;
+        label = humanLabel;
+      } else if (key === "top") {
+        const topLabel =
+          TOP_OPTIONS.find((option) => option.value === value)?.label ?? value;
+        humanLabel = `Top ${topLabel}`;
+        label = (
+          <>
+            Top <span className="tnum">{topLabel}</span>
+          </>
+        );
+      } else if (key === "sort") {
+        humanLabel = value === "deadline" ? "Closing soon" : "Newest";
+        label = humanLabel;
+      }
+
+      return [{ id: key, label, humanLabel, onRemove: () => updateParam(key, null) }];
+    },
+  );
   const activeFilterCount = activeFilters.length;
   const hasFilters = activeFilterCount > 0;
   const savedSearchParams = getSavedSearchParams(searchParams);
@@ -308,10 +345,18 @@ export default function SearchFilters() {
     });
   }
 
-  function commitTextParam(key: string, value: string) {
-    const nextValue = value.trim() || null;
-    if ((searchParams.get(key) ?? "") === (nextValue ?? "")) return;
-    updateParam(key, nextValue);
+  function commitMultiParam(key: "company" | "location", values: string[]) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete(key);
+    for (const value of values) {
+      const nextValue = value.trim();
+      if (nextValue) params.append(key, nextValue);
+    }
+    params.delete("page");
+    const query = params.toString();
+    startTransition(() => {
+      router.push(query ? `/?${query}` : "/");
+    });
   }
 
   function loadFacetsIfNeeded() {
@@ -339,10 +384,6 @@ export default function SearchFilters() {
   function handleCompanyPickerOpenChange(open: boolean) {
     setCompanyPickerOpen(open);
     if (open) loadFacetsIfNeeded();
-  }
-
-  function handleFacetSelect(key: "company" | "location", value: string | null) {
-    commitTextParam(key, value ?? "");
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -515,10 +556,10 @@ export default function SearchFilters() {
                   <FacetPicker
                     label="location"
                     options={facets?.locations ?? []}
-                    value={selectedLocation}
+                    values={selectedLocations}
                     open={locationPickerOpen}
                     onOpenChange={handleLocationPickerOpenChange}
-                    onSelect={(value) => handleFacetSelect("location", value)}
+                    onApply={(next) => commitMultiParam("location", next)}
                     isLoading={facetsStatus === "loading"}
                     error={facetError}
                     trigger={
@@ -530,7 +571,7 @@ export default function SearchFilters() {
                         className="w-full justify-between"
                       >
                         <span className="min-w-0 truncate text-left">
-                          {selectedLocation || "Any location"}
+                          {multiFacetButtonLabel("location", selectedLocations)}
                         </span>
                         <ChevronDown
                           className="h-4 w-4 shrink-0 text-muted-foreground"
@@ -546,10 +587,10 @@ export default function SearchFilters() {
                   <FacetPicker
                     label="company"
                     options={facets?.companies ?? []}
-                    value={selectedCompany}
+                    values={selectedCompanies}
                     open={companyPickerOpen}
                     onOpenChange={handleCompanyPickerOpenChange}
-                    onSelect={(value) => handleFacetSelect("company", value)}
+                    onApply={(next) => commitMultiParam("company", next)}
                     isLoading={facetsStatus === "loading"}
                     error={facetError}
                     trigger={
@@ -561,7 +602,7 @@ export default function SearchFilters() {
                         className="w-full justify-between"
                       >
                         <span className="min-w-0 truncate text-left">
-                          {selectedCompany || "Any company"}
+                          {multiFacetButtonLabel("company", selectedCompanies)}
                         </span>
                         <ChevronDown
                           className="h-4 w-4 shrink-0 text-muted-foreground"
@@ -707,9 +748,9 @@ export default function SearchFilters() {
 
       {hasFilters && (
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          {activeFilters.map(({ key, label, humanLabel }) => (
+          {activeFilters.map(({ id, label, humanLabel, onRemove }) => (
             <Badge
-              key={key}
+              key={id}
               variant="secondary"
               className="max-w-full gap-1 py-0.5 pr-0.5 pl-2 text-sm font-medium tracking-normal normal-case"
             >
@@ -718,7 +759,7 @@ export default function SearchFilters() {
                 type="button"
                 aria-label={`Remove ${humanLabel} filter`}
                 disabled={isPending}
-                onClick={() => updateParam(key, null)}
+                onClick={onRemove}
                 className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-[color,background-color,box-shadow] duration-200 ease-[var(--ease-premium)] hover:bg-background/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
               >
                 <X className="h-3.5 w-3.5" aria-hidden="true" />

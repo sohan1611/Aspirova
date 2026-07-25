@@ -25,8 +25,8 @@ interface PageProps {
     source?: string;
     experience?: string;
     remote?: string;
-    location?: string;
-    company?: string;
+    location?: string | string[];
+    company?: string | string[];
     top?: string;
     scope?: string;
     country?: string;

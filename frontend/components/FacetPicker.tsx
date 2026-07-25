@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactElement } from "react";
-import { useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Check, Loader2, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -22,8 +22,8 @@ const MAX_RENDERED_OPTIONS = 240;
 interface FacetPickerProps {
   label: string;
   options: string[];
-  value: string | null;
-  onSelect: (value: string | null) => void;
+  values: string[];
+  onApply: (next: string[]) => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   trigger: ReactElement;
@@ -31,11 +31,15 @@ interface FacetPickerProps {
   error?: string | null;
 }
 
+function valuesToSet(values: string[]) {
+  return new Set(values.map((value) => value.trim()).filter(Boolean));
+}
+
 export default function FacetPicker({
   label,
   options,
-  value,
-  onSelect,
+  values,
+  onApply,
   open,
   onOpenChange,
   trigger,
@@ -43,12 +47,19 @@ export default function FacetPicker({
   error = null,
 }: FacetPickerProps) {
   const [query, setQuery] = useState("");
+  const [draftValues, setDraftValues] = useState<Set<string>>(() =>
+    valuesToSet(values),
+  );
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const wasOpenRef = useRef(open);
   const titleId = useId();
   const descriptionId = useId();
   const searchId = useId();
   const resultsId = useId();
   const labelText = label.trim().toLowerCase();
+  const pluralLabel = labelText.endsWith("y")
+    ? `${labelText.slice(0, -1)}ies`
+    : `${labelText}s`;
   const trimmedQuery = query.trim();
   const normalizedQuery = trimmedQuery.toLowerCase();
   const filteredOptions = useMemo(() => {
@@ -59,14 +70,37 @@ export default function FacetPicker({
   }, [normalizedQuery, options]);
   const visibleOptions = filteredOptions.slice(0, MAX_RENDERED_OPTIONS);
   const isTruncated = filteredOptions.length > MAX_RENDERED_OPTIONS;
+  const selectedCount = draftValues.size;
+
+  useEffect(() => {
+    if (open && !wasOpenRef.current) {
+      setQuery("");
+      setDraftValues(valuesToSet(values));
+    }
+    if (!open && wasOpenRef.current) setQuery("");
+    wasOpenRef.current = open;
+  }, [open, values]);
 
   function handleOpenChange(nextOpen: boolean) {
-    if (!nextOpen) setQuery("");
+    setQuery("");
+    if (nextOpen) setDraftValues(valuesToSet(values));
     onOpenChange(nextOpen);
   }
 
-  function handleSelect(nextValue: string | null) {
-    onSelect(nextValue);
+  function toggleOption(option: string) {
+    setDraftValues((current) => {
+      const next = new Set(current);
+      if (next.has(option)) {
+        next.delete(option);
+      } else {
+        next.add(option);
+      }
+      return next;
+    });
+  }
+
+  function handleApply() {
+    onApply(Array.from(draftValues));
     setQuery("");
     onOpenChange(false);
   }
@@ -77,7 +111,7 @@ export default function FacetPicker({
       <DialogContent
         aria-describedby={descriptionId}
         aria-labelledby={titleId}
-        className="gap-0 p-0 sm:max-w-3xl"
+        className="gap-0 overflow-hidden p-0 sm:max-w-3xl"
         onOpenAutoFocus={(event) => {
           event.preventDefault();
           searchInputRef.current?.focus();
@@ -85,10 +119,10 @@ export default function FacetPicker({
       >
         <DialogHeader className="border-b border-border px-6 py-5">
           <DialogTitle id={titleId} className="font-serif text-2xl">
-            Choose {labelText}
+            Choose {pluralLabel}
           </DialogTitle>
           <DialogDescription id={descriptionId} className="sr-only">
-            Search and select one {labelText} filter value.
+            Search and select one or more {pluralLabel}.
           </DialogDescription>
           <div className="relative">
             <Label htmlFor={searchId} className="sr-only">
@@ -109,6 +143,11 @@ export default function FacetPicker({
               className="pl-9"
             />
           </div>
+          {selectedCount > 0 && (
+            <p className="text-sm text-muted-foreground">
+              {selectedCount} selected
+            </p>
+          )}
           {error && !isLoading && (
             <p role="status" className="text-sm text-muted-foreground">
               {error}
@@ -121,18 +160,6 @@ export default function FacetPicker({
           aria-busy={isLoading}
           className="max-h-[min(60vh,28rem)] overflow-y-auto px-6 py-4"
         >
-          <div className="sticky top-0 z-10 bg-background pb-3">
-            <Button
-              type="button"
-              variant={value === null ? "secondary" : "outline"}
-              aria-pressed={value === null}
-              onClick={() => handleSelect(null)}
-              className="w-full justify-start"
-            >
-              Any {labelText}
-            </Button>
-          </div>
-
           {isLoading ? (
             <div className="flex min-h-32 items-center justify-center gap-2 text-sm text-muted-foreground">
               <Loader2
@@ -151,26 +178,34 @@ export default function FacetPicker({
             <>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3 lg:grid-cols-4">
                 {visibleOptions.map((option) => {
-                  const isSelected = option === value;
+                  const isSelected = draftValues.has(option);
                   return (
-                    <Button
+                    <button
                       key={option}
                       type="button"
-                      variant="ghost"
-                      aria-pressed={isSelected}
-                      onClick={() => handleSelect(option)}
+                      role="checkbox"
+                      aria-checked={isSelected}
+                      onClick={() => toggleOption(option)}
                       className={cn(
-                        "min-w-0 justify-between px-2.5 text-left font-normal",
+                        "flex min-w-0 items-center gap-2 rounded-sm px-2.5 py-2 text-left text-sm font-normal transition-[background-color,color,box-shadow] duration-200 ease-[var(--ease-premium)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                         isSelected
                           ? "bg-primary/10 text-foreground ring-1 ring-primary/30"
                           : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground",
                       )}
                     >
+                      <span
+                        className={cn(
+                          "flex h-4 w-4 shrink-0 items-center justify-center rounded-[3px] border",
+                          isSelected
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border bg-background text-transparent",
+                        )}
+                        aria-hidden="true"
+                      >
+                        <Check className="h-3 w-3" />
+                      </span>
                       <span className="min-w-0 truncate">{option}</span>
-                      {isSelected && (
-                        <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
-                      )}
-                    </Button>
+                    </button>
                   );
                 })}
               </div>
@@ -181,6 +216,20 @@ export default function FacetPicker({
               )}
             </>
           )}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-border px-6 py-3">
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={selectedCount === 0}
+            onClick={() => setDraftValues(new Set())}
+          >
+            Clear all
+          </Button>
+          <Button type="button" onClick={handleApply}>
+            {selectedCount > 0 ? `Apply (${selectedCount})` : "Apply"}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
