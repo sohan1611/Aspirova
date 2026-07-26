@@ -2,6 +2,7 @@
 
 import {
   ChevronDown,
+  ExternalLink,
   FileSearch,
   Info,
   Loader2,
@@ -45,14 +46,16 @@ import {
   updateAccount,
   uploadResume,
 } from "@/lib/api";
-import { computeAtsScore } from "@/lib/atsScore";
+import { computeAtsScore, type AtsResult } from "@/lib/atsScore";
+import { formatDate } from "@/lib/date";
 import { useFieldProfile } from "@/lib/fieldProfile";
 import { extractPdfText, PdfTextExtractionError } from "@/lib/pdfText";
 import { storeSkillNames } from "@/lib/personalizationSkills";
 import { extractSkills } from "@/lib/resumeSkills";
 import { catalogSkills } from "@/lib/skillsCatalog";
+import { createClient } from "@/lib/supabase/client";
 import { expandToSearchTerms } from "@/lib/taxonomy";
-import type { AccountMe, MatchItem } from "@/lib/types";
+import type { AccountMe, MatchItem, ResumeMeta } from "@/lib/types";
 import { useSession } from "@/lib/useSession";
 import { cn } from "@/lib/utils";
 
@@ -68,6 +71,14 @@ const EMPTY_EXPOSURE: ExposureValues = {
   notes: "",
 };
 const MAX_PROFILE_SKILLS = 100;
+const MAX_RESUME_PDF_BYTES = 5 * 1024 * 1024;
+const RESUME_BUCKET = "resumes";
+const RESUME_PDF_INPUT_ID = "resume-pdf";
+const RESUME_STORAGE_FILENAME = "resume.pdf";
+
+function getStoredResumePath(userId: string): string {
+  return `${userId}/${RESUME_STORAGE_FILENAME}`;
+}
 
 function getSkillKey(name: string): string {
   return name.trim().toLowerCase();
@@ -143,6 +154,11 @@ function areExposuresEqual(left: ExposureValues, right: ExposureValues): boolean
   );
 }
 
+function formatSavedResumeUploadedAt(uploadedAt: string): string {
+  const formattedDate = formatDate(uploadedAt);
+  return formattedDate ? `Uploaded ${formattedDate}` : "Upload date unavailable";
+}
+
 function getAtsStatusLabel(status: "pass" | "partial" | "fail"): string {
   if (status === "pass") return "Pass";
   if (status === "partial") return "Partial";
@@ -172,7 +188,7 @@ export default function ResumeMatchPage() {
           Resume Match
         </h1>
         <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-          Read your resume locally, review suggested skills, and check an ATS readiness estimate.
+          Store one private resume, review suggested skills, and check an ATS readiness estimate.
         </p>
       </header>
 
@@ -183,6 +199,7 @@ export default function ResumeMatchPage() {
           <SignedInResumeWorkspace
             key={session.user.id}
             accessToken={session.access_token}
+            userId={session.user.id}
           />
         )}
       </div>
@@ -190,7 +207,13 @@ export default function ResumeMatchPage() {
   );
 }
 
-function SignedInResumeWorkspace({ accessToken }: { accessToken: string }) {
+function SignedInResumeWorkspace({
+  accessToken,
+  userId,
+}: {
+  accessToken: string;
+  userId: string;
+}) {
   const { profile } = useFieldProfile();
   const [resumeText, setResumeText] = useState("");
   const [readingPdf, setReadingPdf] = useState(false);
@@ -200,8 +223,10 @@ function SignedInResumeWorkspace({ accessToken }: { accessToken: string }) {
   const [savedSkills, setSavedSkills] = useState<ProfileSkill[]>([]);
   const [exposure, setExposure] = useState<ExposureValues>(EMPTY_EXPOSURE);
   const [savedExposure, setSavedExposure] = useState<ExposureValues>(EMPTY_EXPOSURE);
+  const [savedResume, setSavedResume] = useState<ResumeMeta | null>(null);
   const [accountLoading, setAccountLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [openingResume, setOpeningResume] = useState(false);
   const [matches, setMatches] = useState<MatchItem[] | null>(null);
   const [matchesUpsell, setMatchesUpsell] = useState(false);
   const [submissionError, setSubmissionError] = useState(false);
@@ -219,6 +244,7 @@ function SignedInResumeWorkspace({ accessToken }: { accessToken: string }) {
         : null,
     [hasResumeAnalysis, profileTerms, resumeText],
   );
+  const displayedAtsResult = atsResult ?? savedResume?.ats ?? null;
   const profileIsDirty = useMemo(
     () =>
       !areSkillsEqual(skills, savedSkills) ||
@@ -237,6 +263,7 @@ function SignedInResumeWorkspace({ accessToken }: { accessToken: string }) {
         const accountExposure = toExposureValues(account.exposure);
 
         setSavedSkills(accountSkills);
+        setSavedResume(account.resume ?? null);
         storeSkillNames(accountSkills.map((skill) => skill.name));
         setSavedExposure(accountExposure);
         setSkills((currentSkills) => mergeSkills(accountSkills, currentSkills));
@@ -250,6 +277,7 @@ function SignedInResumeWorkspace({ accessToken }: { accessToken: string }) {
 
         setSavedSkills([]);
         setSavedExposure(EMPTY_EXPOSURE);
+        setSavedResume(null);
         setAccountLoading(false);
       });
 
@@ -258,10 +286,14 @@ function SignedInResumeWorkspace({ accessToken }: { accessToken: string }) {
     };
   }, [accessToken]);
 
-  function seedResumeSkills(text: string) {
-    const suggestedSkills = extractSkills(text).filter(
+  function getSuggestedResumeSkills(text: string): ProfileSkill[] {
+    return extractSkills(text).filter(
       (skill) => !dismissedSkillNamesRef.current.has(getSkillKey(skill.name)),
     );
+  }
+
+  function seedResumeSkills(text: string) {
+    const suggestedSkills = getSuggestedResumeSkills(text);
 
     if (suggestedSkills.length === 0) return;
 
@@ -276,28 +308,81 @@ function SignedInResumeWorkspace({ accessToken }: { accessToken: string }) {
     setShortPdfExtraction(false);
     setHasPdfExtraction(false);
 
-    const isPdf =
-      file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-    if (!isPdf) {
+    if (file.type !== "application/pdf") {
       toast.error("Choose a PDF resume to continue.");
+      return;
+    }
+    if (file.size > MAX_RESUME_PDF_BYTES) {
+      toast.error("Resume PDFs must be 5 MB or smaller.");
+      return;
+    }
+    if (file.name.length > 255) {
+      toast.error("Use a shorter PDF filename before uploading.");
       return;
     }
 
     setReadingPdf(true);
+    let uploaded = false;
     try {
       const extractedText = await extractPdfText(file);
+      const suggestedSkills = getSuggestedResumeSkills(extractedText);
+      const nextSkills = mergeSkills(skills, suggestedSkills);
+      const nextAtsResult = computeAtsScore(extractedText, profileTerms);
+      const resumePath = getStoredResumePath(userId);
+
       setResumeText(extractedText);
       setShortPdfExtraction(extractedText.trim().length < 50);
       setHasPdfExtraction(true);
-      seedResumeSkills(extractedText);
+      setSkills(nextSkills);
+
+      const { error: uploadError } = await createClient()
+        .storage.from(RESUME_BUCKET)
+        .upload(resumePath, file, {
+          upsert: true,
+          contentType: "application/pdf",
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+      uploaded = true;
+
+      const resumeMeta: ResumeMeta = {
+        path: resumePath,
+        filename: file.name,
+        uploaded_at: new Date().toISOString(),
+        ats: nextAtsResult,
+      };
+      const account = await updateAccount(accessToken, {
+        skills: nextSkills,
+        resume: resumeMeta,
+      });
+      const persistedSkills = mergeSkills(account.skills ?? nextSkills);
+      const accountExposure = toExposureValues(account.exposure);
+
+      setSkills(persistedSkills);
+      setSavedSkills(persistedSkills);
+      storeSkillNames(persistedSkills.map((skill) => skill.name));
+      setSavedExposure(accountExposure);
+      setExposure((currentExposure) =>
+        exposureTouchedRef.current ? currentExposure : accountExposure,
+      );
+      setSavedResume(account.resume ?? resumeMeta);
+      toast.success("Resume saved", {
+        description: "Your private PDF, skills, and ATS estimate were updated.",
+      });
     } catch (error: unknown) {
       if (error instanceof PdfTextExtractionError) {
         toast.error("We couldn't read text from that PDF.", {
           description: "Try a text-based PDF or paste your resume text instead.",
         });
+      } else if (uploaded) {
+        toast.error("We stored the PDF but couldn't save its profile metadata.", {
+          description: "Try replacing the resume so your ATS score and skills update.",
+        });
       } else {
-        toast.error("We couldn't read that file.", {
-          description: "Try again or paste your resume text instead.",
+        toast.error("We couldn't store your resume PDF.", {
+          description: "No resume metadata was saved. Try again in a moment.",
         });
       }
     } finally {
@@ -383,6 +468,34 @@ function SignedInResumeWorkspace({ accessToken }: { accessToken: string }) {
     }
   }
 
+  async function handleViewSavedResume() {
+    if (!savedResume || openingResume) return;
+
+    setOpeningResume(true);
+    try {
+      const { data, error } = await createClient()
+        .storage.from(RESUME_BUCKET)
+        .createSignedUrl(savedResume.path, 60);
+
+      if (error || !data?.signedUrl) {
+        throw error ?? new Error("Missing signed URL");
+      }
+
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+    } catch {
+      toast.error("We couldn't open your saved resume. Please try again.");
+    } finally {
+      setOpeningResume(false);
+    }
+  }
+
+  function handleReplaceSavedResume() {
+    const input = document.getElementById(RESUME_PDF_INPUT_ID);
+    if (input instanceof HTMLInputElement) {
+      input.click();
+    }
+  }
+
   async function handleFindMatches(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -421,7 +534,18 @@ function SignedInResumeWorkspace({ accessToken }: { accessToken: string }) {
   return (
     <div className="grid gap-12 sm:gap-14">
       <section aria-label="Free resume workspace" className="grid gap-5">
+        {savedResume && (
+          <SavedResumeCard
+            resume={savedResume}
+            openingResume={openingResume}
+            replacingResume={readingPdf}
+            onViewResume={handleViewSavedResume}
+            onReplaceResume={handleReplaceSavedResume}
+          />
+        )}
+
         <ResumeInputCard
+          hasSavedResume={Boolean(savedResume)}
           resumeText={resumeText}
           readingPdf={readingPdf}
           shortPdfExtraction={shortPdfExtraction}
@@ -429,9 +553,9 @@ function SignedInResumeWorkspace({ accessToken }: { accessToken: string }) {
           onResumeTextChange={handleResumeTextChange}
         />
 
-        {atsResult && (
+        {displayedAtsResult && (
           <div className="mx-auto grid w-full max-w-5xl gap-5 lg:grid-cols-2">
-            <AtsScoreCard result={atsResult} />
+            <AtsScoreCard result={displayedAtsResult} />
             <SkillsExposureCard
               skills={skills}
               streamKey={profile.stream}
@@ -461,13 +585,84 @@ function SignedInResumeWorkspace({ accessToken }: { accessToken: string }) {
   );
 }
 
+function SavedResumeCard({
+  resume,
+  openingResume,
+  replacingResume,
+  onViewResume,
+  onReplaceResume,
+}: {
+  resume: ResumeMeta;
+  openingResume: boolean;
+  replacingResume: boolean;
+  onViewResume: () => void;
+  onReplaceResume: () => void;
+}) {
+  return (
+    <Card className="mx-auto w-full max-w-3xl border-primary/20 shadow-soft-md">
+      <CardHeader className="px-5 sm:px-8">
+        <p className="eyebrow">Your saved resume</p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <CardTitle className="truncate font-serif text-2xl leading-tight">
+              {resume.filename}
+            </CardTitle>
+            <CardDescription className="mt-2 leading-6">
+              {formatSavedResumeUploadedAt(resume.uploaded_at)}. Stored privately in your
+              account and replaced when you upload a new PDF.
+            </CardDescription>
+          </div>
+          <Badge
+            variant="outline"
+            className="tnum shrink-0 border-primary/25 bg-primary/10 text-primary"
+          >
+            {resume.ats.score}/100 ATS
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardFooter className="flex-col items-stretch gap-3 px-5 sm:flex-row sm:items-center sm:justify-end sm:px-8">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onViewResume}
+          disabled={openingResume}
+          className="w-full sm:w-auto"
+        >
+          {openingResume ? (
+            <Loader2 className="animate-spin" aria-hidden="true" />
+          ) : (
+            <ExternalLink aria-hidden="true" />
+          )}
+          {openingResume ? "Opening..." : "View resume"}
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={onReplaceResume}
+          disabled={replacingResume}
+          className="w-full sm:w-auto"
+        >
+          {replacingResume ? (
+            <Loader2 className="animate-spin" aria-hidden="true" />
+          ) : (
+            <RefreshCw aria-hidden="true" />
+          )}
+          {replacingResume ? "Replacing..." : "Replace resume"}
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+}
+
 function ResumeInputCard({
+  hasSavedResume,
   resumeText,
   readingPdf,
   shortPdfExtraction,
   onPdfChange,
   onResumeTextChange,
 }: {
+  hasSavedResume: boolean;
   resumeText: string;
   readingPdf: boolean;
   shortPdfExtraction: boolean;
@@ -482,21 +677,22 @@ function ResumeInputCard({
       <CardHeader className="px-5 sm:px-8">
         <p className="eyebrow">Your experience</p>
         <CardTitle className="font-serif text-2xl leading-tight">
-          Start with your resume
+          {hasSavedResume ? "Replace or quick-check your resume" : "Start with your resume"}
         </CardTitle>
         <CardDescription className="max-w-2xl leading-6">
-          Upload a PDF for a local text read, or paste your resume below. Your PDF stays on your
-          device.
+          Upload your resume PDF. It&apos;s stored privately in your account, only you can view
+          it, and uploading another PDF replaces it. We read the text in your browser to
+          estimate your skills and ATS score.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-6 px-5 sm:px-8">
         <div className="grid gap-2.5">
-          <Label className="eyebrow" htmlFor="resume-pdf">
-            Upload a PDF
+          <Label className="eyebrow" htmlFor={RESUME_PDF_INPUT_ID}>
+            {hasSavedResume ? "Upload a replacement PDF" : "Upload a PDF"}
           </Label>
           <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
             <Input
-              id="resume-pdf"
+              id={RESUME_PDF_INPUT_ID}
               name="resume_pdf"
               type="file"
               accept="application/pdf,.pdf"
@@ -506,13 +702,14 @@ function ResumeInputCard({
               className="cursor-pointer bg-background/70"
             />
             <p id="resume-pdf-help" className="mt-2 text-xs leading-5 text-muted-foreground">
-              We only read selectable text in your browser. The PDF is never uploaded.
+              Stored privately in your account at up to 5 MB. Uploading a new PDF replaces the
+              saved file.
             </p>
           </div>
           {readingPdf && (
             <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
               <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-              Reading your PDF…
+              Reading and saving your PDF...
             </p>
           )}
           {shortPdfExtraction && (
@@ -544,8 +741,8 @@ function ResumeInputCard({
             className="min-h-72 bg-background/60 px-4 py-3 leading-6 shadow-soft"
           />
           <p id="resume-text-help" className="text-xs leading-5 text-muted-foreground">
-            Your text powers the free suggestions below. You can review or edit everything before
-            saving it.
+            Ephemeral quick check: pasted text updates the estimate and suggestions in this
+            browser only. It does not upload a PDF or replace your saved resume.
           </p>
         </div>
       </CardContent>
@@ -553,7 +750,7 @@ function ResumeInputCard({
   );
 }
 
-function AtsScoreCard({ result }: { result: ReturnType<typeof computeAtsScore> }) {
+function AtsScoreCard({ result }: { result: AtsResult }) {
   return (
     <Card className="h-full border-primary/20 shadow-soft-md">
       <CardHeader className="px-5 sm:px-6">
