@@ -90,6 +90,14 @@ GREENHOUSE_COMPANIES = [
     ("mercury", "Mercury", "mercury.com"),
     ("stabilityai", "Stability AI", "stability.ai"),
     ("block", "Block", "block.xyz"),
+    # GH/Ashby wave, probed live 2026-07-25 (HTTP 200 + non-empty jobs).
+    # Counts at probe time noted.
+    ("peloton", "Peloton", "onepeloton.com"),  # 64
+    ("nuro", "Nuro", "nuro.ai"),  # 99
+    ("coursera", "Coursera", "coursera.org"),  # 12
+    ("turing", "Turing", "turing.com"),  # 31
+    ("lattice", "Lattice", "lattice.com"),  # 7
+    ("cultureamp", "Culture Amp", "cultureamp.com"),  # 23
 ]
 
 # (board_token, company_name, domain) - verified live against
@@ -110,9 +118,7 @@ LEVER_COMPANIES = [
     ("mindtickle", "Mindtickle", "mindtickle.com"),
     # Lever expansion, probed live 2026-07-25 against api.lever.co (real JSON
     # postings list; bogus-token control returns an error object). Counts at
-    # probe time: veeva ~831, includedhealth 144, ro 51, anchorage 46, kavak 4,
-    # ledger 1.
-    ("veeva", "Veeva Systems", "veeva.com"),
+    # probe time: includedhealth 144, ro 51, anchorage 46, kavak 4, ledger 1.
     ("includedhealth", "Included Health", "includedhealth.com"),
     ("ro", "Ro", "ro.co"),
     ("anchorage", "Anchorage Digital", "anchoragedigital.com"),
@@ -132,6 +138,13 @@ LEVER_COMPANIES = [
 #    ats_board_id='paytm', domain='paytm.com'), so the crawler ingests its 230
 #    jobs onto that row. Kept OUT of this list on purpose so a full reseed
 #    can't recreate the duplicate; the attachment lives only in prod data.
+#  - justworks (Greenhouse, ~96 jobs): a "Justworks" company already exists in
+#    prod (slug justworks-30b301fc, no ATS, aggregator-created). Seeding a fresh
+#    "justworks" slug would DUPLICATE it, since this script keys idempotency on
+#    Company.slug == board_token.lower(). The architect attaches its board to
+#    the existing row via a targeted prod UPDATE instead
+#    (ats_type='greenhouse', ats_board_id='justworks') - kept OUT of this list
+#    so a reseed can't recreate the dup.
 
 # (board_token, company_name, domain) - verified live against
 # https://api.ashbyhq.com/posting-api/job-board/{token}
@@ -187,6 +200,17 @@ ASHBY_COMPANIES = [
     ("synthesia", "Synthesia", "synthesia.io"),
     ("gamma", "Gamma", "gamma.app"),
     ("granola", "Granola", "granola.ai"),
+    # GH/Ashby wave, probed live 2026-07-25 (real jobs array; bogus tokens
+    # error out).
+    ("cerebras", "Cerebras", "cerebras.ai"),  # 115
+    ("wayve", "Wayve", "wayve.ai"),  # 116
+    ("stytch", "Stytch", "stytch.com"),  # 5
+    ("workos", "WorkOS", "workos.com"),  # 24
+    ("e2b", "E2B", "e2b.dev"),  # 15
+    ("hyperbolic", "Hyperbolic", "hyperbolic.xyz"),  # 12
+    ("etched", "Etched", "etched.com"),  # 102
+    ("physicalintelligence", "Physical Intelligence", None),  # 24
+    ("1x", "1X", "1x.tech"),  # 65
 ]
 
 # (board_token, company_name, domain) - verified live against
@@ -228,8 +252,12 @@ KEKA_COMPANIES = [
     ("softprodigy", "SoftProdigy System Solutions", "softprodigy.com"),
 ]
 
-# BoschGroup (4667) and DeliveryHero (1110) are verified-available but held out
-# for now to bound crawl duration until async/lazy detail fetch is added.
+# Held out to bound crawl duration (a single board over ~300 listings risks the
+# 28-min ATS step timeout -- the crawl ingests ~40 new listings/min, and veeva
+# (831) caused the 2026-07-26 crawl failure): BoschGroup (4667),
+# DeliveryHero (1110), veeva (Veeva Systems, 831), waymo (Waymo, 404),
+# crusoe (Crusoe, 359). Re-add once async/lazy detail fetch lands so a big
+# board no longer blocks the single-run budget.
 
 # Amazon uses one employer-wide search API. The board token is only a stable
 # marker for the shared adapter interface and is not sent to the endpoint.
