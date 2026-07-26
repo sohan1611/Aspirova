@@ -244,6 +244,7 @@ class User(Base):
     field_profile: Mapped[dict | None] = mapped_column(JSONB)
     skills: Mapped[list | None] = mapped_column(JSONB)
     exposure: Mapped[dict | None] = mapped_column(JSONB)
+    resume: Mapped[dict | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
     referred_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id")

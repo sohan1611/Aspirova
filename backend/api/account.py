@@ -1,5 +1,6 @@
 """Authenticated account profile, plan state, and subscription management."""
 
+import json
 from datetime import datetime
 
 import razorpay
@@ -15,6 +16,41 @@ from core import models
 from core.gating import active_subscription_filters, get_features
 
 router = APIRouter()
+
+MAX_RESUME_METADATA_BYTES = 8 * 1024
+MAX_RESUME_FILENAME_LENGTH = 255
+
+
+def _validate_resume_metadata(resume: dict | None) -> None:
+    if resume is None:
+        return
+    if not isinstance(resume, dict):
+        raise HTTPException(status_code=400, detail="resume must be an object")
+
+    filename = resume.get("filename")
+    if filename is not None and not isinstance(filename, str):
+        raise HTTPException(status_code=400, detail="resume filename must be a string")
+    if isinstance(filename, str) and len(filename) > MAX_RESUME_FILENAME_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"resume filename must be at most {MAX_RESUME_FILENAME_LENGTH} characters",
+        )
+
+    try:
+        metadata_size = len(
+            json.dumps(resume, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        )
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="resume metadata must be JSON serializable",
+        ) from exc
+
+    if metadata_size > MAX_RESUME_METADATA_BYTES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"resume metadata must be at most {MAX_RESUME_METADATA_BYTES} bytes",
+        )
 
 
 def _active_subscription_query(user: models.User):
@@ -60,6 +96,7 @@ def _build_account_me(db: Session, user: models.User) -> AccountMe:
         field_profile=user.field_profile,
         skills=user.skills,
         exposure=user.exposure,
+        resume=user.resume,
         plan=PlanState(
             key=plan.key,
             price_paise=plan.price_paise,
@@ -96,7 +133,10 @@ def update_account_me(
             **request.notification_prefs,
         }
 
-    for field in ("field_profile", "skills", "exposure"):
+    if "resume" in request.model_fields_set:
+        _validate_resume_metadata(request.resume)
+
+    for field in ("field_profile", "skills", "exposure", "resume"):
         if field in request.model_fields_set:
             setattr(user, field, getattr(request, field))
 

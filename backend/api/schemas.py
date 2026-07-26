@@ -335,6 +335,7 @@ class AccountMe(BaseModel):
     field_profile: dict | None
     skills: list | None
     exposure: dict | None
+    resume: dict | None = None
     plan: PlanState
 
 
@@ -346,6 +347,7 @@ class AccountUpdate(BaseModel):
     field_profile: dict | None = None
     skills: list | None = None
     exposure: dict | None = None
+    resume: dict | None = None
 
     @field_validator("display_name", "college")
     @classmethod

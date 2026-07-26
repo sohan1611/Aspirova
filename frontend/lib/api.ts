@@ -1,6 +1,6 @@
-import type { FieldProfile } from "@/lib/taxonomy";
 import type {
   AccountMe,
+  AccountUpdate,
   BookmarkStage,
   BugReportRequest,
   BugReportResponse,
@@ -502,19 +502,7 @@ export async function getAccount(accessToken: string): Promise<AccountMe> {
 
 export async function updateAccount(
   accessToken: string,
-  patch: Partial<
-    Pick<
-      AccountMe,
-      | "display_name"
-      | "college"
-      | "graduation_year"
-      | "skills"
-      | "exposure"
-    >
-  > & {
-    notification_prefs?: Record<string, boolean>;
-    field_profile?: FieldProfile | null;
-  },
+  patch: AccountUpdate,
 ): Promise<AccountMe> {
   const res = await fetch(`${API_URL}/account/me`, {
     method: "PATCH",

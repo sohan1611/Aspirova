@@ -74,6 +74,7 @@ def test_get_account_me_returns_free_plan(client) -> None:
     assert payload["field_profile"] is None
     assert payload["skills"] is None
     assert payload["exposure"] is None
+    assert payload["resume"] is None
 
 
 def test_account_me_treats_subscription_expired_beyond_grace_as_free(
@@ -207,6 +208,36 @@ def test_patch_account_sets_and_replaces_smart_profile_data(client) -> None:
     assert read_back.json()["exposure"] == payload["exposure"]
 
 
+def test_patch_account_persists_and_round_trips_resume_metadata(client) -> None:
+    resume = {
+        "path": "7b4dcf67-d226-4d77-b0e5-5a4ec86f7f0a/resume.pdf",
+        "filename": "Sohan Resume.pdf",
+        "uploaded_at": "2026-07-26T12:00:00.000Z",
+        "ats": {
+            "score": 82,
+            "checks": [
+                {
+                    "id": "parseability",
+                    "label": "PDF parseability",
+                    "status": "pass",
+                    "points": 20,
+                    "maxPoints": 20,
+                    "tip": "",
+                }
+            ],
+        },
+    }
+
+    response = client.patch("/account/me", json={"resume": resume})
+
+    assert response.status_code == 200
+    assert response.json()["resume"] == resume
+
+    read_back = client.get("/account/me")
+    assert read_back.status_code == 200
+    assert read_back.json()["resume"] == resume
+
+
 def test_patch_account_normalizes_smart_profile_data(client) -> None:
     response = client.patch(
         "/account/me",
@@ -278,12 +309,26 @@ def test_patch_account_clamps_smart_profile_collection_caps(client) -> None:
         {"field_profile": {"divisions": ["x" * 65]}},
         {"field_profile": {"interests": ["x" * 65]}},
         {"exposure": {"notes": "x" * 2_001}},
+        {"resume": []},
     ],
 )
 def test_patch_account_rejects_invalid_smart_profile_shape_or_size(client, payload) -> None:
     response = client.patch("/account/me", json=payload)
 
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"resume": {"filename": "x" * 256}},
+        {"resume": {"filename": "resume.pdf", "extra": "x" * (8 * 1024)}},
+    ],
+)
+def test_patch_account_rejects_invalid_resume_metadata(client, payload) -> None:
+    response = client.patch("/account/me", json=payload)
+
+    assert response.status_code == 400
 
 
 def test_patch_account_rejects_invalid_graduation_year(client) -> None:

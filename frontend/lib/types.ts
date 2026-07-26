@@ -1,3 +1,4 @@
+import type { AtsResult } from "@/lib/atsScore";
 import type { FieldProfile } from "@/lib/taxonomy";
 
 // Mirrors backend/api/schemas.py - keep these in sync by hand (Phase 1 has
@@ -166,6 +167,13 @@ export interface PlanState {
   cancel_at_period_end: boolean;
 }
 
+export interface ResumeMeta {
+  path: string;
+  filename: string;
+  uploaded_at: string;
+  ats: AtsResult;
+}
+
 export interface AccountMe {
   email: string | null;
   display_name: string | null;
@@ -174,10 +182,22 @@ export interface AccountMe {
   field_profile: FieldProfile | null;
   skills: { name: string; source: "resume" | "manual" }[] | null;
   exposure: { experience: string | null; notes: string | null } | null;
+  resume?: ResumeMeta | null;
   created_at: string;
   invite_code: string | null;
   notification_prefs: Record<string, boolean>;
   plan: PlanState;
+}
+
+export interface AccountUpdate {
+  display_name?: string | null;
+  college?: string | null;
+  graduation_year?: number | null;
+  notification_prefs?: Record<string, boolean> | null;
+  field_profile?: FieldProfile | null;
+  skills?: AccountMe["skills"];
+  exposure?: AccountMe["exposure"];
+  resume?: ResumeMeta | null;
 }
 
 export interface ReferralMe {
