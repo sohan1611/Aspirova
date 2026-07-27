@@ -10,7 +10,7 @@ from typing import Literal
 import httpx
 
 from core.adapters import NormalizedListing, RawListing
-from crawlers.common import USER_AGENT
+from crawlers.common import USER_AGENT, build_listings
 from crawlers.common import content_hash as _content_hash
 from crawlers.common import extract_text as _extract_text
 from pipeline.normalize import classify_category
@@ -48,16 +48,17 @@ class GreenhouseAdapter:
         jobs = response.json().get("jobs", [])
         self._last_health = "ok"
 
-        return [
-            RawListing(
+        return build_listings(
+            jobs,
+            lambda job: RawListing(
                 source_slug=self.source_slug,
                 external_id=str(job["id"]),
                 source_url=job["absolute_url"],
                 content_hash=_content_hash(job),
                 raw_payload=job,
-            )
-            for job in jobs
-        ]
+            ),
+            source_slug=self.source_slug,
+        )
 
     def parse(self, raw: RawListing) -> NormalizedListing:
         job = raw.raw_payload

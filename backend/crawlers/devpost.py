@@ -9,7 +9,13 @@ import httpx
 from bs4 import BeautifulSoup
 
 from core.adapters import NormalizedListing, RawListing
-from crawlers.common import USER_AGENT, content_hash, extract_text, is_plausible_deadline
+from crawlers.common import (
+    USER_AGENT,
+    build_listings,
+    content_hash,
+    extract_text,
+    is_plausible_deadline,
+)
 
 _API_URL = "https://devpost.com/api/hackathons"
 _MAX_PAGES = 10
@@ -66,26 +72,31 @@ class DevpostAdapter:
                 self._last_health = "degraded" if degraded else "ok"
                 return listings
 
-            for hackathon in hackathons:
+            def build_hackathon(hackathon: Any) -> RawListing:
                 if not isinstance(hackathon, dict):
-                    degraded = True
-                    continue
+                    raise TypeError("hackathon is not an object")
 
                 hackathon_id = hackathon.get("id")
                 source_url = _as_text(hackathon.get("url"))
                 if hackathon_id is None or not source_url:
-                    degraded = True
-                    continue
+                    raise KeyError("id/url")
 
-                listings.append(
-                    RawListing(
-                        source_slug=self.source_slug,
-                        external_id=str(hackathon_id),
-                        source_url=source_url,
-                        content_hash=content_hash(hackathon),
-                        raw_payload=hackathon,
-                    )
+                return RawListing(
+                    source_slug=self.source_slug,
+                    external_id=str(hackathon_id),
+                    source_url=source_url,
+                    content_hash=content_hash(hackathon),
+                    raw_payload=hackathon,
                 )
+
+            page_listings = build_listings(
+                hackathons,
+                build_hackathon,
+                source_slug=self.source_slug,
+            )
+            if len(page_listings) != len(hackathons):
+                degraded = True
+            listings.extend(page_listings)
 
         self._last_health = "degraded" if degraded else "ok"
         return listings

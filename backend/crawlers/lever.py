@@ -16,7 +16,7 @@ from typing import Literal
 import httpx
 
 from core.adapters import NormalizedListing, RawListing
-from crawlers.common import USER_AGENT, content_hash
+from crawlers.common import USER_AGENT, build_listings, content_hash
 from pipeline.normalize import classify_category
 
 
@@ -52,16 +52,17 @@ class LeverAdapter:
         postings = response.json()
         self._last_health = "ok"
 
-        return [
-            RawListing(
+        return build_listings(
+            postings,
+            lambda posting: RawListing(
                 source_slug=self.source_slug,
                 external_id=posting["id"],
                 source_url=posting["hostedUrl"],
                 content_hash=content_hash(posting),
                 raw_payload=posting,
-            )
-            for posting in postings
-        ]
+            ),
+            source_slug=self.source_slug,
+        )
 
     def parse(self, raw: RawListing) -> NormalizedListing:
         posting = raw.raw_payload

@@ -1,7 +1,7 @@
 """Unit tests for GreenhouseAdapter.parse() against a captured real payload
 (tests/fixtures/greenhouse_cloudflare_sample.json - 2 real internships +
 1 real non-internship job, fetched live from boards-api.greenhouse.io).
-No network access required - fetch() is not exercised here.
+No network access required - fetch() uses stubbed responses.
 """
 
 import json
@@ -30,6 +30,16 @@ def _raw_listing_for(job: dict) -> RawListing:
     )
 
 
+class StubResponse:
+    status_code = 200
+
+    def __init__(self, payload: dict) -> None:
+        self._payload = payload
+
+    def json(self) -> dict:
+        return self._payload
+
+
 @pytest.fixture
 def adapter() -> GreenhouseAdapter:
     return GreenhouseAdapter(board_token="cloudflare", company_name="Cloudflare")
@@ -47,6 +57,32 @@ def test_adapter_identity(adapter: GreenhouseAdapter) -> None:
 
 def test_health_defaults_to_ok_before_any_fetch(adapter: GreenhouseAdapter) -> None:
     assert adapter.health() == "ok"
+
+
+def test_fetch_skips_malformed_job_without_dropping_board(
+    adapter: GreenhouseAdapter,
+    fixture_jobs: list[dict],
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    valid_jobs = fixture_jobs[:2]
+    malformed_job = dict(valid_jobs[0])
+    del malformed_job["absolute_url"]
+
+    def fake_get(_url: str) -> StubResponse:
+        return StubResponse({"jobs": [valid_jobs[0], malformed_job, valid_jobs[1]]})
+
+    monkeypatch.setattr(adapter._client, "get", fake_get)
+    caplog.set_level("WARNING")
+
+    raw_listings = adapter.fetch()
+
+    assert adapter.health() == "ok"
+    assert [listing.external_id for listing in raw_listings] == [
+        str(valid_jobs[0]["id"]),
+        str(valid_jobs[1]["id"]),
+    ]
+    assert "skipping malformed greenhouse listing" in caplog.text
 
 
 def test_parse_internship_job(adapter: GreenhouseAdapter, fixture_jobs: list[dict]) -> None:

@@ -5,6 +5,7 @@ import httpx
 
 from core.adapters import NormalizedListing, RawListing
 from crawlers.common import USER_AGENT
+from crawlers.common import build_listings
 from crawlers.common import content_hash as _content_hash
 from crawlers.common import extract_text as _extract_text
 from pipeline.normalize import classify_category
@@ -47,15 +48,21 @@ class SmartRecruitersAdapter:
                 degraded = True
                 continue
 
-            listings.append(
-                RawListing(
+            detail_listings = build_listings(
+                [detail],
+                lambda detail: RawListing(
                     source_slug=self.source_slug,
                     external_id=str(detail.get("id", posting_id)),
-                    source_url=(detail.get("postingUrl") or detail.get("applyUrl") or ""),
+                    source_url=detail.get("postingUrl") or detail["applyUrl"],
                     raw_payload=detail,
                     content_hash=_content_hash(detail),
-                )
+                ),
+                source_slug=self.source_slug,
             )
+            if not detail_listings:
+                degraded = True
+                continue
+            listings.extend(detail_listings)
 
         self._last_health = "degraded" if degraded else "ok"
         return listings

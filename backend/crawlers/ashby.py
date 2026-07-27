@@ -16,7 +16,7 @@ from typing import Literal
 import httpx
 
 from core.adapters import NormalizedListing, RawListing
-from crawlers.common import USER_AGENT, content_hash
+from crawlers.common import USER_AGENT, build_listings, content_hash
 from pipeline.normalize import classify_category
 
 
@@ -52,16 +52,17 @@ class AshbyAdapter:
         jobs = response.json().get("jobs", [])
         self._last_health = "ok"
 
-        return [
-            RawListing(
+        return build_listings(
+            jobs,
+            lambda job: RawListing(
                 source_slug=self.source_slug,
                 external_id=job["id"],
                 source_url=job["jobUrl"],
                 content_hash=content_hash(job),
                 raw_payload=job,
-            )
-            for job in jobs
-        ]
+            ),
+            source_slug=self.source_slug,
+        )
 
     def parse(self, raw: RawListing) -> NormalizedListing:
         job = raw.raw_payload

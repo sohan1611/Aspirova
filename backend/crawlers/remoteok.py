@@ -29,7 +29,7 @@ from typing import Literal
 import httpx
 
 from core.adapters import NormalizedListing, RawListing
-from crawlers.common import USER_AGENT, content_hash, extract_text
+from crawlers.common import USER_AGENT, build_listings, content_hash, extract_text
 from pipeline.normalize import classify_category
 
 
@@ -65,16 +65,17 @@ class RemoteOkAdapter:
         # every real posting has an "id"; the notice does not.
         jobs = [job for job in payload if isinstance(job, dict) and "id" in job]
 
-        return [
-            RawListing(
+        return build_listings(
+            jobs,
+            lambda job: RawListing(
                 source_slug=self.source_slug,
                 external_id=str(job["id"]),
                 source_url=job.get("url") or job["apply_url"],
                 content_hash=content_hash(job),
                 raw_payload=job,
-            )
-            for job in jobs
-        ]
+            ),
+            source_slug=self.source_slug,
+        )
 
     def parse(self, raw: RawListing) -> NormalizedListing:
         job = raw.raw_payload
