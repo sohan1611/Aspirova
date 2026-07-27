@@ -6,8 +6,9 @@ crawl is deliberately focused on student roles and capped per search term so
 it never expands into Amazon's full global job catalogue.
 """
 
+import re
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Literal
 
 import httpx
@@ -22,6 +23,7 @@ _SEARCH_TERMS = ("intern", "new grad", "graduate")
 _PAGE_SIZE = 100
 _PER_QUERY_CAP = 300
 _REQUEST_DELAY_SECONDS = 0.5
+_REMOTE_PATTERN = re.compile(r"\b(remote|virtual)\b(?!\s+(?:sensing|sensors?)\b)", re.IGNORECASE)
 
 HealthStatus = Literal["ok", "degraded", "broken"]
 
@@ -156,6 +158,8 @@ class AmazonAdapter:
         if posted_date:
             try:
                 posted_at = datetime.strptime(str(posted_date), "%B %d, %Y")
+                if posted_at.tzinfo is None:
+                    posted_at = posted_at.replace(tzinfo=timezone.utc)
             except (TypeError, ValueError):
                 posted_at = None
 
@@ -164,7 +168,7 @@ class AmazonAdapter:
         except (TypeError, ValueError):
             description_raw = ""
 
-        remote_text = f"{title} {location or ''}".lower()
+        remote_text = f"{title} {location or ''}"
 
         return NormalizedListing(
             source_slug=self.source_slug,
@@ -173,7 +177,7 @@ class AmazonAdapter:
             title=title,
             company_name=self.company_name,
             location=location,
-            is_remote="remote" in remote_text,
+            is_remote=bool(_REMOTE_PATTERN.search(remote_text)),
             category=classify_category(title),
             description_raw=description_raw,
             apply_url=raw.source_url,
