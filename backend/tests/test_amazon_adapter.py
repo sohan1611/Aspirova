@@ -4,6 +4,7 @@ The HTTP client is stubbed, so these tests never access amazon.jobs.
 """
 
 import json
+from datetime import timezone
 from pathlib import Path
 
 import httpx
@@ -100,6 +101,44 @@ def test_parse_internship_job(adapter: AmazonAdapter, fixture_payload: dict) -> 
     assert normalized.external_id == str(job["id"])
     assert normalized.deadline is None
     assert normalized.deadline_confidence == "unknown"
+    assert normalized.posted_at is not None
+    assert normalized.posted_at.tzinfo is not None
+    assert normalized.posted_at.tzinfo == timezone.utc
+
+
+def test_parse_remote_detection_handles_remote_sensing_and_virtual(
+    adapter: AmazonAdapter,
+    fixture_payload: dict,
+) -> None:
+    base_job = fixture_payload["jobs"][0]
+
+    remote_sensing_job = {
+        **base_job,
+        "id": "remote-sensing",
+        "title": "Remote Sensing Engineer",
+        "normalized_location": "Seattle, WA, USA",
+    }
+    remote_sensing = adapter.parse(_raw_listing_for(remote_sensing_job))
+
+    remote_job = {
+        **base_job,
+        "id": "remote-job",
+        "title": "Remote Software Development Engineer",
+        "normalized_location": "United States",
+    }
+    remote = adapter.parse(_raw_listing_for(remote_job))
+
+    virtual_job = {
+        **base_job,
+        "id": "virtual-job",
+        "title": "Software Development Engineer",
+        "normalized_location": "Virtual Location - USA",
+    }
+    virtual = adapter.parse(_raw_listing_for(virtual_job))
+
+    assert remote_sensing.is_remote is False
+    assert remote.is_remote is True
+    assert virtual.is_remote is True
 
 
 def test_parse_odd_row_does_not_raise(adapter: AmazonAdapter) -> None:
