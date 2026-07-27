@@ -8,6 +8,7 @@ import httpx
 
 from core.adapters import NormalizedListing, RawListing
 from crawlers.common import USER_AGENT
+from crawlers.common import build_listings
 from crawlers.common import content_hash as _content_hash
 from crawlers.common import extract_text as _extract_text
 from pipeline.normalize import classify_category
@@ -93,26 +94,24 @@ class KekaAdapter:
             self._last_health = "degraded"
             return []
 
-        listings: list[RawListing] = []
-        for job in payload:
+        def build_job(job: Any) -> RawListing:
             if not isinstance(job, dict):
-                continue
+                raise TypeError("job is not an object")
 
             job_id = job.get("id")
             if isinstance(job_id, bool) or not isinstance(job_id, (int, str)):
-                continue
+                raise KeyError("id")
 
             external_id = str(job_id)
-            listings.append(
-                RawListing(
-                    source_slug=self.source_slug,
-                    external_id=external_id,
-                    source_url=self._job_url(external_id),
-                    raw_payload=job,
-                    content_hash=_content_hash(job),
-                )
+            return RawListing(
+                source_slug=self.source_slug,
+                external_id=external_id,
+                source_url=self._job_url(external_id),
+                raw_payload=job,
+                content_hash=_content_hash(job),
             )
 
+        listings = build_listings(payload, build_job, source_slug=self.source_slug)
         self._last_health = "ok"
         return listings
 

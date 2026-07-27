@@ -554,6 +554,8 @@ def create_checkout(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ) -> dict:
+    db.execute(select(models.User.id).where(models.User.id == user.id).with_for_update()).one()
+
     plan = db.scalar(select(models.Plan).where(models.Plan.key == plan_key))
     if plan is None:
         raise HTTPException(status_code=404, detail="Unknown plan")

@@ -7,7 +7,13 @@ from typing import Any, Callable, Literal
 import httpx
 
 from core.adapters import NormalizedListing, RawListing
-from crawlers.common import USER_AGENT, content_hash, extract_text, is_plausible_deadline
+from crawlers.common import (
+    USER_AGENT,
+    build_listings,
+    content_hash,
+    extract_text,
+    is_plausible_deadline,
+)
 
 _API_URL = "https://unstop.com/api/public/opportunity/search-result"
 _OPPORTUNITY_TYPES = ("internships", "competitions", "hackathons")
@@ -113,15 +119,21 @@ class UnstopAdapter:
                     # "type" is unreliable (internships come back with type="jobs"),
                     # so category must be derived from the search opportunity type.
                     item["_aspirova_opportunity"] = opportunity_type
-                    listings.append(
-                        RawListing(
+                    item_listings = build_listings(
+                        [item],
+                        lambda item: RawListing(
                             source_slug=self.source_slug,
                             external_id=external_id,
                             source_url=source_url,
                             content_hash=content_hash(item),
                             raw_payload=item,
-                        )
+                        ),
+                        source_slug=self.source_slug,
                     )
+                    if not item_listings:
+                        degraded = True
+                        continue
+                    listings.extend(item_listings)
 
         self._last_health = "degraded" if degraded else "ok"
         return listings

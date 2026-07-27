@@ -6,7 +6,7 @@ from typing import Any
 import httpx
 
 from core.adapters import NormalizedListing, RawListing, SourceAdapter
-from crawlers.common import USER_AGENT, content_hash, extract_text
+from crawlers.common import USER_AGENT, build_listings, content_hash, extract_text
 from pipeline.normalize import classify_category
 
 
@@ -63,27 +63,24 @@ class WorkableAdapter(SourceAdapter):
             return []
 
         self._last_health = "ok"
-        listings: list[RawListing] = []
 
-        for job in jobs:
+        def build_job(job: Any) -> RawListing:
             if not isinstance(job, dict):
-                continue
+                raise TypeError("job is not an object")
 
             shortcode = job.get("shortcode")
             if not shortcode:
-                continue
+                raise KeyError("shortcode")
 
-            listings.append(
-                RawListing(
-                    source_slug=self.source_slug,
-                    external_id=str(shortcode),
-                    source_url=job.get("url") or job.get("application_url"),
-                    content_hash=content_hash(job),
-                    raw_payload=job,
-                )
+            return RawListing(
+                source_slug=self.source_slug,
+                external_id=str(shortcode),
+                source_url=job.get("url") or job.get("application_url"),
+                content_hash=content_hash(job),
+                raw_payload=job,
             )
 
-        return listings
+        return build_listings(jobs, build_job, source_slug=self.source_slug)
 
     def parse(self, raw: RawListing) -> NormalizedListing:
         job = raw.raw_payload

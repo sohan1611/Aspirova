@@ -13,7 +13,7 @@ from typing import Any, Literal
 import httpx
 
 from core.adapters import NormalizedListing, RawListing
-from crawlers.common import USER_AGENT, content_hash, extract_text
+from crawlers.common import USER_AGENT, build_listings, content_hash, extract_text
 from pipeline.normalize import classify_category
 
 _BASE_URL = "https://www.amazon.jobs"
@@ -95,31 +95,41 @@ class AmazonAdapter:
                     return listings
 
                 remaining = _PER_QUERY_CAP - offset
-                for job in jobs[: min(_PAGE_SIZE, remaining)]:
+
+                def build_job(job: Any) -> RawListing:
                     if not isinstance(job, dict):
-                        degraded = True
-                        continue
+                        raise TypeError("job is not an object")
 
                     job_id = job.get("id")
                     job_path = job.get("job_path")
                     if job_id is None or not job_path:
+                        raise KeyError("id/job_path")
+
+                    return RawListing(
+                        source_slug=self.source_slug,
+                        external_id=str(job_id),
+                        source_url=f"{_BASE_URL}{job_path}",
+                        content_hash=content_hash(job),
+                        raw_payload=job,
+                    )
+
+                for job in jobs[: min(_PAGE_SIZE, remaining)]:
+                    job_listings = build_listings(
+                        [job],
+                        build_job,
+                        source_slug=self.source_slug,
+                    )
+                    if not job_listings:
                         degraded = True
                         continue
 
-                    external_id = str(job_id)
+                    listing = job_listings[0]
+                    external_id = listing.external_id
                     if external_id in seen_ids:
                         continue
 
                     seen_ids.add(external_id)
-                    listings.append(
-                        RawListing(
-                            source_slug=self.source_slug,
-                            external_id=external_id,
-                            source_url=f"{_BASE_URL}{job_path}",
-                            content_hash=content_hash(job),
-                            raw_payload=job,
-                        )
-                    )
+                    listings.append(listing)
 
                 offset += _PAGE_SIZE
                 if not jobs or offset >= min(hits, _PER_QUERY_CAP):

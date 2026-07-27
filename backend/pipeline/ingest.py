@@ -216,6 +216,9 @@ def ingest_one(
             opportunity.location = normalized.location
             opportunity.country = country
             opportunity.is_remote = normalized.is_remote
+            opportunity.apply_url = normalized.apply_url
+            opportunity.category = normalized.category
+            opportunity.posted_at = normalized.posted_at
             opportunity.deadline = normalized.deadline
             opportunity.meta = normalized.meta
             opportunity.deadline_confidence = normalized.deadline_confidence

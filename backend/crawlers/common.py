@@ -8,7 +8,10 @@ everywhere.
 import hashlib
 import html
 import json
+import logging
+from collections.abc import Callable, Iterable
 from datetime import UTC, datetime, timedelta
+from typing import TypeVar
 
 from bs4 import BeautifulSoup
 
@@ -16,11 +19,30 @@ USER_AGENT = (
     "AspirovaBot/0.1 (+https://github.com/sohan1611/Aspirova; student project, contact via repo)"
 )
 MAX_DEADLINE_HORIZON = timedelta(days=550)
+logger = logging.getLogger(__name__)
+
+ItemT = TypeVar("ItemT")
+ListingT = TypeVar("ListingT")
 
 
 def content_hash(payload: dict) -> str:
     canonical = json.dumps(payload, sort_keys=True, default=str)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def build_listings(
+    items: Iterable[ItemT],
+    build_one: Callable[[ItemT], ListingT],
+    *,
+    source_slug: str,
+) -> list[ListingT]:
+    listings: list[ListingT] = []
+    for item in items:
+        try:
+            listings.append(build_one(item))
+        except (KeyError, TypeError, ValueError, AttributeError) as exc:
+            logger.warning("skipping malformed %s listing: %s", source_slug, exc)
+    return listings
 
 
 def extract_text(raw_html: str | None) -> str:

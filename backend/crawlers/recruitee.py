@@ -6,7 +6,7 @@ from typing import Any
 import httpx
 
 from core.adapters import NormalizedListing, RawListing, SourceAdapter
-from crawlers.common import USER_AGENT, content_hash, extract_text
+from crawlers.common import USER_AGENT, build_listings, content_hash, extract_text
 from pipeline.normalize import classify_category
 
 
@@ -45,21 +45,26 @@ class RecruiteeAdapter(SourceAdapter):
 
         try:
             payload = response.json()
-            offers = payload.get("offers", []) if isinstance(payload, dict) else []
-            listings = [
-                RawListing(
-                    source_slug=self.source_slug,
-                    external_id=str(offer["id"]),
-                    source_url=self._source_url(offer),
-                    content_hash=content_hash(offer),
-                    raw_payload=offer,
-                )
-                for offer in offers
-                if self._is_published(offer)
-            ]
-        except (KeyError, TypeError, ValueError):
+        except ValueError:
             self._last_health = "degraded"
             return []
+
+        offers = payload.get("offers", []) if isinstance(payload, dict) else []
+        if not isinstance(offers, list):
+            self._last_health = "degraded"
+            return []
+
+        listings = build_listings(
+            (offer for offer in offers if self._is_published(offer)),
+            lambda offer: RawListing(
+                source_slug=self.source_slug,
+                external_id=str(offer["id"]),
+                source_url=self._source_url(offer),
+                content_hash=content_hash(offer),
+                raw_payload=offer,
+            ),
+            source_slug=self.source_slug,
+        )
 
         self._last_health = "ok"
         return listings
