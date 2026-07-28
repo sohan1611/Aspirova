@@ -24,10 +24,13 @@ above, not just an assertion of it.
 
 import logging
 import time
+from collections.abc import Iterable, Iterator
 
+from fastapi.routing import APIRoute
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
+from starlette.routing import Match
 
 from core.cache import build_cache_key, cache_get, cache_set
 from core.config import get_settings
@@ -37,13 +40,18 @@ from core.redis_client import get_redis
 
 logger = logging.getLogger(__name__)
 
+_ROUTE_QUERY_PARAM_CACHE: dict[tuple[str, str], set[str] | None] = {}
+
 # path prefix -> (bucket name, settings attribute holding the per-minute limit)
 _IP_RATE_LIMITED_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("/feed", "feed_search", "rate_limit_ip_feed_search_per_minute"),
+    ("/for-you", "feed_search", "rate_limit_ip_feed_search_per_minute"),
     ("/search", "feed_search", "rate_limit_ip_feed_search_per_minute"),
+    ("/trending", "opportunity", "rate_limit_ip_opportunity_per_minute"),
     ("/opportunity/", "opportunity", "rate_limit_ip_opportunity_per_minute"),
     ("/company/", "opportunity", "rate_limit_ip_opportunity_per_minute"),
     ("/companies", "opportunity", "rate_limit_ip_opportunity_per_minute"),
+    ("/facets", "opportunity", "rate_limit_ip_opportunity_per_minute"),
     ("/plans", "opportunity", "rate_limit_ip_opportunity_per_minute"),
     (
         "/sitemap-opportunities",
@@ -55,11 +63,14 @@ _IP_RATE_LIMITED_ROUTES: tuple[tuple[str, str, str], ...] = (
         "opportunity",
         "rate_limit_ip_opportunity_per_minute",
     ),
+    ("/stats", "opportunity", "rate_limit_ip_opportunity_per_minute"),
 )
 
 _CACHEABLE_PREFIXES = (
     "/feed",
+    "/for-you",
     "/search",
+    "/trending",
     "/opportunity/",
     "/company/",
     "/companies",
@@ -104,6 +115,54 @@ def _match_rate_limit(path: str) -> tuple[str, str] | None:
 
 def _is_cacheable(path: str) -> bool:
     return any(path == prefix or path.startswith(prefix) for prefix in _CACHEABLE_PREFIXES)
+
+
+def _declared_query_param_names(route: APIRoute) -> set[str] | None:
+    query_params = getattr(getattr(route, "dependant", None), "query_params", None)
+    if query_params is None:
+        return None
+
+    names: set[str] = set()
+    for field in query_params:
+        name = getattr(field, "alias", None) or getattr(field, "name", None)
+        if not name:
+            return None
+        names.add(str(name))
+    return names
+
+
+def _iter_api_routes(routes: Iterable[object]) -> Iterator[APIRoute]:
+    for route in routes:
+        if isinstance(route, APIRoute):
+            yield route
+            continue
+
+        nested = getattr(route, "routes", None)
+        if nested is None:
+            original = getattr(route, "original_router", None)
+            nested = getattr(original, "routes", None)
+        if nested:
+            yield from _iter_api_routes(nested)
+
+
+def _allowed_cache_query_params(request: Request) -> set[str] | None:
+    try:
+        for route in _iter_api_routes(request.app.routes):
+            match, _child_scope = route.matches(request.scope)
+            if match != Match.FULL:
+                continue
+
+            route_path = getattr(route, "path", None)
+            if not isinstance(route_path, str):
+                return None
+
+            cache_key = (request.method, route_path)
+            if cache_key not in _ROUTE_QUERY_PARAM_CACHE:
+                _ROUTE_QUERY_PARAM_CACHE[cache_key] = _declared_query_param_names(route)
+            return _ROUTE_QUERY_PARAM_CACHE[cache_key]
+    except Exception:
+        return None
+    return None
 
 
 def _is_long_cache_path(path: str) -> bool:
@@ -172,7 +231,12 @@ class ReadCacheMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         redis = get_redis()
-        key = build_cache_key(request.url.path, request.query_params.multi_items())
+        allowed_params = _allowed_cache_query_params(request)
+        key = build_cache_key(
+            request.url.path,
+            request.query_params.multi_items(),
+            allowed_params,
+        )
 
         cached = await cache_get(redis, key)
         if cached is not None:
