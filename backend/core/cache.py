@@ -20,7 +20,13 @@ logger = logging.getLogger(__name__)
 _CALL_TIMEOUT_SECONDS = 1.5
 
 
-def build_cache_key(path: str, query_items: list[tuple[str, str]]) -> str:
+def build_cache_key(
+    path: str,
+    query_items: list[tuple[str, str]],
+    allowed_params: set[str] | None = None,
+) -> str:
+    if allowed_params is not None:
+        query_items = [(k, v) for k, v in query_items if k in allowed_params]
     sorted_qs = "&".join(f"{k}={v}" for k, v in sorted(query_items))
     return f"aspirova:cache:{path}?{sorted_qs}"
 
