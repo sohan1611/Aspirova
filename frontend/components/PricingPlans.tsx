@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getAccount } from "@/lib/api";
 import { useCurrency } from "@/lib/country";
 import type { PlanPublic, PlanState } from "@/lib/types";
@@ -65,6 +66,51 @@ interface Tier {
 // replacing it) so the intended tint survives and the border stops showing.
 const EDGE_BADGE_CLASS_NAME =
   "absolute -top-3 left-1/2 z-10 -translate-x-1/2 before:absolute before:inset-0 before:-z-10 before:bg-card";
+const BILLING_PERIODS = ["monthly", "annual"] as const;
+const DISABLED_STATUS_BUTTON_CLASS_NAME =
+  "h-auto min-h-9 w-full whitespace-normal py-2 text-center leading-snug";
+
+function BillingTogglePlaceholder() {
+  return (
+    <div
+      role="group"
+      aria-label="Billing period"
+      aria-busy="true"
+      aria-disabled="true"
+      className="inline-flex rounded-md border border-border bg-muted p-1"
+    >
+      {BILLING_PERIODS.map((period) => (
+        <div
+          key={period}
+          className="relative rounded-sm px-4 py-1.5 text-sm font-medium capitalize"
+          aria-hidden="true"
+        >
+          <span className="invisible">
+            {period}
+            {period === "annual" && (
+              <span className="ml-1.5 text-xs">Save ~15%</span>
+            )}
+          </span>
+          <Skeleton
+            className={cn(
+              "absolute left-4 top-1/2 h-4 -translate-y-1/2",
+              period === "annual" ? "right-4" : "w-14",
+            )}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BillingPricePlaceholder() {
+  return (
+    <>
+      <Skeleton className="h-10 w-24" />
+      <Skeleton className="h-4 w-7" />
+    </>
+  );
+}
 
 export default function PricingPlans({
   plans,
@@ -96,6 +142,7 @@ export default function PricingPlans({
       : "annual");
   const currentPlanKey = currentPlan?.key ?? null;
   const planLoading = Boolean(accessToken) && planResult?.accessToken !== accessToken;
+  const billingLoading = planLoading && billingOverride === null;
   const hasActiveSubscription = currentPlan !== null;
 
   const refreshPlan = useCallback(async () => {
@@ -144,31 +191,35 @@ export default function PricingPlans({
     <div>
       <div className="flex justify-center">
         <div className="flex flex-col items-center gap-2">
-          <div
-            role="group"
-            aria-label="Billing period"
-            className="inline-flex rounded-md border border-border bg-muted p-1"
-          >
-            {(["monthly", "annual"] as const).map((period) => (
-              <button
-                key={period}
-                type="button"
-                aria-pressed={billing === period}
+          {billingLoading ? (
+            <BillingTogglePlaceholder />
+          ) : (
+            <div
+              role="group"
+              aria-label="Billing period"
+              className="inline-flex rounded-md border border-border bg-muted p-1"
+            >
+              {BILLING_PERIODS.map((period) => (
+                <button
+                  key={period}
+                  type="button"
+                  aria-pressed={billing === period}
                   onClick={() => setBillingOverride(period)}
-                className={cn(
-                  "rounded-sm px-4 py-1.5 text-sm font-medium capitalize outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring",
-                  billing === period
-                    ? "bg-background text-foreground shadow-xs"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {period}
-                {period === "annual" && (
-                  <span className="ml-1.5 text-xs text-primary">Save ~15%</span>
-                )}
-              </button>
-            ))}
-          </div>
+                  className={cn(
+                    "rounded-sm px-4 py-1.5 text-sm font-medium capitalize outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring",
+                    billing === period
+                      ? "bg-background text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {period}
+                  {period === "annual" && (
+                    <span className="ml-1.5 text-xs text-primary">Save ~15%</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
           {hydrated && (
             <p className="text-xs font-medium text-muted-foreground">
               {currency === "INR"
@@ -181,7 +232,13 @@ export default function PricingPlans({
 
       <div className="mt-8 grid gap-6 md:grid-cols-3">
         {tiers.map((tier) => {
-          const plan = tier.free ?? (billing === "annual" ? tier.annual : tier.monthly);
+          const plan =
+            tier.free ??
+            (billingLoading
+              ? (tier.monthly ?? tier.annual)
+              : billing === "annual"
+                ? tier.annual
+                : tier.monthly);
           if (!plan) return null;
 
           const isFree = tier.name === "Free";
@@ -218,7 +275,9 @@ export default function PricingPlans({
               <CardHeader>
                 <CardTitle className="eyebrow">{tier.name}</CardTitle>
                 <div className="flex items-baseline gap-1.5">
-                  {usdPricingPending ? (
+                  {billingLoading && !isFree ? (
+                    <BillingPricePlaceholder />
+                  ) : usdPricingPending ? (
                     <p className="text-sm font-medium text-muted-foreground">
                       USD pricing coming soon
                     </p>
@@ -265,7 +324,7 @@ export default function PricingPlans({
                 ) : isCurrentPlan ? (
                   <Button
                     variant={tier.highlight ? "default" : "outline"}
-                    className="w-full"
+                    className={DISABLED_STATUS_BUTTON_CLASS_NAME}
                     disabled
                   >
                     Current plan
@@ -273,7 +332,7 @@ export default function PricingPlans({
                 ) : hasActiveSubscription ? (
                   <Button
                     variant={tier.highlight ? "default" : "outline"}
-                    className="w-full"
+                    className={DISABLED_STATUS_BUTTON_CLASS_NAME}
                     disabled
                   >
                     {availableAfter
