@@ -56,8 +56,11 @@ class Settings(BaseSettings):
     rate_limit_ip_waitlist_per_minute: int = 5
     rate_limit_ip_report_per_minute: int = 5
     rate_limit_ip_view_per_minute: int = 60
-    read_cache_ttl_seconds: int = 45
-    stats_cache_ttl_seconds: int = 300
+    # The crawler runs once daily, so 15-minute feed/search staleness and
+    # 6-hour sitemap/facet staleness are inside the real data change cadence.
+    read_cache_ttl_seconds: int = 900
+    long_cache_ttl_seconds: int = 21600
+    stats_cache_ttl_seconds: int = 900
     copilot_cache_ttl_seconds: int = 3600
 
     # Independent nightly backup (Doc 03 sec 8/9) - S3-compatible object

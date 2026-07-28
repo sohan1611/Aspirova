@@ -146,7 +146,7 @@ export async function getFeed(params: FeedParams = {}): Promise<FeedResponse> {
   if (params.page) search.set("page", String(params.page));
   if (params.limit) search.set("limit", String(params.limit));
 
-  const res = await fetch(`${API_URL}/feed?${search.toString()}`, { cache: "no-store" });
+  const res = await fetch(`${API_URL}/feed?${search.toString()}`, { next: { revalidate: 300 } });
   if (!res.ok) throw new Error(`Failed to load feed: ${res.status}`);
   return res.json();
 }
@@ -164,7 +164,7 @@ export async function pingOpportunityView(slug: string): Promise<void> {
 export async function getTrending(limit?: number): Promise<TrendingResponse> {
   try {
     const search = limit === undefined ? "" : `?limit=${encodeURIComponent(String(limit))}`;
-    const res = await fetch(`${API_URL}/trending${search}`, { cache: "no-store" });
+    const res = await fetch(`${API_URL}/trending${search}`, { next: { revalidate: 600 } });
     if (!res.ok) return { items: [] };
     return res.json();
   } catch {
@@ -188,7 +188,9 @@ export async function getForYou(params: ForYouParams = {}): Promise<FeedResponse
   if (params.page) search.set("page", String(params.page));
   if (params.limit) search.set("limit", String(params.limit));
 
-  const res = await fetch(`${API_URL}/for-you?${search.toString()}`, { cache: "no-store" });
+  const res = await fetch(`${API_URL}/for-you?${search.toString()}`, {
+    next: { revalidate: 300 },
+  });
   if (!res.ok) throw new Error(`Failed to load personalized feed: ${res.status}`);
   return res.json();
 }
@@ -200,7 +202,7 @@ export async function getStats(): Promise<StatsResponse> {
 }
 
 export async function getFacets(): Promise<Facets> {
-  const res = await fetch(`${API_URL}/facets`, { cache: "no-store" });
+  const res = await fetch(`${API_URL}/facets`, { next: { revalidate: 3600 } });
   if (!res.ok) throw new Error(`Failed to load facets: ${res.status}`);
   return res.json();
 }
@@ -223,7 +225,9 @@ export async function searchOpportunities(
   if (filters.scope) search.set("scope", filters.scope);
   if (filters.country) search.set("country", filters.country);
   if (filters.remote_abroad) search.set("remote_abroad", "true");
-  const res = await fetch(`${API_URL}/search?${search.toString()}`, { cache: "no-store" });
+  const res = await fetch(`${API_URL}/search?${search.toString()}`, {
+    next: { revalidate: 300 },
+  });
   if (!res.ok) throw new Error(`Failed to search: ${res.status}`);
   return res.json();
 }
@@ -261,7 +265,7 @@ export async function getCompanyPage(
 ): Promise<CompanyPage | null> {
   const search = new URLSearchParams({ page: String(page), limit: String(limit) });
   const res = await fetch(`${API_URL}/company/${encodeURIComponent(slug)}?${search.toString()}`, {
-    cache: "no-store",
+    next: { revalidate: 600 },
   });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Failed to load company: ${res.status}`);
@@ -269,7 +273,7 @@ export async function getCompanyPage(
 }
 
 export async function getCompanies(): Promise<CompanyListItem[]> {
-  const res = await fetch(`${API_URL}/companies`, { cache: "no-store" });
+  const res = await fetch(`${API_URL}/companies`, { next: { revalidate: 3600 } });
   if (!res.ok) throw new Error(`Failed to load companies: ${res.status}`);
   return res.json();
 }

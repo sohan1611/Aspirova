@@ -19,7 +19,7 @@ const STATIC_ROUTES = [
   "/research",
 ] as const;
 
-export const revalidate = 300;
+export const revalidate = 86400;
 
 interface SitemapOpportunity {
   slug: string;

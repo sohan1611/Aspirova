@@ -1,5 +1,5 @@
 """ASGI middleware for the public read surfaces: per-IP rate limiting, a
-short-TTL read cache, and latency instrumentation (Doc handoffs/
+tiered-TTL read cache, and latency instrumentation (Doc handoffs/
 PHASE-2-HANDOFF.md sec 11 and sec 3/6).
 
 All three are registered in api/main.py BEFORE CORSMiddleware is added -
@@ -70,6 +70,18 @@ _CACHEABLE_PREFIXES = (
     "/stats",
 )
 
+_LONG_CACHE_PREFIXES = (
+    "/sitemap-opportunities",
+    "/sitemap-companies",
+    "/companies",
+    "/facets",
+    "/plans",
+)
+
+_LONG_CACHE_CONTROL = "public, max-age=3600, s-maxage=21600, stale-while-revalidate=86400"
+_STATS_CACHE_CONTROL = "public, max-age=300, s-maxage=900, stale-while-revalidate=3600"
+_READ_CACHE_CONTROL = "public, max-age=120, s-maxage=900, stale-while-revalidate=3600"
+
 
 def client_ip(request: Request) -> str:
     """First hop of X-Forwarded-For. Trusted ONLY because Render always
@@ -92,6 +104,27 @@ def _match_rate_limit(path: str) -> tuple[str, str] | None:
 
 def _is_cacheable(path: str) -> bool:
     return any(path == prefix or path.startswith(prefix) for prefix in _CACHEABLE_PREFIXES)
+
+
+def _is_long_cache_path(path: str) -> bool:
+    return any(path == prefix or path.startswith(prefix) for prefix in _LONG_CACHE_PREFIXES)
+
+
+def _cache_ttl_seconds(path: str) -> int:
+    settings = get_settings()
+    if _is_long_cache_path(path):
+        return settings.long_cache_ttl_seconds
+    if path == "/stats":
+        return settings.stats_cache_ttl_seconds
+    return settings.read_cache_ttl_seconds
+
+
+def _cache_control_header(path: str) -> str:
+    if _is_long_cache_path(path):
+        return _LONG_CACHE_CONTROL
+    if path == "/stats":
+        return _STATS_CACHE_CONTROL
+    return _READ_CACHE_CONTROL
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -130,7 +163,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 
 class ReadCacheMiddleware(BaseHTTPMiddleware):
-    """Short-TTL cache for feed/search/opportunity responses (sec 11.1).
+    """Tiered-TTL cache for public feed/search/opportunity responses (sec 11.1).
     TTL-only for now - see core/cache.py for why version-bump invalidation
     is deferred."""
 
@@ -144,7 +177,12 @@ class ReadCacheMiddleware(BaseHTTPMiddleware):
         cached = await cache_get(redis, key)
         if cached is not None:
             return Response(
-                content=cached, media_type="application/json", headers={"X-Cache": "HIT"}
+                content=cached,
+                media_type="application/json",
+                headers={
+                    "X-Cache": "HIT",
+                    "Cache-Control": _cache_control_header(request.url.path),
+                },
             )
 
         response = await call_next(request)
@@ -152,16 +190,12 @@ class ReadCacheMiddleware(BaseHTTPMiddleware):
             return response
 
         body = b"".join([chunk async for chunk in response.body_iterator])
-        settings = get_settings()
-        ttl_seconds = (
-            settings.stats_cache_ttl_seconds
-            if request.url.path == "/stats"
-            else settings.read_cache_ttl_seconds
-        )
+        ttl_seconds = _cache_ttl_seconds(request.url.path)
         await cache_set(redis, key, body.decode(), ttl_seconds)
 
         headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
         headers["X-Cache"] = "MISS"
+        headers["Cache-Control"] = _cache_control_header(request.url.path)
         return Response(
             content=body,
             status_code=response.status_code,
