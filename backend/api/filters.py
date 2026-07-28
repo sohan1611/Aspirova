@@ -18,13 +18,17 @@ SENIOR_TITLE_PATTERN = (
 
 
 def exclude_closed_competitions():
-    """Exclude expiring categories whose deadline passed over 14 days ago."""
-    expired_opportunity = and_(
+    """Exclude listings whose closed grace window has elapsed."""
+    expired_deadline = and_(
         models.Opportunity.category.in_(["hackathon", "competition", "internship"]),
         models.Opportunity.deadline.is_not(None),
         models.Opportunity.deadline < func.now() - text("interval '14 days'"),
     )
-    return expired_opportunity.is_not(True)
+    detected_closed = and_(
+        models.Opportunity.closed_at.is_not(None),
+        models.Opportunity.closed_at < func.now() - text("interval '14 days'"),
+    )
+    return or_(expired_deadline, detected_closed).is_not(True)
 
 
 def experience_filters(experience: str | None) -> list:

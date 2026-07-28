@@ -77,7 +77,18 @@ def _status_for_slug(db_session: Session, slug: str) -> str | None:
     )
 
 
-def test_expire_missing_opportunities_retires_listing_absent_from_recent_crawl(
+def _status_and_closed_at_for_slug(
+    db_session: Session, slug: str
+) -> tuple[str, datetime | None] | None:
+    db_session.expire_all()
+    return db_session.execute(
+        select(models.Opportunity.status, models.Opportunity.closed_at).where(
+            models.Opportunity.slug == slug
+        )
+    ).one_or_none()
+
+
+def test_expire_missing_opportunities_marks_listing_closed_absent_from_recent_crawl(
     db_session: Session,
 ) -> None:
     now = datetime.now(timezone.utc)
@@ -91,7 +102,32 @@ def test_expire_missing_opportunities_retires_listing_absent_from_recent_crawl(
 
     expire_missing_opportunities(db_session)
 
-    assert _status_for_slug(db_session, opportunity.slug) == "expired"
+    status_and_closed_at = _status_and_closed_at_for_slug(db_session, opportunity.slug)
+    assert status_and_closed_at is not None
+    status, closed_at = status_and_closed_at
+    assert status == "active"
+    assert closed_at is not None
+
+
+def test_expire_missing_opportunities_does_not_reset_closed_at(
+    db_session: Session,
+) -> None:
+    now = datetime.now(timezone.utc)
+    original_closed_at = now - timedelta(days=3)
+    opportunity = _seed_opportunity(
+        db_session,
+        str(uuid.uuid4()),
+        "already-closed",
+        last_seen_at=now - timedelta(hours=8),
+        last_crawled_at=now - timedelta(hours=1),
+    )
+    opportunity.closed_at = original_closed_at
+    db_session.flush()
+
+    expire_missing_opportunities(db_session)
+
+    status_and_closed_at = _status_and_closed_at_for_slug(db_session, opportunity.slug)
+    assert status_and_closed_at == ("active", original_closed_at)
 
 
 def test_expire_missing_opportunities_keeps_listing_seen_after_crawl(

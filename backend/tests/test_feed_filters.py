@@ -787,6 +787,28 @@ def test_feed_keeps_grace_period_and_undated_rows_but_excludes_expired_categorie
         status="active",
         last_seen_at=now,
     )
+    recently_detected_closed_job = models.Opportunity(
+        slug=f"deadline-filter-recently-closed-job-{suffix}",
+        title="Recently detected closed job",
+        company=company,
+        category="job",
+        location=location_token,
+        apply_url=f"https://example.com/deadline-filter/recent-closed-job/{suffix}",
+        closed_at=now - timedelta(days=3),
+        status="active",
+        last_seen_at=now,
+    )
+    stale_detected_closed_job = models.Opportunity(
+        slug=f"deadline-filter-stale-closed-job-{suffix}",
+        title="Stale detected closed job",
+        company=company,
+        category="job",
+        location=location_token,
+        apply_url=f"https://example.com/deadline-filter/stale-closed-job/{suffix}",
+        closed_at=now - timedelta(days=20),
+        status="active",
+        last_seen_at=now,
+    )
     uncategorized_past_deadline = models.Opportunity(
         slug=f"deadline-filter-uncategorized-{suffix}",
         title="Uncategorized past-deadline opportunity",
@@ -810,6 +832,8 @@ def test_feed_keeps_grace_period_and_undated_rows_but_excludes_expired_categorie
             expired_internship,
             ats_internship_without_deadline,
             past_deadline_role,
+            recently_detected_closed_job,
+            stale_detected_closed_job,
             uncategorized_past_deadline,
         ]
     )
@@ -833,7 +857,7 @@ def test_feed_keeps_grace_period_and_undated_rows_but_excludes_expired_categorie
         params={"kind": "roles", "location": location_token, "limit": 10},
     ).json()
 
-    assert all_opportunities["total"] == 8
+    assert all_opportunities["total"] == 9
     assert {item["slug"] for item in all_opportunities["items"]} == {
         recently_closed_competition.slug,
         earlier_closed_hackathon.slug,
@@ -842,7 +866,17 @@ def test_feed_keeps_grace_period_and_undated_rows_but_excludes_expired_categorie
         no_deadline_competition.slug,
         ats_internship_without_deadline.slug,
         past_deadline_role.slug,
+        recently_detected_closed_job.slug,
         uncategorized_past_deadline.slug,
+    }
+    recent_closed_job_item = next(
+        item
+        for item in all_opportunities["items"]
+        if item["slug"] == recently_detected_closed_job.slug
+    )
+    assert recent_closed_job_item["closed_at"] is not None
+    assert stale_detected_closed_job.slug not in {
+        item["slug"] for item in all_opportunities["items"]
     }
     assert competitions["total"] == 5
     assert [item["slug"] for item in competitions["items"]] == [
@@ -852,10 +886,11 @@ def test_feed_keeps_grace_period_and_undated_rows_but_excludes_expired_categorie
         recently_closed_competition.slug,
         earlier_closed_hackathon.slug,
     ]
-    assert roles["total"] == 4
+    assert roles["total"] == 5
     assert {item["slug"] for item in roles["items"]} == {
         recently_closed_competition.slug,
         earlier_closed_hackathon.slug,
         ats_internship_without_deadline.slug,
         past_deadline_role.slug,
+        recently_detected_closed_job.slug,
     }

@@ -9,7 +9,7 @@ import {
   closedDeadlineLabel,
   hasExpiringDeadline,
   isCompetitionCategory,
-  isDeadlinePast,
+  isListingClosed,
 } from "@/lib/deadline";
 import { getSourceLabel } from "@/lib/sourceLabel";
 import type { OpportunityListItem } from "@/lib/types";
@@ -127,10 +127,11 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
     deadlineExpires && item.deadline
       ? isDeadlineUrgent(item.deadline)
       : false;
-  const deadlinePast =
-    deadlineExpires && item.deadline
-      ? isDeadlinePast(item.deadline)
-      : false;
+  const listingClosed = isListingClosed(
+    item.closed_at,
+    item.deadline,
+    item.category,
+  );
   const openDeadlineLabel = isInternship ? "Apply by" : "Registers by";
   const closedDeadlineText = closedDeadlineLabel(item.category);
 
@@ -233,17 +234,17 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            {item.deadline && (
-              deadlineExpires ? (
-                deadlinePast ? (
-                  <Badge
-                    variant="secondary"
-                    className="tnum border border-border px-2 py-1 normal-case text-muted-foreground"
-                  >
-                    <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                    {closedDeadlineText}
-                  </Badge>
-                ) : (
+            {listingClosed ? (
+              <Badge
+                variant="secondary"
+                className="tnum border border-border px-2 py-1 normal-case text-muted-foreground"
+              >
+                <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                {closedDeadlineText}
+              </Badge>
+            ) : (
+              item.deadline && (
+                deadlineExpires ? (
                   <span
                     className={`tnum inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border px-2 py-1 text-xs font-medium ${
                       urgentDeadline
@@ -259,13 +260,13 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
                     <Clock className="h-3.5 w-3.5" aria-hidden="true" />
                     {openDeadlineLabel} {formatDate(item.deadline, "long")}
                   </span>
+                ) : (
+                  <span className="tnum inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-warning/25 bg-warning/15 px-2 py-1 text-xs font-medium text-warning-foreground dark:text-warning">
+                    <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                    Closes {item.deadline_confidence !== "explicit" ? "~" : ""}
+                    {formatDate(item.deadline, "long")}
+                  </span>
                 )
-              ) : (
-                <span className="tnum inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-warning/25 bg-warning/15 px-2 py-1 text-xs font-medium text-warning-foreground dark:text-warning">
-                  <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                  Closes {item.deadline_confidence !== "explicit" ? "~" : ""}
-                  {formatDate(item.deadline, "long")}
-                </span>
               )
             )}
             <span className="whitespace-nowrap text-xs font-medium text-primary opacity-0 transition-opacity duration-300 ease-premium group-hover:opacity-100 group-focus-visible:opacity-100">

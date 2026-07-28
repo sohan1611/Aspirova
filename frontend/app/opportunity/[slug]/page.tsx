@@ -17,6 +17,7 @@ import {
   estimatedClosedDeadlineLabel,
   hasExpiringDeadline,
   isDeadlinePast,
+  isListingClosed,
 } from "@/lib/deadline";
 import { getSourceLabel } from "@/lib/sourceLabel";
 import type { OpportunityDetail, OpportunityListItem } from "@/lib/types";
@@ -135,18 +136,28 @@ export default async function OpportunityPage({ params }: PageProps) {
   const canonicalUrl = opportunityUrl(slug);
   const jobPostingJsonLd = buildJobPostingJsonLd(opportunity, canonicalUrl);
   const expires = hasExpiringDeadline(opportunity.category);
-  const closed =
+  const closedByDeadline =
     expires && !!opportunity.deadline && isDeadlinePast(opportunity.deadline);
-  const estimated = opportunity.deadline_confidence !== "explicit";
+  const closed = isListingClosed(
+    opportunity.closed_at,
+    opportunity.deadline,
+    opportunity.category,
+  );
+  const estimated =
+    !opportunity.closed_at &&
+    closedByDeadline &&
+    opportunity.deadline_confidence !== "explicit";
   const closedStatusLabel = estimated
     ? estimatedClosedDeadlineLabel(opportunity.category)
     : closedDeadlineLabel(opportunity.category);
   const verifyLabel = opportunity.company?.name
     ? `Verify on ${opportunity.company.name} →`
     : "Verify at the source →";
-  const closedCaption = estimated
-    ? "This estimated deadline may be wrong. Open the company's listing to confirm — the source may still be accepting entries."
-    : "This deadline has passed. Open the company's listing to confirm — the source may still be accepting entries.";
+  const closedCaption = opportunity.closed_at
+    ? "The source listing appears to be closed. Open the company's listing to confirm — the source may still be accepting entries."
+    : estimated
+      ? "This estimated deadline may be wrong. Open the company's listing to confirm — the source may still be accepting entries."
+      : "This deadline has passed. Open the company's listing to confirm — the source may still be accepting entries.";
   let similarOpportunities: OpportunityListItem[] = [];
 
   try {

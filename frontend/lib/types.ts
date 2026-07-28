@@ -26,6 +26,7 @@ export interface OpportunityListItem {
   country: string | null;
   is_remote: boolean | null;
   deadline: string | null;
+  closed_at: string | null;
   deadline_confidence: "explicit" | "inferred" | "unknown";
   posted_at: string | null;
   last_seen_at: string;
