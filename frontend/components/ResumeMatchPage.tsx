@@ -612,12 +612,15 @@ function SavedResumeCard({
               account and replaced when you upload a new PDF.
             </CardDescription>
           </div>
-          <Badge
-            variant="outline"
-            className="tnum shrink-0 border-primary/25 bg-primary/10 text-primary"
-          >
-            {resume.ats.score}/100 ATS
-          </Badge>
+          <div className="flex w-fit shrink-0 items-center gap-1.5">
+            <Badge
+              variant="outline"
+              className="tnum shrink-0 border-primary/25 bg-primary/10 text-primary"
+            >
+              {resume.ats.score}/100 ATS
+            </Badge>
+            <AtsTipsPopover result={resume.ats} />
+          </div>
         </div>
       </CardHeader>
       <CardFooter className="flex-col items-stretch gap-3 px-5 sm:flex-row sm:items-center sm:justify-end sm:px-8">
@@ -750,6 +753,68 @@ function ResumeInputCard({
   );
 }
 
+function AtsTipsPopover({ result }: { result: AtsResult }) {
+  const checks = Array.isArray(result.checks) ? result.checks : [];
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          aria-label="Show ATS score breakdown and improvement tips"
+        >
+          <Info aria-hidden="true" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        className="max-h-[min(32rem,75vh)] overflow-y-auto"
+        aria-label="ATS score breakdown and improvement tips"
+      >
+        <div className="grid gap-4">
+          <div>
+            <p className="eyebrow">ATS score breakdown</p>
+            <p className="mt-1 text-sm leading-5 text-muted-foreground">
+              Each check is a suggestion based on the text currently in your resume.
+            </p>
+          </div>
+          {checks.length > 0 ? (
+            <ul className="grid gap-3">
+              {checks.map((check) => (
+                <li key={check.id} className="border-b border-border pb-3 last:border-b-0 last:pb-0">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-sm font-medium text-foreground">{check.label}</span>
+                    <span className="flex items-center gap-2">
+                      <Badge
+                        variant="outline"
+                        className={getAtsStatusClassName(check.status)}
+                      >
+                        {getAtsStatusLabel(check.status)}
+                      </Badge>
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {check.points}/{check.maxPoints} pts
+                      </span>
+                    </span>
+                  </div>
+                  {check.status !== "pass" && check.tip && (
+                    <p className="mt-2 text-xs leading-5 text-muted-foreground">{check.tip}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm leading-5 text-muted-foreground">
+              No breakdown was saved for this resume.
+            </p>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function AtsScoreCard({ result }: { result: AtsResult }) {
   return (
     <Card className="h-full border-primary/20 shadow-soft-md">
@@ -768,55 +833,7 @@ function AtsScoreCard({ result }: { result: AtsResult }) {
               {result.score} <span className="text-lg font-medium text-muted-foreground">/ 100</span>
             </p>
           </div>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                aria-label="Show ATS score breakdown and improvement tips"
-              >
-                <Info aria-hidden="true" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              align="end"
-              className="max-h-[min(32rem,75vh)] overflow-y-auto"
-              aria-label="ATS score breakdown and improvement tips"
-            >
-              <div className="grid gap-4">
-                <div>
-                  <p className="eyebrow">ATS score breakdown</p>
-                  <p className="mt-1 text-sm leading-5 text-muted-foreground">
-                    Each check is a suggestion based on the text currently in your resume.
-                  </p>
-                </div>
-                <ul className="grid gap-3">
-                  {result.checks.map((check) => (
-                    <li key={check.id} className="border-b border-border pb-3 last:border-b-0 last:pb-0">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="text-sm font-medium text-foreground">{check.label}</span>
-                        <span className="flex items-center gap-2">
-                          <Badge
-                            variant="outline"
-                            className={getAtsStatusClassName(check.status)}
-                          >
-                            {getAtsStatusLabel(check.status)}
-                          </Badge>
-                          <span className="text-xs font-medium text-muted-foreground">
-                            {check.points}/{check.maxPoints} pts
-                          </span>
-                        </span>
-                      </div>
-                      {check.status !== "pass" && check.tip && (
-                        <p className="mt-2 text-xs leading-5 text-muted-foreground">{check.tip}</p>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </PopoverContent>
-          </Popover>
+          <AtsTipsPopover result={result} />
         </div>
         <p className="text-xs leading-5 text-muted-foreground">
           This score is an estimate for improving your resume, not a guarantee of ATS or hiring
