@@ -2,9 +2,9 @@
 sec 11.1/11.5). TTL-only for Part 2.1: the crawler-driven cache-version
 bump described in sec 11.1 is deferred, per that section's own explicit
 allowance, until Upstash credentials are wired into the crawler's GitHub
-Actions environment (a separate manual prerequisite - none exist yet). A
-45s TTL fully bounds staleness against a 2-hour crawl cadence, so
-correctness never depends on the deferred piece landing later.
+Actions environment (a separate manual prerequisite - none exist yet). The
+route-specific TTLs in api.middleware stay inside the daily crawl cadence,
+so correctness never depends on the deferred piece landing later.
 
 Fails open on every path (sec 11.2): a cache miss - including "Redis is
 down" - always falls through to the real query; it never turns into a 500.
