@@ -16,14 +16,24 @@ export function isDeadlinePast(value: string): boolean {
   return !Number.isNaN(timestamp) && timestamp < Date.now();
 }
 
+export function isListingClosed(
+  closedAt: string | null,
+  deadline: string | null,
+  category: string | null,
+): boolean {
+  if (closedAt) return true;
+
+  return !!deadline && hasExpiringDeadline(category) && isDeadlinePast(deadline);
+}
+
 export function closedDeadlineLabel(category: string | null): string {
-  return category === "internship"
-    ? "Applications closed"
-    : "Registrations closed";
+  return isCompetitionCategory(category)
+    ? "Registrations closed"
+    : "Applications closed";
 }
 
 export function estimatedClosedDeadlineLabel(category: string | null): string {
-  return category === "internship"
-    ? "Applications may have closed"
-    : "Registrations may have closed";
+  return isCompetitionCategory(category)
+    ? "Registrations may have closed"
+    : "Applications may have closed";
 }

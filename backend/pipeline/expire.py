@@ -1,9 +1,10 @@
-"""Retire opportunities only when a fresh crawl positively proves they are gone.
+"""Mark opportunities closed only when a fresh crawl proves they are gone.
 
-An opportunity is expired only after its company's board was crawled after the
-opportunity was last seen. The two-day freshness guard makes a broken or stalled
-crawl fail safe: stale source state expires nothing rather than mass-retiring the
-catalogue.
+An opportunity is marked closed only after its company's board was crawled after
+the opportunity was last seen. The row stays status='active' during the 14-day
+grace window so it remains visible as closed. The two-day freshness guard makes
+a broken or stalled crawl fail safe: stale source state closes nothing rather
+than mass-retiring the catalogue.
 """
 
 from sqlalchemy import func, text, update
@@ -13,11 +14,12 @@ from core import models
 
 
 def expire_missing_opportunities(session: Session) -> int:
-    """Expire active opportunities absent from recently crawled company boards."""
+    """Mark active opportunities closed when absent from recently crawled boards."""
     result = session.execute(
         update(models.Opportunity)
         .where(
             models.Opportunity.status == "active",
+            models.Opportunity.closed_at.is_(None),
             models.Opportunity.company_id == models.Company.id,
             models.Source.adapter_key == models.Company.ats_type,
             models.SourceState.source_id == models.Source.id,
@@ -27,7 +29,7 @@ def expire_missing_opportunities(session: Session) -> int:
             models.Opportunity.last_seen_at
             < models.SourceState.last_crawled_at - text("interval '6 hours'"),
         )
-        .values(status="expired")
+        .values(closed_at=func.now())
         .execution_options(synchronize_session=False)
     )
     return int(result.rowcount or 0)

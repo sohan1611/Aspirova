@@ -90,9 +90,12 @@ def get_feed(
     # overlapping rows without this.
     is_closed = case(
         (
-            and_(
-                models.Opportunity.deadline.is_not(None),
-                models.Opportunity.deadline < func.now(),
+            or_(
+                models.Opportunity.closed_at.is_not(None),
+                and_(
+                    models.Opportunity.deadline.is_not(None),
+                    models.Opportunity.deadline < func.now(),
+                ),
             ),
             1,
         ),

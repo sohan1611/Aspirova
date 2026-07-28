@@ -46,6 +46,7 @@ class OpportunityListItem(BaseModel):
     country: str | None = None
     is_remote: bool | None
     deadline: datetime | None
+    closed_at: datetime | None
     deadline_confidence: str
     posted_at: datetime | None
     last_seen_at: datetime
@@ -82,6 +83,7 @@ class OpportunityListItem(BaseModel):
             country=o.country,
             is_remote=o.is_remote,
             deadline=o.deadline,
+            closed_at=o.closed_at,
             deadline_confidence=o.deadline_confidence,
             posted_at=o.posted_at,
             last_seen_at=o.last_seen_at,
@@ -242,6 +244,7 @@ class OpportunityDetail(OpportunityListItem):
             country=o.country,
             is_remote=o.is_remote,
             deadline=o.deadline,
+            closed_at=o.closed_at,
             deadline_confidence=o.deadline_confidence,
             posted_at=o.posted_at,
             last_seen_at=o.last_seen_at,

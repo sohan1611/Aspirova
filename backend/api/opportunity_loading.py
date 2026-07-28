@@ -16,6 +16,7 @@ OPPORTUNITY_LIST_COLUMNS = (
     models.Opportunity.is_remote,
     models.Opportunity.posted_at,
     models.Opportunity.deadline,
+    models.Opportunity.closed_at,
     models.Opportunity.meta,
     models.Opportunity.deadline_confidence,
     models.Opportunity.is_hidden,

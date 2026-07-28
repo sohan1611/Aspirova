@@ -88,6 +88,14 @@ jobs:
           PYTHONUNBUFFERED: "1"
         run: uv run python -m scripts.cleanup_expired_competitions
 
+      - name: Check stale undated listing liveness
+        if: success() || failure()
+        timeout-minutes: 11
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONUNBUFFERED: "1"
+        run: uv run python -m scripts.check_listing_liveness --apply
+
       # Post-ingest instant dream-company alerts (Doc handoffs/
       # PHASE-2-HANDOFF.md sec 5) - a separate step in the SAME run rather
       # than code wired into crawlers/runner.py itself: it works off a
