@@ -12,6 +12,12 @@ import { Button } from "@/components/ui/button";
 import OpportunityCard from "@/components/OpportunityCard";
 import { getOpportunity, getSimilarOpportunities } from "@/lib/api";
 import { formatDate } from "@/lib/date";
+import {
+  closedDeadlineLabel,
+  estimatedClosedDeadlineLabel,
+  hasExpiringDeadline,
+  isDeadlinePast,
+} from "@/lib/deadline";
 import { getSourceLabel } from "@/lib/sourceLabel";
 import type { OpportunityDetail, OpportunityListItem } from "@/lib/types";
 
@@ -128,6 +134,19 @@ export default async function OpportunityPage({ params }: PageProps) {
   const sourceLabel = getSourceLabel(opportunity.apply_url);
   const canonicalUrl = opportunityUrl(slug);
   const jobPostingJsonLd = buildJobPostingJsonLd(opportunity, canonicalUrl);
+  const expires = hasExpiringDeadline(opportunity.category);
+  const closed =
+    expires && !!opportunity.deadline && isDeadlinePast(opportunity.deadline);
+  const estimated = opportunity.deadline_confidence !== "explicit";
+  const closedStatusLabel = estimated
+    ? estimatedClosedDeadlineLabel(opportunity.category)
+    : closedDeadlineLabel(opportunity.category);
+  const verifyLabel = opportunity.company?.name
+    ? `Verify on ${opportunity.company.name} →`
+    : "Verify at the source →";
+  const closedCaption = estimated
+    ? "This estimated deadline may be wrong. Open the company's listing to confirm — the source may still be accepting entries."
+    : "This deadline has passed. Open the company's listing to confirm — the source may still be accepting entries.";
   let similarOpportunities: OpportunityListItem[] = [];
 
   try {
@@ -219,18 +238,46 @@ export default async function OpportunityPage({ params }: PageProps) {
           className="mt-8 flex max-w-3xl flex-col gap-5 border-y border-border py-6 sm:flex-row sm:items-center sm:justify-between"
         >
           <div>
-            {/* Always links to the real source - we index and link out, we
-                never mirror (Doc 01 sec 7 R1, Doc 04 sec 10). */}
-            <Button size="lg" asChild>
-              <a href={opportunity.apply_url} target="_blank" rel="noopener noreferrer">
-                {opportunity.company?.name
-                  ? `Apply on ${opportunity.company.name} →`
-                  : "Apply at the source →"}
-              </a>
-            </Button>
-            <p className="mt-2 max-w-lg text-xs leading-5 text-muted-foreground">
-              Opens the company&apos;s own listing — Aspirova never mirrors applications.
-            </p>
+            {closed ? (
+              <>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="inline-flex h-10 items-center justify-center rounded-md border border-border bg-secondary/50 px-6 text-sm font-medium text-muted-foreground">
+                    {closedStatusLabel}
+                  </span>
+                  <Button size="lg" variant="outline" asChild>
+                    <a
+                      href={opportunity.apply_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {verifyLabel}
+                    </a>
+                  </Button>
+                </div>
+                <p className="mt-2 max-w-lg text-xs leading-5 text-muted-foreground">
+                  {closedCaption}
+                </p>
+              </>
+            ) : (
+              <>
+                {/* Always links to the real source - we index and link out, we
+                    never mirror (Doc 01 sec 7 R1, Doc 04 sec 10). */}
+                <Button size="lg" asChild>
+                  <a
+                    href={opportunity.apply_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {opportunity.company?.name
+                      ? `Apply on ${opportunity.company.name} →`
+                      : "Apply at the source →"}
+                  </a>
+                </Button>
+                <p className="mt-2 max-w-lg text-xs leading-5 text-muted-foreground">
+                  Opens the company&apos;s own listing — Aspirova never mirrors applications.
+                </p>
+              </>
+            )}
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-3">
             <BookmarkButton slug={opportunity.slug} />
@@ -240,10 +287,16 @@ export default async function OpportunityPage({ params }: PageProps) {
         </section>
 
         {opportunity.deadline && (
-          <div className="mt-8 inline-flex items-center gap-2 rounded-md border border-warning/25 bg-warning/15 px-3 py-2 text-sm font-medium text-warning-foreground dark:text-warning">
+          <div
+            className={
+              closed
+                ? "mt-8 inline-flex items-center gap-2 rounded-md border border-border bg-secondary/50 px-3 py-2 text-sm font-medium text-muted-foreground"
+                : "mt-8 inline-flex items-center gap-2 rounded-md border border-warning/25 bg-warning/15 px-3 py-2 text-sm font-medium text-warning-foreground dark:text-warning"
+            }
+          >
             <Clock className="size-4 shrink-0" aria-hidden="true" />
             <span>
-              Deadline:{" "}
+              {closed ? `${closedStatusLabel}:` : "Deadline:"}{" "}
               <span className="tnum">
                 {formatDate(opportunity.deadline, "numeric")}
               </span>

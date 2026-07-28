@@ -5,6 +5,12 @@ import CompanyFavicon from "@/components/CompanyFavicon";
 import SaveButton from "@/components/SaveButton";
 import { getCountry } from "@/lib/countries";
 import { formatDate } from "@/lib/date";
+import {
+  closedDeadlineLabel,
+  hasExpiringDeadline,
+  isCompetitionCategory,
+  isDeadlinePast,
+} from "@/lib/deadline";
 import { getSourceLabel } from "@/lib/sourceLabel";
 import type { OpportunityListItem } from "@/lib/types";
 
@@ -27,7 +33,6 @@ const SOURCE_LABEL: Record<string, string> = {
 };
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
-const COMPETITION_CATEGORIES = new Set(["hackathon", "competition"]);
 const COMPETITION_MODES = new Set(["online", "offline", "hybrid"]);
 
 function getAgeInDays(value: string | null): number | null {
@@ -93,11 +98,6 @@ function isDeadlineUrgent(value: string): boolean {
   return timeUntilDeadline >= 0 && timeUntilDeadline <= 7 * DAY_IN_MS;
 }
 
-function isDeadlinePast(value: string): boolean {
-  const timestamp = new Date(value).getTime();
-  return !Number.isNaN(timestamp) && timestamp < Date.now();
-}
-
 export default function OpportunityCard({ item }: { item: OpportunityListItem }) {
   const companyName = item.company?.name ?? "Unknown company";
   const sourceLabel = item.source
@@ -114,10 +114,9 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
   const categoryLabel = item.category
     ? CATEGORY_LABEL[item.category] ?? item.category
     : null;
-  const isCompetition =
-    item.category !== null && COMPETITION_CATEGORIES.has(item.category);
+  const isCompetition = isCompetitionCategory(item.category);
   const isInternship = item.category === "internship";
-  const hasExpiringDeadline = isCompetition || isInternship;
+  const deadlineExpires = hasExpiringDeadline(item.category);
   const prizeText = isCompetition ? getPrizeText(item.meta) : null;
   const competitionMode = isCompetition
     ? getCompetitionMode(item.meta)
@@ -125,17 +124,15 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
   const offersPpi = isCompetition && item.meta?.offers_ppi === true;
   const offersPpo = isCompetition && item.meta?.offers_ppo === true;
   const urgentDeadline =
-    hasExpiringDeadline && item.deadline
+    deadlineExpires && item.deadline
       ? isDeadlineUrgent(item.deadline)
       : false;
   const deadlinePast =
-    hasExpiringDeadline && item.deadline
+    deadlineExpires && item.deadline
       ? isDeadlinePast(item.deadline)
       : false;
   const openDeadlineLabel = isInternship ? "Apply by" : "Registers by";
-  const closedDeadlineLabel = isInternship
-    ? "Applications closed"
-    : "Registrations closed";
+  const closedDeadlineText = closedDeadlineLabel(item.category);
 
   return (
     <div className="relative h-full">
@@ -237,14 +234,14 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {item.deadline && (
-              hasExpiringDeadline ? (
+              deadlineExpires ? (
                 deadlinePast ? (
                   <Badge
                     variant="secondary"
                     className="tnum border border-border px-2 py-1 normal-case text-muted-foreground"
                   >
                     <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                    {closedDeadlineLabel}
+                    {closedDeadlineText}
                   </Badge>
                 ) : (
                   <span
