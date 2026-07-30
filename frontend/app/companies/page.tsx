@@ -12,7 +12,7 @@ const DESCRIPTION =
 const INTRO =
   "Companies with active opportunities, auto-discovered from public company career pages; " +
   "Aspirova links out to the original source.";
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 export async function generateMetadata(): Promise<Metadata> {
   return {

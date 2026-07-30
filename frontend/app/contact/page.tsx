@@ -48,25 +48,43 @@ export default function ContactPage() {
         </p>
       </header>
 
-      <article className="prose prose-zinc mt-12 max-w-none dark:prose-invert prose-headings:scroll-mt-24 prose-headings:font-semibold prose-a:text-foreground prose-a:decoration-primary/40 prose-a:underline-offset-4 hover:prose-a:decoration-primary">
-        <h2>Get in touch</h2>
-        <p>
-          For support, billing, or privacy questions, email <ContactEmail />.
-          We usually reply within a few working days.
-        </p>
+      <article className="mt-12 max-w-none">
+        <section className="scroll-mt-24">
+          <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
+            Get in touch
+          </h2>
+          <p className="mt-4 text-base leading-7 text-muted-foreground">
+            For support, billing, or privacy questions, email <ContactEmail />. We
+            respond within 36 hours.
+          </p>
+        </section>
 
-        <h2>Business details</h2>
-        <p>
-          <strong>Entity:</strong> <LegalValue value={LEGAL.entityName} />
-          <br />
-          <strong>Address:</strong> <LegalValue value={LEGAL.address} />
-        </p>
+        <section className="mt-12 scroll-mt-24 border-t border-border pt-10">
+          <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
+            Business details
+          </h2>
+          <p className="mt-4 text-base leading-7 text-muted-foreground">
+            <strong>Entity:</strong> <LegalValue value={LEGAL.entityName} />
+            <br />
+            <strong>Address:</strong> <LegalValue value={LEGAL.address} />
+          </p>
+        </section>
 
-        <h2>Report a bug or broken link</h2>
-        <p>
-          The fastest way to report a bug or a broken opportunity link is our{" "}
-          <Link href="/report">report form</Link>.
-        </p>
+        <section className="mt-12 scroll-mt-24 border-t border-border pt-10">
+          <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
+            Report a bug or broken link
+          </h2>
+          <p className="mt-4 text-base leading-7 text-muted-foreground">
+            The fastest way to report a bug or a broken opportunity link is our{" "}
+            <Link
+              className="font-medium text-foreground underline decoration-primary/40 underline-offset-4 transition-colors hover:decoration-primary"
+              href="/report"
+            >
+              report form
+            </Link>. We respond within 36 hours, or fix the issue within that
+            time when possible.
+          </p>
+        </section>
       </article>
 
       <p className="mt-12 text-sm text-muted-foreground">
