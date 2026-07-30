@@ -5,7 +5,7 @@ name: Crawl Tier 1
 # run. After batching last_seen_at into one bulk UPDATE per company (per-board
 # ingest dropped ~5-7x, e.g. databricks 788 listings 229s -> ~31s), the ATS
 # crawl completes in ~24-26 min - dominated by the amazon board's volume - so
-# the caps are a 38-minute job cap and a 28-minute ATS-step cap (still far
+# the caps are a 60-minute job cap and a 32-minute ATS-step cap (still far
 # leaner than the old failing 40min x 2/day: one completing run beats two
 # cancelled ones).
 on:
@@ -23,7 +23,9 @@ jobs:
     # ATS must complete (it's fast now that last_seen_at is batched); the
     # aggregator runs afterward as best-effort work with its own tight per-step
     # cap below. The job cap bounds worst-case billed minutes per run.
-    timeout-minutes: 38
+    # Must stay >= the sum of step timeouts plus checkout/setup/tail margin.
+    # Otherwise adding a future step can silently reintroduce job-level kills.
+    timeout-minutes: 60
     defaults:
       run:
         working-directory: backend
@@ -41,7 +43,7 @@ jobs:
         run: uv sync --frozen
 
       - name: Run ATS crawl (tier 1)
-        timeout-minutes: 28
+        timeout-minutes: 32
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           # Python block-buffers stdout when it's not a TTY (i.e. always, in
