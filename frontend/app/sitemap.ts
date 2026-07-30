@@ -40,7 +40,7 @@ function staticEntries(): MetadataRoute.Sitemap {
 
 async function fetchSitemapOpportunities(): Promise<SitemapOpportunity[]> {
   const response = await fetch(`${API_URL}/sitemap-opportunities`, {
-    next: { revalidate: 300 },
+        next: { revalidate: 86400 },
   });
   if (!response.ok) {
     throw new Error(`Failed to load sitemap opportunities: ${response.status}`);
@@ -50,7 +50,7 @@ async function fetchSitemapOpportunities(): Promise<SitemapOpportunity[]> {
 
 async function fetchSitemapCompanies(): Promise<SitemapCompany[]> {
   const response = await fetch(`${API_URL}/sitemap-companies`, {
-    next: { revalidate: 300 },
+        next: { revalidate: 86400 },
   });
   if (!response.ok) {
     throw new Error(`Failed to load sitemap companies: ${response.status}`);

@@ -8,7 +8,7 @@ export const size = {
   height: 630,
 };
 export const contentType = "image/png";
-export const dynamic = "force-dynamic";
+export const revalidate = 86400;
 
 const brandBlue = "#2563eb";
 const darkText = "#0f172a";
