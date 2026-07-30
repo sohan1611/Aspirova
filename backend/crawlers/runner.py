@@ -74,19 +74,15 @@ AGGREGATOR_ADAPTERS: dict[str, type] = {
 ATS_FETCH_MAX_WORKERS = 10
 DEFAULT_AGGREGATOR_MAX_SECONDS = 600.0
 # Soft wall-clock budget for the WHOLE ATS phase (prefetch + ingest), armed
-# before the prefetch below. Well under the workflow's 28-minute ATS step cap,
-# so the loop exits cleanly (committing its work and letting the aggregator +
-# tail steps run) instead of being SIGKILL'd at the hard cap and marking the
-# whole run failed. Env-tunable (CRAWLER_ATS_MAX_SECONDS).
+# before the prefetch below. Keep this under the workflow's ATS step cap so the
+# loop exits cleanly, commits work, and lets aggregator + tail steps run instead
+# of being SIGKILL'd at the hard cap. Env-tunable (CRAWLER_ATS_MAX_SECONDS).
 #
-# The gap to the 28-minute cap must exceed the SLOWEST SINGLE BOARD, because
-# the deadline only gates whether a board may START - once one is in flight it
-# runs to completion. Confirmed live (run 29800767109, 2026-07-21): at 1320s
-# armed after the prefetch, the effective deadline landed at ~25.5min, datadog
-# alone ingested for 8.5min, and the run was killed mid-board at the 28min cap
-# - which also skipped the tail steps, so dead listings were never retired.
-# 1080s + the ~3.5min prefetch inside it leaves ~10min for an in-flight board.
-DEFAULT_ATS_MAX_SECONDS = 1080.0
+# The gap between this soft budget and the ATS step timeout must exceed the
+# SLOWEST SINGLE BOARD, because the deadline only gates whether a board may
+# START; once one is in flight it runs to completion. With a 1320s soft budget
+# and 32-minute step timeout, that in-flight-board gap remains 10 minutes.
+DEFAULT_ATS_MAX_SECONDS = 1320.0
 _STOP_REQUESTED = threading.Event()
 
 
@@ -793,7 +789,8 @@ def run_tier(
     # HTTP up front and took ~3.5min in run 29800767109, so arming it afterward
     # silently pushed the real deadline ~3.5min past where the budget said it
     # was - the run then started a fresh board at ~23min and was SIGKILL'd
-    # mid-ingest at the 28min cap. The budget has to cover the phase it bounds.
+    # mid-ingest at the ATS step hard cap. The budget has to cover the phase it
+    # bounds.
     ats_deadline_monotonic = time.monotonic() + ats_max_seconds if ats_jobs else 0.0
 
     prefetched_boards = _prefetch_ats_boards(ats_jobs, should_stop=should_stop)
