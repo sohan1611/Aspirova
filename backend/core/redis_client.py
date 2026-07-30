@@ -1,7 +1,8 @@
-"""Shared Upstash Redis REST client for rate limiting + read caching (Doc
-handoffs/PHASE-2-HANDOFF.md sec 11). Returns None when Upstash credentials
-are not configured - every caller must treat None as "fail open" (sec
-11.2), not as an error.
+"""Shared Upstash Redis REST client for the persistent read cache and the
+optional multi-instance rate-limit backend (Doc handoffs/PHASE-2-HANDOFF.md
+sec 11). Returns None when Upstash credentials are not configured - cache and
+the explicit Redis limiter must treat that as "fail open" (sec 11.2), not as
+an error. The default in-process rate limiter does not require this client.
 
 A short client-side timeout is set on the underlying httpx client because
 the SDK's own default is unbounded (`httpx.AsyncClient(timeout=None)` in

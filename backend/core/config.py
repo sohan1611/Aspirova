@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -37,9 +38,13 @@ class Settings(BaseSettings):
     ai_generation_output_usd_per_mtok: float = 5.0
     ai_embedding_input_usd_per_mtok: float = 0.02
 
-    # Upstash Redis REST API (rate limiting + read cache - Doc
-    # handoffs/PHASE-2-HANDOFF.md sec 11). Blank = not configured yet, which
-    # every caller must treat as "fail open" (sec 11.2), never as an error.
+    # The Render deployment has one web process, so memory is the no-Redis-cost
+    # default. Switch to Redis before scaling to multiple API instances.
+    rate_limit_backend: Literal["memory", "redis"] = "memory"
+
+    # Upstash Redis REST API (persistent read cache + optional multi-instance
+    # rate limiting - Doc handoffs/PHASE-2-HANDOFF.md sec 11). Blank means the
+    # cache and explicit Redis limiter callers fail open, never error.
     upstash_redis_rest_url: str = ""
     upstash_redis_rest_token: str = ""
     redis_timeout_seconds: float = 0.75

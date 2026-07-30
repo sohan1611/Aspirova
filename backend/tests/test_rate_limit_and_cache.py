@@ -7,10 +7,12 @@ monkeypatches api.middleware.get_redis directly (not FastAPI's
 dependency_overrides, which does not reach ASGI middleware) and reverts
 automatically at teardown.
 
-Distinct X-Forwarded-For values per test avoid bucket collisions with each
-other and with test_api.py's unrelated /feed calls (which run with no real
-Redis configured and therefore always fail open, per sec 11.2).
+Distinct X-Forwarded-For values per test avoid bucket collisions. The shared
+test fixture clears the process-local limiter between tests, matching pytest's
+normal request-isolation expectations.
 """
+
+import asyncio
 
 import pytest
 import upstash_ratelimit.limiter as upstash_limiter
@@ -19,6 +21,7 @@ from sqlalchemy import event
 from api import middleware
 from api.deps import _engine
 from api.main import app
+from core import ratelimit
 from core.config import get_settings
 from fastapi.testclient import TestClient
 
@@ -29,6 +32,12 @@ client = TestClient(app)
 def freeze_rate_limit_time(monkeypatch) -> None:
     """Keep every request in a test within the same fixed-window bucket."""
     monkeypatch.setattr(upstash_limiter, "now_ms", lambda: 1_750_000_000_000)
+
+
+@pytest.fixture(autouse=True)
+def use_memory_rate_limit_backend(monkeypatch) -> None:
+    """Existing endpoint checks exercise the new default backend explicitly."""
+    monkeypatch.setattr(get_settings(), "rate_limit_backend", "memory")
 
 
 class FakeAsyncRedis:
@@ -89,16 +98,148 @@ def test_burst_of_requests_is_throttled_with_429_and_retry_after(monkeypatch) ->
     assert r2.status_code == 200
     assert r3.status_code == 429
     assert int(r3.headers["Retry-After"]) >= 0
+    assert fake._counters == {}  # rate limiting did not issue Redis writes
 
 
 def test_rate_limit_fails_open_when_redis_unreachable(monkeypatch) -> None:
     monkeypatch.setattr(middleware, "get_redis", lambda: BrokenAsyncRedis())
+    monkeypatch.setattr(get_settings(), "rate_limit_backend", "redis")
     monkeypatch.setattr(get_settings(), "rate_limit_ip_feed_search_per_minute", 1)
 
     headers = {"X-Forwarded-For": "203.0.113.2"}
     for _ in range(5):
         response = client.get("/feed", params={"limit": 1}, headers=headers)
         assert response.status_code == 200
+
+
+def test_memory_fixed_window_blocks_then_allows_in_the_next_window(monkeypatch) -> None:
+    clock = {"now": 119.0}
+    monkeypatch.setattr(ratelimit, "_now", lambda: clock["now"])
+
+    async def check() -> ratelimit.RateLimitResult:
+        return await ratelimit.check_rate_limit(
+            None,
+            bucket="memory-window",
+            identifier="203.0.113.200",
+            max_requests=2,
+            window_seconds=60,
+        )
+
+    async def run() -> tuple[ratelimit.RateLimitResult, ...]:
+        first = await check()
+        second = await check()
+        blocked = await check()
+        clock["now"] = 120.0
+        next_window = await check()
+        return first, second, blocked, next_window
+
+    first, second, blocked, next_window = asyncio.run(run())
+
+    assert first.allowed
+    assert second.allowed
+    assert not blocked.allowed
+    assert blocked.retry_after_seconds == 1
+    assert next_window.allowed
+
+
+def test_memory_rate_limit_fails_open_on_an_unexpected_error(monkeypatch) -> None:
+    def raise_clock_error() -> float:
+        raise RuntimeError("simulated memory limiter error")
+
+    monkeypatch.setattr(ratelimit, "_now", raise_clock_error)
+
+    async def run() -> ratelimit.RateLimitResult:
+        return await ratelimit.check_rate_limit(
+            None,
+            bucket="memory-fail-open",
+            identifier="203.0.113.204",
+            max_requests=1,
+            window_seconds=60,
+        )
+
+    assert asyncio.run(run()).allowed
+
+
+def test_memory_rate_limits_keep_buckets_and_identifiers_independent() -> None:
+    async def check(bucket: str, identifier: str) -> ratelimit.RateLimitResult:
+        return await ratelimit.check_rate_limit(
+            None,
+            bucket=bucket,
+            identifier=identifier,
+            max_requests=1,
+            window_seconds=60,
+        )
+
+    async def run() -> tuple[ratelimit.RateLimitResult, ...]:
+        feed_a_first = await check("feed_search", "203.0.113.201")
+        opportunity_a_first = await check("opportunity", "203.0.113.201")
+        feed_b_first = await check("feed_search", "203.0.113.202")
+        feed_a_second = await check("feed_search", "203.0.113.201")
+        opportunity_a_second = await check("opportunity", "203.0.113.201")
+        feed_b_second = await check("feed_search", "203.0.113.202")
+        return (
+            feed_a_first,
+            opportunity_a_first,
+            feed_b_first,
+            feed_a_second,
+            opportunity_a_second,
+            feed_b_second,
+        )
+
+    results = asyncio.run(run())
+
+    assert [result.allowed for result in results] == [True, True, True, False, False, False]
+
+
+def test_memory_rate_limit_entry_map_stays_within_its_hard_cap(monkeypatch) -> None:
+    monkeypatch.setattr(ratelimit, "_MEMORY_MAX_ENTRIES", 3)
+    monkeypatch.setattr(ratelimit, "_now", lambda: 119.0)
+
+    async def run() -> list[ratelimit.RateLimitResult]:
+        return [
+            await ratelimit.check_rate_limit(
+                None,
+                bucket="memory-cap",
+                identifier=f"203.0.113.{identifier}",
+                max_requests=1,
+                window_seconds=60,
+            )
+            for identifier in range(20)
+        ]
+
+    results = asyncio.run(run())
+
+    assert all(result.allowed for result in results)
+    assert ratelimit._memory_rate_limit_entry_count() <= 3
+    assert ratelimit._memory_rate_limit_entry_count() == 3
+
+
+def test_redis_backend_remains_selectable(monkeypatch) -> None:
+    fake = FakeAsyncRedis()
+    monkeypatch.setattr(get_settings(), "rate_limit_backend", "redis")
+
+    async def run() -> tuple[ratelimit.RateLimitResult, ratelimit.RateLimitResult]:
+        first = await ratelimit.check_rate_limit(
+            fake,
+            bucket="redis-backend",
+            identifier="203.0.113.203",
+            max_requests=1,
+            window_seconds=60,
+        )
+        second = await ratelimit.check_rate_limit(
+            fake,
+            bucket="redis-backend",
+            identifier="203.0.113.203",
+            max_requests=1,
+            window_seconds=60,
+        )
+        return first, second
+
+    first, second = asyncio.run(run())
+
+    assert first.allowed
+    assert not second.allowed
+    assert fake._counters
 
 
 def test_per_ip_keying_does_not_collapse_different_clients(monkeypatch) -> None:

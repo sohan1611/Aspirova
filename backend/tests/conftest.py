@@ -17,6 +17,15 @@ import pytest
 from sqlalchemy import text
 
 from core.db import make_engine
+from core.ratelimit import _reset_memory_rate_limit_state
+
+
+@pytest.fixture(autouse=True)
+def _reset_in_memory_rate_limiter():
+    """Keep process-local rate-limit state isolated between API tests."""
+    _reset_memory_rate_limit_state()
+    yield
+    _reset_memory_rate_limit_state()
 
 
 @pytest.fixture(scope="session")
