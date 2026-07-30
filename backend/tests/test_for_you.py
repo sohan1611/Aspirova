@@ -627,6 +627,59 @@ def test_for_you_other_and_empty_fields_fall_back_to_recent_feed_order(
         assert other_slugs.index(recent_open.slug) < other_slugs.index(recently_closed.slug)
 
 
+def test_for_you_default_order_sinks_detected_closed_without_deadline(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    suffix = uuid.uuid4().hex
+    now = datetime.now(UTC)
+    last_seen_at = now + timedelta(days=365)
+    company = models.Company(
+        slug=f"for-you-detected-closed-company-{suffix}",
+        name=f"For You Detected Closed Company {suffix}",
+    )
+    open_opportunity = models.Opportunity(
+        slug=f"for-you-detected-closed-open-{suffix}",
+        title="Generalist job",
+        company=company,
+        category="job",
+        country="AQ",
+        is_remote=False,
+        apply_url=f"https://example.com/for-you/detected-closed/open/{suffix}",
+        status="active",
+        last_seen_at=last_seen_at,
+    )
+    detected_closed = models.Opportunity(
+        slug=f"for-you-detected-closed-closed-{suffix}",
+        title="Generalist job",
+        company=company,
+        category="job",
+        country="AQ",
+        is_remote=False,
+        apply_url=f"https://example.com/for-you/detected-closed/closed/{suffix}",
+        status="active",
+        closed_at=now,
+        last_seen_at=last_seen_at,
+    )
+    db_session.add_all([company, open_opportunity, detected_closed])
+    db_session.flush()
+    assert detected_closed.deadline is None
+    assert detected_closed.id > open_opportunity.id
+
+    response = client.get(
+        "/for-you",
+        params={
+            "categories": "job",
+            "scope": "domestic",
+            "country": "AQ",
+            "limit": 1,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["items"][0]["slug"] == open_opportunity.slug
+
+
 def test_for_you_empty_and_whitespace_terms_behave_like_no_terms(
     client: TestClient,
     db_session: Session,
