@@ -98,6 +98,31 @@ GREENHOUSE_COMPANIES = [
     ("turing", "Turing", "turing.com"),  # 31
     ("lattice", "Lattice", "lattice.com"),  # 7
     ("cultureamp", "Culture Amp", "cultureamp.com"),  # 23
+    # Master-list wave, probed live 2026-07-31 (HTTP 200 + non-empty jobs).
+    ("aqr", "AQR Capital Management", "aqr.com"),  # 48
+    ("bugcrowd", "Bugcrowd", "bugcrowd.com"),  # 17
+    ("cloudsek", "CloudSEK", "cloudsek.com"),  # 26
+    ("dataiku", "Dataiku", "dataiku.com"),  # 20
+    ("devrev", "DevRev", "devrev.ai"),  # 42
+    ("fastly", "Fastly", "fastly.com"),  # 53
+    ("flowtraders", "Flow Traders", "flowtraders.com"),  # 38
+    ("hackerrank", "HackerRank", "hackerrank.com"),  # 33
+    ("highradius", "HighRadius", "highradius.com"),  # 64
+    ("imc", "IMC Trading", "imc.com"),  # 149
+    ("inmobi", "InMobi", "inmobi.com"),  # 70
+    ("janestreet", "Jane Street", "janestreet.com"),  # 219
+    ("jetbrains", "JetBrains", "jetbrains.com"),  # 95
+    ("jumptrading", "Jump Trading", "jumptrading.com"),  # 100
+    ("netlify", "Netlify", "netlify.com"),  # 5
+    ("netradyne", "Netradyne", "netradyne.com"),  # 27
+    ("netskope", "Netskope", "netskope.com"),  # 131
+    ("newrelic", "New Relic", "newrelic.com"),  # 51
+    ("observeai", "Observe.AI", "observe.ai"),  # 18
+    ("recordedfuture", "Recorded Future", "recordedfuture.com"),  # 39
+    ("sigmoid", "Sigmoid", "sigmoid.com"),  # 44
+    ("synack", "Synack", "synack.com"),  # 8
+    ("thoughtworks", "Thoughtworks", "thoughtworks.com"),  # 55
+    ("zenoti", "Zenoti", "zenoti.com"),  # 36
 ]
 
 # (board_token, company_name, domain) - verified live against
@@ -124,6 +149,9 @@ LEVER_COMPANIES = [
     ("anchorage", "Anchorage Digital", "anchoragedigital.com"),
     ("kavak", "Kavak", "kavak.com"),
     ("ledger", "Ledger", "ledger.com"),
+    # Master-list wave, probed live 2026-07-31 (HTTP 200 + non-empty jobs).
+    ("porter", "Porter", "porter.in"),  # 27
+    ("sophos", "Sophos", "sophos.com"),  # 110
 ]
 
 # Held out (verified live 2026-07-25 but excluded on purpose):
@@ -145,6 +173,12 @@ LEVER_COMPANIES = [
 #    the existing row via a targeted prod UPDATE instead
 #    (ats_type='greenhouse', ats_board_id='justworks') - kept OUT of this list
 #    so a reseed can't recreate the dup.
+#  - worldquant (Greenhouse, 102 jobs): a "WorldQuant" company already exists
+#    in prod (slug worldquant-d1dd59cb, no ATS, aggregator-created). Seeding a
+#    fresh "worldquant" slug would DUPLICATE it because this script keys
+#    idempotency on Company.slug == board_token.lower(). The architect attaches
+#    its board to the existing row via a targeted prod UPDATE instead; kept OUT
+#    of GREENHOUSE_COMPANIES so a reseed cannot recreate the duplicate.
 
 # (board_token, company_name, domain) - verified live against
 # https://api.ashbyhq.com/posting-api/job-board/{token}
@@ -211,6 +245,16 @@ ASHBY_COMPANIES = [
     ("etched", "Etched", "etched.com"),  # 102
     ("physicalintelligence", "Physical Intelligence", None),  # 24
     ("1x", "1X", "1x.tech"),  # 65
+    # Master-list wave, probed live 2026-07-31 (HTTP 200 + non-empty jobs).
+    ("atlan", "Atlan", "atlan.com"),  # 5
+    ("confluent", "Confluent", "confluent.io"),  # 33
+    ("docker", "Docker", "docker.com"),  # 58
+    ("hackerone", "HackerOne", "hackerone.com"),  # 25
+    ("navi", "Navi", "navi.com"),  # 7
+    ("redis", "Redis", "redis.io"),  # 27
+    ("render", "Render", "render.com"),  # 34
+    ("sarvam", "Sarvam AI", "sarvam.ai"),  # 63
+    ("sentry", "Sentry", "sentry.io"),  # 47
 ]
 
 # (board_token, company_name, domain) - verified live against
@@ -252,12 +296,14 @@ KEKA_COMPANIES = [
     ("softprodigy", "SoftProdigy System Solutions", "softprodigy.com"),
 ]
 
-# Held out to bound crawl duration (a single board over ~300 listings risks the
-# 28-min ATS step timeout -- the crawl ingests ~40 new listings/min, and veeva
-# (831) caused the 2026-07-26 crawl failure): BoschGroup (4667),
-# DeliveryHero (1110), veeva (Veeva Systems, 831), waymo (Waymo, 404),
-# crusoe (Crusoe, 359). Re-add once async/lazy detail fetch lands so a big
-# board no longer blocks the single-run budget.
+# Held out to bound crawl duration (a single board over ~280 listings cannot
+# finish inside the crawl's ATS step budget; the crawl ingests ~40 new
+# listings/min, and veeva (831) caused the 2026-07-26 crawl failure):
+# BoschGroup (4667), DeliveryHero (1110), veeva (Veeva Systems, 831),
+# waymo (Waymo, 404), snowflake (Ashby, 411), crusoe (Crusoe, 359),
+# okta (Greenhouse, 346), zscaler (Greenhouse, 310), canonical
+# (Greenhouse, 303). Re-add once async/lazy detail fetch lands so a big board
+# no longer blocks the single-run budget.
 
 # Amazon uses one employer-wide search API. The board token is only a stable
 # marker for the shared adapter interface and is not sent to the endpoint.
