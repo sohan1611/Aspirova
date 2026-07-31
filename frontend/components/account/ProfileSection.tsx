@@ -429,7 +429,7 @@ export default function ProfileSection({
           </div>
           <div>
             <p className="text-muted-foreground">Your referral link</p>
-            <Button asChild variant="link" className="mt-1 h-auto justify-start p-0">
+            <Button asChild variant="link" className="mt-1 h-auto justify-start p-0 has-[>svg]:px-0">
               <Link href="/referral">
                 {account.invite_code ? `Invite code: ${account.invite_code}` : "Open referrals"}
                 <ExternalLink aria-hidden="true" />
