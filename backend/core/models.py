@@ -10,6 +10,7 @@ from datetime import datetime
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    CheckConstraint,
     DateTime,
     Float,
     ForeignKey,
@@ -189,6 +190,75 @@ class OpportunityViewCount(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=text("now()"),
+    )
+
+
+class Programme(Base):
+    """Stable authored registry entry for a recurring annual programme."""
+
+    __tablename__ = "programmes"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    slug: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    organiser: Mapped[str] = mapped_column(Text, nullable=False)
+    category: Mapped[str] = mapped_column(Text, nullable=False)
+    url: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    eligibility: Mapped[str | None] = mapped_column(Text)
+    typical_window: Mapped[str | None] = mapped_column(Text)
+    country: Mapped[str | None] = mapped_column(String(2))
+    tags: Mapped[list] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+    editions: Mapped[list["ProgrammeEdition"]] = relationship(
+        back_populates="programme", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "category in ("
+            "'research_internship', 'fellowship', 'government_internship', "
+            "'open_source', 'international_research', 'corporate_research', "
+            "'recurring_competition', 'scholarship', 'conference'"
+            ")",
+            name="ck_programmes_category",
+        ),
+    )
+
+
+class ProgrammeEdition(Base):
+    """A single annual edition of a recurring programme, verified separately."""
+
+    __tablename__ = "programme_editions"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    programme_id: Mapped[int] = mapped_column(
+        ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    year: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'expected'"))
+    opens_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closes_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    source_url: Mapped[str | None] = mapped_column(Text)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    programme: Mapped["Programme"] = relationship(back_populates="editions")
+
+    __table_args__ = (
+        CheckConstraint(
+            "status in ('expected', 'announced', 'open', 'closed', 'discontinued')",
+            name="ck_programme_editions_status",
+        ),
+        UniqueConstraint("programme_id", "year", name="uq_programme_editions_programme_year"),
+        Index("ix_programme_editions_status_closes_at", "status", "closes_at"),
     )
 
 
