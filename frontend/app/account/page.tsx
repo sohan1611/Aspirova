@@ -3,7 +3,15 @@
 import { AlertCircle, Loader2, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import {
+  Component,
+  Suspense,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import AccountAvatar from "@/components/account/AccountAvatar";
 import AccountSidebar, {
   isAccountSection,
@@ -376,36 +384,71 @@ function AccountPageContent() {
           onSectionChange={selectSection}
         />
         <section aria-live="polite">
-          {activeSection === "profile" && (
-            <ProfileSection
-              account={account}
-              accessToken={authenticatedAccessToken}
-              user={session.user}
-              onAccountChange={setAccount}
-            />
-          )}
-          {activeSection === "subscription" && (
-            <SubscriptionSection
-              account={account}
-              accessToken={authenticatedAccessToken}
-              refresh={refresh}
-            />
-          )}
-          {activeSection === "notifications" && (
-            <NotificationsSection
-              account={account}
-              accessToken={authenticatedAccessToken}
-              onAccountChange={setAccount}
-            />
-          )}
-          {activeSection === "saved" && (
-            <SavedSearchesSection accessToken={authenticatedAccessToken} />
-          )}
-          {activeSection === "security" && <SecuritySection user={session.user} />}
+          <AccountSectionErrorBoundary key={activeSection}>
+            {activeSection === "profile" && (
+              <ProfileSection
+                account={account}
+                accessToken={authenticatedAccessToken}
+                user={session.user}
+                onAccountChange={setAccount}
+              />
+            )}
+            {activeSection === "subscription" && (
+              <SubscriptionSection
+                account={account}
+                accessToken={authenticatedAccessToken}
+                refresh={refresh}
+              />
+            )}
+            {activeSection === "notifications" && (
+              <NotificationsSection
+                account={account}
+                accessToken={authenticatedAccessToken}
+                onAccountChange={setAccount}
+              />
+            )}
+            {activeSection === "saved" && (
+              <SavedSearchesSection accessToken={authenticatedAccessToken} />
+            )}
+            {activeSection === "security" && <SecuritySection user={session.user} />}
+          </AccountSectionErrorBoundary>
         </section>
       </div>
     </main>
   );
+}
+
+class AccountSectionErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Card role="alert">
+          <CardContent className="flex items-start gap-3 py-5">
+            <AlertCircle className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden="true" />
+            <div>
+              <p className="font-medium text-foreground">
+                Something went wrong loading this section.
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Try another settings section or refresh the page.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return this.props.children;
+  }
 }
 
 function AccountLoadingSkeleton() {

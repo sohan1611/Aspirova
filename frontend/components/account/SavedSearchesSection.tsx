@@ -41,43 +41,99 @@ interface SavedSearchLoadState {
   items: SavedSearchItem[];
 }
 
-function savedSearchSummary(params: SavedSearchParams): string {
+// Saved-search responses are JSON at the client boundary. A partial/stale
+// payload should render the empty state instead of crashing the account route.
+function safeSavedSearchParams(params: unknown): SavedSearchParams {
+  if (!params || typeof params !== "object" || Array.isArray(params)) return {};
+
+  const values = params as Record<string, unknown>;
+  return {
+    q: typeof values.q === "string" ? values.q : undefined,
+    category:
+      values.category === "internship" ||
+      values.category === "job" ||
+      values.category === "hackathon" ||
+      values.category === "competition"
+        ? values.category
+        : undefined,
+    kind:
+      values.kind === "roles" || values.kind === "competitions"
+        ? values.kind
+        : undefined,
+    remote: typeof values.remote === "boolean" ? values.remote : undefined,
+    scope:
+      values.scope === "abroad" ||
+      values.scope === "domestic" ||
+      values.scope === "both"
+        ? values.scope
+        : undefined,
+    country: typeof values.country === "string" ? values.country : undefined,
+    source:
+      values.source === "direct" ||
+      values.source === "unstop" ||
+      values.source === "remoteok" ||
+      values.source === "devpost"
+        ? values.source
+        : undefined,
+    experience: values.experience === "early" ? values.experience : undefined,
+  };
+}
+
+function isSavedSearchItem(value: unknown): value is SavedSearchItem {
+  return (
+    Boolean(value) &&
+    typeof value === "object" &&
+    typeof (value as { id?: unknown }).id === "number"
+  );
+}
+
+function savedSearchSummary(params: unknown): string {
+  const safeParams = safeSavedSearchParams(params);
   const parts: string[] = [];
 
-  if (params.q) parts.push(`“${params.q}”`);
-  if (params.category) parts.push(CATEGORY_LABELS[params.category] ?? params.category);
-  else if (params.kind === "roles") parts.push("Roles");
-  else if (params.kind === "competitions") parts.push("Competitions");
-  if (params.remote === true) parts.push("Remote");
-  if (params.remote === false) parts.push("On-site");
-  if (params.country) {
-    parts.push(getCountry(params.country)?.name ?? params.country.toUpperCase());
-  } else if (params.scope === "abroad") {
+  if (safeParams.q) parts.push(`“${safeParams.q}”`);
+  if (safeParams.category) {
+    parts.push(CATEGORY_LABELS[safeParams.category] ?? safeParams.category);
+  } else if (safeParams.kind === "roles") {
+    parts.push("Roles");
+  } else if (safeParams.kind === "competitions") {
+    parts.push("Competitions");
+  }
+  if (safeParams.remote === true) parts.push("Remote");
+  if (safeParams.remote === false) parts.push("On-site");
+  if (safeParams.country) {
+    parts.push(
+      getCountry(safeParams.country)?.name ?? safeParams.country.toUpperCase(),
+    );
+  } else if (safeParams.scope === "abroad") {
     parts.push("Abroad");
-  } else if (params.scope === "domestic") {
+  } else if (safeParams.scope === "domestic") {
     parts.push("Domestic");
-  } else if (params.scope === "both") {
+  } else if (safeParams.scope === "both") {
     parts.push("All locations");
   }
-  if (params.source) parts.push(SOURCE_LABELS[params.source] ?? params.source);
-  if (params.experience === "early") parts.push("Early career");
+  if (safeParams.source) {
+    parts.push(SOURCE_LABELS[safeParams.source] ?? safeParams.source);
+  }
+  if (safeParams.experience === "early") parts.push("Early career");
 
   return parts.join(" · ") || "All opportunities";
 }
 
-function savedSearchHref(params: SavedSearchParams): string {
+function savedSearchHref(params: unknown): string {
+  const safeParams = safeSavedSearchParams(params);
   const search = new URLSearchParams();
 
-  if (params.q) search.set("q", params.q);
-  if (params.category) search.set("category", params.category);
-  if (params.kind) search.set("kind", params.kind);
-  if (params.remote !== undefined && params.remote !== null) {
-    search.set("remote", String(params.remote));
+  if (safeParams.q) search.set("q", safeParams.q);
+  if (safeParams.category) search.set("category", safeParams.category);
+  if (safeParams.kind) search.set("kind", safeParams.kind);
+  if (safeParams.remote !== undefined && safeParams.remote !== null) {
+    search.set("remote", String(safeParams.remote));
   }
-  if (params.scope) search.set("scope", params.scope);
-  if (params.country) search.set("country", params.country);
-  if (params.source) search.set("source", params.source);
-  if (params.experience) search.set("experience", params.experience);
+  if (safeParams.scope) search.set("scope", safeParams.scope);
+  if (safeParams.country) search.set("country", safeParams.country);
+  if (safeParams.source) search.set("source", safeParams.source);
+  if (safeParams.experience) search.set("experience", safeParams.experience);
 
   const query = search.toString();
   return query ? `/?${query}` : "/";
@@ -99,7 +155,8 @@ export default function SavedSearchesSection({ accessToken }: { accessToken: str
 
     async function loadSavedSearches() {
       try {
-        const items = await getSavedSearches(accessToken);
+        const response = await getSavedSearches(accessToken);
+        const items = Array.isArray(response) ? response.filter(isSavedSearchItem) : [];
         if (cancelled) return;
         setLoadState({ accessToken, requestKey: retryKey, status: "success", items });
       } catch {
@@ -295,7 +352,9 @@ export default function SavedSearchesSection({ accessToken }: { accessToken: str
         <CardContent className="grid gap-3">
           {loadState.items.map((item) => {
             const summary = savedSearchSummary(item.params);
-            const title = item.name?.trim() || summary;
+            const name = typeof item.name === "string" ? item.name.trim() : "";
+            const title = name || summary;
+            const createdAt = typeof item.created_at === "string" ? item.created_at : null;
             const isUpdatingAlerts = pendingAlertIds.has(item.id);
             const isDeleting = pendingDeleteIds.has(item.id);
             const controlsDisabled = isUpdatingAlerts || isDeleting;
@@ -316,12 +375,17 @@ export default function SavedSearchesSection({ accessToken }: { accessToken: str
                     >
                       {title}
                     </h2>
-                    {item.name?.trim() && (
+                    {name && (
                       <p className="mt-1 text-sm text-muted-foreground">{summary}</p>
                     )}
                     <p className="mt-2 text-xs text-muted-foreground">
-                      Saved{" "}
-                      <time dateTime={item.created_at}>{formatDate(item.created_at, "long")}</time>
+                      {createdAt ? (
+                        <>
+                          Saved <time dateTime={createdAt}>{formatDate(createdAt, "long")}</time>
+                        </>
+                      ) : (
+                        "Saved recently"
+                      )}
                     </p>
                   </div>
 
