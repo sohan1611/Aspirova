@@ -239,9 +239,7 @@ def test_programmes_returns_seeded_programmes_with_current_edition(
     assert seeded_programmes["inactive"].slug not in by_slug
 
 
-def test_programme_filters_narrow_correctly(
-    client: TestClient, seeded_programmes
-) -> None:
+def test_programme_filters_narrow_correctly(client: TestClient, seeded_programmes) -> None:
     suffix = seeded_programmes["suffix"]
 
     category = client.get(
@@ -285,9 +283,7 @@ def test_programmes_pagination_total_and_no_repeated_page_items(
     assert _slugs(first.json()) != _slugs(second.json())
 
 
-def test_inactive_programmes_are_excluded(
-    client: TestClient, seeded_programmes
-) -> None:
+def test_inactive_programmes_are_excluded(client: TestClient, seeded_programmes) -> None:
     response = client.get(
         "/programmes",
         params={"q": f"Inactive Programme {seeded_programmes['suffix']}"},
