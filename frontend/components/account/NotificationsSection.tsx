@@ -41,14 +41,18 @@ export default function NotificationsSection({
   onAccountChange: (account: AccountMe) => void;
 }) {
   const [pendingKey, setPendingKey] = useState<string | null>(null);
+  // Older/stale account payloads can omit these nested JSON objects. Keep the
+  // settings UI usable while the next account refresh restores the full shape.
+  const notificationPrefs = account.notification_prefs ?? {};
+  const planFeatures = account.plan?.features ?? {};
 
   async function handleToggle(key: (typeof NOTIFICATIONS)[number]["key"]) {
     const previous = account;
-    const next = account.notification_prefs[key] === false;
+    const next = notificationPrefs[key] === false;
     const optimistic: AccountMe = {
       ...account,
       notification_prefs: {
-        ...account.notification_prefs,
+        ...notificationPrefs,
         [key]: next,
       },
     };
@@ -77,8 +81,8 @@ export default function NotificationsSection({
       </CardHeader>
       <CardContent className="divide-y divide-border">
         {NOTIFICATIONS.map((notification) => {
-          const enabled = account.notification_prefs[notification.key] !== false;
-          const includedWithPlan = account.plan.features[notification.key] === true;
+          const enabled = notificationPrefs[notification.key] !== false;
+          const includedWithPlan = planFeatures[notification.key] === true;
 
           return (
             <div
