@@ -2,7 +2,7 @@
 responses - the canonical opportunity page links to the real source, never
 mirrors it (Doc 01 sec 7 R1, Doc 04 sec 10)."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
@@ -89,6 +89,86 @@ class OpportunityListItem(BaseModel):
             last_seen_at=o.last_seen_at,
             is_hidden=o.is_hidden,
             meta=o.meta,
+        )
+
+
+class ProgrammeEditionItem(BaseModel):
+    year: int
+    status: str
+    opens_at: datetime | None
+    closes_at: datetime | None
+    source_url: str | None
+    verified_at: datetime | None
+    notes: str | None
+
+    @classmethod
+    def from_model(cls, edition: "models.ProgrammeEdition") -> "ProgrammeEditionItem":
+        # Status is reported exactly as stored; never infer "open" from dates.
+        return cls(
+            year=edition.year,
+            status=edition.status,
+            opens_at=edition.opens_at,
+            closes_at=edition.closes_at,
+            source_url=edition.source_url,
+            verified_at=edition.verified_at,
+            notes=edition.notes,
+        )
+
+
+class ProgrammeListItem(BaseModel):
+    slug: str
+    name: str
+    organiser: str
+    category: str
+    country: str | None
+    url: str
+    typical_window: str | None
+    tags: list[str] = []
+    current_edition: ProgrammeEditionItem | None
+
+    @classmethod
+    def from_model(
+        cls,
+        programme: "models.Programme",
+        *,
+        current_edition: "models.ProgrammeEdition | None" = None,
+    ) -> "ProgrammeListItem":
+        return cls(
+            slug=programme.slug,
+            name=programme.name,
+            organiser=programme.organiser,
+            category=programme.category,
+            country=programme.country,
+            url=programme.url,
+            typical_window=programme.typical_window,
+            tags=list(programme.tags or []),
+            current_edition=(
+                ProgrammeEditionItem.from_model(current_edition)
+                if current_edition is not None
+                else None
+            ),
+        )
+
+
+class ProgrammeDetail(ProgrammeListItem):
+    description: str | None
+    eligibility: str | None
+    editions: list[ProgrammeEditionItem]
+
+    @classmethod
+    def from_model(cls, programme: "models.Programme") -> "ProgrammeDetail":
+        editions = sorted(programme.editions, key=lambda edition: edition.year, reverse=True)
+        current_year = datetime.now(UTC).year
+        current_edition = next(
+            (edition for edition in editions if edition.year == current_year),
+            None,
+        )
+        base = ProgrammeListItem.from_model(programme, current_edition=current_edition)
+        return cls(
+            **base.model_dump(),
+            description=programme.description,
+            eligibility=programme.eligibility,
+            editions=[ProgrammeEditionItem.from_model(edition) for edition in editions],
         )
 
 
@@ -268,6 +348,13 @@ class DreamCompanyItem(BaseModel):
 
 class FeedResponse(BaseModel):
     items: list[OpportunityListItem]
+    total: int
+    page: int
+    limit: int
+
+
+class ProgrammeListResponse(BaseModel):
+    items: list[ProgrammeListItem]
     total: int
     page: int
     limit: int
