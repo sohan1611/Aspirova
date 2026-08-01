@@ -33,6 +33,9 @@ export default function AppHeader() {
             <Link href="/research" className={NAV_LINK_CLASSES}>
               Research
             </Link>
+            <Link href="/programmes" className={NAV_LINK_CLASSES}>
+              Programmes
+            </Link>
             <Link href="/pricing" className={NAV_LINK_CLASSES}>
               Pricing
             </Link>

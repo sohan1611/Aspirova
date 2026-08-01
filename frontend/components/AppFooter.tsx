@@ -43,6 +43,11 @@ export default function AppFooter() {
                 </Link>
               </li>
               <li>
+                <Link className="text-muted-foreground hover:text-foreground" href="/programmes">
+                  Programmes
+                </Link>
+              </li>
+              <li>
                 <Link className="text-muted-foreground hover:text-foreground" href="/companies">
                   Companies
                 </Link>

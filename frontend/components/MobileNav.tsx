@@ -20,6 +20,7 @@ const NAV_LINKS = [
   { href: "/copilot", label: "Copilot" },
   { href: "/competitions", label: "Competitions" },
   { href: "/research", label: "Research" },
+  { href: "/programmes", label: "Programmes" },
   { href: "/pricing", label: "Pricing" },
 ] as const;
 

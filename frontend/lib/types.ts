@@ -101,6 +101,42 @@ export interface OpportunityDetail extends OpportunityListItem {
   } | null;
 }
 
+export type ProgrammeEditionStatus =
+  | "expected"
+  | "announced"
+  | "open"
+  | "closed"
+  | "discontinued"
+  | (string & {});
+
+export interface ProgrammeEditionItem {
+  year: number;
+  status: ProgrammeEditionStatus;
+  opens_at: string | null;
+  closes_at: string | null;
+  source_url: string | null;
+  verified_at: string | null;
+  notes: string | null;
+}
+
+export interface ProgrammeListItem {
+  slug: string;
+  name: string;
+  organiser: string;
+  category: string;
+  country: string | null;
+  url: string;
+  typical_window: string | null;
+  tags: string[];
+  current_edition: ProgrammeEditionItem | null;
+}
+
+export interface ProgrammeDetail extends ProgrammeListItem {
+  description: string | null;
+  eligibility: string | null;
+  editions: ProgrammeEditionItem[];
+}
+
 export interface CopilotSource {
   slug: string;
   company: string | null;
@@ -116,6 +152,13 @@ export interface CopilotResponse {
 
 export interface FeedResponse {
   items: OpportunityListItem[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface ProgrammeListResponse {
+  items: ProgrammeListItem[];
   total: number;
   page: number;
   limit: number;
