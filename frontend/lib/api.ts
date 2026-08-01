@@ -14,6 +14,8 @@ import type {
   OpportunityDetail,
   OpportunityListItem,
   PlanPublic,
+  ProgrammeDetail,
+  ProgrammeListResponse,
   ReferralClaimResult,
   ReferralMe,
   SavedSearchCreate,
@@ -96,6 +98,15 @@ export interface ForYouParams {
   categories?: string[];
   country?: string;
   scope?: "abroad" | "domestic" | "both";
+  page?: number;
+  limit?: number;
+}
+
+export interface ProgrammeParams {
+  category?: string;
+  country?: string;
+  status?: "expected" | "announced" | "open" | "closed";
+  q?: string;
   page?: number;
   limit?: number;
 }
@@ -238,6 +249,34 @@ export async function getOpportunity(slug: string): Promise<OpportunityDetail | 
   });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Failed to load opportunity: ${res.status}`);
+  return res.json();
+}
+
+export async function getProgrammes(
+  params: ProgrammeParams = {},
+): Promise<ProgrammeListResponse> {
+  const search = new URLSearchParams();
+  if (params.category) search.set("category", params.category);
+  if (params.country) search.set("country", params.country);
+  if (params.status) search.set("status", params.status);
+  if (params.q) search.set("q", params.q);
+  if (params.page) search.set("page", String(params.page));
+  if (params.limit) search.set("limit", String(params.limit));
+
+  const query = search.toString();
+  const res = await fetch(`${API_URL}/programmes${query ? `?${query}` : ""}`, {
+    next: { revalidate: 21600 },
+  });
+  if (!res.ok) throw new Error(`Failed to load programmes: ${res.status}`);
+  return res.json();
+}
+
+export async function getProgramme(slug: string): Promise<ProgrammeDetail | null> {
+  const res = await fetch(`${API_URL}/programme/${encodeURIComponent(slug)}`, {
+    next: { revalidate: 21600 },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Failed to load programme: ${res.status}`);
   return res.json();
 }
 

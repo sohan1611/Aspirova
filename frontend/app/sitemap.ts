@@ -15,6 +15,7 @@ const STATIC_ROUTES = [
   "/remote",
   "/jobs",
   "/companies",
+  "/programmes",
   "/competitions",
   "/research",
 ] as const;
@@ -28,6 +29,17 @@ interface SitemapOpportunity {
 
 interface SitemapCompany {
   slug: string;
+}
+
+interface SitemapProgramme {
+  slug: string;
+}
+
+interface SitemapProgrammeListResponse {
+  items: SitemapProgramme[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 type SitemapEntry = MetadataRoute.Sitemap[number];
@@ -58,6 +70,35 @@ async function fetchSitemapCompanies(): Promise<SitemapCompany[]> {
   return response.json();
 }
 
+async function fetchSitemapProgrammes(): Promise<SitemapProgramme[]> {
+  const limit = 100;
+  const programmes: SitemapProgramme[] = [];
+  let page = 1;
+  let total = 0;
+
+  do {
+    const search = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+    });
+    const response = await fetch(`${API_URL}/programmes?${search.toString()}`, {
+        next: { revalidate: 86400 },
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to load sitemap programmes: ${response.status}`);
+    }
+
+    const data = (await response.json()) as SitemapProgrammeListResponse;
+    programmes.push(...data.items);
+    total = data.total;
+    page += 1;
+
+    if (data.items.length === 0) break;
+  } while (programmes.length < total && page <= 20);
+
+  return programmes;
+}
+
 function lastModifiedFrom(value: string): Date | undefined {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? undefined : date;
@@ -66,6 +107,7 @@ function lastModifiedFrom(value: string): Date | undefined {
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let opportunities: SitemapOpportunity[] = [];
   let companies: SitemapCompany[] = [];
+  let programmes: SitemapProgramme[] = [];
   try {
     opportunities = await fetchSitemapOpportunities();
   } catch {
@@ -75,6 +117,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     companies = await fetchSitemapCompanies();
   } catch {
     companies = [];
+  }
+  try {
+    programmes = await fetchSitemapProgrammes();
+  } catch {
+    programmes = [];
   }
 
   return [
@@ -96,6 +143,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .map((company): SitemapEntry => {
         return {
           url: `${SITE_URL}/companies/${encodeURIComponent(company.slug)}`,
+        };
+      }),
+    ...programmes
+      .filter((programme) => programme.slug)
+      .map((programme): SitemapEntry => {
+        return {
+          url: `${SITE_URL}/programme/${encodeURIComponent(programme.slug)}`,
         };
       }),
   ];
