@@ -1,4 +1,5 @@
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -78,11 +79,40 @@ def _registry_file(tmp_path: Path, *, name: str = "Original Programme") -> Path:
     return path
 
 
+def _edition_registry_file(
+    tmp_path: Path,
+    editions: list[dict],
+) -> Path:
+    path = tmp_path / "programme_editions.json"
+    path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "note": "test edition registry",
+                "editions": editions,
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
 def test_seed_programmes_is_idempotent(db_session: Session, tmp_path: Path) -> None:
     registry_path = _registry_file(tmp_path)
+    edition_registry_path = _edition_registry_file(tmp_path, [])
 
-    seed_programmes.seed(db_session, current_year=TEST_YEAR, registry_path=registry_path)
-    seed_programmes.seed(db_session, current_year=TEST_YEAR, registry_path=registry_path)
+    seed_programmes.seed(
+        db_session,
+        current_year=TEST_YEAR,
+        registry_path=registry_path,
+        edition_registry_path=edition_registry_path,
+    )
+    seed_programmes.seed(
+        db_session,
+        current_year=TEST_YEAR,
+        registry_path=registry_path,
+        edition_registry_path=edition_registry_path,
+    )
 
     programme_count = db_session.scalar(
         select(func.count())
@@ -107,7 +137,13 @@ def test_seed_programmes_updates_mutable_fields_without_changing_identity(
     db_session: Session, tmp_path: Path
 ) -> None:
     first_registry = _registry_file(tmp_path, name="Original Programme")
-    seed_programmes.seed(db_session, current_year=TEST_YEAR, registry_path=first_registry)
+    edition_registry_path = _edition_registry_file(tmp_path, [])
+    seed_programmes.seed(
+        db_session,
+        current_year=TEST_YEAR,
+        registry_path=first_registry,
+        edition_registry_path=edition_registry_path,
+    )
 
     programme = db_session.scalar(
         select(models.Programme).where(models.Programme.slug == "test-programme-seed")
@@ -116,7 +152,12 @@ def test_seed_programmes_updates_mutable_fields_without_changing_identity(
     original_id = programme.id
 
     updated_registry = _registry_file(tmp_path, name="Updated Programme")
-    seed_programmes.seed(db_session, current_year=TEST_YEAR, registry_path=updated_registry)
+    seed_programmes.seed(
+        db_session,
+        current_year=TEST_YEAR,
+        registry_path=updated_registry,
+        edition_registry_path=edition_registry_path,
+    )
     db_session.refresh(programme)
 
     assert programme.id == original_id
@@ -128,7 +169,13 @@ def test_seeded_editions_default_to_expected_with_null_dates(
     db_session: Session, tmp_path: Path
 ) -> None:
     registry_path = _registry_file(tmp_path)
-    seed_programmes.seed(db_session, current_year=TEST_YEAR, registry_path=registry_path)
+    edition_registry_path = _edition_registry_file(tmp_path, [])
+    seed_programmes.seed(
+        db_session,
+        current_year=TEST_YEAR,
+        registry_path=registry_path,
+        edition_registry_path=edition_registry_path,
+    )
 
     edition = db_session.scalar(
         select(models.ProgrammeEdition)
@@ -140,6 +187,160 @@ def test_seeded_editions_default_to_expected_with_null_dates(
     assert edition.status == "expected"
     assert edition.opens_at is None
     assert edition.closes_at is None
+
+
+def test_seed_authored_editions_is_idempotent_and_updates_expected_in_place(
+    db_session: Session,
+    tmp_path: Path,
+) -> None:
+    registry_path = _registry_file(tmp_path)
+    edition_registry_path = _edition_registry_file(
+        tmp_path,
+        [
+            {
+                "programme_slug": "test-programme-seed",
+                "year": TEST_YEAR,
+                "status": "closed",
+                "source_url": "https://example.edu/programme/2026",
+                "verified_at": "2026-08-02T00:00:00Z",
+                "notes": "Official call is closed.",
+            }
+        ],
+    )
+
+    first = seed_programmes.seed(
+        db_session,
+        current_year=TEST_YEAR,
+        registry_path=registry_path,
+        edition_registry_path=edition_registry_path,
+    )
+    second = seed_programmes.seed(
+        db_session,
+        current_year=TEST_YEAR,
+        registry_path=registry_path,
+        edition_registry_path=edition_registry_path,
+    )
+
+    edition = db_session.scalar(
+        select(models.ProgrammeEdition)
+        .join(models.Programme)
+        .where(
+            models.Programme.slug == "test-programme-seed",
+            models.ProgrammeEdition.year == TEST_YEAR,
+        )
+    )
+
+    assert first == (1, 0, 1, 0, 1)
+    assert second == (0, 0, 0, 0, 0)
+    assert edition is not None
+    assert edition.status == "closed"
+    assert edition.opens_at is None
+    assert edition.closes_at is None
+    assert edition.source_url == "https://example.edu/programme/2026"
+    assert edition.verified_at == datetime(2026, 8, 2, tzinfo=UTC)
+    assert edition.notes == "Official call is closed."
+
+
+def test_seed_authored_editions_rejects_open_and_writes_nothing(
+    db_session: Session,
+    tmp_path: Path,
+) -> None:
+    registry_path = _registry_file(tmp_path)
+    edition_registry_path = _edition_registry_file(
+        tmp_path,
+        [
+            {
+                "programme_slug": "test-programme-seed",
+                "year": TEST_YEAR,
+                "status": "open",
+            }
+        ],
+    )
+
+    with pytest.raises(ValueError, match="status 'open'"):
+        seed_programmes.seed(
+            db_session,
+            current_year=TEST_YEAR,
+            registry_path=registry_path,
+            edition_registry_path=edition_registry_path,
+        )
+
+    programme_count = db_session.scalar(
+        select(func.count())
+        .select_from(models.Programme)
+        .where(models.Programme.slug == "test-programme-seed")
+    )
+    edition_count = db_session.scalar(
+        select(func.count())
+        .select_from(models.ProgrammeEdition)
+        .join(models.Programme)
+        .where(models.Programme.slug == "test-programme-seed")
+    )
+
+    assert programme_count == 0
+    assert edition_count == 0
+
+
+def test_seed_authored_editions_leave_absent_db_editions_untouched(
+    db_session: Session,
+    tmp_path: Path,
+) -> None:
+    registry_path = _registry_file(tmp_path)
+    empty_editions_path = _edition_registry_file(tmp_path, [])
+    seed_programmes.seed(
+        db_session,
+        current_year=TEST_YEAR,
+        registry_path=registry_path,
+        edition_registry_path=empty_editions_path,
+    )
+
+    programme = db_session.scalar(
+        select(models.Programme).where(models.Programme.slug == "test-programme-seed")
+    )
+    assert programme is not None
+    untouched_opens_at = datetime(2026, 10, 1, tzinfo=UTC)
+    untouched_closes_at = datetime(2026, 10, 31, tzinfo=UTC)
+    untouched_verified_at = datetime(2026, 7, 1, tzinfo=UTC)
+    untouched = models.ProgrammeEdition(
+        programme_id=programme.id,
+        year=TEST_YEAR + 1,
+        status="announced",
+        opens_at=untouched_opens_at,
+        closes_at=untouched_closes_at,
+        source_url="https://example.edu/programme/untouched",
+        verified_at=untouched_verified_at,
+        notes="Do not edit this row.",
+    )
+    db_session.add(untouched)
+    db_session.flush()
+
+    authored_path = _edition_registry_file(
+        tmp_path,
+        [
+            {
+                "programme_slug": "test-programme-seed",
+                "year": TEST_YEAR,
+                "status": "closed",
+                "source_url": "https://example.edu/programme/2026",
+                "verified_at": "2026-08-02T00:00:00Z",
+                "notes": "Closed edition.",
+            }
+        ],
+    )
+    seed_programmes.seed(
+        db_session,
+        current_year=TEST_YEAR,
+        registry_path=registry_path,
+        edition_registry_path=authored_path,
+    )
+    db_session.refresh(untouched)
+
+    assert untouched.status == "announced"
+    assert untouched.opens_at == untouched_opens_at
+    assert untouched.closes_at == untouched_closes_at
+    assert untouched.source_url == "https://example.edu/programme/untouched"
+    assert untouched.verified_at == untouched_verified_at
+    assert untouched.notes == "Do not edit this row."
 
 
 def test_programme_category_check_rejects_unknown_category(engine) -> None:

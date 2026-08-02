@@ -16,6 +16,7 @@ from core.db import make_engine
 from core.models import Programme, ProgrammeEdition
 
 PROGRAMMES_PATH = Path(__file__).resolve().parents[1] / "data" / "programmes.json"
+PROGRAMME_EDITIONS_PATH = Path(__file__).resolve().parents[1] / "data" / "programme_editions.json"
 
 MUTABLE_PROGRAMME_FIELDS = (
     "name",
@@ -28,6 +29,15 @@ MUTABLE_PROGRAMME_FIELDS = (
     "country",
     "tags",
 )
+MUTABLE_AUTHORED_EDITION_FIELDS = (
+    "status",
+    "opens_at",
+    "closes_at",
+    "source_url",
+    "verified_at",
+    "notes",
+)
+AUTHORED_EDITION_STATUSES = frozenset({"expected", "announced", "closed", "discontinued"})
 
 
 def _load_programmes(path: Path = PROGRAMMES_PATH) -> list[Mapping[str, Any]]:
@@ -36,15 +46,135 @@ def _load_programmes(path: Path = PROGRAMMES_PATH) -> list[Mapping[str, Any]]:
     return payload["programmes"]
 
 
+def _load_programme_editions(
+    path: Path = PROGRAMME_EDITIONS_PATH,
+) -> list[Mapping[str, Any]]:
+    with path.open(encoding="utf-8") as handle:
+        payload = json.load(handle)
+    return payload["editions"]
+
+
+def _parse_datetime(value: str | None) -> datetime | None:
+    if value is None:
+        return None
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def _validate_authored_editions(
+    editions: list[Mapping[str, Any]],
+) -> None:
+    for entry in editions:
+        status = entry.get("status")
+        if status == "open":
+            raise ValueError(
+                "programme_editions.json must not contain status 'open'; "
+                "only a deliberate database action may mark an edition open"
+            )
+        if status not in AUTHORED_EDITION_STATUSES:
+            raise ValueError(
+                "programme_editions.json contains unsupported status "
+                f"{status!r}; expected one of "
+                f"{sorted(AUTHORED_EDITION_STATUSES)}"
+            )
+
+
+def _validate_authored_programme_slugs(
+    session: Session,
+    *,
+    programmes: list[Mapping[str, Any]],
+    editions: list[Mapping[str, Any]],
+) -> None:
+    authored_slugs = {entry["programme_slug"] for entry in editions}
+    if not authored_slugs:
+        return
+
+    registry_slugs = {entry["slug"] for entry in programmes}
+    existing_slugs = set(
+        session.scalars(select(Programme.slug).where(Programme.slug.in_(authored_slugs)))
+    )
+    missing_slugs = sorted(authored_slugs - registry_slugs - existing_slugs)
+    if missing_slugs:
+        raise ValueError(
+            "programme_editions.json references unknown programme_slug: "
+            f"{', '.join(missing_slugs)}"
+        )
+
+
+def _authored_edition_values(entry: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "status": entry["status"],
+        "opens_at": _parse_datetime(entry.get("opens_at")),
+        "closes_at": _parse_datetime(entry.get("closes_at")),
+        "source_url": entry.get("source_url"),
+        "verified_at": _parse_datetime(entry.get("verified_at")),
+        "notes": entry.get("notes"),
+    }
+
+
+def _apply_authored_editions(
+    session: Session,
+    editions: list[Mapping[str, Any]],
+) -> tuple[int, int]:
+    created, updated = 0, 0
+
+    for entry in editions:
+        programme = session.scalar(
+            select(Programme).where(Programme.slug == entry["programme_slug"])
+        )
+        if programme is None:
+            raise ValueError(
+                "programme_editions.json references unknown programme_slug: "
+                f"{entry['programme_slug']}"
+            )
+
+        values = _authored_edition_values(entry)
+        edition = session.scalar(
+            select(ProgrammeEdition).where(
+                ProgrammeEdition.programme_id == programme.id,
+                ProgrammeEdition.year == entry["year"],
+            )
+        )
+        if edition is None:
+            session.add(
+                ProgrammeEdition(
+                    programme_id=programme.id,
+                    year=entry["year"],
+                    **values,
+                )
+            )
+            created += 1
+            continue
+
+        changed = False
+        for field in MUTABLE_AUTHORED_EDITION_FIELDS:
+            next_value = values[field]
+            if getattr(edition, field) != next_value:
+                setattr(edition, field, next_value)
+                changed = True
+        if changed:
+            updated += 1
+
+    return created, updated
+
+
 def _seed_with_session(
     session: Session,
     *,
     current_year: int,
     registry_path: Path = PROGRAMMES_PATH,
-) -> tuple[int, int, int]:
+    edition_registry_path: Path = PROGRAMME_EDITIONS_PATH,
+) -> tuple[int, int, int, int, int]:
     created, updated, editions_created = 0, 0, 0
+    programmes = _load_programmes(registry_path)
+    authored_editions = _load_programme_editions(edition_registry_path)
+    _validate_authored_editions(authored_editions)
+    _validate_authored_programme_slugs(
+        session,
+        programmes=programmes,
+        editions=authored_editions,
+    )
 
-    for entry in _load_programmes(registry_path):
+    for entry in programmes:
         programme = session.scalar(select(Programme).where(Programme.slug == entry["slug"]))
         if programme is None:
             programme = Programme(
@@ -90,11 +220,12 @@ def _seed_with_session(
                 )
             )
             editions_created += 1
-        elif edition.status == "expected":
-            edition.opens_at = None
-            edition.closes_at = None
 
-    return created, updated, editions_created
+    authored_created, authored_updated = _apply_authored_editions(
+        session,
+        authored_editions,
+    )
+    return created, updated, editions_created, authored_created, authored_updated
 
 
 def seed(
@@ -102,11 +233,17 @@ def seed(
     *,
     current_year: int | None = None,
     registry_path: Path = PROGRAMMES_PATH,
-) -> tuple[int, int, int]:
+    edition_registry_path: Path = PROGRAMME_EDITIONS_PATH,
+) -> tuple[int, int, int, int, int]:
     year = current_year if current_year is not None else datetime.now(UTC).year
 
     if session is not None:
-        summary = _seed_with_session(session, current_year=year, registry_path=registry_path)
+        summary = _seed_with_session(
+            session,
+            current_year=year,
+            registry_path=registry_path,
+            edition_registry_path=edition_registry_path,
+        )
         session.flush()
     else:
         engine = make_engine()
@@ -115,14 +252,17 @@ def seed(
                 managed_session,
                 current_year=year,
                 registry_path=registry_path,
+                edition_registry_path=edition_registry_path,
             )
             managed_session.commit()
 
-    created, updated, editions_created = summary
+    created, updated, editions_created, authored_created, authored_updated = summary
     print(
         "programmes: "
         f"{created} created, {updated} updated; "
-        f"editions: {editions_created} created"
+        f"editions: {editions_created} default created, "
+        f"{authored_created} authored created, "
+        f"{authored_updated} authored updated"
     )
     return summary
 

@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "note": "Authored, source-verified per-year edition facts for the recurring programmes registry. Each row records what an official page LITERALLY published, with the URL and the date it was checked. Absence of a row is meaningful: it means no dated edition has been confirmed, and the seeded default 'expected' row stands. status 'open' is NOT permitted in this file - the seed script rejects it - because only a deliberate human action may mark an edition open (PROGRAMMES-REGISTRY-HANDOFF.md sec 6). Never infer a date; if an official page does not publish one, leave it out.",
+  "editions": [
+    {
+      "programme_slug": "rise-germany",
+      "year": 2027,
+      "status": "announced",
+      "opens_at": "2026-10-15T00:00:00Z",
+      "closes_at": "2026-11-30T22:59:00Z",
+      "source_url": "https://www.daad.de/rise/en/rise-germany/",
+      "verified_at": "2026-08-02T00:00:00Z",
+      "notes": "Official page publishes the application window as 15 October - 30 November 2026, 11:59 pm CET (recorded here as 22:59 UTC). Letters of reference 15 Oct - 15 Dec 2026; provider ranking 12-25 Jan 2027; positions announced around Feb/Mar 2027. Applications are for the 2027 internship cohort, which is why this is the 2027 edition."
+    },
+    {
+      "programme_slug": "charpak-summer-training",
+      "year": 2026,
+      "status": "closed",
+      "source_url": "https://www.inde.campusfrance.org/france-excellence-charpak-summer-training-scholarship",
+      "verified_at": "2026-08-02T00:00:00Z",
+      "notes": "Official timeline states the 2026 call for applications is closed. No dates published for the next cycle, so no future edition is recorded."
+    },
+    {
+      "programme_slug": "mitacs-globalink",
+      "year": 2026,
+      "status": "closed",
+      "source_url": "https://www.mitacs.ca/our-programs/globalink-research-internship-students/",
+      "verified_at": "2026-08-02T00:00:00Z",
+      "notes": "Official page states applications for GRI 2026 are no longer accepted and that the GRI 2027 call will open shortly, without giving a date. No 2027 edition is recorded until a real date is published."
+    }
+  ]
+}
