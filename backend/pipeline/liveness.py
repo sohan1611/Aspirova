@@ -56,7 +56,7 @@ def _estimated_batch_seconds(candidate_count: int, concurrency: int) -> float:
     return waves * HTTP_TIMEOUT_SECONDS
 
 
-def _classify_status_code(status_code: int) -> LivenessStatus:
+def classify_liveness_status_code(status_code: int) -> LivenessStatus:
     if status_code in {404, 410}:
         return "closed"
     if 200 <= status_code < 400:
@@ -64,12 +64,20 @@ def _classify_status_code(status_code: int) -> LivenessStatus:
     return "inconclusive"
 
 
-def _fetch_liveness_status(apply_url: str, client: httpx.Client) -> LivenessStatus:
+def _classify_status_code(status_code: int) -> LivenessStatus:
+    return classify_liveness_status_code(status_code)
+
+
+def fetch_url_liveness_status(url: str, client: httpx.Client) -> LivenessStatus:
     try:
-        response = client.get(apply_url)
+        response = client.get(url)
     except httpx.RequestError:
         return "inconclusive"
-    return _classify_status_code(response.status_code)
+    return classify_liveness_status_code(response.status_code)
+
+
+def _fetch_liveness_status(apply_url: str, client: httpx.Client) -> LivenessStatus:
+    return fetch_url_liveness_status(apply_url, client)
 
 
 def _select_candidates(session: Session, *, limit: int) -> list[LivenessCandidate]:
@@ -184,7 +192,7 @@ def check_listing_liveness(
             ) as client:
                 checks = _check_candidates(
                     batch,
-                    checker=lambda url: _fetch_liveness_status(url, client),
+                    checker=lambda url: fetch_url_liveness_status(url, client),
                     concurrency=concurrency,
                 )
         else:

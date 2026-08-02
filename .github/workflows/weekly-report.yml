@@ -29,6 +29,28 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
+      - name: Verify programmes registry
+        timeout-minutes: 10
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONUNBUFFERED: "1"
+        run: |
+          # Safe to retry: programme verification only closes editions whose
+          # non-null closes_at is already in the past; it never promotes rows
+          # to open and otherwise only prints the needs-review report.
+          for attempt in 1 2 3; do
+            uv run python -m scripts.verify_programmes \
+              --apply \
+              --limit 200 \
+              --max-seconds 60 && exit 0
+            if [ "$attempt" -lt 3 ]; then
+              delay=$((attempt * 30))
+              echo "attempt $attempt failed; retrying in ${delay}s" >&2
+              sleep "$delay"
+            fi
+          done
+          exit 1
+
       - name: Send weekly Pro reports
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
