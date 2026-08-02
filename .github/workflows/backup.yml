@@ -73,4 +73,16 @@ jobs:
           BACKUP_S3_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
           BACKUP_S3_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
           BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
-        run: uv run python -m scripts.backup_db
+        run: |
+          # Safe to retry: backup_db.py writes deterministic daily/weekly object
+          # keys for the current date/week, so a rerun overwrites the same backup
+          # target and retention pruning remains repeatable.
+          for attempt in 1 2 3; do
+            uv run python -m scripts.backup_db && exit 0
+            if [ "$attempt" -lt 3 ]; then
+              delay=$((attempt * 30))
+              echo "attempt $attempt failed; retrying in ${delay}s" >&2
+              sleep "$delay"
+            fi
+          done
+          exit 1

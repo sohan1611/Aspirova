@@ -36,4 +36,16 @@ jobs:
           RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           PYTHONUNBUFFERED: "1"
-        run: uv run python -m scripts.notification_worker --weekly
+        run: |
+          # Safe to retry: weekly reports are idempotent per recipient because
+          # pipeline/weekly_report.py checks _already_sent_this_week(...) before
+          # sending and records successful weekly_report deliveries.
+          for attempt in 1 2 3; do
+            uv run python -m scripts.notification_worker --weekly && exit 0
+            if [ "$attempt" -lt 3 ]; then
+              delay=$((attempt * 30))
+              echo "attempt $attempt failed; retrying in ${delay}s" >&2
+              sleep "$delay"
+            fi
+          done
+          exit 1
