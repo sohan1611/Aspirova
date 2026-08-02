@@ -1,7 +1,11 @@
 """Read API for the curated recurring programmes registry."""
 
+import json
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import Text, and_, any_, bindparam, cast, func, literal, or_, select
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Session, aliased, selectinload
 
 from api.deps import get_db
@@ -9,6 +13,11 @@ from api.schemas import ProgrammeDetail, ProgrammeListItem, ProgrammeListRespons
 from core import models
 
 router = APIRouter()
+MAX_SELECTED_DIVISIONS = 30
+PROGRAMME_TAG_MAP_PATH = Path(__file__).resolve().parents[1] / "data" / "programme_tag_map.json"
+PROGRAMME_TAG_MAP: dict[str, list[str]] = json.loads(
+    PROGRAMME_TAG_MAP_PATH.read_text(encoding="utf-8")
+)["divisions"]
 
 VALID_PROGRAMME_CATEGORIES = frozenset(
     {
@@ -39,12 +48,40 @@ def _ilike_substring(value: str) -> str:
     return f"%{escaped}%"
 
 
+def _selected_divisions(divisions: str | None) -> list[str]:
+    """Parse known CSV division keys as a best-effort personalisation hint."""
+    selected: list[str] = []
+    seen: set[str] = set()
+    for division in (divisions or "").split(","):
+        normalized = division.strip().lower()
+        if not normalized or normalized in seen or normalized not in PROGRAMME_TAG_MAP:
+            continue
+        selected.append(normalized)
+        seen.add(normalized)
+        if len(selected) == MAX_SELECTED_DIVISIONS:
+            break
+    return selected
+
+
+def _tags_for_divisions(selected_divisions: list[str]) -> list[str]:
+    selected_tags: list[str] = []
+    seen: set[str] = set()
+    for division in selected_divisions:
+        for tag in PROGRAMME_TAG_MAP[division]:
+            if tag in seen:
+                continue
+            selected_tags.append(tag)
+            seen.add(tag)
+    return selected_tags
+
+
 @router.get("/programmes", response_model=ProgrammeListResponse)
 def list_programmes(
     category: str | None = Query(None, max_length=64),
     country: str | None = Query(None, min_length=2, max_length=2),
     status: str | None = Query(None, pattern="^(expected|announced|open|closed)$"),
     q: str | None = Query(None, max_length=200),
+    divisions: str | None = Query(None, max_length=500),
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -83,8 +120,35 @@ def list_programmes(
         )
 
     total_count = func.count().over().label("total_count")
+    selected_tags = _tags_for_divisions(_selected_divisions(divisions))
+    match_count = literal(0).label("match_count")
+    ordering = [
+        func.lower(models.Programme.name).asc(),
+        models.Programme.name.asc(),
+        models.Programme.id.asc(),
+    ]
+    if selected_tags:
+        tag_values = cast(
+            bindparam("programme_match_tags", value=selected_tags, type_=ARRAY(Text())),
+            ARRAY(Text()),
+        )
+        tag_element = (
+            func.jsonb_array_elements_text(models.Programme.tags)
+            .table_valued("tag")
+            .render_derived(name="tag")
+        )
+        match_count = (
+            select(func.count())
+            .select_from(tag_element)
+            .where(tag_element.c.tag == any_(tag_values))
+            .correlate(models.Programme.__table__)
+            .scalar_subquery()
+            .label("match_count")
+        )
+        ordering.insert(0, match_count.desc())
+
     query = (
-        select(models.Programme, current_edition, total_count)
+        select(models.Programme, current_edition, total_count, match_count)
         .outerjoin(
             current_edition,
             and_(
@@ -93,17 +157,17 @@ def list_programmes(
             ),
         )
         .where(*filters)
-        .order_by(
-            func.lower(models.Programme.name).asc(),
-            models.Programme.name.asc(),
-            models.Programme.id.asc(),
-        )
+        .order_by(*ordering)
     )
 
     rows = db.execute(query.offset((page - 1) * limit).limit(limit)).all()
     items = [
-        ProgrammeListItem.from_model(programme, current_edition=edition)
-        for programme, edition, _total in rows
+        ProgrammeListItem.from_model(
+            programme,
+            current_edition=edition,
+            match_count=match_count,
+        )
+        for programme, edition, _total, match_count in rows
     ]
     total = rows[0].total_count if rows else 0
     return ProgrammeListResponse(items=items, total=total, page=page, limit=limit)

@@ -125,6 +125,7 @@ class ProgrammeListItem(BaseModel):
     description: str | None
     typical_window: str | None
     tags: list[str] = []
+    match_count: int = 0
     current_edition: ProgrammeEditionItem | None
 
     @classmethod
@@ -133,6 +134,7 @@ class ProgrammeListItem(BaseModel):
         programme: "models.Programme",
         *,
         current_edition: "models.ProgrammeEdition | None" = None,
+        match_count: int = 0,
     ) -> "ProgrammeListItem":
         return cls(
             slug=programme.slug,
@@ -144,6 +146,7 @@ class ProgrammeListItem(BaseModel):
             description=programme.description,
             typical_window=programme.typical_window,
             tags=list(programme.tags or []),
+            match_count=match_count,
             current_edition=(
                 ProgrammeEditionItem.from_model(current_edition)
                 if current_edition is not None

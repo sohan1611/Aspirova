@@ -1,3 +1,4 @@
+import json
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -218,18 +219,20 @@ def _create_programme(
     suffix: str,
     slug: str,
     name: str,
+    category: str = "research_internship",
+    tags: list[str] | None = None,
 ) -> models.Programme:
     programme = models.Programme(
         slug=f"programme-{slug}-{suffix}",
         name=f"{name} {suffix}",
         organiser=f"{name} Org {suffix}",
-        category="research_internship",
+        category=category,
         url=f"https://example.com/programmes/{slug}/{suffix}",
         description="Test programme.",
         eligibility="Students.",
         typical_window=None,
         country="IN",
-        tags=["test"],
+        tags=tags or ["test"],
         is_active=True,
     )
     db_session.add(programme)
@@ -439,6 +442,127 @@ def test_programmes_pagination_total_and_no_repeated_page_items(
     assert _slugs(first.json()) != _slugs(second.json())
 
 
+def test_programme_divisions_rank_without_filtering_and_report_match_count(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    suffix = uuid.uuid4().hex
+    unmatched = _create_programme(
+        db_session,
+        suffix=suffix,
+        slug="aardvark-unmatched",
+        name="Aardvark Unmatched Programme",
+        tags=["test"],
+    )
+    matched = _create_programme(
+        db_session,
+        suffix=suffix,
+        slug="zulu-cs",
+        name="Zulu CS Programme",
+        tags=["cs", "coding", "research"],
+    )
+
+    base = client.get("/programmes", params={"q": suffix, "limit": 100})
+    ranked = client.get("/programmes", params={"q": suffix, "divisions": "cse", "limit": 100})
+
+    assert base.status_code == 200
+    assert ranked.status_code == 200
+    assert base.json()["total"] == ranked.json()["total"] == 2
+    assert _slugs(base.json()) == [unmatched.slug, matched.slug]
+    assert _slugs(ranked.json()) == [matched.slug, unmatched.slug]
+    assert [item["match_count"] for item in base.json()["items"]] == [0, 0]
+
+    ranked_by_slug = {item["slug"]: item for item in ranked.json()["items"]}
+    assert ranked_by_slug[matched.slug]["match_count"] == 2
+    assert ranked_by_slug[unmatched.slug]["match_count"] == 0
+
+
+def test_programme_divisions_unknown_key_is_ignored(
+    client: TestClient,
+    seeded_programmes,
+) -> None:
+    params = {"q": seeded_programmes["suffix"], "limit": 100}
+    base = client.get("/programmes", params=params)
+    unknown = client.get(
+        "/programmes",
+        params={**params, "divisions": "unknown_division"},
+    )
+
+    assert base.status_code == 200
+    assert unknown.status_code == 200
+    assert _slugs(unknown.json()) == _slugs(base.json())
+    assert [item["match_count"] for item in unknown.json()["items"]] == [0, 0, 0, 0]
+
+
+def test_programme_divisions_empty_tag_mapping_keeps_existing_order(
+    client: TestClient,
+    seeded_programmes,
+) -> None:
+    params = {"q": seeded_programmes["suffix"], "limit": 100}
+    base = client.get("/programmes", params=params)
+    empty_mapping = client.get(
+        "/programmes",
+        params={**params, "divisions": "marketing"},
+    )
+
+    assert base.status_code == 200
+    assert empty_mapping.status_code == 200
+    assert _slugs(empty_mapping.json()) == _slugs(base.json())
+    assert [item["match_count"] for item in empty_mapping.json()["items"]] == [0, 0, 0, 0]
+
+
+def test_programme_divisions_preserve_category_filter(
+    client: TestClient,
+    seeded_programmes,
+) -> None:
+    response = client.get(
+        "/programmes",
+        params={
+            "q": seeded_programmes["suffix"],
+            "category": "open_source",
+            "divisions": "cse",
+            "limit": 100,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 1
+    assert _slugs(body) == [seeded_programmes["beta"].slug]
+    assert body["items"][0]["match_count"] == 1
+
+
+def test_programme_divisions_do_not_change_expected_status(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    suffix = uuid.uuid4().hex
+    unmatched = _create_programme(
+        db_session,
+        suffix=suffix,
+        slug="aardvark-open",
+        name="Aardvark Open Programme",
+        tags=["test"],
+    )
+    matched_expected = _create_programme(
+        db_session,
+        suffix=suffix,
+        slug="zulu-expected-cs",
+        name="Zulu Expected CS Programme",
+        tags=["cs"],
+    )
+    _add_edition(db_session, unmatched, year=2026, status="open")
+    _add_edition(db_session, matched_expected, year=2026, status="expected")
+
+    response = client.get("/programmes", params={"q": suffix, "divisions": "cse"})
+
+    assert response.status_code == 200
+    first = response.json()["items"][0]
+    assert first["slug"] == matched_expected.slug
+    assert first["match_count"] == 1
+    assert first["current_edition"]["status"] == "expected"
+
+
 def test_inactive_programmes_are_excluded(client: TestClient, seeded_programmes) -> None:
     response = client.get(
         "/programmes",
@@ -512,6 +636,34 @@ def test_frontend_research_clock_inference_source_does_not_return() -> None:
                 matches.append(f"{path.relative_to(repo_root)} contains {needle}")
 
     assert matches == []
+
+
+def test_programme_tag_map_matches_taxonomy_and_registry_vocabulary() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    frontend = repo_root / "frontend"
+    if not frontend.exists():
+        pytest.skip("frontend directory is not present")
+
+    taxonomy = json.loads((frontend / "lib" / "taxonomy.json").read_text(encoding="utf-8"))
+    programme_tag_map = json.loads(
+        (repo_root / "backend" / "data" / "programme_tag_map.json").read_text(encoding="utf-8")
+    )
+    registry = json.loads(
+        (repo_root / "backend" / "data" / "programmes.json").read_text(encoding="utf-8")
+    )
+
+    division_keys = {
+        division["key"]
+        for stream in taxonomy["streams"]
+        for division in stream.get("divisions", [])
+    }
+    registry_tags = {
+        tag for programme in registry["programmes"] for tag in programme.get("tags", [])
+    }
+    mapped_tags = {tag for tags in programme_tag_map["divisions"].values() for tag in tags}
+
+    assert set(programme_tag_map["divisions"]) <= division_keys
+    assert mapped_tags <= registry_tags
 
 
 def test_programme_routes_carry_long_cache_control(

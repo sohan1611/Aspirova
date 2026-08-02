@@ -107,6 +107,7 @@ export interface ProgrammeParams {
   country?: string;
   status?: "expected" | "announced" | "open" | "closed";
   q?: string;
+  divisions?: string[];
   page?: number;
   limit?: number;
 }
@@ -260,6 +261,7 @@ export async function getProgrammes(
   if (params.country) search.set("country", params.country);
   if (params.status) search.set("status", params.status);
   if (params.q) search.set("q", params.q);
+  if (params.divisions?.length) search.set("divisions", params.divisions.join(","));
   if (params.page) search.set("page", String(params.page));
   if (params.limit) search.set("limit", String(params.limit));
 
