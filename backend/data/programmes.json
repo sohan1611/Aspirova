@@ -577,6 +577,54 @@
       "typical_window": "regional contest schedules vary by region each year",
       "country": null,
       "tags": ["competition", "coding", "cs"]
+    },
+    {
+      "slug": "iisc-summer-research",
+      "name": "IISc Summer Research Internships",
+      "organiser": "IISc Bangalore",
+      "category": "research_internship",
+      "url": "https://occap.iisc.ac.in/index.php/internships/",
+      "description": "IISc hosts undergraduate and master's students for two- to three-month research projects with institute faculty, reached through the department and lab openings listed by the institute's outreach office.",
+      "eligibility": "Undergraduate and master's students with strong academic records may apply, subject to the current criteria of the hosting department or lab.",
+      "typical_window": "openings are listed through the year, with most projects running over the summer",
+      "country": "IN",
+      "tags": ["research", "science", "engineering"]
+    },
+    {
+      "slug": "iitb-ircc-research-internship",
+      "name": "IRCC Research Internship Award (RIA)",
+      "organiser": "IIT Bombay",
+      "category": "research_internship",
+      "url": "https://rnd.iitb.ac.in/internship_ircc",
+      "description": "The Industrial Research and Consultancy Centre at IIT Bombay awards research internships that place students with IIT Bombay faculty on funded research projects.",
+      "eligibility": "Students from recognised institutions may apply under the award's current criteria; selection is made by the hosting faculty member.",
+      "typical_window": "applications usually open in the early part of the year for a summer internship",
+      "country": "IN",
+      "tags": ["research", "engineering", "science"]
+    },
+    {
+      "slug": "nitrkl-summer-internship",
+      "name": "Summer Internship Programme",
+      "organiser": "NIT Rourkela",
+      "category": "research_internship",
+      "url": "https://eapplication.nitrkl.ac.in/internship/",
+      "description": "NIT Rourkela runs a summer internship programme that places students from other institutions with its faculty for short research projects.",
+      "eligibility": "Students enrolled at other recognised institutions may apply according to NIT Rourkela's current internship criteria.",
+      "typical_window": "applications usually open in the early part of the year for a summer internship",
+      "country": "IN",
+      "tags": ["research", "engineering", "science"]
+    },
+    {
+      "slug": "tifr-vsrp",
+      "name": "Visiting Students' Research Programme (VSRP)",
+      "organiser": "TIFR",
+      "category": "research_internship",
+      "url": "https://www.tifr.res.in/academics/summer_program.php",
+      "description": "TIFR's institute-wide Visiting Students' Research Programme hosts students across its schools for a summer of supervised research; individual schools and centres also run their own VSRP tracks.",
+      "eligibility": "Students in relevant science and engineering programmes may apply under the criteria published by TIFR and its participating schools.",
+      "typical_window": "applications usually open in the early part of the year for a summer programme",
+      "country": "IN",
+      "tags": ["research", "science", "physics", "mathematics"]
     }
   ]
 }

@@ -1,5 +1,6 @@
 import uuid
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -233,6 +234,7 @@ def test_programmes_returns_seeded_programmes_with_current_edition(
     alpha = by_slug[seeded_programmes["alpha"].slug]
     assert alpha["current_edition"]["year"] == seeded_programmes["current_year"]
     assert alpha["current_edition"]["status"] == "expected"
+    assert alpha["description"] == "Hands-on research mentorship."
     assert alpha["tags"] == ["research", "ai"]
 
     assert by_slug[seeded_programmes["zeta"].slug]["current_edition"] is None
@@ -319,16 +321,43 @@ def test_programme_detail_returns_all_editions_newest_first(
 def test_expected_status_is_not_inferred_open_from_dates(
     client: TestClient, seeded_programmes
 ) -> None:
-    response = client.get(
+    listing = client.get(
         "/programmes",
         params={"q": f"Alpha Research Programme {seeded_programmes['suffix']}"},
     )
+    detail = client.get(f"/programme/{seeded_programmes['alpha'].slug}")
 
-    assert response.status_code == 200
-    edition = response.json()["items"][0]["current_edition"]
+    assert listing.status_code == 200
+    assert detail.status_code == 200
+    edition = listing.json()["items"][0]["current_edition"]
     assert datetime.fromisoformat(edition["opens_at"]) <= datetime.now(UTC)
     assert datetime.fromisoformat(edition["closes_at"]) >= datetime.now(UTC)
     assert edition["status"] == "expected"
+    assert detail.json()["current_edition"]["status"] == "expected"
+    assert detail.json()["editions"][0]["status"] == "expected"
+
+
+def test_frontend_research_clock_inference_source_does_not_return() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    frontend = repo_root / "frontend"
+    if not frontend.exists():
+        pytest.skip("frontend directory is not present")
+
+    assert not (frontend / "lib" / "researchPrograms.ts").exists()
+    assert not (frontend / "components" / "ResearchProgramCard.tsx").exists()
+
+    ignored_dirs = {"node_modules", ".next", "out", "coverage"}
+    forbidden = ("isApplyWindowLikelyOpen", "applyWindow")
+    matches: list[str] = []
+    for path in frontend.rglob("*"):
+        if not path.is_file() or ignored_dirs.intersection(path.parts):
+            continue
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        for needle in forbidden:
+            if needle in text:
+                matches.append(f"{path.relative_to(repo_root)} contains {needle}")
+
+    assert matches == []
 
 
 def test_programme_routes_carry_long_cache_control(

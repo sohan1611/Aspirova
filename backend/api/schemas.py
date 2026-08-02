@@ -122,6 +122,7 @@ class ProgrammeListItem(BaseModel):
     category: str
     country: str | None
     url: str
+    description: str | None
     typical_window: str | None
     tags: list[str] = []
     current_edition: ProgrammeEditionItem | None
@@ -140,6 +141,7 @@ class ProgrammeListItem(BaseModel):
             category=programme.category,
             country=programme.country,
             url=programme.url,
+            description=programme.description,
             typical_window=programme.typical_window,
             tags=list(programme.tags or []),
             current_edition=(
@@ -151,7 +153,6 @@ class ProgrammeListItem(BaseModel):
 
 
 class ProgrammeDetail(ProgrammeListItem):
-    description: str | None
     eligibility: str | None
     editions: list[ProgrammeEditionItem]
 
@@ -166,7 +167,6 @@ class ProgrammeDetail(ProgrammeListItem):
         base = ProgrammeListItem.from_model(programme, current_edition=current_edition)
         return cls(
             **base.model_dump(),
-            description=programme.description,
             eligibility=programme.eligibility,
             editions=[ProgrammeEditionItem.from_model(edition) for edition in editions],
         )
