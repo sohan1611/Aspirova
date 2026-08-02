@@ -2,7 +2,7 @@
 responses - the canonical opportunity page links to the real source, never
 mirrors it (Doc 01 sec 7 R1, Doc 04 sec 10)."""
 
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
@@ -158,9 +158,8 @@ class ProgrammeDetail(ProgrammeListItem):
     @classmethod
     def from_model(cls, programme: "models.Programme") -> "ProgrammeDetail":
         editions = sorted(programme.editions, key=lambda edition: edition.year, reverse=True)
-        current_year = datetime.now(UTC).year
         current_edition = next(
-            (edition for edition in editions if edition.year == current_year),
+            (edition for edition in editions if edition.status != "discontinued"),
             None,
         )
         base = ProgrammeListItem.from_model(programme, current_edition=current_edition)

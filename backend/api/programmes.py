@@ -1,7 +1,5 @@
 """Read API for the curated recurring programmes registry."""
 
-from datetime import UTC, datetime
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session, aliased, selectinload
@@ -51,8 +49,19 @@ def list_programmes(
     limit: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
 ) -> ProgrammeListResponse:
-    current_year = datetime.now(UTC).year
     current_edition = aliased(models.ProgrammeEdition)
+    edition_for_max_year = aliased(models.ProgrammeEdition)
+    current_edition_year = (
+        select(func.max(edition_for_max_year.year))
+        .where(
+            and_(
+                edition_for_max_year.programme_id == models.Programme.id,
+                edition_for_max_year.status != "discontinued",
+            )
+        )
+        .correlate(models.Programme)
+        .scalar_subquery()
+    )
 
     filters = [models.Programme.is_active.is_(True)]
     selected_category = _selected_category(category)
@@ -80,7 +89,7 @@ def list_programmes(
             current_edition,
             and_(
                 current_edition.programme_id == models.Programme.id,
-                current_edition.year == current_year,
+                current_edition.year == current_edition_year,
             ),
         )
         .where(*filters)
