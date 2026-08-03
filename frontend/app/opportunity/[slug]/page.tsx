@@ -22,6 +22,14 @@ import {
 import { getSourceLabel } from "@/lib/sourceLabel";
 import type { OpportunityDetail, OpportunityListItem } from "@/lib/types";
 
+export const revalidate = 3600;
+
+// Registers the route for on-demand ISR without prerendering any page at build
+// time; without this Next leaves a dynamic segment fully per-request.
+export async function generateStaticParams(): Promise<{ slug: string }[]> {
+  return [];
+}
+
 const CATEGORY_LABEL: Record<string, string> = {
   internship: "Internship",
   job: "Job",
