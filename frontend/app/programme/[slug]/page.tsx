@@ -14,6 +14,12 @@ import type { ProgrammeDetail, ProgrammeEditionItem } from "@/lib/types";
 
 export const revalidate = 21600;
 
+// Registers the route for on-demand ISR without prerendering any page at build
+// time; without this Next leaves a dynamic segment fully per-request.
+export async function generateStaticParams(): Promise<{ slug: string }[]> {
+  return [];
+}
+
 const SITE_URL = "https://www.aspirova.org";
 
 interface PageProps {
