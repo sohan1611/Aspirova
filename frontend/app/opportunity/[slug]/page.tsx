@@ -22,6 +22,8 @@ import {
 import { getSourceLabel } from "@/lib/sourceLabel";
 import type { OpportunityDetail, OpportunityListItem } from "@/lib/types";
 
+export const revalidate = 3600;
+
 const CATEGORY_LABEL: Record<string, string> = {
   internship: "Internship",
   job: "Job",

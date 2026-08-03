@@ -12,6 +12,8 @@ import {
 } from "@/lib/programmes";
 import type { ProgrammeDetail, ProgrammeEditionItem } from "@/lib/types";
 
+export const revalidate = 21600;
+
 const SITE_URL = "https://www.aspirova.org";
 
 interface PageProps {
