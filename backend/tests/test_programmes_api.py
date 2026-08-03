@@ -212,6 +212,50 @@ def _last_cache_ttl(fake: FakeAsyncRedis) -> int | None:
     return list(fake._ttls.values())[-1]
 
 
+def _create_programme(
+    db_session: Session,
+    *,
+    suffix: str,
+    slug: str,
+    name: str,
+) -> models.Programme:
+    programme = models.Programme(
+        slug=f"programme-{slug}-{suffix}",
+        name=f"{name} {suffix}",
+        organiser=f"{name} Org {suffix}",
+        category="research_internship",
+        url=f"https://example.com/programmes/{slug}/{suffix}",
+        description="Test programme.",
+        eligibility="Students.",
+        typical_window=None,
+        country="IN",
+        tags=["test"],
+        is_active=True,
+    )
+    db_session.add(programme)
+    db_session.flush()
+    return programme
+
+
+def _add_edition(
+    db_session: Session,
+    programme: models.Programme,
+    *,
+    year: int,
+    status: str,
+) -> models.ProgrammeEdition:
+    edition = models.ProgrammeEdition(
+        programme_id=programme.id,
+        year=year,
+        status=status,
+        source_url=f"{programme.url}/{year}",
+        verified_at=datetime(2026, 8, 1, tzinfo=UTC),
+    )
+    db_session.add(edition)
+    db_session.flush()
+    return edition
+
+
 def test_programmes_returns_seeded_programmes_with_current_edition(
     client: TestClient, seeded_programmes
 ) -> None:
@@ -237,8 +281,118 @@ def test_programmes_returns_seeded_programmes_with_current_edition(
     assert alpha["description"] == "Hands-on research mentorship."
     assert alpha["tags"] == ["research", "ai"]
 
-    assert by_slug[seeded_programmes["zeta"].slug]["current_edition"] is None
+    zeta = by_slug[seeded_programmes["zeta"].slug]
+    assert zeta["current_edition"]["year"] == seeded_programmes["current_year"] - 1
+    assert zeta["current_edition"]["status"] == "closed"
     assert seeded_programmes["inactive"].slug not in by_slug
+
+
+def test_highest_non_discontinued_year_is_current_for_list_and_detail(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    suffix = uuid.uuid4().hex
+    programme = _create_programme(
+        db_session,
+        suffix=suffix,
+        slug="multi-year",
+        name="Multi Year Programme",
+    )
+    _add_edition(db_session, programme, year=2026, status="closed")
+    _add_edition(db_session, programme, year=2027, status="announced")
+
+    listing = client.get(
+        "/programmes",
+        params={"q": programme.name, "status": "announced"},
+    )
+    closed_filter = client.get(
+        "/programmes",
+        params={"q": programme.name, "status": "closed"},
+    )
+    detail = client.get(f"/programme/{programme.slug}")
+
+    assert listing.status_code == 200
+    assert listing.json()["total"] == 1
+    assert listing.json()["items"][0]["current_edition"]["year"] == 2027
+    assert listing.json()["items"][0]["current_edition"]["status"] == "announced"
+
+    assert closed_filter.status_code == 200
+    assert closed_filter.json()["total"] == 0
+    assert closed_filter.json()["items"] == []
+
+    assert detail.status_code == 200
+    assert detail.json()["current_edition"]["year"] == 2027
+    assert detail.json()["current_edition"]["status"] == "announced"
+
+
+def test_expected_only_edition_is_current(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    suffix = uuid.uuid4().hex
+    programme = _create_programme(
+        db_session,
+        suffix=suffix,
+        slug="expected-only",
+        name="Expected Only Programme",
+    )
+    _add_edition(db_session, programme, year=2026, status="expected")
+
+    listing = client.get("/programmes", params={"q": programme.name})
+    detail = client.get(f"/programme/{programme.slug}")
+
+    assert listing.status_code == 200
+    assert listing.json()["items"][0]["current_edition"]["year"] == 2026
+    assert listing.json()["items"][0]["current_edition"]["status"] == "expected"
+    assert detail.status_code == 200
+    assert detail.json()["current_edition"]["year"] == 2026
+    assert detail.json()["current_edition"]["status"] == "expected"
+
+
+def test_discontinued_highest_year_is_not_current(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    suffix = uuid.uuid4().hex
+    programme = _create_programme(
+        db_session,
+        suffix=suffix,
+        slug="discontinued-highest",
+        name="Discontinued Highest Programme",
+    )
+    _add_edition(db_session, programme, year=2026, status="closed")
+    _add_edition(db_session, programme, year=2027, status="discontinued")
+
+    listing = client.get("/programmes", params={"q": programme.name})
+    detail = client.get(f"/programme/{programme.slug}")
+
+    assert listing.status_code == 200
+    assert listing.json()["items"][0]["current_edition"]["year"] == 2026
+    assert listing.json()["items"][0]["current_edition"]["status"] == "closed"
+    assert detail.status_code == 200
+    assert detail.json()["current_edition"]["year"] == 2026
+    assert detail.json()["current_edition"]["status"] == "closed"
+
+
+def test_programme_with_no_editions_has_null_current_edition(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    suffix = uuid.uuid4().hex
+    programme = _create_programme(
+        db_session,
+        suffix=suffix,
+        slug="no-editions",
+        name="No Editions Programme",
+    )
+
+    listing = client.get("/programmes", params={"q": programme.name})
+    detail = client.get(f"/programme/{programme.slug}")
+
+    assert listing.status_code == 200
+    assert listing.json()["items"][0]["current_edition"] is None
+    assert detail.status_code == 200
+    assert detail.json()["current_edition"] is None
 
 
 def test_programme_filters_narrow_correctly(client: TestClient, seeded_programmes) -> None:
