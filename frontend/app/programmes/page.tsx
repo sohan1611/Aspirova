@@ -1,13 +1,11 @@
 import { AlertCircle, SearchX } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
+import ProgrammeCard from "@/components/ProgrammeCard";
 import { Button } from "@/components/ui/button";
-import { getProgramme, getProgrammes } from "@/lib/api";
+import { getProgrammes } from "@/lib/api";
 import {
   formatProgrammeCategory,
-  getProgrammeStatusDisplay,
-  programmePath,
   PROGRAMME_CATEGORIES,
 } from "@/lib/programmes";
 import type { ProgrammeListItem } from "@/lib/types";
@@ -52,85 +50,6 @@ function programmeCountLabel(count: number): string {
   return `${count} ${count === 1 ? "programme" : "programmes"}`;
 }
 
-function truncateText(value: string | null | undefined, maxLength = 170): string {
-  const trimmed = value?.trim();
-  if (!trimmed) {
-    return "Programme details vary by annual edition; verify dates and eligibility on the official page.";
-  }
-  if (trimmed.length <= maxLength) return trimmed;
-  return `${trimmed.slice(0, maxLength - 1).trimEnd()}...`;
-}
-
-async function getProgrammeDescriptions(
-  items: ProgrammeListItem[],
-): Promise<Map<string, string | null>> {
-  const entries = await Promise.all(
-    items.map(async (item): Promise<[string, string | null]> => {
-      try {
-        const detail = await getProgramme(item.slug);
-        return [item.slug, detail?.description ?? null];
-      } catch {
-        return [item.slug, null];
-      }
-    }),
-  );
-  return new Map(entries);
-}
-
-function ProgrammeCard({
-  programme,
-  description,
-}: {
-  programme: ProgrammeListItem;
-  description: string | null | undefined;
-}) {
-  const status = getProgrammeStatusDisplay(
-    programme.current_edition,
-    programme.typical_window,
-  );
-  const statusClass =
-    status.tone === "primary"
-      ? "border-primary/20 bg-primary text-primary-foreground"
-      : "border-border bg-secondary/50 text-muted-foreground";
-
-  return (
-    <Link
-      href={programmePath(programme.slug)}
-      className="group flex min-h-72 flex-col rounded-xl border border-border bg-card p-5 shadow-soft transition-[transform,box-shadow,border-color] duration-300 ease-premium hover:-translate-y-1 hover:border-primary/45 hover:[box-shadow:var(--shadow-md)] focus-visible:-translate-y-1 focus-visible:border-primary/45 focus-visible:[box-shadow:var(--shadow-md)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="secondary" className="eyebrow rounded-full px-2.5 py-1">
-          {formatProgrammeCategory(programme.category)}
-        </Badge>
-        {programme.country && (
-          <Badge variant="outline" className="eyebrow rounded-full px-2.5 py-1">
-            {programme.country}
-          </Badge>
-        )}
-      </div>
-
-      <div className="mt-5">
-        <h2 className="break-words font-serif text-2xl font-semibold leading-tight text-card-foreground transition-colors duration-300 ease-premium group-hover:text-primary group-focus-visible:text-primary">
-          {programme.name}
-        </h2>
-        <p className="mt-2 text-sm font-medium text-muted-foreground">
-          {programme.organiser}
-        </p>
-      </div>
-
-      <div
-        className={`mt-5 inline-flex w-fit items-center rounded-md border px-3 py-1.5 text-sm font-medium ${statusClass}`}
-      >
-        {status.text}
-      </div>
-
-      <p className="mt-5 line-clamp-4 text-sm leading-6 text-muted-foreground">
-        {truncateText(description)}
-      </p>
-    </Link>
-  );
-}
-
 export default async function ProgrammesPage({ searchParams }: PageProps) {
   const query = await searchParams;
   const selectedCategory = query.category?.trim() || undefined;
@@ -138,7 +57,6 @@ export default async function ProgrammesPage({ searchParams }: PageProps) {
 
   let programmes: ProgrammeListItem[] = [];
   let total = 0;
-  let descriptions = new Map<string, string | null>();
   let failed = false;
 
   try {
@@ -149,7 +67,6 @@ export default async function ProgrammesPage({ searchParams }: PageProps) {
     });
     programmes = data.items;
     total = data.total;
-    descriptions = await getProgrammeDescriptions(programmes);
   } catch {
     failed = true;
   }
@@ -230,11 +147,7 @@ export default async function ProgrammesPage({ searchParams }: PageProps) {
         <>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {programmes.map((programme) => (
-              <ProgrammeCard
-                key={programme.slug}
-                programme={programme}
-                description={descriptions.get(programme.slug)}
-              />
+              <ProgrammeCard key={programme.slug} programme={programme} />
             ))}
           </div>
 

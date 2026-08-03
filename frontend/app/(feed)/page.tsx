@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { getFeed, getForYou, getStats, getTrending, searchOpportunities } from "@/lib/api";
 import { findExternalCompany } from "@/lib/externalCompanies";
 import { buildPageHref } from "@/lib/pagination";
-import { matchesResearchIntent } from "@/lib/researchPrograms";
+import { matchesResearchIntent } from "@/lib/programmes";
 import type { StatsResponse } from "@/lib/types";
 
 interface PageProps {
@@ -194,8 +194,8 @@ export default async function HomePage({ searchParams }: PageProps) {
           <div className="rounded-xl border border-border bg-card p-5 shadow-soft">
             <p className="eyebrow">Research track</p>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              India&apos;s flagship IISc, IIT, NIT &amp; TIFR research fellowships — apply straight
-              at the source.
+              India&apos;s flagship IISc, IIT, NIT &amp; TIFR research fellowships and
+              internships, with the windows they usually open in.
             </p>
             <Button asChild variant="outline" size="sm" className="mt-4">
               <Link href="/research">Explore the research track →</Link>

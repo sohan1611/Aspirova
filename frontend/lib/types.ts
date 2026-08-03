@@ -126,13 +126,13 @@ export interface ProgrammeListItem {
   category: string;
   country: string | null;
   url: string;
+  description: string | null;
   typical_window: string | null;
   tags: string[];
   current_edition: ProgrammeEditionItem | null;
 }
 
 export interface ProgrammeDetail extends ProgrammeListItem {
-  description: string | null;
   eligibility: string | null;
   editions: ProgrammeEditionItem[];
 }

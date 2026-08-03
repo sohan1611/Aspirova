@@ -72,3 +72,36 @@ export function getProgrammeStatusDisplay(
       };
   }
 }
+
+// Search intent: whole-word tokens that mean "show the research track". Kept
+// conservative so broad queries like "internship" alone don't trigger it.
+const _RESEARCH_TOKENS = new Set([
+  "research",
+  "fellowship",
+  "fellowships",
+  "srfp",
+  "surge",
+  "vsrp",
+  "sfp",
+  "ria",
+  "iisc",
+  "iit",
+  "iits",
+  "nit",
+  "nits",
+  "tifr",
+  "iiser",
+  "iisers",
+  "ias",
+  "insa",
+  "nasi",
+]);
+
+/** True when a search query signals interest in the research track. */
+export function matchesResearchIntent(query: string | null | undefined): boolean {
+  if (!query) return false;
+  const q = query.toLowerCase();
+  if (q.includes("research intern") || q.includes("summer research")) return true;
+  const tokens = q.split(/[^a-z0-9]+/).filter(Boolean);
+  return tokens.some((token) => _RESEARCH_TOKENS.has(token));
+}
