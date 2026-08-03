@@ -127,15 +127,26 @@ Cost: ~200 HTTP requests/week, folded into an existing workflow. **Well under 1 
 
 ## 9. Build order
 
-| Part | Scope | Notes |
-|---|---|---|
-| **1** | Migration (2 tables) + `programmes.json` registry (~40 highest-value entries) + idempotent seed script | Prove the model on the §44 priority list first |
-| **2** | Read API (`/programmes`, `/programme/{slug}`) + cached/rate-limited per the existing middleware tiers | Reuse the long-TTL tier — this data changes annually |
-| **3** | `/programmes` directory + detail pages + JSON-LD | The SEO asset |
-| **4** | Feed integration for `status='open'` + programme badge | |
-| **5** | Personalisation via `field_profile`/tags + deadline reminders | Reuses Smart Profile + notification seams |
-| **6** | Weekly verification + needs-review report | |
-| **7** | Expand registry to full ~200 coverage | Content work, not engineering |
+| Part | Scope | Status | Notes |
+|---|---|---|---|
+| **1** | Migration (2 tables) + `programmes.json` registry (~40 highest-value entries) + idempotent seed script | **DONE** | Prove the model on the §44 priority list first |
+| **2** | Read API (`/programmes`, `/programme/{slug}`) + cached/rate-limited per the existing middleware tiers | **DONE** | Reuse the long-TTL tier — this data changes annually |
+| **3** | `/programmes` directory + detail pages + JSON-LD | **DONE** | The SEO asset |
+| **4** | Feed integration for `status='open'` + programme badge | **BLOCKED (correctly)** | Nothing to surface: production has 0 `open` editions and will until a human confirms one |
+| **5a** | Personalisation via `field_profile`/tags | **DONE** (2026-08-03) | `programme_tag_map.json` + `?divisions=` ranking + matched band |
+| **5b** | Deadline reminders | **BLOCKED on content** | Fires only on `announced`/`open` editions with a real `closes_at`; production has exactly 1 (RISE 2027). Build when Part 7 supplies more |
+| **6** | Weekly verification + needs-review report | **DONE** | |
+| **7** | Expand registry to full ~200 coverage | **NEXT** | Content work, not engineering — and it is the true unblocker for 4 and 5b |
+
+**Amendments since issue (2026-08-03):**
+- The "current edition" is the **highest-`year` non-`discontinued`** edition, not `year == current_year`.
+  Application windows routinely precede their cohort year, and the original rule hid them. The
+  selection is date-free — it chooses which row to show and never touches a stored status.
+- Per-year facts live in `backend/data/programme_editions.json`, authored with a source URL and
+  `verified_at`. The seed **rejects `status: "open"`** from that file outright, so §6's
+  "never auto-promote to open" is enforced by code, not convention.
+- §7's `/research` page had to be folded into this registry: it was a second, contradictory
+  source of truth that inferred openness from the browser clock.
 
 **Ship Part 1–3 before 4–7.** A browsable, honest directory is independently valuable and proves the
 model before it touches the feed.
