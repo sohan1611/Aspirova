@@ -129,6 +129,7 @@ export interface ProgrammeListItem {
   description: string | null;
   typical_window: string | null;
   tags: string[];
+  match_count: number;
   current_edition: ProgrammeEditionItem | null;
 }
 

@@ -1,6 +1,7 @@
 import { AlertCircle, SearchX } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import MatchedProgrammes from "@/components/MatchedProgrammes";
 import ProgrammeCard from "@/components/ProgrammeCard";
 import { Button } from "@/components/ui/button";
 import { getProgrammes } from "@/lib/api";
@@ -84,6 +85,8 @@ export default async function ProgrammesPage({ searchParams }: PageProps) {
           {DESCRIPTION}
         </p>
       </header>
+
+      <MatchedProgrammes />
 
       <section className="mt-10 border-y border-border py-6" aria-label="Programme categories">
         <p className="eyebrow">Browse by category</p>
