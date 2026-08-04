@@ -7,11 +7,13 @@ from collections.abc import Callable, Iterable
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from time import monotonic
+import json
+from pathlib import Path
 import re
+from time import monotonic
 
 import httpx
-from sqlalchemy import or_, select, update
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from core import models
@@ -27,6 +29,12 @@ DEFAULT_PROGRAMME_LIMIT = 200
 DEFAULT_PROGRAMME_MAX_SECONDS = 60
 DEFAULT_PROGRAMME_BATCH_SIZE = 20
 STALE_VERIFICATION_DAYS = 90
+PROGRAMMES_PATH = Path(__file__).resolve().parents[1] / "data" / "programmes.json"
+PROGRAMME_REVIEW_MONTHS_BY_SLUG: dict[str, tuple[int, ...]] = {
+    programme["slug"]: tuple(review_months)
+    for programme in json.loads(PROGRAMMES_PATH.read_text(encoding="utf-8"))["programmes"]
+    if isinstance(review_months := programme.get("review_months"), list) and review_months
+}
 
 _MONTH_ALIASES = {
     "january": 1,
@@ -375,7 +383,22 @@ def _select_window_arrived_items(
     ).all()
 
     items: list[ProgrammeEditionReviewItem] = []
+    current_month = _as_utc(now).month
     for programme, edition in rows:
+        review_months = PROGRAMME_REVIEW_MONTHS_BY_SLUG.get(programme.slug)
+        if review_months:
+            if current_month not in review_months:
+                continue
+            items.append(
+                _edition_item(
+                    programme,
+                    edition,
+                    "expected edition and configured review_months are "
+                    f"{_month_names(set(review_months))}; current review month is configured",
+                )
+            )
+            continue
+
         months = extract_months_from_typical_window(programme.typical_window)
         if not typical_window_needs_review(programme.typical_window, now=now):
             continue
@@ -394,6 +417,8 @@ def _select_stale_verification_items(
     session: Session, *, now: datetime
 ) -> list[ProgrammeEditionReviewItem]:
     stale_before = now - timedelta(days=STALE_VERIFICATION_DAYS)
+    # A null verified_at is the seeded default, not decayed verification: it has
+    # never claimed to be verified, so seasonal review brings it up at the right time.
     rows = session.execute(
         select(models.Programme, models.ProgrammeEdition)
         .join(
@@ -402,10 +427,8 @@ def _select_stale_verification_items(
         )
         .where(
             models.Programme.is_active.is_(True),
-            or_(
-                models.ProgrammeEdition.verified_at.is_(None),
-                models.ProgrammeEdition.verified_at < stale_before,
-            ),
+            models.ProgrammeEdition.verified_at.is_not(None),
+            models.ProgrammeEdition.verified_at < stale_before,
         )
         .order_by(
             models.Programme.slug.asc(),
@@ -416,13 +439,10 @@ def _select_stale_verification_items(
 
     items: list[ProgrammeEditionReviewItem] = []
     for programme, edition in rows:
-        if edition.verified_at is None:
-            reason = "verified_at is missing"
-        else:
-            reason = (
-                f"verified_at is older than {STALE_VERIFICATION_DAYS} days: "
-                f"{_as_utc(edition.verified_at).date().isoformat()}"
-            )
+        reason = (
+            f"verified_at is older than {STALE_VERIFICATION_DAYS} days: "
+            f"{_as_utc(edition.verified_at).date().isoformat()}"
+        )
         items.append(_edition_item(programme, edition, reason))
     return items
 
