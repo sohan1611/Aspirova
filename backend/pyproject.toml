@@ -2,6 +2,7 @@
 name = "aspirova-backend"
 version = "0.1.0"
 description = "Aspirova backend: read API, crawlers, ingestion pipeline"
+license = "MIT"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
