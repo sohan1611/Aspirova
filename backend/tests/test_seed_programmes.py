@@ -431,6 +431,27 @@ def test_programmes_json_is_valid_registry_data() -> None:
         assert all(tag == tag.lower() for tag in entry["tags"])
 
 
+def test_programmes_json_review_months_are_valid_when_present() -> None:
+    for entry in _programmes_registry_entries():
+        if "review_months" not in entry:
+            continue
+
+        review_months = entry["review_months"]
+        assert isinstance(
+            review_months, list
+        ), f"programme {entry['slug']} review_months must be a list"
+        assert review_months, f"programme {entry['slug']} review_months must not be empty"
+        assert all(
+            type(month) is int for month in review_months
+        ), f"programme {entry['slug']} review_months must contain only integers"
+        assert all(
+            1 <= month <= 12 for month in review_months
+        ), f"programme {entry['slug']} review_months must be between 1 and 12"
+        assert len(review_months) == len(
+            set(review_months)
+        ), f"programme {entry['slug']} review_months must not contain duplicates"
+
+
 def test_programmes_json_tags_use_closed_vocabulary() -> None:
     allowed_tags = _allowed_programme_tags()
 

@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from core import models
+from pipeline import programme_verification
 from pipeline.programme_verification import (
     extract_months_from_typical_window,
     typical_window_needs_review,
@@ -86,6 +87,163 @@ def _edition_slugs(items) -> set[str]:
     return {item.programme_slug for item in items}
 
 
+def test_configured_review_months_flag_expected_editions_in_current_month(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    now = datetime(2026, 4, 15, 12, tzinfo=UTC)
+    suffix = uuid.uuid4().hex
+    programme = _programme(
+        db_session,
+        suffix=suffix,
+        name="configured-current-month",
+        typical_window="applications usually open in November",
+    )
+    _edition(db_session, programme, year=now.year, verified_at=None)
+    monkeypatch.setitem(
+        programme_verification.PROGRAMME_REVIEW_MONTHS_BY_SLUG,
+        programme.slug,
+        (4, 10),
+    )
+
+    report = verify_programmes(
+        db_session,
+        limit=5000,
+        max_seconds=60,
+        now=now,
+        checker=lambda _url: "alive",
+    )
+
+    item = next(item for item in report.window_arrived if item.programme_slug == programme.slug)
+    assert "configured review_months" in item.reason
+    assert "April, October" in item.reason
+
+
+def test_configured_review_months_skip_expected_editions_outside_current_month(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    now = datetime(2026, 4, 15, 12, tzinfo=UTC)
+    suffix = uuid.uuid4().hex
+    programme = _programme(
+        db_session,
+        suffix=suffix,
+        name="configured-other-month",
+        typical_window="applications usually open in November",
+    )
+    _edition(db_session, programme, year=now.year, verified_at=None)
+    monkeypatch.setitem(
+        programme_verification.PROGRAMME_REVIEW_MONTHS_BY_SLUG,
+        programme.slug,
+        (5,),
+    )
+
+    report = verify_programmes(
+        db_session,
+        limit=5000,
+        max_seconds=60,
+        now=now,
+        checker=lambda _url: "alive",
+    )
+
+    assert programme.slug not in _edition_slugs(report.window_arrived)
+
+
+def test_configured_review_months_take_precedence_over_typical_window(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    now = datetime(2026, 4, 15, 12, tzinfo=UTC)
+    suffix = uuid.uuid4().hex
+    programme = _programme(
+        db_session,
+        suffix=suffix,
+        name="configured-precedence",
+        typical_window="applications usually open in April",
+    )
+    _edition(db_session, programme, year=now.year, verified_at=None)
+    monkeypatch.setitem(
+        programme_verification.PROGRAMME_REVIEW_MONTHS_BY_SLUG,
+        programme.slug,
+        (5,),
+    )
+
+    report = verify_programmes(
+        db_session,
+        limit=5000,
+        max_seconds=60,
+        now=now,
+        checker=lambda _url: "alive",
+    )
+
+    assert programme.slug not in _edition_slugs(report.window_arrived)
+
+
+def test_window_arrived_falls_back_to_typical_window_without_review_months(
+    db_session: Session,
+) -> None:
+    now = datetime(2026, 4, 15, 12, tzinfo=UTC)
+    suffix = uuid.uuid4().hex
+    programme = _programme(
+        db_session,
+        suffix=suffix,
+        name="typical-window-fallback",
+        typical_window="applications usually open in March",
+    )
+    _edition(db_session, programme, year=now.year, verified_at=None)
+
+    report = verify_programmes(
+        db_session,
+        limit=5000,
+        max_seconds=60,
+        now=now,
+        checker=lambda _url: "alive",
+    )
+
+    item = next(item for item in report.window_arrived if item.programme_slug == programme.slug)
+    assert (
+        item.reason
+        == "expected edition and typical_window mentions March near the current review month"
+    )
+
+
+def test_null_verified_at_is_not_stale(db_session: Session) -> None:
+    now = datetime(2026, 4, 15, 12, tzinfo=UTC)
+    suffix = uuid.uuid4().hex
+    programme = _programme(db_session, suffix=suffix, name="never-verified")
+    _edition(db_session, programme, year=now.year, status="closed", verified_at=None)
+
+    report = verify_programmes(
+        db_session,
+        limit=5000,
+        max_seconds=60,
+        now=now,
+        checker=lambda _url: "alive",
+    )
+
+    assert programme.slug not in _edition_slugs(report.stale_verification)
+
+
+def test_old_verified_at_is_stale(db_session: Session) -> None:
+    now = datetime(2026, 4, 15, 12, tzinfo=UTC)
+    suffix = uuid.uuid4().hex
+    programme = _programme(db_session, suffix=suffix, name="old-verified")
+    _edition(
+        db_session,
+        programme,
+        year=now.year,
+        status="closed",
+        verified_at=now - timedelta(days=91),
+    )
+
+    report = verify_programmes(
+        db_session,
+        limit=5000,
+        max_seconds=60,
+        now=now,
+        checker=lambda _url: "alive",
+    )
+
+    assert programme.slug in _edition_slugs(report.stale_verification)
+
+
 def test_typical_window_month_extractor_is_conservative() -> None:
     assert extract_months_from_typical_window("applications usually open in February") == {2}
     assert extract_months_from_typical_window("FEB application window") == {2}
@@ -141,7 +299,13 @@ def test_programme_verification_report_buckets_populate(db_session: Session) -> 
         name="stale",
         typical_window="applications usually open in August",
     )
-    _edition(db_session, stale, year=now.year, status="closed", verified_at=None)
+    _edition(
+        db_session,
+        stale,
+        year=now.year,
+        status="closed",
+        verified_at=now - timedelta(days=91),
+    )
     old = _programme(
         db_session,
         suffix=suffix,

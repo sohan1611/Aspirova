@@ -12,7 +12,8 @@
       "eligibility": "Undergraduate students may apply under IIT Kanpur, non-IITK Indian institution, and selected neighbouring-country categories, subject to the current programme rules.",
       "typical_window": "applications usually open in the early part of the year for a summer internship",
       "country": "IN",
-      "tags": ["research", "engineering", "science"]
+      "tags": ["research", "engineering", "science"],
+      "review_months": [12, 1, 2, 3]
     },
     {
       "slug": "iitr-spark",
@@ -24,7 +25,8 @@
       "eligibility": "Students enrolled in relevant undergraduate or integrated programmes may apply according to IIT Roorkee's current SPARK criteria.",
       "typical_window": "applications usually open before the summer internship period",
       "country": "IN",
-      "tags": ["research", "engineering", "science"]
+      "tags": ["research", "engineering", "science"],
+      "review_months": [12, 1, 2, 3]
     },
     {
       "slug": "iitgn-srip",
@@ -36,7 +38,8 @@
       "eligibility": "Undergraduate and master's students may apply according to the current SRIP project and applicant rules.",
       "typical_window": "applications usually open before the summer research period",
       "country": "IN",
-      "tags": ["research", "engineering", "science"]
+      "tags": ["research", "engineering", "science"],
+      "review_months": [12, 1, 2, 3]
     },
     {
       "slug": "iith-sure",
@@ -48,7 +51,8 @@
       "eligibility": "Non-IIT Hyderabad students in eligible undergraduate or postgraduate years may apply subject to the current SURE guidelines.",
       "typical_window": "applications usually open before the May-July summer period",
       "country": "IN",
-      "tags": ["research", "engineering", "science"]
+      "tags": ["research", "engineering", "science"],
+      "review_months": [12, 1, 2, 3]
     },
     {
       "slug": "iitd-srfp",
@@ -60,7 +64,8 @@
       "eligibility": "Undergraduate and postgraduate applicants from institutes other than IIT Delhi must meet the current academic-rank and programme criteria.",
       "typical_window": "applications usually open ahead of the summer vacation period",
       "country": "IN",
-      "tags": ["research", "engineering", "science"]
+      "tags": ["research", "engineering", "science"],
+      "review_months": [12, 1, 2, 3]
     },
     {
       "slug": "iitm-sfp",
@@ -72,7 +77,8 @@
       "eligibility": null,
       "typical_window": "applications usually open before the summer fellowship period",
       "country": "IN",
-      "tags": ["research", "engineering", "science"]
+      "tags": ["research", "engineering", "science"],
+      "review_months": [12, 1, 2, 3]
     },
     {
       "slug": "iisc-ipc-summer-fellowship",
@@ -84,7 +90,8 @@
       "eligibility": "Chemistry students in eligible B.Sc., integrated M.Sc., B.S., or M.Sc. years may apply according to the current department rules.",
       "typical_window": "applications usually open before the May-July summer period",
       "country": "IN",
-      "tags": ["research", "science"]
+      "tags": ["research", "science"],
+      "review_months": [12, 1, 2, 3]
     },
     {
       "slug": "iiith-research-teaser",
@@ -96,7 +103,8 @@
       "eligibility": null,
       "typical_window": "applications usually open before the summer research period",
       "country": "IN",
-      "tags": ["research", "cs", "ai"]
+      "tags": ["research", "cs", "ai"],
+      "review_months": [1, 2, 3]
     },
     {
       "slug": "tifr-math-vsrp",
@@ -108,7 +116,8 @@
       "eligibility": "Students enrolled in bachelor's or master's programmes may apply according to the current VSRP mathematics criteria.",
       "typical_window": "applications usually open before the summer campus programme",
       "country": "IN",
-      "tags": ["research", "mathematics", "science"]
+      "tags": ["research", "mathematics", "science"],
+      "review_months": [12, 1, 2, 3]
     },
     {
       "slug": "ncra-tifr-vsrp",
@@ -120,7 +129,8 @@
       "eligibility": "Students in eligible physics, astronomy, applied mathematics, electronics, engineering, or integrated science years may apply according to the current NCRA-TIFR criteria.",
       "typical_window": "applications usually open in January or February",
       "country": "IN",
-      "tags": ["research", "astronomy", "science"]
+      "tags": ["research", "astronomy", "science"],
+      "review_months": [12, 1, 2, 3]
     },
     {
       "slug": "icts-sn-bhatt-fellowship",
@@ -132,7 +142,8 @@
       "eligibility": "Undergraduate and master's students in science, mathematics, or engineering may apply according to the current ICTS criteria.",
       "typical_window": "applications are normally reviewed before the summer programme",
       "country": "IN",
-      "tags": ["research", "mathematics", "science"]
+      "tags": ["research", "mathematics", "science"],
+      "review_months": [11, 12, 1]
     },
     {
       "slug": "iiser-mohali-summer-research",
@@ -144,7 +155,8 @@
       "eligibility": "B.Sc., M.Sc., or equivalent students may apply according to the current IISER Mohali criteria.",
       "typical_window": "applications usually open before the May-July summer period",
       "country": "IN",
-      "tags": ["research", "science"]
+      "tags": ["research", "science"],
+      "review_months": [12, 1, 2, 3]
     },
     {
       "slug": "iasc-insa-nasi-srfp",
@@ -156,7 +168,8 @@
       "eligibility": "Students and teachers studying or teaching in India may apply according to the current academy fellowship rules.",
       "typical_window": "applications usually open late in the year for fellowships in the following calendar year",
       "country": "IN",
-      "tags": ["research", "science"]
+      "tags": ["research", "science"],
+      "review_months": [11, 12, 1]
     },
     {
       "slug": "khorana-program",
@@ -168,7 +181,8 @@
       "eligibility": "Indian pre-final-year undergraduate and postgraduate students in biotechnology and allied areas may apply according to the current programme rules.",
       "typical_window": "applications usually open in the earlier part of the year for a summer placement",
       "country": null,
-      "tags": ["research", "biology", "international"]
+      "tags": ["research", "biology", "international"],
+      "review_months": [9, 10, 11]
     },
     {
       "slug": "jncasr-srfp",
@@ -180,7 +194,8 @@
       "eligibility": "Students in eligible B.Sc., B.E., B.Tech., M.Sc., M.E., M.Tech., or integrated programme years may apply according to the current JNCASR subject criteria.",
       "typical_window": "applications usually open before the summer research period",
       "country": "IN",
-      "tags": ["research", "science", "engineering"]
+      "tags": ["research", "science", "engineering"],
+      "review_months": [12, 1, 2, 3]
     },
     {
       "slug": "hbcse-nius-physics",
@@ -192,7 +207,8 @@
       "eligibility": "First-year undergraduate students may apply according to the current NIUS Physics and Astronomy criteria.",
       "typical_window": "applications usually open before the first NIUS camp",
       "country": "IN",
-      "tags": ["research", "physics", "astronomy"]
+      "tags": ["research", "physics", "astronomy"],
+      "review_months": [12, 1, 2, 3]
     },
     {
       "slug": "isro-internship-projects",
@@ -300,7 +316,8 @@
       "eligibility": null,
       "typical_window": "annual programme timeline varies by year",
       "country": null,
-      "tags": ["open-source", "cs", "international"]
+      "tags": ["open-source", "cs", "international"],
+      "review_months": [11, 12, 1, 2, 3]
     },
     {
       "slug": "outreachy",
@@ -312,7 +329,8 @@
       "eligibility": null,
       "typical_window": "internship rounds usually run twice a year",
       "country": null,
-      "tags": ["open-source", "cs", "international"]
+      "tags": ["open-source", "cs", "international"],
+      "review_months": [1, 2, 8, 9]
     },
     {
       "slug": "lfx-mentorship",
@@ -324,7 +342,8 @@
       "eligibility": null,
       "typical_window": "Linux Foundation lists spring, summer, and fall mentorship terms",
       "country": null,
-      "tags": ["open-source", "cs", "international"]
+      "tags": ["open-source", "cs", "international"],
+      "review_months": [1, 2, 5, 6, 9, 10]
     },
     {
       "slug": "mlh-fellowship",
@@ -336,7 +355,8 @@
       "eligibility": null,
       "typical_window": "applications are processed by cohort and close before each batch",
       "country": null,
-      "tags": ["open-source", "cs", "international"]
+      "tags": ["open-source", "cs", "international"],
+      "review_months": [1, 2, 5, 6, 9, 10]
     },
     {
       "slug": "season-of-kde",
@@ -348,7 +368,8 @@
       "eligibility": null,
       "typical_window": "annual programme timeline varies by KDE cycle",
       "country": null,
-      "tags": ["open-source", "cs", "design"]
+      "tags": ["open-source", "cs", "design"],
+      "review_months": [9, 10]
     },
     {
       "slug": "hyperledger-mentorship",
@@ -360,7 +381,8 @@
       "eligibility": null,
       "typical_window": "applications usually open in the earlier part of the year for a mid-year mentorship term",
       "country": null,
-      "tags": ["open-source", "blockchain", "cs"]
+      "tags": ["open-source", "blockchain", "cs"],
+      "review_months": [1, 2, 3]
     },
     {
       "slug": "summer-of-bitcoin",
@@ -372,7 +394,8 @@
       "eligibility": null,
       "typical_window": "annual summer programme",
       "country": null,
-      "tags": ["open-source", "blockchain", "cs"]
+      "tags": ["open-source", "blockchain", "cs"],
+      "review_months": [11, 12, 1, 2]
     },
     {
       "slug": "mitacs-globalink",
@@ -384,7 +407,8 @@
       "eligibility": "Undergraduates from eligible countries and partner institutions may apply according to the current Mitacs country-specific criteria.",
       "typical_window": "student applications usually open well before the following year's internship period",
       "country": null,
-      "tags": ["international", "research", "science"]
+      "tags": ["international", "research", "science"],
+      "review_months": [8, 9, 10]
     },
     {
       "slug": "cern-summer-student",
@@ -396,7 +420,8 @@
       "eligibility": "Bachelor's or master's students in physics, engineering, computer science, or mathematics may apply according to CERN's current criteria.",
       "typical_window": "applications usually close early in the year for the summer programme",
       "country": null,
-      "tags": ["international", "research", "physics"]
+      "tags": ["international", "research", "physics"],
+      "review_months": [11, 12, 1]
     },
     {
       "slug": "rise-germany",
@@ -408,7 +433,8 @@
       "eligibility": "Undergraduate students from eligible countries may apply according to DAAD RISE Germany rules.",
       "typical_window": "applications usually open in autumn for the following year's internships",
       "country": null,
-      "tags": ["international", "research", "science"]
+      "tags": ["international", "research", "science"],
+      "review_months": [9, 10, 11]
     },
     {
       "slug": "charpak-summer-training",
@@ -420,7 +446,8 @@
       "eligibility": "Indian bachelor's or master's students enrolled in an Indian institution may apply according to the current Campus France India criteria.",
       "typical_window": "supports internships or research projects during the academic summer break",
       "country": null,
-      "tags": ["international", "research", "science"]
+      "tags": ["international", "research", "science"],
+      "review_months": [10, 11, 12, 1]
     },
     {
       "slug": "astar-sipga",
@@ -432,7 +459,8 @@
       "eligibility": null,
       "typical_window": "intakes run in cycles through the year, with deadlines ahead of each start date",
       "country": null,
-      "tags": ["international", "research", "science"]
+      "tags": ["international", "research", "science"],
+      "review_months": [1, 4, 7, 10]
     },
     {
       "slug": "kaust-vsrp",
@@ -444,7 +472,8 @@
       "eligibility": "Third- and fourth-year bachelor's students and master's students in STEM may apply according to KAUST's current criteria.",
       "typical_window": "applications are project-based and flexible through the year",
       "country": null,
-      "tags": ["international", "research", "science"]
+      "tags": ["international", "research", "science"],
+      "review_months": [1, 4, 7, 10]
     },
     {
       "slug": "eth-ssrf",
@@ -456,7 +485,8 @@
       "eligibility": "Bachelor's and master's students worldwide, except ETH Zurich students, may apply according to the current fellowship criteria.",
       "typical_window": "fellowship work takes place during the July-August summer period",
       "country": null,
-      "tags": ["international", "research", "cs"]
+      "tags": ["international", "research", "cs"],
+      "review_months": [11, 12]
     },
     {
       "slug": "amgen-scholars",
@@ -468,7 +498,8 @@
       "eligibility": "Undergraduate students apply through participating host institutions under the current regional and host-specific criteria.",
       "typical_window": "summer research programme with host-specific application windows",
       "country": null,
-      "tags": ["international", "research", "biology"]
+      "tags": ["international", "research", "biology"],
+      "review_months": [12, 1, 2]
     },
     {
       "slug": "microsoft-research-internships",
@@ -480,7 +511,8 @@
       "eligibility": null,
       "typical_window": "roles are posted on Microsoft Research careers when open",
       "country": null,
-      "tags": ["research", "cs", "ai"]
+      "tags": ["research", "cs", "ai"],
+      "review_months": [9, 10, 11, 12]
     },
     {
       "slug": "adobe-research-internships",
@@ -492,7 +524,8 @@
       "eligibility": "Graduate students may apply according to the current Adobe Research internship call.",
       "typical_window": "internship roles are posted by Adobe Research when open",
       "country": null,
-      "tags": ["research", "cs", "design"]
+      "tags": ["research", "cs", "design"],
+      "review_months": [9, 10, 11, 12]
     },
     {
       "slug": "google-student-researcher",
@@ -504,7 +537,8 @@
       "eligibility": "Students enrolled in bachelor's, master's, or PhD programmes may apply according to the current role and location criteria.",
       "typical_window": "roles are posted on Google Careers when open",
       "country": null,
-      "tags": ["research", "cs", "ai"]
+      "tags": ["research", "cs", "ai"],
+      "review_months": [9, 10, 11, 12]
     },
     {
       "slug": "amazon-science-internships",
@@ -516,7 +550,8 @@
       "eligibility": null,
       "typical_window": "roles are posted on Amazon Science careers when open",
       "country": null,
-      "tags": ["research", "cs", "ai"]
+      "tags": ["research", "cs", "ai"],
+      "review_months": [9, 10, 11, 12]
     },
     {
       "slug": "smart-india-hackathon",
@@ -528,7 +563,8 @@
       "eligibility": null,
       "typical_window": "annual competition timeline varies by edition",
       "country": "IN",
-      "tags": ["competition", "government", "engineering"]
+      "tags": ["competition", "government", "engineering"],
+      "review_months": [8, 9]
     },
     {
       "slug": "tcs-codevita",
@@ -552,7 +588,8 @@
       "eligibility": null,
       "typical_window": "annual competition timeline varies by edition",
       "country": "IN",
-      "tags": ["competition", "coding", "cs"]
+      "tags": ["competition", "coding", "cs"],
+      "review_months": [12, 1, 2]
     },
     {
       "slug": "jpmorgan-code-for-good",
@@ -564,7 +601,8 @@
       "eligibility": null,
       "typical_window": "recruitment usually runs during the campus hiring season ahead of the event",
       "country": null,
-      "tags": ["competition", "cs", "social-impact"]
+      "tags": ["competition", "cs", "social-impact"],
+      "review_months": [7, 8, 9]
     },
     {
       "slug": "icpc",
@@ -576,7 +614,8 @@
       "eligibility": "College-student teams participate through ICPC regional contest rules.",
       "typical_window": "regional contest schedules vary by region each year",
       "country": null,
-      "tags": ["competition", "coding", "cs"]
+      "tags": ["competition", "coding", "cs"],
+      "review_months": [8, 9, 10, 11]
     },
     {
       "slug": "iisc-summer-research",
@@ -588,7 +627,8 @@
       "eligibility": "Undergraduate and master's students with strong academic records may apply, subject to the current criteria of the hosting department or lab.",
       "typical_window": "openings are listed through the year, with most projects running over the summer",
       "country": "IN",
-      "tags": ["research", "science", "engineering"]
+      "tags": ["research", "science", "engineering"],
+      "review_months": [12, 1, 2, 3]
     },
     {
       "slug": "iitb-ircc-research-internship",
@@ -600,7 +640,8 @@
       "eligibility": "Students from recognised institutions may apply under the award's current criteria; selection is made by the hosting faculty member.",
       "typical_window": "applications usually open in the early part of the year for a summer internship",
       "country": "IN",
-      "tags": ["research", "engineering", "science"]
+      "tags": ["research", "engineering", "science"],
+      "review_months": [12, 1, 2, 3]
     },
     {
       "slug": "nitrkl-summer-internship",
@@ -612,7 +653,8 @@
       "eligibility": "Students enrolled at other recognised institutions may apply according to NIT Rourkela's current internship criteria.",
       "typical_window": "applications usually open in the early part of the year for a summer internship",
       "country": "IN",
-      "tags": ["research", "engineering", "science"]
+      "tags": ["research", "engineering", "science"],
+      "review_months": [12, 1, 2, 3]
     },
     {
       "slug": "tifr-vsrp",
@@ -624,7 +666,8 @@
       "eligibility": "Students in relevant science and engineering programmes may apply under the criteria published by TIFR and its participating schools.",
       "typical_window": "applications usually open in the early part of the year for a summer programme",
       "country": "IN",
-      "tags": ["research", "science", "physics", "mathematics"]
+      "tags": ["research", "science", "physics", "mathematics"],
+      "review_months": [12, 1, 2, 3]
     },
     {
       "slug": "pm-internship-scheme",
@@ -672,7 +715,8 @@
       "eligibility": "Indian graduates meeting the age and qualification criteria published for the cohort; no specific discipline is required.",
       "typical_window": "applications usually open several months before the parliamentary year begins",
       "country": "IN",
-      "tags": ["policy", "research", "government"]
+      "tags": ["policy", "research", "government"],
+      "review_months": [2, 3, 4]
     },
     {
       "slug": "young-india-fellowship",
@@ -684,7 +728,8 @@
       "eligibility": "Graduates across disciplines who meet the fellowship's published criteria; selection includes written application and interview stages.",
       "typical_window": "applications are accepted in rounds across the admissions cycle",
       "country": "IN",
-      "tags": ["policy", "social-impact"]
+      "tags": ["policy", "social-impact"],
+      "review_months": [10, 11, 12, 1, 2]
     },
     {
       "slug": "teach-for-india-fellowship",
@@ -696,7 +741,8 @@
       "eligibility": "Indian citizens and OCI holders who have completed a bachelor's degree by the time the fellowship begins, per the published criteria.",
       "typical_window": "applications are accepted in rounds over several months before the cohort starts",
       "country": "IN",
-      "tags": ["social-impact", "policy"]
+      "tags": ["social-impact", "policy"],
+      "review_months": [10, 11, 12, 1, 2]
     },
     {
       "slug": "sbi-youth-for-india",
@@ -708,7 +754,8 @@
       "eligibility": "Indian citizens and OCI holders within the published age band holding a graduate degree from a recognised institution.",
       "typical_window": "applications usually open in the middle of the year for a cohort starting later that year",
       "country": "IN",
-      "tags": ["social-impact", "policy"]
+      "tags": ["social-impact", "policy"],
+      "review_months": [5, 6, 7]
     },
     {
       "slug": "gandhi-fellowship",
@@ -720,7 +767,8 @@
       "eligibility": "Graduates within the published age band; selection runs through application, assessment and interview stages.",
       "typical_window": "recruitment runs in cycles across the year",
       "country": "IN",
-      "tags": ["social-impact", "policy"]
+      "tags": ["social-impact", "policy"],
+      "review_months": [1, 2, 3]
     },
     {
       "slug": "inspire-scholarship",
@@ -744,7 +792,8 @@
       "eligibility": "Indian citizens resident in India who hold a good first degree and meet the foundation's age and admission criteria.",
       "typical_window": "applications usually open early in the year for study starting that autumn",
       "country": "IN",
-      "tags": ["international", "research"]
+      "tags": ["international", "research"],
+      "review_months": [1, 2, 3]
     },
     {
       "slug": "jn-tata-endowment",
@@ -756,7 +805,8 @@
       "eligibility": "Indian nationals who are graduates of a recognised university and meet the endowment's published criteria.",
       "typical_window": "applications usually open in the earlier part of the year",
       "country": "IN",
-      "tags": ["international", "research"]
+      "tags": ["international", "research"],
+      "review_months": [12, 1, 2, 3]
     },
     {
       "slug": "fulbright-nehru",
@@ -768,7 +818,8 @@
       "eligibility": "Indian citizens meeting the criteria of the specific fellowship category being applied for.",
       "typical_window": "each fellowship category has its own annual deadline published by USIEF",
       "country": "IN",
-      "tags": ["international", "research"]
+      "tags": ["international", "research"],
+      "review_months": [5, 6, 7]
     },
     {
       "slug": "commonwealth-scholarships",
@@ -780,7 +831,8 @@
       "eligibility": "Citizens of eligible Commonwealth countries who meet the academic and, for some awards, nominating-body requirements.",
       "typical_window": "each award type has its own annual deadline published by the Commission",
       "country": null,
-      "tags": ["international", "research"]
+      "tags": ["international", "research"],
+      "review_months": [10, 11, 12]
     },
     {
       "slug": "erasmus-mundus-joint-masters",
@@ -792,7 +844,8 @@
       "eligibility": "Open to students worldwide; each joint master's programme sets its own academic entry requirements.",
       "typical_window": "individual programmes publish their own deadlines, commonly in the earlier part of the year",
       "country": null,
-      "tags": ["international", "research"]
+      "tags": ["international", "research"],
+      "review_months": [10, 11, 12, 1]
     },
     {
       "slug": "swiss-government-excellence",
@@ -804,7 +857,8 @@
       "eligibility": "Applicants from eligible countries meeting the academic criteria; a Swiss host institution or supervisor is normally required.",
       "typical_window": "country-specific calls are published annually, commonly in the second half of the year",
       "country": null,
-      "tags": ["international", "research"]
+      "tags": ["international", "research"],
+      "review_months": [8, 9, 10, 11, 12]
     },
     {
       "slug": "reliance-foundation-scholarships",
@@ -816,7 +870,8 @@
       "eligibility": "Indian students meeting the academic and income criteria published for each scholarship track.",
       "typical_window": "applications usually open after the academic year's admissions conclude",
       "country": "IN",
-      "tags": ["engineering", "science"]
+      "tags": ["engineering", "science"],
+      "review_months": [8, 9, 10]
     },
     {
       "slug": "aditya-birla-scholarship",
@@ -840,7 +895,8 @@
       "eligibility": "Indian nationals within the published age band who hold or expect a strong first degree.",
       "typical_window": "applications usually open in the earlier part of the year",
       "country": "IN",
-      "tags": ["international", "research"]
+      "tags": ["international", "research"],
+      "review_months": [1, 2, 3]
     },
     {
       "slug": "hacktoberfest",
@@ -852,7 +908,8 @@
       "eligibility": "Open to anyone who registers during the event window; contributions must be to participating repositories.",
       "typical_window": "runs through October each year, with registration opening shortly before",
       "country": null,
-      "tags": ["open-source", "coding", "cs"]
+      "tags": ["open-source", "coding", "cs"],
+      "review_months": [9, 10]
     },
     {
       "slug": "google-season-of-docs",
@@ -864,7 +921,8 @@
       "eligibility": "Participation is arranged through accepted open-source organisations; requirements are set by the programme for each edition.",
       "typical_window": "organisations apply first, with the writing period later in the year",
       "country": null,
-      "tags": ["open-source", "cs"]
+      "tags": ["open-source", "cs"],
+      "review_months": [2, 3, 4]
     },
     {
       "slug": "meta-hacker-cup",
@@ -876,7 +934,8 @@
       "eligibility": "Open to participants who register and meet the contest's published rules and age requirements.",
       "typical_window": "registration and the qualification round usually fall in the second half of the year",
       "country": null,
-      "tags": ["competition", "coding", "cs"]
+      "tags": ["competition", "coding", "cs"],
+      "review_months": [8, 9, 10]
     },
     {
       "slug": "microsoft-imagine-cup",
@@ -888,7 +947,8 @@
       "eligibility": "Student teams meeting the enrolment and age criteria published in the competition's official rules.",
       "typical_window": "registration opens in the autumn with rounds running into the following year",
       "country": null,
-      "tags": ["competition", "cs", "ai"]
+      "tags": ["competition", "cs", "ai"],
+      "review_months": [10, 11, 12, 1]
     },
     {
       "slug": "ibm-research-india-internship",
@@ -900,7 +960,8 @@
       "eligibility": "Students in relevant degree programmes; specific requirements depend on the project and are set by the hiring team.",
       "typical_window": "openings are posted through the year, with many internships running over the summer",
       "country": "IN",
-      "tags": ["research", "ai", "cs"]
+      "tags": ["research", "ai", "cs"],
+      "review_months": [9, 10, 11, 12]
     },
     {
       "slug": "nvidia-research-internships",
@@ -912,7 +973,8 @@
       "eligibility": "Students in relevant degree programmes; requirements vary by research area and are set in each posting.",
       "typical_window": "applications for summer internships usually open in the preceding months",
       "country": null,
-      "tags": ["research", "ai", "cs"]
+      "tags": ["research", "ai", "cs"],
+      "review_months": [9, 10, 11, 12]
     },
     {
       "slug": "mit-msrp",
@@ -924,7 +986,8 @@
       "eligibility": "Undergraduate students meeting the programme's published criteria; some tracks have nationality or institution requirements.",
       "typical_window": "applications usually open in the winter for a summer placement",
       "country": null,
-      "tags": ["research", "international", "science"]
+      "tags": ["research", "international", "science"],
+      "review_months": [12, 1, 2]
     },
     {
       "slug": "caltech-surf",
@@ -936,7 +999,8 @@
       "eligibility": "Undergraduate students meeting the programme's published criteria; some options are limited to Caltech students.",
       "typical_window": "applications usually close in the earlier part of the year for a summer project",
       "country": null,
-      "tags": ["research", "international", "science"]
+      "tags": ["research", "international", "science"],
+      "review_months": [10, 11, 12, 1, 2]
     },
     {
       "slug": "nus-summer-research",
@@ -960,7 +1024,8 @@
       "eligibility": "Researchers from participating countries, nominated through the designated partner agency, per the programme's criteria.",
       "typical_window": "nominating agencies run their own calls, generally well ahead of the summer",
       "country": null,
-      "tags": ["research", "international", "science"]
+      "tags": ["research", "international", "science"],
+      "review_months": [11, 12, 1]
     },
     {
       "slug": "iaeste-internships",
@@ -972,7 +1037,8 @@
       "eligibility": "Students at institutions affiliated with a national IAESTE committee, per that committee's process.",
       "typical_window": "national committees run their own selection cycles, commonly in the winter for summer placements",
       "country": null,
-      "tags": ["international", "engineering", "science"]
+      "tags": ["international", "engineering", "science"],
+      "review_months": [11, 12, 1]
     },
     {
       "slug": "heidelberg-laureate-forum",
@@ -984,7 +1050,8 @@
       "eligibility": "Undergraduate, graduate and postdoctoral researchers in mathematics or computer science, selected through an application process.",
       "typical_window": "applications usually open around the turn of the year for a forum held in the autumn",
       "country": null,
-      "tags": ["mathematics", "cs", "research", "international"]
+      "tags": ["mathematics", "cs", "research", "international"],
+      "review_months": [11, 12, 1, 2]
     }
   ]
 }
