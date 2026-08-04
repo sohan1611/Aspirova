@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -35,7 +36,18 @@ REQUIRED_KEYS = {
     "tags",
 }
 
+# These are organiser/location/type signals, not field-of-study signals.
+# Mapping them would match nearly the whole registry and destroy ranking value.
+REGISTRY_ONLY_TAGS = {
+    "research",
+    "international",
+    "government",
+    "competition",
+    "open-source",
+}
+
 TEST_YEAR = 2026
+YEAR_PATTERN = re.compile(r"\b(19|20)\d{2}\b")
 
 
 @pytest.fixture
@@ -95,6 +107,20 @@ def _edition_registry_file(
         encoding="utf-8",
     )
     return path
+
+
+def _programmes_registry_entries() -> list[dict]:
+    payload = json.loads(seed_programmes.PROGRAMMES_PATH.read_text(encoding="utf-8"))
+    return payload["programmes"]
+
+
+def _allowed_programme_tags() -> set[str]:
+    tag_map_path = seed_programmes.PROGRAMMES_PATH.with_name("programme_tag_map.json")
+    tag_map = json.loads(tag_map_path.read_text(encoding="utf-8"))
+    mapped_tags: set[str] = set()
+    for tags in tag_map["divisions"].values():
+        mapped_tags.update(tags)
+    return mapped_tags | REGISTRY_ONLY_TAGS
 
 
 def test_seed_programmes_is_idempotent(db_session: Session, tmp_path: Path) -> None:
@@ -403,3 +429,81 @@ def test_programmes_json_is_valid_registry_data() -> None:
         assert " " not in entry["slug"]
         assert entry["tags"]
         assert all(tag == tag.lower() for tag in entry["tags"])
+
+
+def test_programmes_json_tags_use_closed_vocabulary() -> None:
+    allowed_tags = _allowed_programme_tags()
+
+    for entry in _programmes_registry_entries():
+        for tag in entry["tags"]:
+            assert tag in allowed_tags, f"programme {entry['slug']} uses unknown tag {tag!r}"
+
+
+def test_programmes_json_urls_are_unique_and_https() -> None:
+    seen_urls: set[str] = set()
+
+    for entry in _programmes_registry_entries():
+        url = entry["url"]
+        assert url.startswith(
+            "https://"
+        ), f"programme {entry['slug']} url must start with https://: {url}"
+        assert url not in seen_urls, f"programme {entry['slug']} duplicates url {url}"
+        seen_urls.add(url)
+
+
+def test_programmes_json_country_codes_fit_db_column() -> None:
+    for entry in _programmes_registry_entries():
+        country = entry.get("country")
+        assert country is None or (
+            isinstance(country, str)
+            and len(country) == 2
+            and country.isalpha()
+            and country.isupper()
+        ), f"programme {entry['slug']} has invalid country {country!r}"
+
+
+def test_programmes_json_rendered_fields_are_present_strings() -> None:
+    # description and typical_window are what the directory CARD renders, so a
+    # blank one is a visible defect and the registry's core value ("shows dormant
+    # programmes with their typical windows") is lost.
+    for entry in _programmes_registry_entries():
+        for field in ("description", "typical_window"):
+            value = entry.get(field)
+            assert (
+                isinstance(value, str) and value.strip()
+            ), f"programme {entry['slug']} has blank or non-string {field}"
+
+
+def test_programmes_json_eligibility_is_absent_or_meaningful() -> None:
+    # eligibility is a detail-page section that degrades gracefully when absent,
+    # so null is allowed: 20 curated entries have no verified eligibility text and
+    # inventing it would be exactly the fabrication the honesty rule forbids.
+    # What is NOT allowed is a present-but-empty value, which renders an empty
+    # section rather than omitting it.
+    for entry in _programmes_registry_entries():
+        eligibility = entry.get("eligibility")
+        assert eligibility is None or (
+            isinstance(eligibility, str) and eligibility.strip()
+        ), f"programme {entry['slug']} has a present but blank eligibility"
+
+
+def test_programmes_json_typical_window_has_no_specific_year() -> None:
+    for entry in _programmes_registry_entries():
+        typical_window = entry.get("typical_window")
+        assert isinstance(
+            typical_window, str
+        ), f"programme {entry['slug']} has non-string typical_window"
+        match = YEAR_PATTERN.search(typical_window)
+        assert match is None, (
+            f"programme {entry['slug']} typical_window contains year " f"{match.group(0)}"
+        )
+
+
+def test_programmes_json_represents_every_valid_category() -> None:
+    represented_categories = {entry["category"] for entry in _programmes_registry_entries()}
+    missing_categories = VALID_CATEGORIES - represented_categories
+
+    assert not missing_categories, (
+        "programmes.json has no programme for categories: "
+        f"{', '.join(sorted(missing_categories))}"
+    )
