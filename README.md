@@ -24,3 +24,18 @@ docs/       Architecture canon + phase handoffs (read this first)
 ## Local setup
 
 See [`backend/README.md`](backend/README.md) and [`frontend/README.md`](frontend/README.md) (added as each is scaffolded).
+
+## License
+
+Aspirova is released under the [MIT License](LICENSE).
+
+The MIT License covers the source code in this repository. The curated datasets committed here -
+`backend/data/programmes.json`, `backend/data/programme_editions.json`, `frontend/lib/taxonomy.json`,
+and `frontend/lib/skillsLexicon.json` - are authored content compiled from publicly published
+information; every entry links to its official source, which remains the authoritative record.
+Opportunity data served by the live product is discovered from public sources and is not distributed
+in this repository.
+
+Use the crawler at your own risk. Anyone running the ingestion code is responsible for complying
+with the terms of service and robots directives of any site they point it at, and with applicable law
+in their jurisdiction.
