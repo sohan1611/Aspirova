@@ -134,9 +134,9 @@ Cost: ~200 HTTP requests/week, folded into an existing workflow. **Well under 1 
 | **3** | `/programmes` directory + detail pages + JSON-LD | **DONE** | The SEO asset |
 | **4** | Feed integration for `status='open'` + programme badge | **BLOCKED (correctly)** | Nothing to surface: production has 0 `open` editions and will until a human confirms one |
 | **5a** | Personalisation via `field_profile`/tags | **DONE** (2026-08-03) | `programme_tag_map.json` + `?divisions=` ranking + matched band |
-| **5b** | Deadline reminders | **BLOCKED on content** | Fires only on `announced`/`open` editions with a real `closes_at`; production has exactly 1 (RISE 2027). Build when Part 7 supplies more |
+| **5b** | Deadline reminders | **BLOCKED on content** | Fires only on `announced`/`open` editions with a real `closes_at`; production has exactly 1 (RISE 2027). Unblocked by **edition verification**, not by registry expansion — see the amendment below |
 | **6** | Weekly verification + needs-review report | **DONE** | |
-| **7** | Expand registry to full ~200 coverage | **NEXT** | Content work, not engineering — and it is the true unblocker for 4 and 5b |
+| **7** | Expand registry to full ~200 coverage | **FIRST TRANCHE DONE** (2026-08-04) | 52 → 82; all 9 categories populated for the first time. Still short of ~200, so the part stays open |
 
 **Amendments since issue (2026-08-03):**
 - The "current edition" is the **highest-`year` non-`discontinued`** edition, not `year == current_year`.
@@ -147,6 +147,37 @@ Cost: ~200 HTTP requests/week, folded into an existing workflow. **Well under 1 
   "never auto-promote to open" is enforced by code, not convention.
 - §7's `/research` page had to be folded into this registry: it was a second, contradictory
   source of truth that inferred openness from the browser clock.
+
+**Amendments from Part 7 (2026-08-04):**
+- **§9 was wrong that Part 7 unblocks Parts 4 and 5b.** Expanding the registry adds *programmes*;
+  Parts 4 and 5b need *editions* with a verified `status` and `closes_at`. Those are separate
+  authoring acts against `programme_editions.json`. Part 7 took the registry 52 → 82 and moved
+  neither gate: production still has 0 `open` editions and exactly 1 with a real `closes_at`.
+  **The true unblocker is edition verification** — checking official pages for published windows —
+  which is the §8 weekly-verification loop doing its job, not a content-volume problem.
+- **Registry content is authored by the architect, never delegated to the implementation agent.**
+  §3 already required authored content; this makes the process binding. Handing an agent programme
+  descriptions, eligibility rules and URLs invites invented facts into the one dataset whose entire
+  premise is honesty. The engineering half — validation, seeding, tests — is delegated as normal.
+- **Every `url` must be live-checked before commit.** Part 7 verified all 30 additions returned
+  HTTP 200 and **dropped 9 candidates rather than guess** (502s, 404s, unreachable hosts). A
+  plausible-looking dead URL is worse than an absent programme: §8's liveness job would flag it
+  weeks later, after students had already followed it.
+- **The tag vocabulary is closed**, enforced by test: every tag must be reachable from
+  `programme_tag_map.json`, plus five deliberate registry-only signals (`research`, `international`,
+  `government`, `competition`, `open-source`) that describe organiser/location/type rather than
+  field of study. This caught a real defect on its first run — `blockchain` was reachable from no
+  division, so two programmes could never match a CSE student despite the taxonomy having a
+  `blockchain` interest under `cse`.
+- **`typical_window` may contain no 4-digit year**, enforced by test. The programme row describes a
+  *recurring* window; year-specific facts belong in `programme_editions.json`. A year baked into
+  `typical_window` goes stale silently and starts misleading students — the §6 failure mode by a
+  different route.
+- **`eligibility` may be null; `description` and `typical_window` may not.** The first is a
+  detail-page section that degrades gracefully when omitted, and 20 curated entries have no verified
+  eligibility text — inventing it would be exactly the fabrication §6 forbids. The other two are
+  what the directory card renders, so blank is a visible defect. A present-but-empty value is
+  rejected in all three cases.
 
 **Ship Part 1–3 before 4–7.** A browsable, honest directory is independently valuable and proves the
 model before it touches the feed.
