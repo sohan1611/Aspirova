@@ -27,6 +27,33 @@
       "source_url": "https://www.mitacs.ca/our-programs/globalink-research-internship-students/",
       "verified_at": "2026-08-02T00:00:00Z",
       "notes": "Official page states applications for GRI 2026 are no longer accepted and that the GRI 2027 call will open shortly, without giving a date. No 2027 edition is recorded until a real date is published."
+    },
+    {
+      "programme_slug": "swiss-government-excellence",
+      "year": 2027,
+      "status": "announced",
+      "opens_at": "2026-08-20T00:00:00Z",
+      "source_url": "https://www.sbfi.admin.ch/sbfi/en/home/education/scholarships-and-grants/swiss-government-excellence-scholarships.html",
+      "verified_at": "2026-08-04T00:00:00Z",
+      "notes": "Official page states 'Applications are open starting August 20, 2026.' Country-specific deadlines for the 2027-2028 academic year were NOT published at the time of checking - the page says they will appear in August 2026 - so closes_at is deliberately absent rather than guessed. Recorded as the 2027 edition because the award covers the 2027-2028 academic year."
+    },
+    {
+      "programme_slug": "inlaks-scholarship",
+      "year": 2026,
+      "status": "closed",
+      "source_url": "https://www.inlaksfoundation.org/scholarships/",
+      "verified_at": "2026-08-04T00:00:00Z",
+      "notes": "Official scholarships page states 'Applications closed for 2026' and that shortlisted candidates have been informed. No opening or closing date is published for the next cycle, so none is recorded."
+    },
+    {
+      "programme_slug": "jn-tata-endowment",
+      "year": 2026,
+      "status": "closed",
+      "opens_at": "2026-01-05T00:00:00Z",
+      "closes_at": "2026-03-29T00:00:00Z",
+      "source_url": "https://www.jntataendowment.org/",
+      "verified_at": "2026-08-04T00:00:00Z",
+      "notes": "Official site publishes the window for the Fall 2026 - Spring 2027 programme as 'from 5th January till 29th March, 2026'. That window had already passed when checked on 2026-08-04, so the edition is recorded as closed. Recorded as the 2026 edition because study begins in Fall 2026."
     }
   ]
 }
