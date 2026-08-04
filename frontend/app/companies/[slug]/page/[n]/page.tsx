@@ -39,7 +39,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const page = parsePage(n);
   const data = await getCompanyPage(slug, page, 1);
   if (!data) {
-    return { title: "Company not found" };
+    notFound();
+  }
+
+  if (page > totalPagesFor(data.total)) {
+    notFound();
   }
 
   const title = `${data.company.name} opportunities`;
