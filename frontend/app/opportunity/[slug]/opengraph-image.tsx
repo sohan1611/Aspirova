@@ -9,6 +9,12 @@ export const size = {
 };
 export const contentType = "image/png";
 export const revalidate = 86400;
+// Registers the route for on-demand ISR without prerendering any image at
+// build time; without this Next silently ignores revalidate on a dynamic
+// segment and every request re-renders the PNG through satori.
+export async function generateStaticParams(): Promise<{ slug: string }[]> {
+  return [];
+}
 
 const brandBlue = "#2563eb";
 const darkText = "#0f172a";

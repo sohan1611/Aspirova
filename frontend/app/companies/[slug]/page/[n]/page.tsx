@@ -43,7 +43,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   if (page > totalPagesFor(data.total)) {
-    notFound();
+    return {
+      title: "Page not found",
+      robots: { index: false, follow: false },
+    };
   }
 
   const title = `${data.company.name} opportunities`;
