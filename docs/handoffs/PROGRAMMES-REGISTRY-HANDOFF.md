@@ -125,6 +125,32 @@ instruction and means a stale registry degrades to "informative" rather than "wr
 
 Cost: ~200 HTTP requests/week, folded into an existing workflow. **Well under 1 minute of Actions time.**
 
+**Amendment (2026-08-04) — the report's two scheduling triggers, corrected.** As first built, both
+were broken in opposite directions and the report could not do the job this section describes.
+
+- **`review_months` is the seasonal trigger; `typical_window` is not.** The trigger originally
+  decided a programme was due by parsing month names out of the free-text `typical_window`. Only
+  **7 of 82** entries contained a parseable month, because that prose is deliberately hedged —
+  §6's honesty rule means it must not assert a month nobody verified. Hedging the prose was right;
+  depending on it for scheduling was not. Two individually correct decisions combined into a defect.
+  Registry entries therefore carry an optional **`review_months`** (list of 1–12): *internal
+  scheduling metadata only*, never rendered, never returned by the API. The asymmetry is the whole
+  justification — a wrong `typical_window` misleads a student, whereas a wrong `review_months` only
+  means we look a month early, so it can carry a schedule the prose honestly cannot. It is read from
+  the registry file at import, following `api/programmes.py`'s loading of `programme_tag_map.json`;
+  **no DB column and no migration.** The trigger prefers it and falls back to the prose parsing.
+- **Absent `review_months` is a valid authoring choice.** 15 of 82 have none — Indian government
+  schemes that notify ad hoc or run rolling intakes, plus a few with no stable month. A guessed
+  month fires the report at random and trains the reader to ignore it, which is how a signal dies.
+- **A null `verified_at` is NOT stale.** The rule originally flagged it, which in production meant
+  **78 of 84 editions every week** — a report saying "78 items need review" says nothing. A null
+  value is the *seeded default state*, not decayed verification: it never claimed to be verified.
+  Staleness now requires `verified_at IS NOT NULL` and older than the threshold; the seasonal
+  trigger is what brings never-verified rows up at the right time.
+
+Measured on production after the fix: stale items **78 → 0**; seasonal coverage per month **0–5 →
+4–44**, concentrated in the real application seasons (Dec–Mar, Sep–Dec) with April correctly quiet.
+
 ## 9. Build order
 
 | Part | Scope | Status | Notes |
