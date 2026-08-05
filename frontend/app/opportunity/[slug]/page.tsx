@@ -22,7 +22,8 @@ import {
 import { getSourceLabel } from "@/lib/sourceLabel";
 import type { OpportunityDetail, OpportunityListItem } from "@/lib/types";
 
-export const revalidate = 3600;
+// Sized to outlast a daily crawl so the next search-engine visit hits warm cache instead of forcing regeneration.
+export const revalidate = 86400;
 
 // Registers the route for on-demand ISR without prerendering any page at build
 // time; without this Next leaves a dynamic segment fully per-request.
