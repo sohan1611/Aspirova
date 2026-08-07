@@ -157,6 +157,7 @@ def ingest_one(
     raw: RawListing,
     normalized: NormalizedListing,
     seen_opportunity_ids: set[int] | None = None,
+    changed_slugs: set[str] | None = None,
 ) -> tuple[models.Opportunity, bool]:
     """Returns (opportunity, is_new_canonical_opportunity).
 
@@ -235,6 +236,8 @@ def ingest_one(
                     models.OpportunityTag.opportunity_id == opportunity.id
                 )
             )
+            if changed_slugs is not None:
+                changed_slugs.add(opportunity.slug)
 
         mark_seen(opportunity)
         raw_row.processed = True
@@ -322,6 +325,9 @@ def ingest_one(
             )
             session.add(opportunity)
             is_new = True
+
+    if is_new and changed_slugs is not None:
+        changed_slugs.add(opportunity.slug)
 
     session.flush()  # need opportunity.id for the FKs below
     board_state.opportunities_by_id[opportunity.id] = opportunity

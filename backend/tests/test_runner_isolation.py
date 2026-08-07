@@ -67,7 +67,14 @@ _FakeAdapter = _make_fake_adapter_class(3)
 
 def _make_forced_failure_ingest(fail_on_external_id: str):
     def _ingest(
-        session, board_state, source_id, company_id, raw, normalized, seen_opportunity_ids=None
+        session,
+        board_state,
+        source_id,
+        company_id,
+        raw,
+        normalized,
+        seen_opportunity_ids=None,
+        changed_slugs=None,
     ):
         if raw.external_id == fail_on_external_id:
             # A real DB-level error - this is what actually aborts the
@@ -82,6 +89,7 @@ def _make_forced_failure_ingest(fail_on_external_id: str):
             raw,
             normalized,
             seen_opportunity_ids=seen_opportunity_ids,
+            changed_slugs=changed_slugs,
         )
 
     return _ingest
@@ -177,6 +185,7 @@ def test_one_bad_listing_does_not_cascade_fail_the_rest(db_session, seeded, monk
 
     assert result["errors"] == 1
     assert result["new_opps"] == 1
+    assert result["changed_slugs"] == 1
     assert result["listings_found"] == 3
 
     titles = set(
@@ -204,6 +213,7 @@ def test_failure_in_a_later_batch_does_not_roll_back_an_earlier_committed_batch(
 
     assert result["errors"] == 1
     assert result["new_opps"] == 26  # listings 1-25 (batch 1) + 27 (trailing commit)
+    assert result["changed_slugs"] == 26
     assert result["listings_found"] == 27
 
     titles = set(

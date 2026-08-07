@@ -83,7 +83,14 @@ def test_prefetched_board_skips_fetch_and_ingests_identically(monkeypatch) -> No
     )
 
     def fake_ingest(
-        session, _board_state, _source_id, _company_id, raw, _normalized, seen_opportunity_ids=None
+        session,
+        _board_state,
+        _source_id,
+        _company_id,
+        raw,
+        _normalized,
+        seen_opportunity_ids=None,
+        changed_slugs=None,
     ):
         session.ingested.append(raw.external_id)
         return object(), True
@@ -359,7 +366,14 @@ def test_aggregator_deadline_commits_completed_work_and_returns_partial(monkeypa
     session.scalar_result = previous_state
 
     def fake_ingest(
-        _session, _board_state, _source_id, _company_id, raw, _normalized, seen_opportunity_ids=None
+        _session,
+        _board_state,
+        _source_id,
+        _company_id,
+        raw,
+        _normalized,
+        seen_opportunity_ids=None,
+        changed_slugs=None,
     ):
         session.ingested.append(raw.external_id)
         return object(), True
@@ -381,7 +395,13 @@ def test_aggregator_deadline_commits_completed_work_and_returns_partial(monkeypa
         max_seconds=10.0,
     )
 
-    assert result == {"listings_found": 3, "new_opps": 1, "errors": 0, "status": "partial"}
+    assert result == {
+        "listings_found": 3,
+        "new_opps": 1,
+        "errors": 0,
+        "status": "partial",
+        "changed_slugs": 0,
+    }
     assert session.ingested == ["one"]
     assert session.commits >= 3  # trailing batch, final state, and CrawlRun
     crawl_runs = [value for value in session.added if isinstance(value, models.CrawlRun)]
@@ -426,7 +446,7 @@ def test_aggregator_forwards_deadline_controls_to_unstop(monkeypatch) -> None:
     monkeypatch.setattr(
         runner,
         "ingest_one",
-        lambda *_args, seen_opportunity_ids=None: (object(), True),
+        lambda *_args, seen_opportunity_ids=None, changed_slugs=None: (object(), True),
     )
 
     result = runner.crawl_aggregator(
