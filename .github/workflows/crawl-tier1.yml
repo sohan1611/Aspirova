@@ -46,6 +46,8 @@ jobs:
         timeout-minutes: 32
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          REVALIDATE_URL: ${{ secrets.REVALIDATE_URL }}
+          REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
           # Python block-buffers stdout when it's not a TTY (i.e. always, in
           # CI) - confirmed live: every print() across all 12 companies
           # appeared in one burst near the end of an 18-minute run instead
@@ -61,6 +63,8 @@ jobs:
         timeout-minutes: 12
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          REVALIDATE_URL: ${{ secrets.REVALIDATE_URL }}
+          REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
           PYTHONUNBUFFERED: "1"
         run: uv run python -m crawlers.runner --tier 1 --group aggregator
 

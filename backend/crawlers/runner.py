@@ -45,6 +45,7 @@ from crawlers.smartrecruiters import SmartRecruitersAdapter
 from crawlers.unstop import UnstopAdapter
 from pipeline.company_resolution import resolve_company
 from pipeline.ingest import ingest_one, load_board_state
+from pipeline.revalidate import notify_changed
 
 # adapter_key (sources.adapter_key, companies.ats_type - same string, Doc
 # 04 sec 11) -> adapter class, for the per-company ATS sources. Adding a
@@ -284,6 +285,7 @@ def crawl_company_board(
     prefetched: list[RawListing] | None = None,
     prefetched_health: str | None = None,
     should_stop: Callable[[], bool] | None = None,
+    changed_slugs: set[str] | None = None,
 ) -> dict:
     """Crawl one company's board on the given ATS. Never raises - every
     failure mode, including a dropped DB connection mid-crawl, is caught
@@ -305,7 +307,15 @@ def crawl_company_board(
     company_slug = company.slug
 
     started_at = datetime.now(timezone.utc)
-    result = {"listings_found": 0, "new_opps": 0, "errors": 0, "status": "success"}
+    result = {
+        "listings_found": 0,
+        "new_opps": 0,
+        "errors": 0,
+        "status": "success",
+        "changed_slugs": 0,
+    }
+    run_changed_slugs = changed_slugs if changed_slugs is not None else set()
+    committed_changed_slugs: set[str] = set()
 
     try:
         adapter = adapter_class(board_token=board_token, company_name=company_name)
@@ -384,6 +394,7 @@ def crawl_company_board(
         # silently overcounting.
         pending_new_opps = 0
         seen_opportunity_ids: set[int] = set()
+        pending_changed_slugs: set[str] = set()
 
         for raw in raw_listings:
             if _is_stop_requested(should_stop):
@@ -400,12 +411,17 @@ def crawl_company_board(
                     raw,
                     normalized,
                     seen_opportunity_ids=seen_opportunity_ids,
+                    changed_slugs=pending_changed_slugs,
                 )
                 since_last_commit += 1
                 if is_new:
                     pending_new_opps += 1
                 if since_last_commit >= BATCH_SIZE:
                     session.commit()
+                    run_changed_slugs.update(pending_changed_slugs)
+                    committed_changed_slugs.update(pending_changed_slugs)
+                    pending_changed_slugs.clear()
+                    result["changed_slugs"] = len(committed_changed_slugs)
                     result["new_opps"] += pending_new_opps
                     since_last_commit = 0
                     pending_new_opps = 0
@@ -426,6 +442,7 @@ def crawl_company_board(
                     pass
                 since_last_commit = 0
                 pending_new_opps = 0
+                pending_changed_slugs.clear()
                 result["errors"] += 1
                 print(
                     f"    listing error ({raw.external_id}): {type(exc).__name__}: {exc}",
@@ -434,6 +451,10 @@ def crawl_company_board(
 
         if since_last_commit > 0:
             session.commit()
+            run_changed_slugs.update(pending_changed_slugs)
+            committed_changed_slugs.update(pending_changed_slugs)
+            pending_changed_slugs.clear()
+            result["changed_slugs"] = len(committed_changed_slugs)
             result["new_opps"] += pending_new_opps
 
         if seen_opportunity_ids:
@@ -498,6 +519,7 @@ def crawl_aggregator(
     max_seconds: float | None = None,
     should_stop: Callable[[], bool] | None = None,
     deadline_monotonic: float | None = None,
+    changed_slugs: set[str] | None = None,
 ) -> dict:
     """Crawl a multi-company aggregator source (Doc 04 sec 1: best-effort
     tier; Doc handoffs/PHASE-2-HANDOFF.md sec 2/5, Part 2.5). Structurally
@@ -519,7 +541,15 @@ def crawl_aggregator(
     source_id = source.id
     tier = source.crawl_tier
     started_at = datetime.now(timezone.utc)
-    result = {"listings_found": 0, "new_opps": 0, "errors": 0, "status": "success"}
+    result = {
+        "listings_found": 0,
+        "new_opps": 0,
+        "errors": 0,
+        "status": "success",
+        "changed_slugs": 0,
+    }
+    run_changed_slugs = changed_slugs if changed_slugs is not None else set()
+    committed_changed_slugs: set[str] = set()
     if deadline_monotonic is None and max_seconds is not None:
         deadline_monotonic = time.monotonic() + max_seconds
 
@@ -574,6 +604,7 @@ def crawl_aggregator(
         BATCH_SIZE = 25
         since_last_commit = 0
         pending_new_opps = 0
+        pending_changed_slugs: set[str] = set()
 
         for raw in raw_listings:
             if stop_now():
@@ -590,13 +621,23 @@ def crawl_aggregator(
                 board_state = board_states[company.id]
 
                 _opportunity, is_new = ingest_one(
-                    session, board_state, source_id, company.id, raw, normalized
+                    session,
+                    board_state,
+                    source_id,
+                    company.id,
+                    raw,
+                    normalized,
+                    changed_slugs=pending_changed_slugs,
                 )
                 since_last_commit += 1
                 if is_new:
                     pending_new_opps += 1
                 if since_last_commit >= BATCH_SIZE:
                     session.commit()
+                    run_changed_slugs.update(pending_changed_slugs)
+                    committed_changed_slugs.update(pending_changed_slugs)
+                    pending_changed_slugs.clear()
+                    result["changed_slugs"] = len(committed_changed_slugs)
                     result["new_opps"] += pending_new_opps
                     since_last_commit = 0
                     pending_new_opps = 0
@@ -614,6 +655,7 @@ def crawl_aggregator(
                 board_states = {}
                 since_last_commit = 0
                 pending_new_opps = 0
+                pending_changed_slugs.clear()
                 result["errors"] += 1
                 print(
                     f"    listing error ({raw.external_id}): {type(exc).__name__}: {exc}",
@@ -622,6 +664,10 @@ def crawl_aggregator(
 
         if since_last_commit > 0:
             session.commit()
+            run_changed_slugs.update(pending_changed_slugs)
+            committed_changed_slugs.update(pending_changed_slugs)
+            pending_changed_slugs.clear()
+            result["changed_slugs"] = len(committed_changed_slugs)
             result["new_opps"] += pending_new_opps
 
         if stop_now():
@@ -687,6 +733,8 @@ def run_tier(
         ats_max_seconds = _configured_ats_max_seconds()
     if should_stop is None:
         should_stop = _STOP_REQUESTED.is_set
+
+    changed_slugs: set[str] = set()
 
     engine = make_engine()
     # Fail fast if the query-timeout guard is missing; a pooler mismatch must never silently hang.
@@ -828,6 +876,7 @@ def run_tier(
                     prefetched=prefetched.listings,
                     prefetched_health=prefetched.health,
                     should_stop=should_stop,
+                    changed_slugs=changed_slugs,
                 )
             except Exception as exc:
                 # Last-resort safety net: crawl_company_board already
@@ -868,6 +917,7 @@ def run_tier(
                     max_seconds=remaining_seconds,
                     should_stop=should_stop,
                     deadline_monotonic=aggregator_deadline_monotonic,
+                    changed_slugs=changed_slugs,
                 )
             except Exception as exc:
                 try:
@@ -879,6 +929,8 @@ def run_tier(
                 )
                 continue
             print(f"{adapter_key} (aggregator): {result}", flush=True)
+
+    notify_changed(changed_slugs)
 
 
 def _handle_stop_signal(_signum: int, _frame: object) -> None:

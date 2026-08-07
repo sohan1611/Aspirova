@@ -78,6 +78,7 @@ def _ingest(
     raw: RawListing,
     normalized: NormalizedListing,
     seen_opportunity_ids: set[int] | None = None,
+    changed_slugs: set[str] | None = None,
 ) -> tuple[models.Opportunity, bool]:
     """Loads a fresh board_state before each call, simulating what
     production actually does: crawlers/runner.py loads board_state once
@@ -92,6 +93,7 @@ def _ingest(
         raw,
         normalized,
         seen_opportunity_ids=seen_opportunity_ids,
+        changed_slugs=changed_slugs,
     )
 
 
@@ -195,6 +197,62 @@ def test_full_rerun_creates_zero_duplicates(db_session, seeded):
     assert opp_count == 1
     assert raw_count == 1
     assert link_count == 1
+
+
+def test_changed_slugs_tracks_new_and_changed_content_but_not_identical_repeat(db_session, seeded):
+    source_a, _source_b, company = seeded
+    source_url = "https://acme.example/jobs/revalidation"
+    raw_v1 = _raw("revalidation-job", source_url, content_hash="hash-v1")
+    normalized_v1 = _normalized("Platform Intern", source_url, description="Version one.")
+    changed_slugs: set[str] = set()
+
+    opportunity, is_new = _ingest(
+        db_session,
+        source_a.id,
+        company.id,
+        raw_v1,
+        normalized_v1,
+        changed_slugs=changed_slugs,
+    )
+    db_session.flush()
+
+    assert is_new is True
+    assert changed_slugs == {opportunity.slug}
+
+    changed_slugs.clear()
+    repeated, is_new_repeat = _ingest(
+        db_session,
+        source_a.id,
+        company.id,
+        raw_v1,
+        normalized_v1,
+        changed_slugs=changed_slugs,
+    )
+    db_session.flush()
+
+    assert is_new_repeat is False
+    assert repeated.id == opportunity.id
+    assert changed_slugs == set()
+
+    raw_v2 = _raw("revalidation-job", source_url, content_hash="hash-v2")
+    normalized_v2 = _normalized(
+        "Platform Intern",
+        source_url,
+        description="Version two has visibly changed content.",
+    )
+    updated, is_new_update = _ingest(
+        db_session,
+        source_a.id,
+        company.id,
+        raw_v2,
+        normalized_v2,
+        changed_slugs=changed_slugs,
+    )
+    db_session.flush()
+
+    assert is_new_update is False
+    assert updated.id == opportunity.id
+    assert changed_slugs == {opportunity.slug}
 
 
 def test_hackathon_meta_round_trips_and_role_meta_defaults_to_null(db_session, seeded):
