@@ -5,8 +5,8 @@ import { getCompanyPage } from "@/lib/api";
 
 const LIMIT = 20;
 
-// Sized to outlast a daily crawl so the next search-engine visit hits warm cache instead of forcing regeneration.
-export const revalidate = 86400;
+// Sized so each path renders about four times a month; every regeneration is a full render and costs both Fluid CPU and an ISR write.
+export const revalidate = 604800;
 
 // Registers the route for on-demand ISR without prerendering any page at build
 // time; without this Next leaves a dynamic segment fully per-request.
@@ -67,6 +67,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description,
       type: "website",
       url: path,
+      images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "Aspirova" }],
     },
   };
 }
