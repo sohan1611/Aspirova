@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from api import middleware
+from api import sitemap
 from api.deps import get_db
 from api.main import app
 from core import models
@@ -38,7 +39,7 @@ def test_sitemap_opportunities_returns_active_slug_shape(
     client: TestClient, db_session: Session
 ) -> None:
     suffix = str(uuid.uuid4())
-    seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    seen_at = datetime(2100, 1, 1, 12, 0, tzinfo=UTC)
     active_a = models.Opportunity(
         slug=f"sitemap-test-active-a-{suffix}",
         title="Sitemap test active A",
@@ -72,10 +73,51 @@ def test_sitemap_opportunities_returns_active_slug_shape(
     assert all(isinstance(item["last_seen_at"], str) for item in body)
 
     slugs = [item["slug"] for item in body]
-    assert slugs == sorted(slugs)
     assert active_a.slug in slugs
     assert active_b.slug in slugs
+    assert slugs.index(active_a.slug) < slugs.index(active_b.slug)
     assert inactive.slug not in slugs
+
+
+def test_sitemap_opportunities_is_bounded_and_ranked_by_last_seen_at(
+    client: TestClient, db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(sitemap, "SITEMAP_OPPORTUNITY_LIMIT", 2)
+    suffix = str(uuid.uuid4())
+    newest_seen_at = datetime(2100, 1, 3, 12, 0, tzinfo=UTC)
+    older_seen_at = datetime(2100, 1, 2, 12, 0, tzinfo=UTC)
+    newest_a = models.Opportunity(
+        slug=f"sitemap-limit-newest-a-{suffix}",
+        title="Sitemap limit newest A",
+        apply_url=f"https://example.com/sitemap/limit/newest-a/{suffix}",
+        status="active",
+        last_seen_at=newest_seen_at,
+    )
+    newest_b = models.Opportunity(
+        slug=f"sitemap-limit-newest-b-{suffix}",
+        title="Sitemap limit newest B",
+        apply_url=f"https://example.com/sitemap/limit/newest-b/{suffix}",
+        status="active",
+        last_seen_at=newest_seen_at,
+    )
+    older = models.Opportunity(
+        slug=f"sitemap-limit-older-{suffix}",
+        title="Sitemap limit older",
+        apply_url=f"https://example.com/sitemap/limit/older/{suffix}",
+        status="active",
+        last_seen_at=older_seen_at,
+    )
+    db_session.add_all([newest_a, newest_b, older])
+    db_session.flush()
+
+    response = client.get("/sitemap-opportunities")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) <= sitemap.SITEMAP_OPPORTUNITY_LIMIT
+    assert [item["slug"] for item in body] == [newest_a.slug, newest_b.slug]
+    last_seen_at_values = [datetime.fromisoformat(item["last_seen_at"]) for item in body]
+    assert last_seen_at_values == sorted(last_seen_at_values, reverse=True)
 
 
 def test_company_page_returns_company_and_only_active_opportunities(

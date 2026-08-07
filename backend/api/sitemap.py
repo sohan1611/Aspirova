@@ -10,13 +10,16 @@ from core import models
 
 router = APIRouter()
 
+SITEMAP_OPPORTUNITY_LIMIT = 5000
+
 
 @router.get("/sitemap-opportunities", response_model=list[SitemapOpportunity])
 def get_sitemap_opportunities(db: Session = Depends(get_db)) -> list[SitemapOpportunity]:
     rows = db.execute(
         select(models.Opportunity.slug, models.Opportunity.last_seen_at)
         .where(models.Opportunity.status == "active")
-        .order_by(models.Opportunity.slug.asc())
+        .order_by(models.Opportunity.last_seen_at.desc(), models.Opportunity.slug.asc())
+        .limit(SITEMAP_OPPORTUNITY_LIMIT)
     ).all()
     return [SitemapOpportunity(slug=slug, last_seen_at=last_seen_at) for slug, last_seen_at in rows]
 
