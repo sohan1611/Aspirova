@@ -5,10 +5,8 @@ import { fileURLToPath } from "node:url";
 // Keep this list in sync with every dynamic route intentionally registered for ISR.
 const REQUIRED_ISR_ROUTES = [
   "/companies/[slug]",
-  "/companies/[slug]/opengraph-image",
   "/companies/[slug]/page/[n]",
   "/opportunity/[slug]",
-  "/opportunity/[slug]/opengraph-image",
   "/programme/[slug]",
 ];
 
