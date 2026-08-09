@@ -81,6 +81,36 @@
 - **Rejected:** SPA (React/Vite) — loses SSR/SEO, the whole organic-growth engine. Hosting frontend on Render — wastes the paid dyno on static serving Vercel does free.
 - **Note:** Public opportunity pages are statically generated / ISR-cached; authenticated dashboard is client-rendered against the API.
 
+**Amendment (2026-08-09) — "zero infra cost" was wrong at this page count.** The claim above
+held when the catalogue was small. At ~20,400 indexed opportunities it is false, and the free
+tier was exceeded on three meters at once: ISR Writes 434K/200K, Fluid Active CPU 6h15m/4h,
+Fast Origin Transfer 9.82GB/10GB.
+
+- **The governing relationship is `renders/day ≈ cacheable paths ÷ revalidate window`.** Every
+  ISR regeneration is a *full server render*, so one regeneration bills three meters at once:
+  Fluid CPU (the render), an ISR Write (storing it), and Fast Origin Transfer (shipping it to
+  the edge). They are not three problems; they are one event counted three ways.
+- **ISR does not reduce render count — it only moves renders into the background.** Registering
+  routes for ISR changed *where* work happened and left the meters untouched. Only widening the
+  window (fewer regenerations per path) and cutting the path count actually moved them.
+- **The health metric is the ISR reads:writes ratio.** A cache that works is read far more than
+  it is written. At the point of failure this project was inverted at roughly **3:1 writes to
+  reads** (434K vs 145K) — numerical proof the cache was being discarded before it could pay for
+  itself. Watch that ratio, not the absolute numbers.
+- **Deploy frequency is itself a cost driver.** Every production deployment invalidates the
+  entire ISR cache, so each deploy costs approximately one full regeneration wave across every
+  path a crawler subsequently visits. Three deploys inside 56 minutes produced the worst day on
+  record (43m CPU, 130K writes) — while shipping cost *fixes*. **Batch frontend releases; do not
+  ship them one at a time.** Corollary: a day containing a deploy cannot be used to measure the
+  effect of a caching change.
+- **Crawl surface is the root variable.** The sitemap is the dial that sets it
+  (`SITEMAP_OPPORTUNITY_LIMIT`), but trimming it only changes what a crawler *discovers* —
+  already-indexed URLs keep being crawled for weeks, so it is a slow lever, not an emergency one.
+- **The durable fix is on-demand revalidation, not a longer timer.** Pages are invalidated when
+  content actually changes (`content_hash` differing in `ingest_one`), never on a routine
+  `last_seen_at` touch. Time-based revalidation remains only as a backstop. This decouples
+  freshness from cost: without it, freshness can only be bought with renders.
+
 ### 3.2 Backend API — FastAPI on Render
 - **Decision:** **FastAPI (Python)** on the existing **Render $7 instance**.
 - **Why:** The intelligence of this product — crawling, parsing, dedup, embeddings, AI orchestration — is materially cleaner and better-supported in Python. A single Python codebase spans API + crawlers + AI, so the coding agent context-switches less. REST/JSON boundary to the Next.js frontend is clean and language-agnostic.
