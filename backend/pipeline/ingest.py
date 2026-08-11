@@ -34,6 +34,10 @@ opportunities from earlier in the same batch), so it does not reintroduce
 the round-trip-per-listing problem this refactor exists to fix.
 """
 
+# `content_hash` answers "did the upstream payload change at all?"; the
+# comparison in `ingest_one` answers "would the rendered page look different?"
+# Only the latter should trigger a regeneration.
+
 import hashlib
 import re
 from dataclasses import dataclass, field
@@ -208,6 +212,21 @@ def ingest_one(
         content_changed = raw_row.content_hash != raw.content_hash
 
         if content_changed:
+            previous_user_visible_fields = {
+                "title": opportunity.title,
+                "location": opportunity.location,
+                "country": opportunity.country,
+                "is_remote": opportunity.is_remote,
+                "apply_url": opportunity.apply_url,
+                "category": opportunity.category,
+                "deadline": opportunity.deadline,
+                "description_raw": opportunity.description_raw,
+                "skills": sorted(opportunity.skills or []),
+            }
+            # Deliberately exclude title_normalized (derived from title); meta and
+            # deadline_confidence (not part of the rendered comparison); posted_at
+            # (the upstream can re-timestamp it without a listing change); and
+            # summary (cleared for re-enrichment, not a rendered difference).
             raw_row.content_hash = raw.content_hash
             raw_row.raw_payload = raw.raw_payload
             if len(normalized.description_raw or "") > len(opportunity.description_raw or ""):
@@ -236,7 +255,21 @@ def ingest_one(
                     models.OpportunityTag.opportunity_id == opportunity.id
                 )
             )
-            if changed_slugs is not None:
+            current_user_visible_fields = {
+                "title": opportunity.title,
+                "location": opportunity.location,
+                "country": opportunity.country,
+                "is_remote": opportunity.is_remote,
+                "apply_url": opportunity.apply_url,
+                "category": opportunity.category,
+                "deadline": opportunity.deadline,
+                "description_raw": opportunity.description_raw,
+                "skills": sorted(opportunity.skills or []),
+            }
+            if (
+                changed_slugs is not None
+                and previous_user_visible_fields != current_user_visible_fields
+            ):
                 changed_slugs.add(opportunity.slug)
 
         mark_seen(opportunity)

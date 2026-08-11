@@ -255,6 +255,169 @@ def test_changed_slugs_tracks_new_and_changed_content_but_not_identical_repeat(d
     assert changed_slugs == {opportunity.slug}
 
 
+def test_changed_slugs_ignores_volatile_raw_payload_only_change(db_session, seeded):
+    source_a, _source_b, company = seeded
+    source_url = "https://acme.example/jobs/volatile-payload"
+    raw_v1 = _raw("volatile-payload-job", source_url, content_hash="hash-v1")
+    raw_v1.raw_payload = {
+        "id": "volatile-payload-job",
+        "publishedAt": "2026-08-10T12:00:00Z",
+    }
+    normalized = _normalized("Platform Intern", source_url)
+    changed_slugs: set[str] = set()
+
+    opportunity, is_new = _ingest(
+        db_session,
+        source_a.id,
+        company.id,
+        raw_v1,
+        normalized,
+        changed_slugs=changed_slugs,
+    )
+    db_session.flush()
+
+    assert is_new is True
+    assert changed_slugs == {opportunity.slug}
+
+    changed_slugs.clear()
+    raw_v2 = _raw("volatile-payload-job", source_url, content_hash="hash-v2")
+    raw_v2.raw_payload = {
+        "id": "volatile-payload-job",
+        "publishedAt": "2026-08-11T12:00:00Z",
+    }
+    updated, is_new_update = _ingest(
+        db_session,
+        source_a.id,
+        company.id,
+        raw_v2,
+        normalized,
+        changed_slugs=changed_slugs,
+    )
+    db_session.flush()
+
+    raw_row = db_session.scalar(
+        select(models.RawListing).where(
+            models.RawListing.source_id == source_a.id,
+            models.RawListing.external_id == "volatile-payload-job",
+        )
+    )
+    assert is_new_update is False
+    assert updated.id == opportunity.id
+    assert raw_row.content_hash == raw_v2.content_hash
+    assert raw_row.raw_payload == raw_v2.raw_payload
+    assert changed_slugs == set()
+
+
+@pytest.mark.parametrize(
+    ("field_name", "updated_value"),
+    [
+        ("title", "Senior Platform Intern"),
+        ("deadline", datetime(2026, 8, 31, 23, 59, tzinfo=UTC)),
+        ("apply_url", "https://acme.example/jobs/visible-field/apply"),
+    ],
+    ids=["title", "deadline", "apply-url"],
+)
+def test_changed_slugs_tracks_user_visible_field_changes(
+    db_session, seeded, field_name, updated_value
+):
+    source_a, _source_b, company = seeded
+    source_url = "https://acme.example/jobs/visible-field"
+    raw_v1 = _raw("visible-field-job", source_url, content_hash="hash-v1")
+    normalized_v1 = _normalized("Platform Intern", source_url)
+    changed_slugs: set[str] = set()
+
+    opportunity, is_new = _ingest(
+        db_session,
+        source_a.id,
+        company.id,
+        raw_v1,
+        normalized_v1,
+        changed_slugs=changed_slugs,
+    )
+    db_session.flush()
+
+    assert is_new is True
+    changed_slugs.clear()
+
+    raw_v2 = _raw("visible-field-job", source_url, content_hash="hash-v2")
+    normalized_v2 = normalized_v1.model_copy(update={field_name: updated_value})
+    updated, is_new_update = _ingest(
+        db_session,
+        source_a.id,
+        company.id,
+        raw_v2,
+        normalized_v2,
+        changed_slugs=changed_slugs,
+    )
+    db_session.flush()
+
+    assert is_new_update is False
+    assert updated.id == opportunity.id
+    assert getattr(updated, field_name) == updated_value
+    assert changed_slugs == {opportunity.slug}
+
+
+def test_changed_slugs_always_tracks_new_opportunity(db_session, seeded):
+    source_a, _source_b, company = seeded
+    source_url = "https://acme.example/jobs/new-opportunity"
+    changed_slugs: set[str] = set()
+
+    opportunity, is_new = _ingest(
+        db_session,
+        source_a.id,
+        company.id,
+        _raw("new-opportunity-job", source_url),
+        _normalized("New Opportunity Intern", source_url),
+        changed_slugs=changed_slugs,
+    )
+    db_session.flush()
+
+    assert is_new is True
+    assert changed_slugs == {opportunity.slug}
+
+
+def test_changed_slugs_ignores_reordered_skills(db_session, seeded, monkeypatch):
+    source_a, _source_b, company = seeded
+    source_url = "https://acme.example/jobs/reordered-skills"
+    skill_orders = iter((["Python", "SQL"], ["SQL", "Python"]))
+    monkeypatch.setattr(
+        "pipeline.ingest.extract_opportunity_skills",
+        lambda *_args, **_kwargs: next(skill_orders),
+    )
+    changed_slugs: set[str] = set()
+    raw_v1 = _raw("reordered-skills-job", source_url, content_hash="hash-v1")
+    normalized = _normalized("Platform Intern", source_url)
+
+    opportunity, is_new = _ingest(
+        db_session,
+        source_a.id,
+        company.id,
+        raw_v1,
+        normalized,
+        changed_slugs=changed_slugs,
+    )
+    db_session.flush()
+
+    assert is_new is True
+    assert opportunity.skills == ["Python", "SQL"]
+    changed_slugs.clear()
+
+    raw_v2 = _raw("reordered-skills-job", source_url, content_hash="hash-v2")
+    updated, is_new_update = _ingest(
+        db_session,
+        source_a.id,
+        company.id,
+        raw_v2,
+        normalized,
+        changed_slugs=changed_slugs,
+    )
+    db_session.flush()
+
+    assert is_new_update is False
+    assert updated.skills == ["SQL", "Python"]
+    assert changed_slugs == set()
+
+
 def test_hackathon_meta_round_trips_and_role_meta_defaults_to_null(db_session, seeded):
     source_a, _source_b, company = seeded
     deadline = datetime(2026, 8, 15, 23, 59, tzinfo=UTC)
