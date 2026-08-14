@@ -218,22 +218,36 @@ def test_apply_is_idempotent_on_rerun() -> None:
     assert session.commits == 1
 
 
-def test_candidate_file_is_valid_and_has_unique_supported_board_pairs() -> None:
+def test_candidate_file_is_structurally_valid() -> None:
     candidates = seed_boards_batch.load_candidates()
 
-    assert {(candidate.ats_type, candidate.board_token) for candidate in candidates} == {
-        ("lever", "zerodha"),
-        ("lever", "razorpay"),
-        ("greenhouse", "postman"),
+    supported_ats_types = {
+        "greenhouse",
+        "lever",
+        "ashby",
+        "smartrecruiters",
+        "keka",
+        "workable",
+        "recruitee",
     }
-    assert all(
-        candidate.ats_type in seed_boards_batch.SUPPORTED_BOARD_ATS_TYPES
-        for candidate in candidates
-    )
-    assert all(candidate.board_token for candidate in candidates)
-    assert len({(candidate.ats_type, candidate.board_token) for candidate in candidates}) == len(
-        candidates
-    )
+    seen_pairs: set[tuple[str, str]] = set()
+
+    assert candidates
+
+    for candidate in candidates:
+        assert candidate.ats_type in supported_ats_types
+        assert isinstance(candidate.board_token, str)
+        assert candidate.board_token
+        assert not any(character.isspace() for character in candidate.board_token)
+        assert isinstance(candidate.company_name, str)
+        assert candidate.company_name.strip()
+        if candidate.domain is not None:
+            assert isinstance(candidate.domain, str)
+            assert candidate.domain.strip()
+
+        pair = (candidate.ats_type, candidate.board_token)
+        assert pair not in seen_pairs
+        seen_pairs.add(pair)
 
 
 def test_candidate_loader_rejects_duplicate_board_pairs(tmp_path: Path) -> None:
