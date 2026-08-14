@@ -16,11 +16,21 @@ export function createClient(): SupabaseClient {
   // several useSession() consumers at once (e.g. /pricing). @supabase/ssr's
   // createBrowserClient memoised for us; raw createClient does not, so we do.
   if (browserClient) return browserClient;
-  // Use implicit flow: token in URL hash, auto-detected client-side.
-  // This app has no server callback route to exchange a PKCE code.
+  // PKCE ensures only a short-lived, single-use code appears in the URL.
+  // supabase-js exchanges it client-side, so no server callback route is needed.
+  // This prevents the access token being visible in the address bar, as a real
+  // user reported.
   browserClient = createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        flowType: "pkce",
+        detectSessionInUrl: true,
+        persistSession: true,
+        autoRefreshToken: true,
+      },
+    },
   );
   return browserClient;
 }
