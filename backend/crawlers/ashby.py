@@ -49,7 +49,22 @@ class AshbyAdapter:
             self._last_health = "degraded"
             return []
 
-        jobs = response.json().get("jobs", [])
+        try:
+            payload = response.json()
+        except ValueError:
+            self._last_health = "broken"
+            return []
+
+        # Unknown board tokens can return 200 error objects, so check shape, not length.
+        if (
+            not isinstance(payload, dict)
+            or "jobs" not in payload
+            or not isinstance(payload["jobs"], list)
+        ):
+            self._last_health = "broken"
+            return []
+
+        jobs = payload["jobs"]
         self._last_health = "ok"
 
         return build_listings(

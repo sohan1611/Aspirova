@@ -201,14 +201,39 @@ def test_parse_handles_garbage_payload_without_raising() -> None:
     assert parsed.posted_at is None
 
 
-def test_fetch_non_list_payload_is_degraded_and_returns_no_listings(
-    monkeypatch: pytest.MonkeyPatch, keka_jobs: list[dict[str, Any]]
+def test_fetch_marks_broken_for_error_object_instead_of_jobs_list(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     adapter = KekaAdapter(TENANT, COMPANY_NAME)
-    _mock_keka_get(monkeypatch, adapter, {"jobs": keka_jobs})
+    _mock_keka_get(monkeypatch, adapter, {"error": "unknown tenant"})
 
     assert adapter.fetch() == []
-    assert adapter.health() == "degraded"
+    assert adapter.health() == "broken"
+
+
+def test_fetch_accepts_empty_jobs_list(monkeypatch: pytest.MonkeyPatch) -> None:
+    adapter = KekaAdapter(TENANT, COMPANY_NAME)
+    _mock_keka_get(monkeypatch, adapter, [])
+
+    assert adapter.fetch() == []
+    assert adapter.health() == "ok"
+
+
+def test_fetch_marks_broken_for_invalid_jobs_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    adapter = KekaAdapter(TENANT, COMPANY_NAME)
+    html = f'<script>const tenantId = "{TENANT_UUID}";</script>'
+
+    def fake_get(url: str, **_: Any) -> httpx.Response:
+        if url == ROOT_URL:
+            return _response(url, text=html)
+        if url == API_URL:
+            return _response(url, text="not JSON")
+        raise AssertionError(f"Unexpected URL requested: {url}")
+
+    monkeypatch.setattr(adapter._client, "get", fake_get)
+
+    assert adapter.fetch() == []
+    assert adapter.health() == "broken"
 
 
 def test_fetch_missing_uuid_is_broken_and_returns_no_listings(
@@ -225,3 +250,37 @@ def test_fetch_missing_uuid_is_broken_and_returns_no_listings(
     assert adapter.fetch() == []
     assert adapter.health() == "broken"
     assert calls == [ROOT_URL]
+
+
+@pytest.mark.parametrize(
+    ("status_code", "expected_health"),
+    [(404, "broken"), (500, "degraded")],
+)
+def test_fetch_preserves_careers_endpoint_http_failure_health(
+    monkeypatch: pytest.MonkeyPatch,
+    status_code: int,
+    expected_health: str,
+) -> None:
+    adapter = KekaAdapter(TENANT, COMPANY_NAME)
+    monkeypatch.setattr(
+        adapter._client,
+        "get",
+        lambda url, **_kwargs: _response(url, status_code=status_code, text="unavailable"),
+    )
+
+    assert adapter.fetch() == []
+    assert adapter.health() == expected_health
+
+
+def test_fetch_preserves_careers_endpoint_request_error_as_degraded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter = KekaAdapter(TENANT, COMPANY_NAME)
+
+    def raise_request_error(_url: str, **_kwargs: Any) -> httpx.Response:
+        raise httpx.RequestError("network unavailable")
+
+    monkeypatch.setattr(adapter._client, "get", raise_request_error)
+
+    assert adapter.fetch() == []
+    assert adapter.health() == "degraded"

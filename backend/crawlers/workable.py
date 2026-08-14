@@ -50,16 +50,17 @@ class WorkableAdapter(SourceAdapter):
         try:
             payload = response.json()
         except ValueError:
-            self._last_health = "degraded"
+            self._last_health = "broken"
             return []
 
-        if not isinstance(payload, dict):
-            self._last_health = "degraded"
+        # Unknown board tokens can return 200 error objects, so check shape, not length.
+        if not isinstance(payload, dict) or "jobs" not in payload:
+            self._last_health = "broken"
             return []
 
-        jobs = payload.get("jobs") or []
+        jobs = payload["jobs"]
         if not isinstance(jobs, list):
-            self._last_health = "degraded"
+            self._last_health = "broken"
             return []
 
         self._last_health = "ok"

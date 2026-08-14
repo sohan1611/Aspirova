@@ -87,11 +87,12 @@ class KekaAdapter:
         try:
             payload: Any = jobs_response.json()
         except (TypeError, ValueError):
-            self._last_health = "degraded"
+            self._last_health = "broken"
             return []
 
+        # Unknown board tokens can return 200 error objects, so check shape, not length.
         if not isinstance(payload, list):
-            self._last_health = "degraded"
+            self._last_health = "broken"
             return []
 
         def build_job(job: Any) -> RawListing:

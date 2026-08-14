@@ -15,11 +15,20 @@ FIXTURE_PATH = Path(__file__).parent / "fixtures" / "workable_sample.json"
 
 
 class StubResponse:
-    def __init__(self, status_code: int, payload: dict[str, Any] | None = None) -> None:
+    def __init__(
+        self,
+        status_code: int,
+        payload: Any = None,
+        *,
+        json_error: bool = False,
+    ) -> None:
         self.status_code = status_code
-        self._payload = payload or {}
+        self._payload = {} if payload is None else payload
+        self._json_error = json_error
 
-    def json(self) -> dict[str, Any]:
+    def json(self) -> Any:
+        if self._json_error:
+            raise ValueError("invalid JSON")
         return self._payload
 
 
@@ -76,6 +85,42 @@ def test_fetch_and_parse_workable_fixture(monkeypatch) -> None:
     assert fallback_location_listing.location == "San Francisco, California, United States"
 
 
+def test_fetch_marks_broken_for_error_object_without_jobs(monkeypatch) -> None:
+    adapter = WorkableAdapter("missing-board", "Missing Board")
+    monkeypatch.setattr(
+        adapter.client,
+        "get",
+        lambda _url, **_kwargs: StubResponse(200, {"error": "unknown"}),
+    )
+
+    assert adapter.fetch() == []
+    assert adapter.health() == "broken"
+
+
+def test_fetch_accepts_empty_jobs_container(monkeypatch) -> None:
+    adapter = WorkableAdapter("huggingface", "Hugging Face")
+    monkeypatch.setattr(
+        adapter.client,
+        "get",
+        lambda _url, **_kwargs: StubResponse(200, {"jobs": []}),
+    )
+
+    assert adapter.fetch() == []
+    assert adapter.health() == "ok"
+
+
+def test_fetch_marks_broken_for_invalid_json(monkeypatch) -> None:
+    adapter = WorkableAdapter("huggingface", "Hugging Face")
+    monkeypatch.setattr(
+        adapter.client,
+        "get",
+        lambda _url, **_kwargs: StubResponse(200, json_error=True),
+    )
+
+    assert adapter.fetch() == []
+    assert adapter.health() == "broken"
+
+
 def test_fetch_marks_broken_on_404(monkeypatch) -> None:
     def fake_get(
         _client: httpx.Client,
@@ -91,6 +136,18 @@ def test_fetch_marks_broken_on_404(monkeypatch) -> None:
 
     assert adapter.fetch() == []
     assert adapter.health() == "broken"
+
+
+def test_fetch_marks_degraded_on_non_200(monkeypatch) -> None:
+    adapter = WorkableAdapter("huggingface", "Hugging Face")
+    monkeypatch.setattr(
+        adapter.client,
+        "get",
+        lambda _url, **_kwargs: StubResponse(500),
+    )
+
+    assert adapter.fetch() == []
+    assert adapter.health() == "degraded"
 
 
 def test_fetch_marks_degraded_on_request_error(monkeypatch) -> None:

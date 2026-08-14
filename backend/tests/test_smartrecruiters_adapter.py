@@ -1,10 +1,12 @@
-"""Unit tests for SmartRecruitersAdapter.parse() against captured real payloads.
-No network access required - fetch() is not exercised here.
+"""Unit tests for SmartRecruitersAdapter against captured real payloads.
+No network access required - fetch() uses stubbed responses.
 """
 
 import json
 from pathlib import Path
+from typing import Any
 
+import httpx
 import pytest
 
 from core.adapters import RawListing
@@ -16,6 +18,19 @@ from crawlers.smartrecruiters import (
 from pipeline.normalize import classify_category
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "smartrecruiters_sample.json"
+
+
+class StubResponse:
+    status_code = 200
+
+    def __init__(self, payload: Any = None, *, json_error: bool = False) -> None:
+        self._payload = payload
+        self._json_error = json_error
+
+    def json(self) -> Any:
+        if self._json_error:
+            raise ValueError("invalid JSON")
+        return self._payload
 
 
 def _load_fixture_postings() -> list[dict]:
@@ -67,6 +82,97 @@ def test_health_defaults_to_ok_before_any_fetch() -> None:
     adapter = SmartRecruitersAdapter(board_token="Wise", company_name="Wise")
 
     assert adapter.health() == "ok"
+
+
+def test_fetch_marks_broken_for_error_object_without_content(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter = SmartRecruitersAdapter(board_token="Wise", company_name="Wise")
+    monkeypatch.setattr(
+        adapter._client,
+        "get",
+        lambda _url, **_kwargs: StubResponse({"error": "unknown"}),
+    )
+
+    assert adapter.fetch() == []
+    assert adapter.health() == "broken"
+
+
+def test_fetch_accepts_empty_content_container(monkeypatch: pytest.MonkeyPatch) -> None:
+    adapter = SmartRecruitersAdapter(board_token="Wise", company_name="Wise")
+    monkeypatch.setattr(
+        adapter._client,
+        "get",
+        lambda _url, **_kwargs: StubResponse({"content": [], "totalFound": 0}),
+    )
+
+    assert adapter.fetch() == []
+    assert adapter.health() == "ok"
+
+
+def test_fetch_parses_fixture_posting_and_marks_board_healthy(
+    fixture_postings: list[dict],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter = SmartRecruitersAdapter(board_token="Wise", company_name="Wise")
+    posting = _posting_for(fixture_postings, "Wise")
+
+    def fake_get(url: str, **_kwargs: Any) -> StubResponse:
+        if url.endswith("/postings"):
+            return StubResponse({"content": [{"id": posting["id"]}], "totalFound": 1})
+        return StubResponse(posting)
+
+    monkeypatch.setattr(adapter._client, "get", fake_get)
+
+    listings = adapter.fetch()
+
+    assert adapter.health() == "ok"
+    assert [listing.external_id for listing in listings] == [str(posting["id"])]
+    assert listings[0].raw_payload == posting
+
+
+def test_fetch_marks_broken_for_invalid_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    adapter = SmartRecruitersAdapter(board_token="Wise", company_name="Wise")
+    monkeypatch.setattr(
+        adapter._client,
+        "get",
+        lambda _url, **_kwargs: StubResponse(json_error=True),
+    )
+
+    assert adapter.fetch() == []
+    assert adapter.health() == "broken"
+
+
+@pytest.mark.parametrize(
+    ("status_code", "expected_health"),
+    [(404, "broken"), (500, "degraded")],
+)
+def test_fetch_preserves_primary_endpoint_http_failure_health(
+    monkeypatch: pytest.MonkeyPatch,
+    status_code: int,
+    expected_health: str,
+) -> None:
+    adapter = SmartRecruitersAdapter(board_token="Wise", company_name="Wise")
+    response = StubResponse({"content": []})
+    response.status_code = status_code
+    monkeypatch.setattr(adapter._client, "get", lambda _url, **_kwargs: response)
+
+    assert adapter.fetch() == []
+    assert adapter.health() == expected_health
+
+
+def test_fetch_preserves_primary_endpoint_request_error_as_degraded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter = SmartRecruitersAdapter(board_token="Wise", company_name="Wise")
+
+    def raise_request_error(_url: str, **_kwargs: Any) -> StubResponse:
+        raise httpx.RequestError("network unavailable")
+
+    monkeypatch.setattr(adapter._client, "get", raise_request_error)
+
+    assert adapter.fetch() == []
+    assert adapter.health() == "degraded"
 
 
 def test_parse_maps_identity_fields(fixture_postings: list[dict]) -> None:

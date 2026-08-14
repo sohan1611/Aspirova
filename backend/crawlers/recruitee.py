@@ -46,12 +46,17 @@ class RecruiteeAdapter(SourceAdapter):
         try:
             payload = response.json()
         except ValueError:
-            self._last_health = "degraded"
+            self._last_health = "broken"
             return []
 
-        offers = payload.get("offers", []) if isinstance(payload, dict) else []
+        # Unknown board tokens can return 200 error objects, so check shape, not length.
+        if not isinstance(payload, dict) or "offers" not in payload:
+            self._last_health = "broken"
+            return []
+
+        offers = payload["offers"]
         if not isinstance(offers, list):
-            self._last_health = "degraded"
+            self._last_health = "broken"
             return []
 
         listings = build_listings(
