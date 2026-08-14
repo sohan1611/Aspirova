@@ -57,6 +57,31 @@ def test_fetch_filters_unpublished_and_maps_raw_listings() -> None:
     assert listings[0].raw_payload == payload["offers"][0]
 
 
+def test_fetch_marks_broken_for_error_object_without_offers() -> None:
+    adapter = RecruiteeAdapter("sendcloud", "Sendcloud")
+    adapter.client = StubClient(_response(200, {"error": "unknown"}))
+
+    assert adapter.fetch() == []
+    assert adapter.health() == "broken"
+
+
+def test_fetch_accepts_empty_offers_container() -> None:
+    adapter = RecruiteeAdapter("sendcloud", "Sendcloud")
+    adapter.client = StubClient(_response(200, {"offers": []}))
+
+    assert adapter.fetch() == []
+    assert adapter.health() == "ok"
+
+
+def test_fetch_marks_broken_for_invalid_json() -> None:
+    request = httpx.Request("GET", "https://sendcloud.recruitee.com/api/offers/")
+    adapter = RecruiteeAdapter("sendcloud", "Sendcloud")
+    adapter.client = StubClient(httpx.Response(200, text="not JSON", request=request))
+
+    assert adapter.fetch() == []
+    assert adapter.health() == "broken"
+
+
 def test_parse_maps_recruitee_offer_fields() -> None:
     payload = _sample_payload()
     adapter = RecruiteeAdapter("sendcloud", "Sendcloud")
@@ -103,6 +128,16 @@ def test_fetch_404_marks_broken_without_raising() -> None:
     listings = adapter.fetch()
 
     assert adapter.health() == "broken"
+    assert listings == []
+
+
+def test_fetch_non_200_marks_degraded_without_raising() -> None:
+    adapter = RecruiteeAdapter("sendcloud", "Sendcloud")
+    adapter.client = StubClient(_response(500))
+
+    listings = adapter.fetch()
+
+    assert adapter.health() == "degraded"
     assert listings == []
 
 
