@@ -244,9 +244,10 @@ export async function searchOpportunities(
   return res.json();
 }
 
+// This fetch revalidate caps its route's ISR window; lowering it silently shortens page cache lifetime.
 export async function getOpportunity(slug: string): Promise<OpportunityDetail | null> {
   const res = await fetch(`${API_URL}/opportunity/${encodeURIComponent(slug)}`, {
-    next: { revalidate: 60 },
+    next: { revalidate: 604800 },
   });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Failed to load opportunity: ${res.status}`);
@@ -273,15 +274,17 @@ export async function getProgrammes(
   return res.json();
 }
 
+// This fetch revalidate caps its route's ISR window; lowering it silently shortens page cache lifetime.
 export async function getProgramme(slug: string): Promise<ProgrammeDetail | null> {
   const res = await fetch(`${API_URL}/programme/${encodeURIComponent(slug)}`, {
-    next: { revalidate: 21600 },
+    next: { revalidate: 604800 },
   });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Failed to load programme: ${res.status}`);
   return res.json();
 }
 
+// This fetch revalidate caps its route's ISR window; lowering it silently shortens page cache lifetime.
 export async function getSimilarOpportunities(
   slug: string,
   limit = 6,
@@ -290,7 +293,7 @@ export async function getSimilarOpportunities(
     const search = new URLSearchParams({ limit: String(limit) });
     const res = await fetch(
       `${API_URL}/opportunity/${encodeURIComponent(slug)}/similar?${search.toString()}`,
-      { next: { revalidate: 60 } },
+      { next: { revalidate: 604800 } },
     );
     if (!res.ok) return [];
     return res.json();
@@ -299,6 +302,7 @@ export async function getSimilarOpportunities(
   }
 }
 
+// This fetch revalidate caps its route's ISR window; lowering it silently shortens page cache lifetime.
 export async function getCompanyPage(
   slug: string,
   page = 1,
@@ -306,7 +310,7 @@ export async function getCompanyPage(
 ): Promise<CompanyPage | null> {
   const search = new URLSearchParams({ page: String(page), limit: String(limit) });
   const res = await fetch(`${API_URL}/company/${encodeURIComponent(slug)}?${search.toString()}`, {
-    next: { revalidate: 600 },
+    next: { revalidate: 604800 },
   });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Failed to load company: ${res.status}`);
