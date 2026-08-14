@@ -6,7 +6,9 @@ No network access required - fetch() uses stubbed responses.
 
 import json
 from pathlib import Path
+from typing import Any
 
+import httpx
 import pytest
 
 from core.adapters import RawListing
@@ -33,10 +35,13 @@ def _raw_listing_for(job: dict) -> RawListing:
 class StubResponse:
     status_code = 200
 
-    def __init__(self, payload: dict) -> None:
+    def __init__(self, payload: Any = None, *, json_error: bool = False) -> None:
         self._payload = payload
+        self._json_error = json_error
 
-    def json(self) -> dict:
+    def json(self) -> Any:
+        if self._json_error:
+            raise ValueError("invalid JSON")
         return self._payload
 
 
@@ -57,6 +62,80 @@ def test_adapter_identity(adapter: GreenhouseAdapter) -> None:
 
 def test_health_defaults_to_ok_before_any_fetch(adapter: GreenhouseAdapter) -> None:
     assert adapter.health() == "ok"
+
+
+def test_fetch_marks_broken_for_error_object_without_jobs(
+    adapter: GreenhouseAdapter, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        adapter._client,
+        "get",
+        lambda _url: StubResponse({"error": "unknown"}),
+    )
+
+    assert adapter.fetch() == []
+    assert adapter.health() == "broken"
+
+
+def test_fetch_accepts_empty_jobs_container(
+    adapter: GreenhouseAdapter, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(adapter._client, "get", lambda _url: StubResponse({"jobs": []}))
+
+    assert adapter.fetch() == []
+    assert adapter.health() == "ok"
+
+
+def test_fetch_parses_fixture_jobs_and_marks_board_healthy(
+    adapter: GreenhouseAdapter,
+    fixture_jobs: list[dict],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(adapter._client, "get", lambda _url: StubResponse({"jobs": fixture_jobs}))
+
+    listings = adapter.fetch()
+
+    assert adapter.health() == "ok"
+    assert [listing.external_id for listing in listings] == [str(job["id"]) for job in fixture_jobs]
+
+
+def test_fetch_marks_broken_for_invalid_json(
+    adapter: GreenhouseAdapter, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(adapter._client, "get", lambda _url: StubResponse(json_error=True))
+
+    assert adapter.fetch() == []
+    assert adapter.health() == "broken"
+
+
+@pytest.mark.parametrize(
+    ("status_code", "expected_health"),
+    [(404, "broken"), (500, "degraded")],
+)
+def test_fetch_preserves_http_failure_health(
+    adapter: GreenhouseAdapter,
+    monkeypatch: pytest.MonkeyPatch,
+    status_code: int,
+    expected_health: str,
+) -> None:
+    response = StubResponse({"jobs": []})
+    response.status_code = status_code
+    monkeypatch.setattr(adapter._client, "get", lambda _url: response)
+
+    assert adapter.fetch() == []
+    assert adapter.health() == expected_health
+
+
+def test_fetch_preserves_request_error_as_degraded(
+    adapter: GreenhouseAdapter, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def raise_request_error(_url: str) -> StubResponse:
+        raise httpx.RequestError("network unavailable")
+
+    monkeypatch.setattr(adapter._client, "get", raise_request_error)
+
+    assert adapter.fetch() == []
+    assert adapter.health() == "degraded"
 
 
 def test_fetch_skips_malformed_job_without_dropping_board(

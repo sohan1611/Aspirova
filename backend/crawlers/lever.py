@@ -49,7 +49,17 @@ class LeverAdapter:
             self._last_health = "degraded"
             return []
 
-        postings = response.json()
+        try:
+            postings = response.json()
+        except ValueError:
+            self._last_health = "broken"
+            return []
+
+        # Unknown board tokens can return 200 error objects, so check shape, not length.
+        if not isinstance(postings, list):
+            self._last_health = "broken"
+            return []
+
         self._last_health = "ok"
 
         return build_listings(
