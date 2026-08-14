@@ -11,6 +11,7 @@ import SignedOutHero from "@/components/SignedOutHero";
 import SourceCompanyCard from "@/components/SourceCompanyCard";
 import StatsBar from "@/components/StatsBar";
 import { Button } from "@/components/ui/button";
+import TopCompanies from "@/components/TopCompanies";
 import { getFeed, getForYou, getStats, getTrending, searchOpportunities } from "@/lib/api";
 import { findExternalCompany } from "@/lib/externalCompanies";
 import { buildPageHref } from "@/lib/pagination";
@@ -203,6 +204,8 @@ export default async function HomePage({ searchParams }: PageProps) {
           </div>
         </section>
       )}
+
+      <TopCompanies />
 
       {data.items.length > 0 ? (
         <div className={`grid grid-cols-1 sm:grid-cols-2 gap-6 ${COLS_LG[cols]}`}>

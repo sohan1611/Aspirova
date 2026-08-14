@@ -17,6 +17,49 @@ from core import models
 router = APIRouter()
 
 
+@router.get("/companies/top", response_model=list[CompanyListItem])
+def list_top_companies(
+    limit: int = Query(12, ge=1, le=24),
+    db: Session = Depends(get_db),
+) -> list[CompanyListItem]:
+    rows = db.execute(
+        select(
+            models.Company.slug,
+            models.Company.name,
+            models.Company.domain,
+            models.Company.logo_url,
+            func.count(models.Opportunity.id).label("active_count"),
+        )
+        .join(
+            models.Opportunity,
+            (models.Opportunity.company_id == models.Company.id)
+            & (models.Opportunity.status == "active"),
+        )
+        .where(models.Company.prestige_rank.is_not(None))
+        .group_by(
+            models.Company.id,
+            models.Company.slug,
+            models.Company.name,
+            models.Company.domain,
+            models.Company.logo_url,
+            models.Company.prestige_rank,
+        )
+        .order_by(models.Company.prestige_rank.asc(), models.Company.name.asc())
+        .limit(limit)
+    ).all()
+
+    return [
+        CompanyListItem(
+            slug=slug,
+            name=name,
+            domain=domain,
+            logo_url=logo_url,
+            active_count=active_count,
+        )
+        for slug, name, domain, logo_url, active_count in rows
+    ]
+
+
 @router.get("/companies", response_model=list[CompanyListItem])
 def list_companies(db: Session = Depends(get_db)) -> list[CompanyListItem]:
     rows = db.execute(
