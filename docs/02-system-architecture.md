@@ -111,6 +111,29 @@ Fast Origin Transfer 9.82GB/10GB.
   `last_seen_at` touch. Time-based revalidation remains only as a backstop. This decouples
   freshness from cost: without it, freshness can only be bought with renders.
 
+**Amendment (2026-08-14) — the ROOT CAUSE, and the rule that matters most.** Everything above
+was real but marginal, because for three weeks the dominant term was never touched.
+
+- **A route's ISR window is the MINIMUM of its `export const revalidate` and the
+  `next.revalidate` of every fetch it performs while rendering.** `/opportunity/[slug]` declared
+  `604800` (7 days) while `lib/api.ts` set `revalidate: 60` on `getOpportunity`, so the real
+  window was **60 seconds across 20,427 pages** — near-total regeneration on every crawl pass.
+  A fetch value is therefore NOT a private data-cache setting; on an ISR route it silently caps
+  the page's cache lifetime. Each of those values now carries a comment saying so.
+- **The observable that proves it, and the only one worth trusting: `Age` versus
+  `X-Vercel-Cache` on a live page.** A page returning `STALE` at `Age: 2425` cannot be on a
+  7-day window — that is a 60-second window, stated plainly. Before/after here: `STALE` inside a
+  minute → `HIT` still climbing at `Age: 411`. Dashboards aggregate away exactly the signal you
+  need; **measure the mechanism on a real request, not the symptom on a chart.**
+- **Revalidate only on user-VISIBLE change.** `content_hash` sha256s the whole upstream payload,
+  and ATS rows carry volatile fields (`publishedAt`, `secondaryLocations`, `isListed`), so it
+  answers "did the payload change at all", not "would the page look different". Comparing the
+  nine rendered fields instead took false revalidations from **31% to 12%** of listings per crawl.
+- **Process failure worth remembering:** every work order in this incident carried the
+  instruction *"do not change `next: { revalidate: N }` in `lib/api.ts`"* — protecting, on an
+  unverified assumption, the exact line defeating the fix. **Do not fence off a value you have
+  not proven inert.** A guardrail written from a guess is indistinguishable from a bug.
+
 ### 3.2 Backend API — FastAPI on Render
 - **Decision:** **FastAPI (Python)** on the existing **Render $7 instance**.
 - **Why:** The intelligence of this product — crawling, parsing, dedup, embeddings, AI orchestration — is materially cleaner and better-supported in Python. A single Python codebase spans API + crawlers + AI, so the coding agent context-switches less. REST/JSON boundary to the Next.js frontend is clean and language-agnostic.
