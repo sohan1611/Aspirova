@@ -1,0 +1,20 @@
+[
+  {
+    "company_name": "Zerodha",
+    "ats_type": "lever",
+    "board_token": "zerodha",
+    "domain": "zerodha.com"
+  },
+  {
+    "company_name": "Razorpay",
+    "ats_type": "lever",
+    "board_token": "razorpay",
+    "domain": "razorpay.com"
+  },
+  {
+    "company_name": "Postman",
+    "ats_type": "greenhouse",
+    "board_token": "postman",
+    "domain": "postman.com"
+  }
+]
