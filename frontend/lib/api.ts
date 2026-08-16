@@ -323,6 +323,15 @@ export async function getCompanies(): Promise<CompanyListItem[]> {
   return res.json();
 }
 
+export async function getTopCompanies(limit = 12): Promise<CompanyListItem[]> {
+  const search = new URLSearchParams({ limit: String(limit) });
+  const res = await fetch(`${API_URL}/companies/top?${search.toString()}`, {
+    next: { revalidate: 21600 },
+  });
+  if (!res.ok) throw new Error(`Failed to load top companies: ${res.status}`);
+  return res.json();
+}
+
 export async function addBookmark(slug: string, accessToken: string): Promise<void> {
   const res = await fetch(`${API_URL}/bookmarks/${encodeURIComponent(slug)}`, {
     method: "POST",
