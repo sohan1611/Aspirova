@@ -1,15 +1,17 @@
 "use client";
 
 import {
+  AlertTriangle,
+  CheckCircle2,
   ChevronDown,
   ExternalLink,
   FileSearch,
-  Info,
   Loader2,
   RefreshCw,
   Search,
   Sparkles,
   X,
+  XCircle,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -175,6 +177,18 @@ function getAtsStatusClassName(status: "pass" | "partial" | "fail"): string {
   }
 
   return "border-border bg-secondary/70 text-muted-foreground";
+}
+
+function AtsStatusIcon({ status }: { status: "pass" | "partial" | "fail" }) {
+  if (status === "pass") {
+    return <CheckCircle2 className="size-4 shrink-0 text-success" aria-hidden="true" />;
+  }
+
+  if (status === "partial") {
+    return <AlertTriangle className="size-4 shrink-0 text-warning" aria-hidden="true" />;
+  }
+
+  return <XCircle className="size-4 shrink-0 text-destructive" aria-hidden="true" />;
 }
 
 export default function ResumeMatchPage() {
@@ -619,7 +633,6 @@ function SavedResumeCard({
             >
               {resume.ats.score}/100 ATS
             </Badge>
-            <AtsTipsPopover result={resume.ats} />
           </div>
         </div>
       </CardHeader>
@@ -753,65 +766,50 @@ function ResumeInputCard({
   );
 }
 
-function AtsTipsPopover({ result }: { result: AtsResult }) {
+function AtsChecksList({ result }: { result: AtsResult }) {
   const checks = Array.isArray(result.checks) ? result.checks : [];
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-sm"
-          aria-label="Show ATS score breakdown and improvement tips"
-        >
-          <Info aria-hidden="true" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        className="max-h-[min(32rem,75vh)] overflow-y-auto"
-        aria-label="ATS score breakdown and improvement tips"
-      >
-        <div className="grid gap-4">
-          <div>
-            <p className="eyebrow">ATS score breakdown</p>
-            <p className="mt-1 text-sm leading-5 text-muted-foreground">
-              Each check is a suggestion based on the text currently in your resume.
-            </p>
-          </div>
-          {checks.length > 0 ? (
-            <ul className="grid gap-3">
-              {checks.map((check) => (
-                <li key={check.id} className="border-b border-border pb-3 last:border-b-0 last:pb-0">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-sm font-medium text-foreground">{check.label}</span>
-                    <span className="flex items-center gap-2">
-                      <Badge
-                        variant="outline"
-                        className={getAtsStatusClassName(check.status)}
-                      >
-                        {getAtsStatusLabel(check.status)}
-                      </Badge>
-                      <span className="text-xs font-medium text-muted-foreground">
-                        {check.points}/{check.maxPoints} pts
-                      </span>
-                    </span>
-                  </div>
-                  {check.status !== "pass" && check.tip && (
-                    <p className="mt-2 text-xs leading-5 text-muted-foreground">{check.tip}</p>
-                  )}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm leading-5 text-muted-foreground">
-              No breakdown was saved for this resume.
-            </p>
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
+    <div className="grid gap-4">
+      <div>
+        <p className="eyebrow">ATS score breakdown</p>
+        <p className="mt-1 text-sm leading-5 text-muted-foreground">
+          Each check is a suggestion based on the text currently in your resume.
+        </p>
+      </div>
+      {checks.length > 0 ? (
+        <ul className="grid gap-3">
+          {checks.map((check) => (
+            <li
+              key={check.id}
+              className="border-b border-border pb-3 last:border-b-0 last:pb-0"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-foreground">
+                  <AtsStatusIcon status={check.status} />
+                  <span>{check.label}</span>
+                </span>
+                <span className="flex items-center gap-2">
+                  <Badge variant="outline" className={getAtsStatusClassName(check.status)}>
+                    {getAtsStatusLabel(check.status)}
+                  </Badge>
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {check.points}/{check.maxPoints} pts
+                  </span>
+                </span>
+              </div>
+              {check.status !== "pass" && check.tip && (
+                <p className="mt-2 text-xs leading-5 text-muted-foreground">{check.tip}</p>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm leading-5 text-muted-foreground">
+          No breakdown was saved for this resume.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -833,8 +831,8 @@ function AtsScoreCard({ result }: { result: AtsResult }) {
               {result.score} <span className="text-lg font-medium text-muted-foreground">/ 100</span>
             </p>
           </div>
-          <AtsTipsPopover result={result} />
         </div>
+        <AtsChecksList result={result} />
         <p className="text-xs leading-5 text-muted-foreground">
           This score is an estimate for improving your resume, not a guarantee of ATS or hiring
           outcomes.

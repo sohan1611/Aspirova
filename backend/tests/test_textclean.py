@@ -1,4 +1,4 @@
-from core.textclean import fix_text
+from core.textclean import fix_multiline_text, fix_text
 
 
 def test_fix_text_repairs_latin1_utf8_mojibake() -> None:
@@ -19,3 +19,23 @@ def test_fix_text_is_idempotent() -> None:
     value = "  Agudos,   SÃ£o Paulo, Brasil  "
     fixed = fix_text(value)
     assert fix_text(fixed) == fixed
+
+
+def test_fix_multiline_text_preserves_line_structure() -> None:
+    value = "  First\t  line  \r\nSecond\t line   \r\n\r\n\r\n\r\nThird  "
+
+    assert fix_text(value) == "First line Second line Third"
+    assert fix_multiline_text(value) == "First line\nSecond line\n\nThird"
+
+
+def test_fix_multiline_text_repairs_mojibake() -> None:
+    assert fix_multiline_text("SÃ£o Paulo\nEngineering") == "São Paulo\nEngineering"
+
+
+def test_fix_multiline_text_preserves_none_and_empty_text() -> None:
+    assert fix_multiline_text(None) is None
+    assert fix_multiline_text("") == ""
+
+
+def test_fix_text_keeps_single_line_whitespace_behavior() -> None:
+    assert fix_text("  Software\t\tEngineering   Intern  ") == "Software Engineering Intern"

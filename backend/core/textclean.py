@@ -10,3 +10,15 @@ def fix_text(value: str | None) -> str | None:
     if value is None:
         return None
     return re.sub(r"\s+", " ", ftfy.fix_text(value)).strip()
+
+
+def fix_multiline_text(value: str | None) -> str | None:
+    """Repair mojibake while retaining meaningful line breaks."""
+    if value is None:
+        return None
+
+    cleaned = ftfy.fix_text(value).replace("\r\n", "\n").replace("\r", "\n")
+    cleaned = re.sub(r"[ \t]+", " ", cleaned)
+    cleaned = re.sub(r"[ \t]+(?=\n|$)", "", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
