@@ -4,6 +4,7 @@ import type { User } from "@supabase/supabase-js";
 import { Loader2, LogOut, ShieldCheck, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { PasswordInput } from "@/components/PasswordInput";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,7 +24,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { MIN_PASSWORD_LENGTH } from "@/lib/password";
@@ -111,9 +111,8 @@ export default function SecuritySection({
                 </div>
                 <div className="grid max-w-sm gap-2">
                   <Label htmlFor="account-new-password">New password</Label>
-                  <Input
+                  <PasswordInput
                     id="account-new-password"
-                    type="password"
                     minLength={MIN_PASSWORD_LENGTH}
                     autoComplete="new-password"
                     value={password}
