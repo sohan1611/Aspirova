@@ -1,9 +1,9 @@
 "use client";
 
 import { Pencil } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useTransition } from "react";
+import { useSearchParams } from "next/navigation";
 import { CountryPicker } from "@/components/CountryPicker";
+import { useFeedNavigation } from "@/components/FeedNavigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { storeCountryCode, useStoredCountryCode } from "@/lib/country";
@@ -22,10 +22,9 @@ function getScope(value: string | null): Scope {
 }
 
 export default function LocationScope() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const isHydrated = useHydrated();
-  const [isPending, startTransition] = useTransition();
+  const { navigate, isFeedPending: isPending } = useFeedNavigation();
   const storedCode = useStoredCountryCode();
   const countryCode = storedCode && getCountry(storedCode) ? storedCode : null;
 
@@ -64,10 +63,7 @@ export default function LocationScope() {
 
     params.delete("page");
     const query = params.toString();
-
-    startTransition(() => {
-      router.push(query ? `/?${query}` : "/");
-    });
+    navigate(query ? `/?${query}` : "/");
   }
 
   function handleScopeChange(scope: Scope) {

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useTransition } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
+import { useFeedNavigation } from "@/components/FeedNavigation";
 import {
   Select,
   SelectContent,
@@ -21,10 +22,9 @@ interface FeedViewControlsProps {
 }
 
 export default function FeedViewControls({ cols, rows }: FeedViewControlsProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const restoredPreference = useRef(false);
-  const [isPending, startTransition] = useTransition();
+  const { navigate, replace, isFeedPending: isPending } = useFeedNavigation();
 
   useEffect(() => {
     if (restoredPreference.current) return;
@@ -48,11 +48,11 @@ export default function FeedViewControls({ cols, rows }: FeedViewControlsProps) 
       params.set("cols", String(preference.cols));
       params.set("rows", String(preference.rows));
       params.delete("page");
-      router.replace(`/?${params.toString()}`);
+      replace(`/?${params.toString()}`);
     } catch {
       // Ignore malformed or unavailable local storage.
     }
-  }, [router, searchParams]);
+  }, [replace, searchParams]);
 
   function updateView(key: "cols" | "rows", value: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -71,9 +71,7 @@ export default function FeedViewControls({ cols, rows }: FeedViewControlsProps) 
       // Continue with URL navigation if local storage is unavailable.
     }
 
-    startTransition(() => {
-      router.push(`/?${params.toString()}`);
-    });
+    navigate(`/?${params.toString()}`);
   }
 
   return (

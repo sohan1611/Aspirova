@@ -1,9 +1,9 @@
-import { SearchX } from "lucide-react";
 import Link from "next/link";
+import FeedGrid from "@/components/FeedGrid";
+import { FeedNavigationProvider } from "@/components/FeedNavigation";
 import FeedViewControls from "@/components/FeedViewControls";
 import ForYouControl from "@/components/ForYouControl";
 import MostViewed from "@/components/MostViewed";
-import OpportunityCard from "@/components/OpportunityCard";
 import RecentlyViewed from "@/components/RecentlyViewed";
 import SearchFilters from "@/components/SearchFilters";
 import SignedInWelcome from "@/components/SignedInWelcome";
@@ -42,13 +42,6 @@ interface PageProps {
     rows?: string;
   }>;
 }
-
-const COLS_LG: Record<number, string> = {
-  1: "lg:grid-cols-1",
-  2: "lg:grid-cols-2",
-  3: "lg:grid-cols-3",
-  4: "lg:grid-cols-4",
-};
 
 async function loadStats(): Promise<StatsResponse | null> {
   try {
@@ -171,80 +164,67 @@ export default async function HomePage({ searchParams }: PageProps) {
       <RecentlyViewed />
       {isCleanDefaultFeed && <MostViewed items={trending.items} />}
 
-      <div id="feed-search" className="mb-6 scroll-mt-20 pt-10">
-        <ForYouControl />
-        <div className="mt-3">
-          <SearchFilters />
+      <FeedNavigationProvider>
+        <div id="feed-search" className="mb-6 scroll-mt-20 pt-10">
+          <ForYouControl />
+          <div className="mt-3">
+            <SearchFilters />
+          </div>
         </div>
-      </div>
 
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">{data.total} opportunities</p>
-        <FeedViewControls cols={cols} rows={rows} />
-      </div>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">{data.total} opportunities</p>
+          <FeedViewControls cols={cols} rows={rows} />
+        </div>
 
-      {sourceCompany && (
-        <section className="mb-6 max-w-md">
-          <p className="eyebrow mb-3">Straight to source</p>
-          <SourceCompanyCard company={sourceCompany} />
-        </section>
-      )}
+        {sourceCompany && (
+          <section className="mb-6 max-w-md">
+            <p className="eyebrow mb-3">Straight to source</p>
+            <SourceCompanyCard company={sourceCompany} />
+          </section>
+        )}
 
-      {showResearch && (
-        <section className="mb-6 max-w-md">
-          <div className="rounded-xl border border-border bg-card p-5 shadow-soft">
-            <p className="eyebrow">Research track</p>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              India&apos;s flagship IISc, IIT, NIT &amp; TIFR research fellowships and
-              internships, with the windows they usually open in.
-            </p>
-            <Button asChild variant="outline" size="sm" className="mt-4">
-              <Link href="/research">Explore the research track →</Link>
+        {showResearch && (
+          <section className="mb-6 max-w-md">
+            <div className="rounded-xl border border-border bg-card p-5 shadow-soft">
+              <p className="eyebrow">Research track</p>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                India&apos;s flagship IISc, IIT, NIT &amp; TIFR research fellowships and
+                internships, with the windows they usually open in.
+              </p>
+              <Button asChild variant="outline" size="sm" className="mt-4">
+                <Link href="/research">Explore the research track →</Link>
+              </Button>
+            </div>
+          </section>
+        )}
+
+        <TopCompanies />
+
+        <FeedGrid
+          items={data.items}
+          cols={cols}
+          skeletonCount={data.items.length || Math.min(LIMIT, 9)}
+        />
+
+        {totalPages > 1 && (
+          <div className="mt-8 flex items-center justify-center gap-4">
+            <Button variant="outline" size="sm" disabled={page <= 1} asChild={page > 1}>
+              {page > 1 ? <Link href={buildPageHref(params, page - 1)}>Previous</Link> : "Previous"}
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {page} of {totalPages}
+            </span>
+            <Button variant="outline" size="sm" disabled={page >= totalPages} asChild={page < totalPages}>
+              {page < totalPages ? (
+                <Link href={buildPageHref(params, page + 1)}>Next</Link>
+              ) : (
+                "Next"
+              )}
             </Button>
           </div>
-        </section>
-      )}
-
-      <TopCompanies />
-
-      {data.items.length > 0 ? (
-        <div className={`grid grid-cols-1 sm:grid-cols-2 gap-6 ${COLS_LG[cols]}`}>
-          {data.items.map((item) => (
-            <OpportunityCard key={item.slug} item={item} />
-          ))}
-        </div>
-      ) : (
-        <div className="flex flex-col items-center px-4 py-20 text-center sm:py-24">
-          <div className="rounded-lg border border-border bg-secondary/40 p-3">
-            <SearchX className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
-          </div>
-          <h2 className="mt-5 text-xl font-semibold text-foreground">Nothing matches — yet.</h2>
-          <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
-            Try a broader search or clear your filters — the almanac updates daily.
-          </p>
-          <Button className="mt-5" variant="outline" size="sm" asChild>
-            <Link href="/">Clear filters</Link>
-          </Button>
-        </div>
-      )}
-
-      {totalPages > 1 && (
-        <div className="mt-8 flex items-center justify-center gap-4">
-          <Button variant="outline" size="sm" disabled={page <= 1} asChild={page > 1}>
-            {page > 1 ? <Link href={buildPageHref(params, page - 1)}>Previous</Link> : "Previous"}
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Page {page} of {totalPages}
-          </span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} asChild={page < totalPages}>
-            {page < totalPages ? (
-              <Link href={buildPageHref(params, page + 1)}>Next</Link>
-            ) : (
-              "Next"
-            )}
-          </Button>
-        </div>
-      )}
+        )}
+      </FeedNavigationProvider>
     </main>
   );
 }

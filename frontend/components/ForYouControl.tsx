@@ -1,8 +1,9 @@
 "use client";
 
 import { Pencil, Sparkles } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useSyncExternalStore, useTransition } from "react";
+import { useSearchParams } from "next/navigation";
+import { useSyncExternalStore } from "react";
+import { useFeedNavigation } from "@/components/FeedNavigation";
 import { Button } from "@/components/ui/button";
 import { getCountry } from "@/lib/countries";
 import { requestOnboarding, useFieldProfile } from "@/lib/fieldProfile";
@@ -37,11 +38,10 @@ function hrefFor(params: URLSearchParams): string {
 }
 
 export default function ForYouControl() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { profile, hydrated } = useFieldProfile();
   const { skillNames, hydrated: skillsHydrated } = useSkillNames();
-  const [isPending, startTransition] = useTransition();
+  const { navigate, isFeedPending: isPending } = useFeedNavigation();
   const storedCountryCode = useSyncExternalStore(
     subscribeStoredCountry,
     readStoredCountryCode,
@@ -72,9 +72,7 @@ export default function ForYouControl() {
     if (countryCode) params.set("country", countryCode);
     params.delete("page");
 
-    startTransition(() => {
-      router.push(hrefFor(params));
-    });
+    navigate(hrefFor(params));
   }
 
   function activateLatest() {
@@ -85,9 +83,7 @@ export default function ForYouControl() {
     params.delete("skills");
     params.delete("page");
 
-    startTransition(() => {
-      router.push(hrefFor(params));
-    });
+    navigate(hrefFor(params));
   }
 
   if (!hydrated || !skillsHydrated) {
