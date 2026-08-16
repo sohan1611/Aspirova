@@ -19,6 +19,7 @@ import {
   isDeadlinePast,
   isListingClosed,
 } from "@/lib/deadline";
+import { parseDescriptionBlocks } from "@/lib/descriptionBlocks";
 import { getSourceLabel } from "@/lib/sourceLabel";
 import type { OpportunityDetail, OpportunityListItem } from "@/lib/types";
 
@@ -163,6 +164,7 @@ export default async function OpportunityPage({ params }: PageProps) {
   const verifyLabel = opportunity.company?.name
     ? `Verify on ${opportunity.company.name} →`
     : "Verify at the source →";
+  const descriptionBlocks = parseDescriptionBlocks(opportunity.description_raw);
   const closedCaption = opportunity.closed_at
     ? "The source listing appears to be closed. Open the company's listing to confirm — the source may still be accepting entries."
     : estimated
@@ -390,8 +392,40 @@ export default async function OpportunityPage({ params }: PageProps) {
 
         <article className="mt-10 max-w-3xl">
           <p className="eyebrow">Opportunity brief</p>
-          <div className="mt-4 whitespace-pre-wrap text-base leading-8 text-foreground">
-            {opportunity.description_raw}
+          <div className="mt-4 space-y-5 text-base leading-8 text-foreground">
+            {descriptionBlocks.map((block, index) => {
+              if (block.type === "heading") {
+                return (
+                  <h2
+                    key={`${block.type}-${index}`}
+                    className="pt-2 text-base font-semibold leading-7 text-foreground first:pt-0"
+                  >
+                    {block.text}
+                  </h2>
+                );
+              }
+
+              if (block.type === "list") {
+                return (
+                  <ul
+                    key={`${block.type}-${index}`}
+                    className="list-disc space-y-2 pl-5"
+                  >
+                    {block.items.map((item, itemIndex) => (
+                      <li key={`${itemIndex}-${item}`} className="pl-1">
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                );
+              }
+
+              return (
+                <p key={`${block.type}-${index}`} className="whitespace-pre-line">
+                  {block.text}
+                </p>
+              );
+            })}
           </div>
         </article>
 
