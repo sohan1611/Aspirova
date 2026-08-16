@@ -15,12 +15,9 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MIN_PASSWORD_LENGTH } from "@/lib/password";
 import { createClient } from "@/lib/supabase/client";
 import { useSessionState } from "@/lib/useSession";
-
-// Matches the "Change password" rule in the account Security section, so the
-// two places that set a password never disagree about what is acceptable.
-const MIN_PASSWORD_LENGTH = 8;
 
 function Shell({ children }: { children: ReactNode }) {
   return (
@@ -151,7 +148,7 @@ export default function ResetPasswordPage() {
               onChange={(event) => setPassword(event.target.value)}
             />
             <p className="text-sm text-muted-foreground">
-              Use at least {MIN_PASSWORD_LENGTH} characters.
+              {`Use at least ${MIN_PASSWORD_LENGTH} characters.`}
             </p>
           </div>
 

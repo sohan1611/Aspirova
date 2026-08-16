@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MIN_PASSWORD_LENGTH } from "@/lib/password";
 import { createClient } from "@/lib/supabase/client";
 import { useSession } from "@/lib/useSession";
 
@@ -85,14 +86,22 @@ export default function AuthWidget() {
   }
 
   const emailInvalid = touched && !EMAIL_PATTERN.test(email);
-  const passwordInvalid = touched && password.length < 6;
+  const signInPasswordMissing = touched && mode === "signin" && password.length === 0;
+  const signUpPasswordInvalid =
+    touched && mode === "signup" && password.length < MIN_PASSWORD_LENGTH;
+  const passwordInvalid = signInPasswordMissing || signUpPasswordInvalid;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setTouched(true);
     setFormError(null);
 
-    if (!EMAIL_PATTERN.test(email) || password.length < 6) {
+    const passwordBlocked =
+      mode === "signin"
+        ? password.length === 0
+        : password.length < MIN_PASSWORD_LENGTH;
+
+    if (!EMAIL_PATTERN.test(email) || passwordBlocked) {
       return;
     }
 
@@ -320,8 +329,13 @@ export default function AuthWidget() {
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
-        {passwordInvalid && (
-          <p className="text-sm text-destructive">Password must be at least 6 characters.</p>
+        {signInPasswordMissing && (
+          <p className="text-sm text-destructive">Enter your password.</p>
+        )}
+        {signUpPasswordInvalid && (
+          <p className="text-sm text-destructive">
+            {`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`}
+          </p>
         )}
       </div>
 
