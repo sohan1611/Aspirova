@@ -18,9 +18,21 @@ interface FeedGridProps {
   items: OpportunityListItem[];
   cols: number;
   skeletonCount: number;
+  emptyHref?: string;
+  emptyActionLabel?: string;
+  emptyTitle?: string;
+  emptyDescription?: string;
 }
 
-export default function FeedGrid({ items, cols, skeletonCount }: FeedGridProps) {
+export default function FeedGrid({
+  items,
+  cols,
+  skeletonCount,
+  emptyHref = "/",
+  emptyActionLabel = "Clear filters",
+  emptyTitle = "Nothing matches — yet.",
+  emptyDescription = "Try a broader search or clear your filters — the almanac updates daily.",
+}: FeedGridProps) {
   const { navigate, isFeedPending } = useFeedNavigation();
   const gridClassName = `grid grid-cols-1 sm:grid-cols-2 gap-6 ${COLS_LG[cols]}`;
 
@@ -52,12 +64,12 @@ export default function FeedGrid({ items, cols, skeletonCount }: FeedGridProps) 
       <div className="rounded-lg border border-border bg-secondary/40 p-3">
         <SearchX className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
       </div>
-      <h2 className="mt-5 text-xl font-semibold text-foreground">Nothing matches — yet.</h2>
+      <h2 className="mt-5 text-xl font-semibold text-foreground">{emptyTitle}</h2>
       <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
-        Try a broader search or clear your filters — the almanac updates daily.
+        {emptyDescription}
       </p>
-      <Button className="mt-5" variant="outline" size="sm" onClick={() => navigate("/")}>
-        Clear filters
+      <Button className="mt-5" variant="outline" size="sm" onClick={() => navigate(emptyHref)}>
+        {emptyActionLabel}
       </Button>
     </div>
   );
