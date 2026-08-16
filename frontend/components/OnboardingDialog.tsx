@@ -353,7 +353,7 @@ export default function OnboardingDialog() {
       const query = params.toString();
 
       startTransition(() => {
-        router.push(query ? `/?${query}` : "/");
+        router.push(query ? `/?${query}` : "/", { scroll: false });
       });
     } finally {
       setIsSaving(false);

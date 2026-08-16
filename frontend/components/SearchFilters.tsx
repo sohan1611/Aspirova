@@ -9,10 +9,11 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useSearchParams } from "next/navigation";
+import { useState } from "react";
 import { toast } from "sonner";
 import FacetPicker from "@/components/FacetPicker";
+import { useFeedNavigation } from "@/components/FeedNavigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -218,11 +219,10 @@ function SegmentedGroup({
 }
 
 export default function SearchFilters() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const session = useSession();
   const accessToken = session?.access_token;
-  const [isPending, startTransition] = useTransition();
+  const { navigate, isFeedPending: isPending } = useFeedNavigation();
   const [q, setQ] = useState(searchParams.get("q") ?? "");
   const [facets, setFacets] = useState<Facets | null>(null);
   const [facetsStatus, setFacetsStatus] = useState<
@@ -340,9 +340,7 @@ export default function SearchFilters() {
     }
     params.delete("page");
     const query = params.toString();
-    startTransition(() => {
-      router.push(query ? `/?${query}` : "/");
-    });
+    navigate(query ? `/?${query}` : "/");
   }
 
   function commitMultiParam(key: "company" | "location", values: string[]) {
@@ -354,9 +352,7 @@ export default function SearchFilters() {
     }
     params.delete("page");
     const query = params.toString();
-    startTransition(() => {
-      router.push(query ? `/?${query}` : "/");
-    });
+    navigate(query ? `/?${query}` : "/");
   }
 
   function loadFacetsIfNeeded() {
@@ -392,9 +388,7 @@ export default function SearchFilters() {
   }
 
   function clearFilters() {
-    startTransition(() => {
-      router.push("/");
-    });
+    navigate("/");
   }
 
   function handleSaveDialogOpenChange(open: boolean) {

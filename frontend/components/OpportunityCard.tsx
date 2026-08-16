@@ -205,8 +205,8 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
           </p>
         )}
 
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-1">
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+        <div className="mt-auto flex items-center justify-between gap-2 border-t border-border/60 pt-1">
+          <div className="flex min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden">
             {categoryLabel && (
               <Badge
                 variant={
@@ -269,7 +269,7 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
                 )
               )
             )}
-            <span className="whitespace-nowrap text-xs font-medium text-primary opacity-0 transition-opacity duration-300 ease-premium group-hover:opacity-100 group-focus-visible:opacity-100">
+            <span className="whitespace-nowrap text-xs font-medium text-primary">
               View →
             </span>
           </div>
