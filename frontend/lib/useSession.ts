@@ -47,20 +47,46 @@ function scrubAuthArtifactsFromUrl() {
   }
 }
 
-export function useSession(): Session | null {
-  const [session, setSession] = useState<Session | null>(null);
+export type SessionState = {
+  session: Session | null;
+  /**
+   * True once the initial lookup has settled. A caller that must tell "no
+   * session" apart from "not looked yet" — the password reset page, which
+   * otherwise flashes an expired-link message while the code is exchanged —
+   * needs this; `useSession` alone reports both as null.
+   */
+  resolved: boolean;
+};
+
+export function useSessionState(): SessionState {
+  const [state, setState] = useState<SessionState>({ session: null, resolved: false });
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      scrubAuthArtifactsFromUrl();
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        setState({ session: data.session, resolved: true });
+        // Must run after getSession: scrubbing first would strip the PKCE code
+        // before supabase exchanges it.
+        scrubAuthArtifactsFromUrl();
+      })
+      .catch(() => {
+        // A lookup that failed is still a lookup that finished; callers must
+        // not spin forever.
+        setState({ session: null, resolved: true });
+      });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
+      // Only the initial lookup decides `resolved` — an early INITIAL_SESSION
+      // event carrying null must not be mistaken for a settled answer.
+      setState((previous) => ({ session: newSession, resolved: previous.resolved }));
     });
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  return session;
+  return state;
+}
+
+export function useSession(): Session | null {
+  return useSessionState().session;
 }

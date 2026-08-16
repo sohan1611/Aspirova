@@ -1,15 +1,19 @@
 "use client";
 
-import { Eye, EyeOff, Loader2, MailCheck } from "lucide-react";
+import { Eye, EyeOff, Loader2, MailCheck, UserCheck } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MIN_PASSWORD_LENGTH } from "@/lib/password";
 import { createClient } from "@/lib/supabase/client";
 import { useSession } from "@/lib/useSession";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 type OAuthProvider = "google" | "github";
+
+/** A terminal message that replaces the form once an action succeeds. */
+type AuthNotice = "check-email" | "already-registered" | "reset-sent";
 
 function GoogleIcon() {
   return (
@@ -64,7 +68,8 @@ export default function AuthWidget() {
   const [loading, setLoading] = useState(false);
   const [oauthLoadingProvider, setOauthLoadingProvider] = useState<OAuthProvider | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const [checkEmail, setCheckEmail] = useState(false);
+  const [notice, setNotice] = useState<AuthNotice | null>(null);
+  const [resetLoading, setResetLoading] = useState(false);
   const supabase = createClient();
 
   if (session) {
@@ -81,38 +86,95 @@ export default function AuthWidget() {
   }
 
   const emailInvalid = touched && !EMAIL_PATTERN.test(email);
-  const passwordInvalid = touched && password.length < 6;
+  const signInPasswordMissing = touched && mode === "signin" && password.length === 0;
+  const signUpPasswordInvalid =
+    touched && mode === "signup" && password.length < MIN_PASSWORD_LENGTH;
+  const passwordInvalid = signInPasswordMissing || signUpPasswordInvalid;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setTouched(true);
     setFormError(null);
 
-    if (!EMAIL_PATTERN.test(email) || password.length < 6) {
+    const passwordBlocked =
+      mode === "signin"
+        ? password.length === 0
+        : password.length < MIN_PASSWORD_LENGTH;
+
+    if (!EMAIL_PATTERN.test(email) || passwordBlocked) {
       return;
     }
 
     setLoading(true);
     try {
-      const { error } =
-        mode === "signin"
-          ? await supabase.auth.signInWithPassword({ email, password })
-          : await supabase.auth.signUp({
-              email,
-              password,
-              options: {
-                emailRedirectTo:
-                  typeof window !== "undefined" ? window.location.origin : undefined,
-              },
-            });
+      if (mode === "signin") {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+          setFormError(error.message);
+        }
+        return;
+      }
+
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo:
+            typeof window !== "undefined" ? window.location.origin : undefined,
+        },
+      });
 
       if (error) {
         setFormError(error.message);
-      } else if (mode === "signup") {
-        setCheckEmail(true);
+        return;
       }
+
+      // Supabase answers an already-registered address with success and a decoy
+      // user so signup cannot be used to enumerate accounts — but it sends no
+      // email, so claiming we did would be a lie. The empty identities array is
+      // what distinguishes that case.
+      const identities = data.user?.identities;
+      if (Array.isArray(identities) && identities.length === 0) {
+        setNotice("already-registered");
+        return;
+      }
+
+      // Unrecognised shape: fall back rather than guess. A wrong "already
+      // registered" would block a genuine signup.
+      setNotice("check-email");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleForgotPassword() {
+    setFormError(null);
+
+    if (!EMAIL_PATTERN.test(email)) {
+      setFormError("Enter your email address above, then choose Forgot password.");
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo:
+          typeof window !== "undefined"
+            ? `${window.location.origin}/reset-password`
+            : undefined,
+      });
+
+      if (error) {
+        setFormError(error.message);
+      } else {
+        setNotice("reset-sent");
+      }
+    } catch (error) {
+      setFormError(
+        error instanceof Error ? error.message : "Unable to send the reset link.",
+      );
+    } finally {
+      setResetLoading(false);
     }
   }
 
@@ -138,13 +200,54 @@ export default function AuthWidget() {
     }
   }
 
-  if (checkEmail) {
+  if (notice === "already-registered") {
+    return (
+      <div className="flex flex-col items-center gap-2 py-4 text-center">
+        <UserCheck className="h-8 w-8 text-primary" aria-hidden="true" />
+        <p className="font-medium text-foreground">That email already has an account</p>
+        {/* Built as one expression: JSX drops the space between {email} and
+            adjacent text here, which renders "…@gmail.comis already". */}
+        <p className="text-sm text-muted-foreground">
+          {`${email} is already registered, so we didn't send a new confirmation link. Sign in instead, or reset your password if you've forgotten it.`}
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-2"
+          onClick={() => {
+            setNotice(null);
+            setMode("signin");
+            setPassword("");
+            setTouched(false);
+            setFormError(null);
+          }}
+        >
+          Sign in instead
+        </Button>
+      </div>
+    );
+  }
+
+  if (notice === "reset-sent") {
     return (
       <div className="flex flex-col items-center gap-2 py-4 text-center">
         <MailCheck className="h-8 w-8 text-primary" aria-hidden="true" />
         <p className="font-medium text-foreground">Check your email</p>
         <p className="text-sm text-muted-foreground">
-          We sent a confirmation link to {email}.
+          {`If ${email} has an account, a password reset link is on its way.`}
+        </p>
+      </div>
+    );
+  }
+
+  if (notice === "check-email") {
+    return (
+      <div className="flex flex-col items-center gap-2 py-4 text-center">
+        <MailCheck className="h-8 w-8 text-primary" aria-hidden="true" />
+        <p className="font-medium text-foreground">Check your email</p>
+        <p className="text-sm text-muted-foreground">
+          {`We sent a confirmation link to ${email}.`}
         </p>
       </div>
     );
@@ -194,7 +297,19 @@ export default function AuthWidget() {
       </div>
 
       <div className="grid gap-1.5">
-        <Label htmlFor="auth-password">Password</Label>
+        <div className="flex items-center justify-between gap-2">
+          <Label htmlFor="auth-password">Password</Label>
+          {mode === "signin" && (
+            <button
+              type="button"
+              onClick={() => void handleForgotPassword()}
+              disabled={loading || resetLoading || oauthLoadingProvider !== null}
+              className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline disabled:opacity-60"
+            >
+              {resetLoading ? "Sending…" : "Forgot password?"}
+            </button>
+          )}
+        </div>
         <div className="relative">
           <Input
             id="auth-password"
@@ -214,8 +329,13 @@ export default function AuthWidget() {
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
-        {passwordInvalid && (
-          <p className="text-sm text-destructive">Password must be at least 6 characters.</p>
+        {signInPasswordMissing && (
+          <p className="text-sm text-destructive">Enter your password.</p>
+        )}
+        {signUpPasswordInvalid && (
+          <p className="text-sm text-destructive">
+            {`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`}
+          </p>
         )}
       </div>
 

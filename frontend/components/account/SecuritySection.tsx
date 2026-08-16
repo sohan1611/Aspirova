@@ -26,6 +26,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { MIN_PASSWORD_LENGTH } from "@/lib/password";
 import { createClient } from "@/lib/supabase/client";
 
 function providersFor(user: User | null | undefined): string[] {
@@ -69,8 +70,8 @@ export default function SecuritySection({
 
   async function handlePasswordSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (password.length < 8) {
-      toast.error("Password must be at least 8 characters.");
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      toast.error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
       return;
     }
 
@@ -105,7 +106,7 @@ export default function SecuritySection({
                 <div>
                   <h3 className="font-medium text-foreground">Change password</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Use at least 8 characters for your new password.
+                    {`Use at least ${MIN_PASSWORD_LENGTH} characters for your new password.`}
                   </p>
                 </div>
                 <div className="grid max-w-sm gap-2">
@@ -113,7 +114,7 @@ export default function SecuritySection({
                   <Input
                     id="account-new-password"
                     type="password"
-                    minLength={8}
+                    minLength={MIN_PASSWORD_LENGTH}
                     autoComplete="new-password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
