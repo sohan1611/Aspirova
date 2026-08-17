@@ -43,7 +43,7 @@ def test_adapter_identity_and_default_health(adapter: HimalayasAdapter) -> None:
     assert adapter.health() == "ok"
 
 
-def test_fetch_filters_title_and_seniority_before_returning_raw_listings(
+def test_fetch_filters_title_only_before_returning_raw_listings(
     adapter: HimalayasAdapter,
     fixture_payload: dict,
     monkeypatch: pytest.MonkeyPatch,
@@ -67,6 +67,56 @@ def test_fetch_filters_title_and_seniority_before_returning_raw_listings(
     }
     assert adapter.coverage()["expected_total"] == 102211
     assert request_params == [{"limit": 20, "offset": 0}]
+
+
+def test_fetch_rejects_source_entry_level_without_himalayas_title_signal(
+    adapter: HimalayasAdapter,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = {
+        "totalCount": 2,
+        "jobs": [
+            {
+                "id": "hm-entry-noise",
+                "url": "https://himalayas.app/companies/acme/jobs/customer-service-assistant",
+                "applicationLink": (
+                    "https://himalayas.app/companies/acme/jobs/customer-service-assistant/apply"
+                ),
+                "title": "Customer Service Assistant",
+                "companyName": "Acme",
+                "description": "<p>Support customers.</p>",
+                "publishedDate": "2026-08-16T09:00:00Z",
+                "seniority": "Entry-level",
+            },
+            {
+                "id": "hm-intern",
+                "url": "https://himalayas.app/companies/acme/jobs/data-science-intern",
+                "applicationLink": (
+                    "https://himalayas.app/companies/acme/jobs/data-science-intern/apply"
+                ),
+                "title": "Data Science Intern",
+                "companyName": "Acme",
+                "description": "<p>Student internship.</p>",
+                "publishedDate": "2026-08-16T09:00:00Z",
+                "seniority": "Entry-level",
+            },
+        ],
+    }
+
+    def fake_get(url: str, *, params: dict) -> httpx.Response:
+        request = httpx.Request("GET", url, params=params)
+        return httpx.Response(200, json=payload, request=request)
+
+    monkeypatch.setattr(adapter._client, "get", fake_get)
+
+    raw_listings = adapter.fetch()
+
+    assert [listing.external_id for listing in raw_listings] == ["hm-intern"]
+    assert adapter.filter_counts() == {
+        "raw_count": 2,
+        "student_relevant_count": 1,
+        "filtered_out": 1,
+    }
 
 
 def test_parse_keeps_original_urls_company_and_bounded_coverage_details(

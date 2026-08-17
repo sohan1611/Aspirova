@@ -101,7 +101,10 @@ class HimalayasAdapter:
                 job
                 for job in jobs
                 if isinstance(job, dict)
-                and is_student_relevant_role(_job_title(job), job.get("seniority"))
+                # Himalayas labels ordinary assistant/customer-service roles
+                # Entry-level, and its seniority filter parameter is inert.
+                # For this source, title text is the only trusted admission signal.
+                and is_student_relevant_role(_job_title(job))
             ]
 
             page_listings = build_listings(
