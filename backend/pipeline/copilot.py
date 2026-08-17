@@ -8,6 +8,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
+from api.filters import exclude_stale_opportunities
 from core import ai_budget, ai_client, models
 from core.cache import cache_get, cache_set
 from core.config import get_settings
@@ -69,6 +70,7 @@ def retrieve_context(
             .options(joinedload(models.Opportunity.company))
             .where(
                 models.Opportunity.status == "active",
+                exclude_stale_opportunities(),
                 models.Opportunity.embedding.is_not(None),
             )
             .order_by(cosine_distance.asc(), models.Opportunity.id.asc())

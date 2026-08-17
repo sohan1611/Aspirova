@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 import pipeline.weekly_report as weekly_report_module
+from api.filters import STALE_AFTER_DAYS
 from core import models
 from core.ai_client import GenerationResult
 from core.config import get_settings
@@ -104,6 +105,7 @@ def _opportunity(
     now: datetime,
     deadline: datetime | None = None,
     is_hidden: bool = False,
+    posted_at: datetime | None = None,
 ) -> models.Opportunity:
     opportunity = models.Opportunity(
         slug=f"weekly-report-opportunity-{suffix}-{uuid.uuid4()}",
@@ -113,6 +115,7 @@ def _opportunity(
         deadline=deadline,
         deadline_confidence="explicit" if deadline else "unknown",
         is_hidden=is_hidden,
+        posted_at=posted_at,
         status="active",
         first_seen_at=now,
         last_seen_at=now,
@@ -142,6 +145,14 @@ def test_paid_user_gets_templated_precomputed_report_and_free_user_does_not(
         company=dream_company,
         now=now,
     )
+    stale_dream_match = _opportunity(
+        db_session,
+        suffix=f"stale-dream-{suffix}",
+        title=f"Stale Dream Match {suffix}",
+        company=dream_company,
+        now=now,
+        posted_at=now - timedelta(days=STALE_AFTER_DAYS + 1),
+    )
     closing = _opportunity(
         db_session,
         suffix=f"closing-{suffix}",
@@ -157,6 +168,15 @@ def test_paid_user_gets_templated_precomputed_report_and_free_user_does_not(
         company=other_company,
         now=now,
         is_hidden=True,
+    )
+    stale_hidden = _opportunity(
+        db_session,
+        suffix=f"stale-hidden-{suffix}",
+        title=f"Stale Hidden Opportunity {suffix}",
+        company=other_company,
+        now=now,
+        is_hidden=True,
+        posted_at=now - timedelta(days=STALE_AFTER_DAYS + 1),
     )
     db_session.add(models.DreamCompany(user_id=paid_user.id, company_id=dream_company.id))
     db_session.flush()
@@ -177,6 +197,8 @@ def test_paid_user_gets_templated_precomputed_report_and_free_user_does_not(
     assert dream_match.title in text
     assert closing.title in text
     assert hidden.title in text
+    assert stale_dream_match.title not in text
+    assert stale_hidden.title not in text
     assert dream_match.apply_url in text
     assert closing.apply_url in text
     assert hidden.apply_url in text

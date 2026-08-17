@@ -6,7 +6,11 @@ from sqlalchemy import case, func, literal, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from api.deps import get_db
-from api.filters import exclude_closed_competitions
+from api.filters import (
+    exclude_closed_competitions,
+    exclude_stale_opportunities,
+    is_stale_opportunity,
+)
 from api.opportunity_loading import opportunity_list_load_options
 from api.schemas import OpportunityDetail, OpportunityListItem, ReopenEstimateSchema
 from core import models
@@ -54,6 +58,7 @@ def get_similar_opportunities(
 
     filters = [
         models.Opportunity.status == "active",
+        exclude_stale_opportunities(),
         exclude_closed_competitions(),
         models.Opportunity.id != target.id,
     ]
@@ -101,4 +106,8 @@ def get_opportunity(slug: str, db: Session = Depends(get_db)) -> OpportunityDeta
             basis=estimate.basis,
             note=estimate.note,
         )
-    return OpportunityDetail.from_model(opportunity, reopen_estimate=estimate_schema)
+    return OpportunityDetail.from_model(
+        opportunity,
+        reopen_estimate=estimate_schema,
+        is_stale=is_stale_opportunity(opportunity),
+    )

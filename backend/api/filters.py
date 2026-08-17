@@ -1,6 +1,8 @@
 """Shared optional filters for opportunity query endpoints."""
 
-from sqlalchemy import and_, func, not_, or_, text
+from datetime import UTC, datetime, timedelta
+
+from sqlalchemy import and_, case, func, not_, or_, text
 
 from core import models
 
@@ -11,10 +13,69 @@ SOURCE_GROUPS = {
     "devpost": ["devpost"],
 }
 
+# Founder ruling: "10 months" means 305 days for stale-listing promotion.
+STALE_AFTER_DAYS = 305
+
 SENIOR_TITLE_PATTERN = (
-    r"(^|[^a-z])(senior|sr|staff|principal|director|vp|head of|lead|manager|"
-    r"architect|distinguished|fellow|executive)([^a-z]|$)"
+    r"(^|[^a-z])(senior|sr|staff|principal|director|vp|vice president|president|"
+    r"chief|cto|ceo|coo|cfo|cxo|head of|lead|manager|architect|distinguished|"
+    r"fellow|executive|counsel)([^a-z]|$)"
 )
+
+
+def student_rank_expression():
+    return case(
+        (models.Opportunity.category == "internship", 0),
+        (
+            and_(
+                models.Opportunity.category == "job",
+                func.coalesce(models.Opportunity.title_normalized, "").op("~*")(
+                    SENIOR_TITLE_PATTERN
+                ),
+            ),
+            2,
+        ),
+        else_=1,
+    )
+
+
+def exclude_stale_opportunities(now: datetime | None = None):
+    """Exclude old promoted listings unless a future deadline keeps them current."""
+    current = now or func.now()
+    stale_cutoff = (
+        now - timedelta(days=STALE_AFTER_DAYS)
+        if now
+        else current - text(f"interval '{STALE_AFTER_DAYS} days'")
+    )
+    stale = and_(
+        models.Opportunity.posted_at < stale_cutoff,
+        or_(
+            models.Opportunity.deadline.is_(None),
+            models.Opportunity.deadline <= current,
+        ),
+    )
+    return stale.is_not(True)
+
+
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
+def is_stale_opportunity(opportunity: models.Opportunity, now: datetime | None = None) -> bool:
+    """Return the Python equivalent of exclude_stale_opportunities for detail metadata."""
+    if opportunity.posted_at is None:
+        return False
+
+    current = _as_utc(now or datetime.now(UTC))
+    posted_at = _as_utc(opportunity.posted_at)
+    if posted_at >= current - timedelta(days=STALE_AFTER_DAYS):
+        return False
+
+    if opportunity.deadline is None:
+        return True
+    return _as_utc(opportunity.deadline) <= current
 
 
 def exclude_closed_competitions():
@@ -163,6 +224,7 @@ def saved_search_base_filters(params: dict) -> list:
 
     base_filters = [
         models.Opportunity.status == "active",
+        exclude_stale_opportunities(),
         exclude_closed_competitions(),
         *opportunity_filters(category, remote, None, None, None),
         *experience_filters(experience),

@@ -330,6 +330,7 @@ def test_run_tier_ingests_other_boards_when_one_prefetch_fails(monkeypatch) -> N
     monkeypatch.setattr(runner, "verify_connection_guards", lambda _engine: None)
     monkeypatch.setattr(runner, "Session", session_factory)
     monkeypatch.setattr(runner, "crawl_company_board", fake_crawl)
+    monkeypatch.setattr(runner, "_refresh_prestige_matches", lambda _engine: None)
 
     runner.run_tier(1, group="ats")
 
@@ -544,6 +545,7 @@ def _run_tier_ats_scaffold(monkeypatch, companies, source_states, crawl_order):
         lambda s, src, company, ac, **kw: fake_crawl(s, src, company, ac, **kw),
     )
     monkeypatch.setattr(runner, "resolve_company", lambda *_a, **_k: SimpleNamespace(id=2))
+    monkeypatch.setattr(runner, "_refresh_prestige_matches", lambda _engine: None)
     return by_slug
 
 

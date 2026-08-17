@@ -1,10 +1,11 @@
-"""Mark opportunities closed only when a fresh crawl proves they are gone.
+"""Mark opportunities closed when an explicit deadline passed or a fresh crawl proves absence.
 
 An opportunity is marked closed only after its company's board was crawled after
-the opportunity was last seen. The row stays status='active' during the 14-day
-grace window so it remains visible as closed. The two-day freshness guard makes
-a broken or stalled crawl fail safe: stale source state closes nothing rather
-than mass-retiring the catalogue.
+the opportunity was last seen, or when the source supplied a deadline that has
+passed. The row stays status='active' during the 14-day grace window so it
+remains visible as closed. The two-day freshness guard makes a broken or stalled
+crawl fail safe: stale source state closes nothing rather than mass-retiring the
+catalogue.
 """
 
 from sqlalchemy import func, text, update
@@ -14,8 +15,19 @@ from core import models
 
 
 def expire_missing_opportunities(session: Session) -> int:
-    """Mark active opportunities closed when absent from recently crawled boards."""
-    result = session.execute(
+    """Mark active opportunities closed when explicitly expired or absent."""
+    deadline_result = session.execute(
+        update(models.Opportunity)
+        .where(
+            models.Opportunity.status == "active",
+            models.Opportunity.closed_at.is_(None),
+            models.Opportunity.deadline.is_not(None),
+            models.Opportunity.deadline < func.now(),
+        )
+        .values(closed_at=func.now())
+        .execution_options(synchronize_session=False)
+    )
+    missing_result = session.execute(
         update(models.Opportunity)
         .where(
             models.Opportunity.status == "active",
@@ -32,4 +44,4 @@ def expire_missing_opportunities(session: Session) -> int:
         .values(closed_at=func.now())
         .execution_options(synchronize_session=False)
     )
-    return int(result.rowcount or 0)
+    return int(deadline_result.rowcount or 0) + int(missing_result.rowcount or 0)

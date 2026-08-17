@@ -33,9 +33,10 @@ import logging
 from datetime import datetime, timedelta, timezone
 from html import escape
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy import func, or_, select
+from sqlalchemy.orm import Session, aliased
 
+from api.filters import exclude_stale_opportunities, student_rank_expression
 from core import models
 from core.config import get_settings
 from core.email_client import send_email
@@ -53,6 +54,7 @@ logger = logging.getLogger(__name__)
 DIGEST_FREQUENCY_CAP = timedelta(hours=20)
 INSTANT_ALERT_LOOKBACK = timedelta(hours=3)
 DIGEST_GENERIC_SAMPLE_SIZE = 5
+DIGEST_RANKED_COMPANY_RESERVE_SIZE = 2
 
 
 def _record_notification(
@@ -117,7 +119,7 @@ def _already_alerted(
 
 
 def _dream_company_opportunities(
-    session: Session, user_id, since: datetime
+    session: Session, user_id, since: datetime, now: datetime
 ) -> list[models.Opportunity]:
     return list(
         session.scalars(
@@ -130,6 +132,7 @@ def _dream_company_opportunities(
                 models.DreamCompany.user_id == user_id,
                 models.Opportunity.status == "active",
                 models.Opportunity.first_seen_at >= since,
+                exclude_stale_opportunities(now),
             )
             .order_by(models.Opportunity.first_seen_at.desc())
         ).all()
@@ -137,13 +140,108 @@ def _dream_company_opportunities(
 
 
 def _generic_recent_opportunities(
-    session: Session, since: datetime, limit: int
+    session: Session, since: datetime, limit: int, now: datetime
 ) -> list[models.Opportunity]:
+    if limit <= 0:
+        return []
+
+    student_rank = student_rank_expression()
+    ranking_order = [
+        student_rank.asc(),
+        models.Company.prestige_rank.asc().nullslast(),
+        models.Opportunity.first_seen_at.desc(),
+        models.Opportunity.id.desc(),
+    ]
+    ranked_opportunities = (
+        select(
+            models.Opportunity,
+            student_rank.label("student_rank"),
+            models.Company.prestige_rank.label("prestige_rank"),
+            func.row_number()
+            .over(
+                partition_by=models.Opportunity.company_id,
+                order_by=ranking_order,
+            )
+            .label("company_row_number"),
+        )
+        .outerjoin(models.Company, models.Company.id == models.Opportunity.company_id)
+        .where(
+            models.Opportunity.status == "active",
+            models.Opportunity.first_seen_at >= since,
+            exclude_stale_opportunities(now),
+            models.Opportunity.category.in_(["internship", "job"]),
+            student_rank < 2,
+        )
+        .subquery()
+    )
+    opportunity = aliased(models.Opportunity, ranked_opportunities)
+
+    ranked_company_opportunities = list(
+        session.scalars(
+            select(opportunity)
+            .where(
+                ranked_opportunities.c.company_row_number == 1,
+                ranked_opportunities.c.prestige_rank.is_not(None),
+            )
+            .order_by(
+                ranked_opportunities.c.prestige_rank.asc(),
+                ranked_opportunities.c.student_rank.asc(),
+                ranked_opportunities.c.first_seen_at.desc(),
+                ranked_opportunities.c.id.desc(),
+            )
+            .limit(min(DIGEST_RANKED_COMPANY_RESERVE_SIZE, limit))
+        ).all()
+    )
+
+    reserved_company_ids = [
+        opportunity.company_id
+        for opportunity in ranked_company_opportunities
+        if opportunity.company_id is not None
+    ]
+    remaining_limit = limit - len(ranked_company_opportunities)
+    fill_opportunities: list[models.Opportunity] = []
+    if remaining_limit > 0:
+        fill_filters = [ranked_opportunities.c.company_row_number == 1]
+        if reserved_company_ids:
+            fill_filters.append(
+                or_(
+                    ranked_opportunities.c.company_id.is_(None),
+                    ranked_opportunities.c.company_id.not_in(reserved_company_ids),
+                )
+            )
+        fill_opportunities = list(
+            session.scalars(
+                select(opportunity)
+                .where(*fill_filters)
+                .order_by(
+                    ranked_opportunities.c.student_rank.asc(),
+                    ranked_opportunities.c.prestige_rank.asc().nullslast(),
+                    ranked_opportunities.c.first_seen_at.desc(),
+                    ranked_opportunities.c.id.desc(),
+                )
+                .limit(remaining_limit)
+            ).all()
+        )
+
+    selected_ids = [
+        opportunity.id for opportunity in [*ranked_company_opportunities, *fill_opportunities]
+    ]
+    if not selected_ids:
+        return []
+
     return list(
         session.scalars(
-            select(models.Opportunity)
-            .where(models.Opportunity.status == "active", models.Opportunity.first_seen_at >= since)
-            .order_by(models.Opportunity.first_seen_at.desc())
+            select(opportunity)
+            .where(
+                ranked_opportunities.c.company_row_number == 1,
+                ranked_opportunities.c.id.in_(selected_ids),
+            )
+            .order_by(
+                ranked_opportunities.c.student_rank.asc(),
+                ranked_opportunities.c.prestige_rank.asc().nullslast(),
+                ranked_opportunities.c.first_seen_at.desc(),
+                ranked_opportunities.c.id.desc(),
+            )
             .limit(limit)
         ).all()
     )
@@ -321,7 +419,7 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
                 result["skipped_capped"] += 1
                 continue
 
-            opportunities = _dream_company_opportunities(session, user.id, since)
+            opportunities = _dream_company_opportunities(session, user.id, since, now)
             opportunities = [
                 o for o in opportunities if not _already_alerted(session, user.id, o.id)
             ]
@@ -336,7 +434,7 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
                 opportunities = [
                     o
                     for o in _generic_recent_opportunities(
-                        session, since, DIGEST_GENERIC_SAMPLE_SIZE
+                        session, since, DIGEST_GENERIC_SAMPLE_SIZE, now
                     )
                     if not _already_alerted(session, user.id, o.id)
                 ]
@@ -373,7 +471,11 @@ def send_instant_alerts(session: Session, *, now: datetime | None = None) -> dic
     matches = session.execute(
         select(models.DreamCompany.user_id, models.Opportunity)
         .join(models.Opportunity, models.Opportunity.company_id == models.DreamCompany.company_id)
-        .where(models.Opportunity.status == "active", models.Opportunity.first_seen_at >= since)
+        .where(
+            models.Opportunity.status == "active",
+            models.Opportunity.first_seen_at >= since,
+            exclude_stale_opportunities(now),
+        )
     ).all()
 
     for user_id, opportunity in matches:
@@ -432,6 +534,7 @@ def send_closing_soon_alerts(
                     .where(
                         models.Bookmark.user_id == user.id,
                         models.Opportunity.status == "active",
+                        exclude_stale_opportunities(now),
                         models.Opportunity.deadline.is_not(None),
                         models.Opportunity.deadline.between(now, cutoff),
                     )

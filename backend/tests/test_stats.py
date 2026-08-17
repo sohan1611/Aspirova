@@ -1,5 +1,5 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from api import middleware
 from api.deps import get_db
+from api.filters import STALE_AFTER_DAYS, exclude_stale_opportunities
 from api.main import app
 from core import models
 from core.config import get_settings
@@ -43,7 +44,10 @@ def test_stats_returns_active_counts_and_shape(client: TestClient, db_session: S
             func.count(func.distinct(models.Opportunity.company_id)).label("companies"),
             func.count(func.distinct(models.Opportunity.primary_source)).label("sources"),
             func.max(models.Opportunity.last_seen_at).label("updated_at"),
-        ).where(models.Opportunity.status == "active")
+        ).where(
+            models.Opportunity.status == "active",
+            exclude_stale_opportunities(),
+        )
     ).one()
 
     suffix = uuid.uuid4().hex
@@ -55,6 +59,7 @@ def test_stats_returns_active_counts_and_shape(client: TestClient, db_session: S
     inactive_company = models.Company(
         slug=f"stats-company-inactive-{suffix}", name="Stats Company Inactive"
     )
+    stale_company = models.Company(slug=f"stats-company-stale-{suffix}", name="Stats Company Stale")
     source_a = f"stats-source-a-{suffix}"
     source_b = f"stats-source-b-{suffix}"
     opportunities = [
@@ -101,8 +106,18 @@ def test_stats_returns_active_counts_and_shape(client: TestClient, db_session: S
             status="expired",
             last_seen_at=inactive_at,
         ),
+        models.Opportunity(
+            slug=f"stats-stale-{suffix}",
+            title="Stats stale",
+            company=stale_company,
+            primary_source=f"stats-source-stale-{suffix}",
+            apply_url=f"https://example.com/stats/stale/{suffix}",
+            status="active",
+            posted_at=datetime.now(UTC) - timedelta(days=STALE_AFTER_DAYS + 1),
+            last_seen_at=inactive_at,
+        ),
     ]
-    db_session.add_all([company_a, company_b, inactive_company, *opportunities])
+    db_session.add_all([company_a, company_b, inactive_company, stale_company, *opportunities])
     db_session.flush()
 
     response = client.get("/stats")

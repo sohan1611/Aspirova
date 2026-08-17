@@ -178,3 +178,71 @@ def test_expire_missing_opportunities_keeps_listings_when_board_was_never_crawle
     expire_missing_opportunities(db_session)
 
     assert _status_for_slug(db_session, opportunity.slug) == "active"
+
+
+def test_expire_missing_opportunities_marks_past_deadline_rows_closed(
+    db_session: Session,
+) -> None:
+    suffix = str(uuid.uuid4())
+    now = datetime.now(timezone.utc)
+    original_closed_at = now - timedelta(days=5)
+    company = models.Company(
+        slug=f"expire-test-deadline-company-{suffix}",
+        name=f"Expire test deadline company {suffix}",
+    )
+    expired_deadline = models.Opportunity(
+        slug=f"expire-test-deadline-expired-{suffix}",
+        company=company,
+        title="Expired deadline opportunity",
+        apply_url=f"https://example.com/expire/deadline/expired/{suffix}",
+        status="active",
+        deadline=now - timedelta(hours=1),
+    )
+    future_deadline = models.Opportunity(
+        slug=f"expire-test-deadline-future-{suffix}",
+        company=company,
+        title="Future deadline opportunity",
+        apply_url=f"https://example.com/expire/deadline/future/{suffix}",
+        status="active",
+        deadline=now + timedelta(days=1),
+    )
+    already_closed = models.Opportunity(
+        slug=f"expire-test-deadline-already-closed-{suffix}",
+        company=company,
+        title="Already closed deadline opportunity",
+        apply_url=f"https://example.com/expire/deadline/already-closed/{suffix}",
+        status="active",
+        deadline=now - timedelta(days=1),
+        closed_at=original_closed_at,
+    )
+    inactive = models.Opportunity(
+        slug=f"expire-test-deadline-inactive-{suffix}",
+        company=company,
+        title="Inactive deadline opportunity",
+        apply_url=f"https://example.com/expire/deadline/inactive/{suffix}",
+        status="closed",
+        deadline=now - timedelta(days=1),
+    )
+    db_session.add_all(
+        [
+            company,
+            expired_deadline,
+            future_deadline,
+            already_closed,
+            inactive,
+        ]
+    )
+    db_session.flush()
+
+    closed_count = expire_missing_opportunities(db_session)
+
+    db_session.expire_all()
+    assert closed_count >= 1
+    assert _status_and_closed_at_for_slug(db_session, expired_deadline.slug)[0] == "active"
+    assert _status_and_closed_at_for_slug(db_session, expired_deadline.slug)[1] is not None
+    assert _status_and_closed_at_for_slug(db_session, future_deadline.slug) == ("active", None)
+    assert _status_and_closed_at_for_slug(db_session, already_closed.slug) == (
+        "active",
+        original_closed_at,
+    )
+    assert _status_and_closed_at_for_slug(db_session, inactive.slug) == ("closed", None)

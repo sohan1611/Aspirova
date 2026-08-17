@@ -1,5 +1,5 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from api import middleware
 from api import sitemap
 from api.deps import get_db
+from api.filters import STALE_AFTER_DAYS
 from api.main import app
 from core import models
 
@@ -61,7 +62,23 @@ def test_sitemap_opportunities_returns_active_slug_shape(
         status="expired",
         last_seen_at=seen_at,
     )
-    db_session.add_all([active_a, active_b, inactive])
+    stale = models.Opportunity(
+        slug=f"sitemap-test-stale-{suffix}",
+        title="Sitemap test stale",
+        apply_url=f"https://example.com/sitemap/stale/{suffix}",
+        status="active",
+        posted_at=datetime.now(UTC) - timedelta(days=STALE_AFTER_DAYS + 1),
+        last_seen_at=seen_at,
+    )
+    unknown_posted_at = models.Opportunity(
+        slug=f"sitemap-test-null-posted-at-{suffix}",
+        title="Sitemap test null posted_at",
+        apply_url=f"https://example.com/sitemap/null-posted-at/{suffix}",
+        status="active",
+        posted_at=None,
+        last_seen_at=seen_at,
+    )
+    db_session.add_all([active_a, active_b, inactive, stale, unknown_posted_at])
     db_session.flush()
 
     response = client.get("/sitemap-opportunities")
@@ -75,8 +92,10 @@ def test_sitemap_opportunities_returns_active_slug_shape(
     slugs = [item["slug"] for item in body]
     assert active_a.slug in slugs
     assert active_b.slug in slugs
+    assert unknown_posted_at.slug in slugs
     assert slugs.index(active_a.slug) < slugs.index(active_b.slug)
     assert inactive.slug not in slugs
+    assert stale.slug not in slugs
 
 
 def test_sitemap_opportunities_is_bounded_and_ranked_by_last_seen_at(
@@ -201,6 +220,14 @@ def test_sitemap_companies_returns_only_companies_with_active_opportunities(
         slug=f"sitemap-company-inactive-{suffix}",
         name="Sitemap Company Inactive",
     )
+    stale_only_company = models.Company(
+        slug=f"sitemap-company-stale-only-{suffix}",
+        name="Sitemap Company Stale Only",
+    )
+    unknown_posted_at_company = models.Company(
+        slug=f"sitemap-company-null-posted-at-{suffix}",
+        name="Sitemap Company Null Posted At",
+    )
     empty_company = models.Company(
         slug=f"sitemap-company-empty-{suffix}",
         name="Sitemap Company Empty",
@@ -223,7 +250,39 @@ def test_sitemap_companies_returns_only_companies_with_active_opportunities(
         first_seen_at=seen_at,
         last_seen_at=seen_at,
     )
-    db_session.add_all([active_company, inactive_company, empty_company, active, inactive])
+    stale = models.Opportunity(
+        slug=f"sitemap-company-stale-opp-{suffix}",
+        title="Sitemap company stale opportunity",
+        company=stale_only_company,
+        apply_url=f"https://example.com/sitemap/company/stale/{suffix}",
+        status="active",
+        posted_at=datetime.now(UTC) - timedelta(days=STALE_AFTER_DAYS + 1),
+        first_seen_at=seen_at,
+        last_seen_at=seen_at,
+    )
+    unknown_posted_at = models.Opportunity(
+        slug=f"sitemap-company-null-posted-at-opp-{suffix}",
+        title="Sitemap company null posted_at opportunity",
+        company=unknown_posted_at_company,
+        apply_url=f"https://example.com/sitemap/company/null-posted-at/{suffix}",
+        status="active",
+        posted_at=None,
+        first_seen_at=seen_at,
+        last_seen_at=seen_at,
+    )
+    db_session.add_all(
+        [
+            active_company,
+            inactive_company,
+            stale_only_company,
+            unknown_posted_at_company,
+            empty_company,
+            active,
+            inactive,
+            stale,
+            unknown_posted_at,
+        ]
+    )
     db_session.flush()
 
     response = client.get("/sitemap-companies")
@@ -236,5 +295,7 @@ def test_sitemap_companies_returns_only_companies_with_active_opportunities(
     slugs = [item["slug"] for item in body]
     assert slugs == sorted(slugs)
     assert active_company.slug in slugs
+    assert unknown_posted_at_company.slug in slugs
     assert inactive_company.slug not in slugs
+    assert stale_only_company.slug not in slugs
     assert empty_company.slug not in slugs

@@ -15,6 +15,7 @@ from html import escape
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
+from api.filters import exclude_stale_opportunities
 from core import ai_budget, ai_client, email_client, models
 from core.config import get_settings
 from core.email_templates import email_layout, text_footer
@@ -89,6 +90,7 @@ def _recent_dream_company_matches(
             .where(
                 models.DreamCompany.user_id == user_id,
                 models.Opportunity.status == "active",
+                exclude_stale_opportunities(now),
                 models.Opportunity.first_seen_at >= since,
                 models.Opportunity.first_seen_at <= now,
             )
@@ -105,6 +107,7 @@ def _closing_soon_opportunities(session: Session, now: datetime) -> list[models.
             .options(joinedload(models.Opportunity.company))
             .where(
                 models.Opportunity.status == "active",
+                exclude_stale_opportunities(now),
                 models.Opportunity.deadline.is_not(None),
                 models.Opportunity.deadline >= now,
                 models.Opportunity.deadline <= now + CLOSING_SOON_WINDOW,
@@ -124,6 +127,7 @@ def _recent_hidden_opportunities(
             .options(joinedload(models.Opportunity.company))
             .where(
                 models.Opportunity.status == "active",
+                exclude_stale_opportunities(now),
                 models.Opportunity.is_hidden.is_(True),
                 models.Opportunity.first_seen_at >= since,
                 models.Opportunity.first_seen_at <= now,

@@ -148,11 +148,14 @@ def test_run_tier_processes_only_selected_group(
     monkeypatch.setattr(runner, "crawl_company_board", fake_crawl_company_board)
     monkeypatch.setattr(runner, "crawl_aggregator", fake_crawl_aggregator)
     monkeypatch.setattr(runner, "_prefetch_ats_boards", fake_prefetch)
+    monkeypatch.setattr(
+        runner, "_refresh_prestige_matches", lambda _engine: events.append("prestige")
+    )
 
     runner.run_tier(1, group=group)
 
     assert calls == [expected_call]
-    assert events == ["guard"]
+    assert events == ["guard", "prestige"]
     assert len(session_factory.sessions) == 2  # gather + exactly one selected job
     assert session_factory.sessions[0].scalars_calls == expected_gather_queries
 
@@ -175,6 +178,7 @@ def test_run_tier_processes_remoteok_after_competition_aggregators(monkeypatch) 
     monkeypatch.setattr(runner, "verify_connection_guards", lambda _engine: None)
     monkeypatch.setattr(runner, "Session", session_factory)
     monkeypatch.setattr(runner, "crawl_aggregator", fake_crawl_aggregator)
+    monkeypatch.setattr(runner, "_refresh_prestige_matches", lambda _engine: None)
 
     runner.run_tier(1, group="aggregator")
 
@@ -208,7 +212,64 @@ def test_run_tier_shares_the_aggregator_time_budget(monkeypatch) -> None:
     monkeypatch.setattr(runner, "Session", session_factory)
     monkeypatch.setattr(runner, "crawl_aggregator", fake_crawl_aggregator)
     monkeypatch.setattr(runner.time, "monotonic", lambda: next(monotonic_values))
+    monkeypatch.setattr(runner, "_refresh_prestige_matches", lambda _engine: None)
 
     runner.run_tier(1, group="aggregator", aggregator_max_seconds=600.0)
 
     assert calls == [("devpost", 600.0, 700.0)]
+
+
+def test_refresh_prestige_matches_calls_matcher_without_reset(monkeypatch, capsys) -> None:
+    fake_engine = object()
+    sessions: list[object] = []
+    calls: list[dict[str, object]] = []
+
+    class _Session:
+        def __init__(self, engine):
+            assert engine is fake_engine
+            sessions.append(self)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, _exc_type, _exc_value, _traceback) -> None:
+            pass
+
+    def fake_match_prestige(session, **kwargs):
+        assert session is sessions[0]
+        calls.append(kwargs)
+        return {"scanned": 3, "ranked": 2, "unranked": 1}
+
+    monkeypatch.setattr(runner, "Session", _Session)
+    monkeypatch.setattr(runner, "match_prestige", fake_match_prestige)
+
+    result = runner._refresh_prestige_matches(fake_engine)
+
+    assert result == {"scanned": 3, "ranked": 2, "unranked": 1}
+    assert calls == [{}]
+    assert "prestige match after crawl: scanned 3, ranked 2, unranked 1" in capsys.readouterr().out
+
+
+def test_refresh_prestige_matches_is_non_fatal(monkeypatch, capsys) -> None:
+    class _Session:
+        def __init__(self, _engine):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, _exc_type, _exc_value, _traceback) -> None:
+            pass
+
+    def fake_match_prestige(_session, **_kwargs):
+        raise RuntimeError("matcher unavailable")
+
+    monkeypatch.setattr(runner, "Session", _Session)
+    monkeypatch.setattr(runner, "match_prestige", fake_match_prestige)
+
+    result = runner._refresh_prestige_matches(object())
+
+    assert result is None
+    assert "WARNING: prestige match after crawl failed: RuntimeError: matcher unavailable" in (
+        capsys.readouterr().out
+    )

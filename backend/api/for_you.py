@@ -11,7 +11,11 @@ from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Session
 
 from api.deps import get_db
-from api.filters import exclude_closed_competitions, location_scope_filters
+from api.filters import (
+    exclude_closed_competitions,
+    exclude_stale_opportunities,
+    location_scope_filters,
+)
 from api.opportunity_loading import opportunity_list_load_options
 from api.schemas import FeedResponse, OpportunityListItem
 from core import models
@@ -180,6 +184,7 @@ def get_for_you(
     user_skills = _selected_skills(skills)
     base_filters = [
         models.Opportunity.status == "active",
+        exclude_stale_opportunities(),
         exclude_closed_competitions(),
         *location_scope_filters(scope, country),
     ]

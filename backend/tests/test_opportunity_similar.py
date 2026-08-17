@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from api import middleware
 from api.deps import get_db
+from api.filters import STALE_AFTER_DAYS
 from api.main import app
 from core import models
 
@@ -43,6 +44,7 @@ def _opportunity(
     country: str | None = None,
     first_seen_at: datetime,
     status: str = "active",
+    posted_at: datetime | None = None,
     deadline: datetime | None = None,
 ) -> models.Opportunity:
     return models.Opportunity(
@@ -55,6 +57,7 @@ def _opportunity(
         first_seen_at=first_seen_at,
         last_seen_at=first_seen_at,
         status=status,
+        posted_at=posted_at,
         deadline=deadline,
     )
 
@@ -128,7 +131,7 @@ def test_similar_same_company_results_come_first(client: TestClient, db_session:
     assert items[2]["country"] == "ZZ"
 
 
-def test_similar_excludes_closed_competitions_and_target(
+def test_similar_excludes_stale_closed_competitions_and_target(
     client: TestClient,
     db_session: Session,
 ) -> None:
@@ -163,7 +166,25 @@ def test_similar_excludes_closed_competitions_and_target(
         first_seen_at=now - timedelta(days=2),
         deadline=now - timedelta(days=15),
     )
-    db_session.add_all([company, target, active, closed])
+    stale = _opportunity(
+        suffix=suffix,
+        name="stale",
+        company=company,
+        category="job",
+        country="US",
+        first_seen_at=now,
+        posted_at=now - timedelta(days=STALE_AFTER_DAYS + 1),
+    )
+    unknown_posted_at = _opportunity(
+        suffix=suffix,
+        name="null-posted-at",
+        company=company,
+        category="job",
+        country="US",
+        first_seen_at=now - timedelta(hours=1),
+        posted_at=None,
+    )
+    db_session.add_all([company, target, active, closed, stale, unknown_posted_at])
     db_session.flush()
 
     response = client.get(f"/opportunity/{target.slug}/similar", params={"limit": 12})
@@ -171,7 +192,9 @@ def test_similar_excludes_closed_competitions_and_target(
     assert response.status_code == 200
     slugs = {item["slug"] for item in response.json()}
     assert active.slug in slugs
+    assert unknown_posted_at.slug in slugs
     assert target.slug not in slugs
+    assert stale.slug not in slugs
     assert closed.slug not in slugs
 
 

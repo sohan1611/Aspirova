@@ -123,6 +123,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title,
     description,
     alternates: { canonical: canonicalUrl },
+    ...(opportunity.is_stale ? { robots: { index: false, follow: false } } : {}),
     // openGraph.title has no automatic template applied (unlike <title>),
     // so the "- Aspirova" suffix is added explicitly here for share
     // previews on Twitter/LinkedIn/etc.

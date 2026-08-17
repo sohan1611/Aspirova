@@ -1,5 +1,5 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from api import middleware
 from api.deps import get_db
+from api.filters import STALE_AFTER_DAYS
 from api.main import app
 from core import models
 
@@ -42,6 +43,7 @@ def test_facets_return_distinct_active_companies_and_locations(
     high_location = f"Facet Zulu Location {suffix}"
     low_location = f"facet Alpha Location {suffix}"
     inactive_location = f"Facet Inactive Location {suffix}"
+    stale_location = f"Facet Stale Location {suffix}"
 
     high_count_company = models.Company(
         slug=f"facet-high-count-{suffix}",
@@ -59,12 +61,17 @@ def test_facets_return_distinct_active_companies_and_locations(
         slug=f"facet-inactive-{suffix}",
         name=f"Facet Inactive {suffix}",
     )
+    stale_company = models.Company(
+        slug=f"facet-stale-{suffix}",
+        name=f"Facet Stale {suffix}",
+    )
     db_session.add_all(
         [
             high_count_company,
             low_count_company,
             blank_location_company,
             inactive_company,
+            stale_company,
             models.Opportunity(
                 slug=f"facet-active-a-{suffix}",
                 title="Facet active A",
@@ -115,6 +122,17 @@ def test_facets_return_distinct_active_companies_and_locations(
                 first_seen_at=seen_at,
                 last_seen_at=seen_at,
             ),
+            models.Opportunity(
+                slug=f"facet-stale-opp-{suffix}",
+                title="Facet stale",
+                company=stale_company,
+                apply_url=f"https://example.com/facets/stale/{suffix}",
+                location=stale_location,
+                status="active",
+                posted_at=datetime.now(UTC) - timedelta(days=STALE_AFTER_DAYS + 1),
+                first_seen_at=seen_at,
+                last_seen_at=seen_at,
+            ),
         ]
     )
     db_session.flush()
@@ -134,9 +152,11 @@ def test_facets_return_distinct_active_companies_and_locations(
     assert companies.count(low_count_company.name) == 1
     assert companies.index(low_count_company.name) < companies.index(high_count_company.name)
     assert inactive_company.name not in companies
+    assert stale_company.name not in companies
 
     assert locations.count(high_location) == 1
     assert locations.count(low_location) == 1
     assert locations.index(low_location) < locations.index(high_location)
     assert inactive_location not in locations
+    assert stale_location not in locations
     assert "" not in locations

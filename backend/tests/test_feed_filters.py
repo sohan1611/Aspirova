@@ -225,6 +225,92 @@ def test_feed_early_experience_filter_excludes_senior_titles(
     assert early_career_slugs & seeded_slugs == {engineer.slug, internship.slug}
 
 
+def test_feed_early_experience_filter_excludes_new_senior_terms_and_keeps_student_titles(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    suffix = uuid.uuid4().hex
+    seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    location_token = f"SeniorTermFilterville-{suffix}"
+    company = models.Company(
+        slug=f"senior-term-filter-company-{suffix}",
+        name=f"Senior Term Filter Company {suffix}",
+    )
+    senior_titles = [
+        "Vice President, Mid Market Sales",
+        "Chief Operating Officer",
+        "Field CTO",
+        "Commercial Counsel",
+        "President, Student Programs",
+        "Chief Talent Officer",
+        "CTO, Platform",
+        "CEO Office Associate",
+        "COO Operations",
+        "CFO Strategy",
+        "CXO Program",
+        "Legal Counsel",
+    ]
+    student_titles = [
+        "Software Engineer Intern",
+        "New Grad Software Engineer",
+        "Associate Product Analyst",
+        "Data Science Intern",
+        "User Escalation Specialist",
+        "Business Consultant Intern",
+        "Partner Solutions Engineer",
+        "Graduate HR Partner",
+        "Business Partner Analyst",
+    ]
+    senior_opportunities = [
+        models.Opportunity(
+            slug=f"senior-term-filter-senior-{index}-{suffix}",
+            title=title,
+            title_normalized=title.casefold(),
+            company=company,
+            category="job",
+            location=location_token,
+            apply_url=f"https://example.com/senior-term-filter/senior/{index}/{suffix}",
+            status="active",
+            last_seen_at=seen_at,
+        )
+        for index, title in enumerate(senior_titles)
+    ]
+    student_opportunities = [
+        models.Opportunity(
+            slug=f"senior-term-filter-student-{index}-{suffix}",
+            title=title,
+            title_normalized=title.casefold(),
+            company=company,
+            category="internship" if "intern" in title.casefold() else "job",
+            location=location_token,
+            apply_url=f"https://example.com/senior-term-filter/student/{index}/{suffix}",
+            status="active",
+            last_seen_at=seen_at,
+        )
+        for index, title in enumerate(student_titles)
+    ]
+    db_session.add_all([company, *senior_opportunities, *student_opportunities])
+    db_session.flush()
+
+    all_levels = client.get(
+        "/feed",
+        params={"location": location_token, "limit": 100},
+    ).json()
+    early_career = client.get(
+        "/feed",
+        params={"experience": "early", "location": location_token, "limit": 100},
+    ).json()
+    senior_slugs = {opportunity.slug for opportunity in senior_opportunities}
+    student_slugs = {opportunity.slug for opportunity in student_opportunities}
+    all_level_slugs = {item["slug"] for item in all_levels["items"]}
+    early_career_slugs = {item["slug"] for item in early_career["items"]}
+
+    assert senior_slugs <= all_level_slugs
+    assert student_slugs <= all_level_slugs
+    assert senior_slugs.isdisjoint(early_career_slugs)
+    assert student_slugs <= early_career_slugs
+
+
 def test_feed_default_student_sort_prioritizes_internships_and_early_roles(
     client: TestClient,
     db_session: Session,

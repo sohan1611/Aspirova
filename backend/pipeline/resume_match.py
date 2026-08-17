@@ -3,6 +3,7 @@
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
+from api.filters import exclude_stale_opportunities
 from core import ai_client, models
 from core.config import get_settings
 
@@ -52,7 +53,11 @@ def match_for_user(
     rows = session.execute(
         select(models.Opportunity, cosine_distance)
         .options(joinedload(models.Opportunity.company))
-        .where(models.Opportunity.embedding.is_not(None))
+        .where(
+            models.Opportunity.status == "active",
+            exclude_stale_opportunities(),
+            models.Opportunity.embedding.is_not(None),
+        )
         .order_by(cosine_distance.asc(), models.Opportunity.id.asc())
         .limit(max(limit, 0))
     ).unique()
