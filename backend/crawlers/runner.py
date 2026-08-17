@@ -33,6 +33,7 @@ from sqlalchemy.orm import Session
 from core import models
 from core.adapters import RawListing
 from core.db import make_engine, verify_connection_guards
+from crawlers import watchdog
 from crawlers.amazon import AmazonAdapter
 from crawlers.ashby import AshbyAdapter
 from crawlers.devpost import DevpostAdapter
@@ -514,6 +515,8 @@ def _fetch_company_board(
     if _is_stop_requested(should_stop):
         return None
 
+    activity = f"{job.adapter_key}:{job.board_token}"
+    watchdog.beat(f"{activity}:fetch-start")
     adapter = ATS_ADAPTERS[job.adapter_key](
         board_token=job.board_token,
         company_name=job.company_name,
@@ -522,6 +525,7 @@ def _fetch_company_board(
         return None
 
     listings = list(adapter.fetch())
+    watchdog.beat(f"{activity}:fetched")
     health = adapter.health()
     return _PrefetchedBoard(
         listings=listings,
@@ -632,6 +636,7 @@ def crawl_company_board(
     board_token = company.ats_board_id
     company_name = company.name
     company_slug = company.slug
+    activity = f"{source_label}:{board_token}"
 
     started_at = datetime.now(timezone.utc)
     result = {
@@ -652,7 +657,12 @@ def crawl_company_board(
 
     try:
         adapter = adapter_class(board_token=board_token, company_name=company_name)
-        raw_listings = list(adapter.fetch()) if prefetched is None else prefetched
+        if prefetched is None:
+            watchdog.beat(f"{activity}:fetch-start")
+            raw_listings = list(adapter.fetch())
+            watchdog.beat(f"{activity}:fetched")
+        else:
+            raw_listings = prefetched
         result["listings_found"] = len(raw_listings)
 
         health = (
@@ -700,6 +710,7 @@ def crawl_company_board(
             )
             state.last_crawled_at = datetime.now(timezone.utc)
             session.commit()
+            watchdog.beat(f"{activity}:unchanged-committed")
             try:
                 _record_crawl_run(
                     session,
@@ -788,6 +799,7 @@ def crawl_company_board(
                     pending_new_opps += 1
                 if since_last_commit >= BATCH_SIZE:
                     session.commit()
+                    watchdog.beat(f"{activity}:batch-committed")
                     run_changed_slugs.update(pending_changed_slugs)
                     committed_changed_slugs.update(pending_changed_slugs)
                     pending_changed_slugs.clear()
@@ -821,6 +833,7 @@ def crawl_company_board(
 
         if since_last_commit > 0:
             session.commit()
+            watchdog.beat(f"{activity}:batch-committed")
             run_changed_slugs.update(pending_changed_slugs)
             committed_changed_slugs.update(pending_changed_slugs)
             pending_changed_slugs.clear()
@@ -848,6 +861,7 @@ def crawl_company_board(
             state.last_crawled_at = datetime.now(timezone.utc)
 
         session.commit()
+        watchdog.beat(f"{activity}:finished")
 
     except Exception:
         try:
@@ -915,6 +929,7 @@ def crawl_aggregator(
         "adapter_key",
         getattr(adapter_class, "source_slug", adapter_class.__name__),
     )
+    activity = str(source_label)
     source_id = source.id
     tier = source.crawl_tier
     started_at = datetime.now(timezone.utc)
@@ -948,6 +963,7 @@ def crawl_aggregator(
 
     try:
         adapter = adapter_class()
+        watchdog.beat(f"{activity}:fetch-start")
         stopped_early = stop_now()
         if stopped_early:
             raw_listings: list[RawListing] = []
@@ -958,6 +974,7 @@ def crawl_aggregator(
             )
         else:
             raw_listings = list(adapter.fetch())
+        watchdog.beat(f"{activity}:fetched")
 
         stopped_early = (
             stopped_early or bool(getattr(adapter, "stopped_early", False)) or stop_now()
@@ -997,6 +1014,7 @@ def crawl_aggregator(
         ):
             state.last_crawled_at = datetime.now(timezone.utc)
             session.commit()
+            watchdog.beat(f"{activity}:unchanged-committed")
             try:
                 _record_crawl_run(
                     session,
@@ -1055,6 +1073,7 @@ def crawl_aggregator(
                     pending_new_opps += 1
                 if since_last_commit >= BATCH_SIZE:
                     session.commit()
+                    watchdog.beat(f"{activity}:batch-committed")
                     run_changed_slugs.update(pending_changed_slugs)
                     committed_changed_slugs.update(pending_changed_slugs)
                     pending_changed_slugs.clear()
@@ -1085,6 +1104,7 @@ def crawl_aggregator(
 
         if since_last_commit > 0:
             session.commit()
+            watchdog.beat(f"{activity}:batch-committed")
             run_changed_slugs.update(pending_changed_slugs)
             committed_changed_slugs.update(pending_changed_slugs)
             pending_changed_slugs.clear()
@@ -1118,6 +1138,7 @@ def crawl_aggregator(
             state.last_crawled_at = datetime.now(timezone.utc)
 
         session.commit()
+        watchdog.beat(f"{activity}:finished")
 
     except Exception:
         try:
@@ -1195,6 +1216,7 @@ def run_tier(
     engine = make_engine()
     # Fail fast if the query-timeout guard is missing; a pooler mismatch must never silently hang.
     verify_connection_guards(engine)
+    watchdog.beat(f"{group}:db-guards-verified")
 
     # Gather the (source_id, company_id) work list with one short-lived
     # session, then process each company with its OWN fresh session below -
@@ -1278,6 +1300,7 @@ def run_tier(
                     if previous_crawl is None or state.last_crawled_at > previous_crawl:
                         last_crawled_by_source[state.source_id] = state.last_crawled_at
         aggregator_jobs = _order_aggregator_jobs(aggregator_jobs, last_crawled_by_source)
+        watchdog.beat(f"{group}:worklist-loaded")
 
     # Fetches are pure HTTP and may safely overlap. The gather session above
     # is already closed here; worker threads never receive a Session or ORM
@@ -1363,6 +1386,7 @@ def run_tier(
                 print(f"ERROR: {job.company_slug} crawl raised unexpectedly: {exc}", flush=True)
                 continue
             print(f"{job.company_slug}: {result}", flush=True)
+            watchdog.beat(f"{job.adapter_key}:{job.board_token}:source-finished")
             coverage = result.get("coverage")
             if isinstance(coverage, dict):
                 coverage_by_source.setdefault(job.adapter_key, []).append(coverage)
@@ -1435,6 +1459,7 @@ def run_tier(
                 )
                 continue
             print(f"{adapter_key} (aggregator): {result}", flush=True)
+            watchdog.beat(f"{adapter_key}:source-finished")
             coverage = result.get("coverage")
             if isinstance(coverage, dict):
                 coverage_by_source.setdefault(adapter_key, []).append(coverage)
@@ -1449,6 +1474,7 @@ def run_tier(
 
     _refresh_prestige_matches(engine)
     notify_changed(changed_slugs)
+    watchdog.beat(f"{group}:revalidation-notified")
     _print_coverage_summary(coverage_by_source)
     _print_truncation_summary(truncations)
 
@@ -1485,7 +1511,9 @@ def main() -> None:
     _STOP_REQUESTED.clear()
     previous_handlers = _install_stop_handlers()
     try:
-        run_tier(args.tier, args.group)
+        with watchdog.watch(on_soft_hang=_STOP_REQUESTED.set):
+            watchdog.beat(f"tier-{args.tier}:{args.group}:start")
+            run_tier(args.tier, args.group)
     finally:
         _restore_stop_handlers(previous_handlers)
 

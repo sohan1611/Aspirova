@@ -11,6 +11,7 @@ from bs4 import BeautifulSoup
 from core.adapters import NormalizedListing, RawListing
 from crawlers.common import (
     USER_AGENT,
+    build_http_timeout,
     build_listings,
     content_hash,
     extract_text,
@@ -30,7 +31,10 @@ class DevpostAdapter:
     requires_browser = False
 
     def __init__(self, timeout: float = 15.0) -> None:
-        self._client = httpx.Client(timeout=timeout, headers={"User-Agent": USER_AGENT})
+        self._client = httpx.Client(
+            timeout=build_http_timeout(timeout),
+            headers={"User-Agent": USER_AGENT},
+        )
         self._last_health: HealthStatus = "ok"
         self._expected_total: int | None = None
 

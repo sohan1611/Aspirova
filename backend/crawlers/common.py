@@ -14,18 +14,29 @@ from collections.abc import Callable, Iterable
 from datetime import UTC, datetime, timedelta
 from typing import TypeVar
 
+import httpx
 from bs4 import BeautifulSoup
 
 USER_AGENT = (
     "AspirovaBot/0.1 (+https://github.com/sohan1611/Aspirova; student project, contact via repo)"
 )
 MAX_DEADLINE_HORIZON = timedelta(days=550)
+DEFAULT_HTTP_TIMEOUT_SECONDS = 15.0
 LIST_ITEM_START = "\ue000"
 LIST_ITEM_END = "\ue001"
 logger = logging.getLogger(__name__)
 
 ItemT = TypeVar("ItemT")
 ListingT = TypeVar("ListingT")
+
+
+def build_http_timeout(timeout: float = DEFAULT_HTTP_TIMEOUT_SECONDS) -> httpx.Timeout:
+    return httpx.Timeout(
+        connect=timeout,
+        read=timeout,
+        write=timeout,
+        pool=timeout,
+    )
 
 
 def content_hash(payload: dict) -> str:

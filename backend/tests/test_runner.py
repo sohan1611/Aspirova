@@ -7,6 +7,7 @@ import pytest
 from core.adapters import RawListing
 from crawlers import runner
 from crawlers.runner import _board_fingerprint
+from scripts.crawl_retry import retry_decision
 
 
 class _ScalarResult:
@@ -414,3 +415,14 @@ def test_refresh_prestige_matches_is_non_fatal(monkeypatch, capsys) -> None:
     assert "WARNING: prestige match after crawl failed: RuntimeError: matcher unavailable" in (
         capsys.readouterr().out
     )
+
+
+def test_crawl_retry_bound_stops_at_attempt_three() -> None:
+    decision = retry_decision(
+        attempt=3,
+        retry_status_lines=["TRUNCATED: ATS stopped early after 7200.0s (budget 7200.0s)"],
+    )
+
+    assert decision.should_dispatch is False
+    assert decision.next_attempt is None
+    assert decision.reason == "Retry suppressed: attempt 3 >= 3"

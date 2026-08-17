@@ -29,7 +29,13 @@ from typing import Literal
 import httpx
 
 from core.adapters import NormalizedListing, RawListing
-from crawlers.common import USER_AGENT, build_listings, content_hash, extract_text
+from crawlers.common import (
+    USER_AGENT,
+    build_http_timeout,
+    build_listings,
+    content_hash,
+    extract_text,
+)
 from pipeline.normalize import classify_category
 
 
@@ -41,7 +47,10 @@ class RemoteOkAdapter:
     requires_browser = False
 
     def __init__(self, timeout: float = 15.0) -> None:
-        self._client = httpx.Client(timeout=timeout, headers={"User-Agent": USER_AGENT})
+        self._client = httpx.Client(
+            timeout=build_http_timeout(timeout),
+            headers={"User-Agent": USER_AGENT},
+        )
         self._last_health: Literal["ok", "degraded", "broken"] = "ok"
 
     def fetch(self) -> list[RawListing]:
