@@ -6,7 +6,8 @@ import pytest
 from sqlalchemy.orm import Session
 
 from core import models
-from scripts.match_prestige import match_prestige
+from pipeline.normalize import normalize_company_name
+from scripts.match_prestige import PRESTIGE_PATH, match_prestige
 
 
 @pytest.fixture
@@ -46,6 +47,39 @@ def _write_prestige_fixture(path: Path, suffix: str) -> None:
         },
     ]
     path.write_text(json.dumps(rows), encoding="utf-8")
+
+
+def test_prestige_roster_has_no_duplicate_normalized_names_or_domains() -> None:
+    rows = json.loads(PRESTIGE_PATH.read_text(encoding="utf-8"))
+    seen_names: dict[str, int] = {}
+    seen_domains: dict[str, int] = {}
+    duplicate_names: list[tuple[str, int, int]] = []
+    duplicate_domains: list[tuple[str, int, int]] = []
+
+    for row in rows:
+        rank = row["prestige_rank"]
+        name = row.get("name")
+        if isinstance(name, str):
+            name_key = normalize_company_name(name)
+            if name_key:
+                previous_rank = seen_names.get(name_key)
+                if previous_rank is None:
+                    seen_names[name_key] = rank
+                else:
+                    duplicate_names.append((name_key, previous_rank, rank))
+
+        domain = row.get("domain")
+        if isinstance(domain, str):
+            domain_key = domain.strip().lower()
+            if domain_key:
+                previous_rank = seen_domains.get(domain_key)
+                if previous_rank is None:
+                    seen_domains[domain_key] = rank
+                else:
+                    duplicate_domains.append((domain_key, previous_rank, rank))
+
+    assert duplicate_names == []
+    assert duplicate_domains == []
 
 
 def test_match_prestige_assigns_precise_domain_and_name_matches(

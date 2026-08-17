@@ -189,6 +189,37 @@ def test_digest_prefers_dream_company_matches_over_generic(
     assert notification.meta["opportunity_ids"] == [dream_opp.id]
 
 
+def test_dream_company_digest_allows_multiple_roles_from_same_company(
+    db_session, sent_emails, free_plan, source_and_company
+) -> None:
+    _source, company = source_and_company
+    user = _make_user(db_session)
+    now = datetime(2030, 1, 1, 12, tzinfo=timezone.utc)
+    older = _make_opportunity(
+        db_session,
+        company,
+        first_seen_at=now - timedelta(minutes=2),
+        title="Dream Company Backend Intern",
+    )
+    newer = _make_opportunity(
+        db_session,
+        company,
+        first_seen_at=now - timedelta(minutes=1),
+        title="Dream Company Product Intern",
+    )
+    db_session.add(models.DreamCompany(user_id=user.id, company_id=company.id))
+    db_session.flush()
+
+    send_daily_digests(db_session, now=now)
+
+    notification = db_session.scalar(
+        select(models.Notification).where(
+            models.Notification.user_id == user.id, models.Notification.type == "digest"
+        )
+    )
+    assert notification.meta["opportunity_ids"] == [newer.id, older.id]
+
+
 def test_digest_excludes_already_instant_alerted_opportunities(
     db_session, sent_emails, free_plan, source_and_company
 ) -> None:
@@ -398,9 +429,10 @@ def test_generic_digest_prioritizes_student_quality_and_keeps_unranked_companies
         ranked_internship.slug,
         unranked_internship.slug,
         newer_ranked_job.slug,
-        older_ranked_job.slug,
     ]
+    assert len({opportunity.company_id for opportunity in opportunities}) == len(opportunities)
     assert senior_job.slug not in {opportunity.slug for opportunity in opportunities}
+    assert older_ranked_job.slug not in {opportunity.slug for opportunity in opportunities}
     assert stale_internship.slug not in {opportunity.slug for opportunity in opportunities}
     assert competition.slug not in {opportunity.slug for opportunity in opportunities}
 

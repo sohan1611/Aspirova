@@ -33,8 +33,8 @@ import logging
 from datetime import datetime, timedelta, timezone
 from html import escape
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, aliased
 
 from api.filters import exclude_stale_opportunities, student_rank_expression
 from core import models
@@ -142,22 +142,45 @@ def _generic_recent_opportunities(
     session: Session, since: datetime, limit: int, now: datetime
 ) -> list[models.Opportunity]:
     student_rank = student_rank_expression()
+    ranking_order = [
+        student_rank.asc(),
+        models.Company.prestige_rank.asc().nullslast(),
+        models.Opportunity.first_seen_at.desc(),
+        models.Opportunity.id.desc(),
+    ]
+    ranked_opportunities = (
+        select(
+            models.Opportunity,
+            student_rank.label("student_rank"),
+            models.Company.prestige_rank.label("prestige_rank"),
+            func.row_number()
+            .over(
+                partition_by=models.Opportunity.company_id,
+                order_by=ranking_order,
+            )
+            .label("company_row_number"),
+        )
+        .outerjoin(models.Company, models.Company.id == models.Opportunity.company_id)
+        .where(
+            models.Opportunity.status == "active",
+            models.Opportunity.first_seen_at >= since,
+            exclude_stale_opportunities(now),
+            models.Opportunity.category.in_(["internship", "job"]),
+            student_rank < 2,
+        )
+        .subquery()
+    )
+    opportunity = aliased(models.Opportunity, ranked_opportunities)
+
     return list(
         session.scalars(
-            select(models.Opportunity)
-            .outerjoin(models.Company, models.Company.id == models.Opportunity.company_id)
-            .where(
-                models.Opportunity.status == "active",
-                models.Opportunity.first_seen_at >= since,
-                exclude_stale_opportunities(now),
-                models.Opportunity.category.in_(["internship", "job"]),
-                student_rank < 2,
-            )
+            select(opportunity)
+            .where(ranked_opportunities.c.company_row_number == 1)
             .order_by(
-                student_rank.asc(),
-                models.Company.prestige_rank.asc().nullslast(),
-                models.Opportunity.first_seen_at.desc(),
-                models.Opportunity.id.desc(),
+                ranked_opportunities.c.student_rank.asc(),
+                ranked_opportunities.c.prestige_rank.asc().nullslast(),
+                ranked_opportunities.c.first_seen_at.desc(),
+                ranked_opportunities.c.id.desc(),
             )
             .limit(limit)
         ).all()

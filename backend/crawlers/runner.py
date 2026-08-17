@@ -46,6 +46,7 @@ from crawlers.unstop import UnstopAdapter
 from pipeline.company_resolution import resolve_company
 from pipeline.ingest import ingest_one, load_board_state
 from pipeline.revalidate import notify_changed
+from scripts.match_prestige import match_prestige
 
 # adapter_key (sources.adapter_key, companies.ats_type - same string, Doc
 # 04 sec 11) -> adapter class, for the per-company ATS sources. Adding a
@@ -719,6 +720,26 @@ def crawl_aggregator(
     return result
 
 
+def _refresh_prestige_matches(engine) -> dict[str, object] | None:
+    try:
+        with Session(engine) as session:
+            result = match_prestige(session)
+    except Exception as exc:
+        print(
+            "WARNING: prestige match after crawl failed: " f"{type(exc).__name__}: {exc}",
+            flush=True,
+        )
+        return None
+
+    print(
+        "prestige match after crawl: "
+        f"scanned {result['scanned']}, ranked {result['ranked']}, "
+        f"unranked {result['unranked']}",
+        flush=True,
+    )
+    return result
+
+
 def run_tier(
     tier: int,
     group: str = "all",
@@ -930,6 +951,7 @@ def run_tier(
                 continue
             print(f"{adapter_key} (aggregator): {result}", flush=True)
 
+    _refresh_prestige_matches(engine)
     notify_changed(changed_slugs)
 
 
