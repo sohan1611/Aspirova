@@ -53,13 +53,17 @@ def test_daily_digest_isolates_per_user_render_failure(
         "_already_alerted",
         lambda *_args, **_kwargs: False,
     )
+
+    def dream_company_opportunities(_session, user_id, *_args, **_kwargs):
+        return [opportunities_by_user[user_id]]
+
     monkeypatch.setattr(
         notifications_module,
         "_dream_company_opportunities",
-        lambda _session, user_id, _since: [opportunities_by_user[user_id]],
+        dream_company_opportunities,
     )
 
-    def render_digest(opportunities):
+    def render_digest(opportunities, *_args, **_kwargs):
         if opportunities[0].id == failed_opportunity.id:
             raise RuntimeError("digest render failed")
         return "<p>Digest</p>", "Digest"
