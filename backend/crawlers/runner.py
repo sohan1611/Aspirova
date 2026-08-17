@@ -376,11 +376,18 @@ def _order_ats_jobs(
     # source's stalest boards. Interleave sources by their own stalest board so
     # one high-cardinality adapter (Greenhouse/Ashby) cannot consume the whole
     # ATS budget before a one-board source such as Amazon gets a turn.
+    # source_id is the final tie-break and is NOT cosmetic: adapter_key is not
+    # unique per source, so two sources sharing a stalest timestamp AND an
+    # adapter_key tie completely, and a stable sort then falls back to dict
+    # insertion order - i.e. the order rows came out of the database. That makes
+    # the crawl order vary between runs, which is how starvation becomes
+    # intermittent instead of fixed. source_id is unique, so this is total.
     source_order = sorted(
         jobs_by_source,
         key=lambda source_id: (
             board_sort_key(jobs_by_source[source_id][0])[0],
             jobs_by_source[source_id][0].adapter_key,
+            source_id,
         ),
     )
 
