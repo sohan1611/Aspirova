@@ -136,6 +136,23 @@ def test_new_job_aggregator_filter_rejects_titles_without_student_signal(title: 
     assert not is_student_relevant_role(title)
 
 
+@pytest.mark.parametrize(
+    ("title", "expected"),
+    [
+        # "campus" alone described a recruiter who VISITS campuses. Seen live on
+        # Himalayas as "Campus Recruiter - Dental Hygiene".
+        ("Campus Recruiter - Dental Hygiene", False),
+        ("Campus Talent Acquisition Specialist", False),
+        # Genuine campus programmes must still qualify.
+        ("Campus Ambassador", True),
+        ("Campus Hiring Program 2027", True),
+        ("Campus Internship - Analytics", True),
+    ],
+)
+def test_campus_only_counts_when_it_names_a_student_programme(title: str, expected: bool) -> None:
+    assert is_student_relevant_role(title) is expected
+
+
 @pytest.mark.parametrize("level_field", ["Entry", "Entry-level", ["Junior"]])
 def test_new_job_aggregator_filter_keeps_source_entry_level_fields(
     level_field: object,

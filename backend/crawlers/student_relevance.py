@@ -13,15 +13,22 @@ from api.filters import SENIOR_TITLE_PATTERN
 from pipeline.normalize import classify_category
 
 _SENIOR_SIGNAL_RE = re.compile(SENIOR_TITLE_PATTERN, re.IGNORECASE)
+# "campus" is deliberately NOT a bare signal: it admitted "Campus Recruiter -
+# Dental Hygiene", which is a recruiter who VISITS campuses, not a student role.
+# It only counts when followed by a word that makes it a student programme.
+# Nothing is lost by this - real campus roles are titled "Campus Ambassador
+# Internship" and already match on "intern".
 _STUDENT_TITLE_SIGNAL_RE = re.compile(
     r"\b(intern(s|ship|ships)?|graduate|new\s+grad(uate)?|entry[-\s]+level|"
-    r"junior|trainee|apprentice(ship)?|campus|fresher)\b",
+    r"junior|trainee|apprentice(ship)?|fresher|"
+    r"campus\s+(ambassador|hire|hiring|intern(ship)?|programme|program))\b",
     re.IGNORECASE,
 )
 _SOURCE_ENTRY_LEVEL_RE = re.compile(r"\b(entry|junior)\b", re.IGNORECASE)
 _STUDENT_CATEGORY_RE = re.compile(
-    r"\b(intern(s|ship|ships)?|co-?op|trainee|apprentice(ship)?|campus|"
-    r"graduate|new grad(uate)?)\b",
+    r"\b(intern(s|ship|ships)?|co-?op|trainee|apprentice(ship)?|"
+    r"graduate|new grad(uate)?|"
+    r"campus\s+(ambassador|hire|hiring|intern(ship)?|programme|program))\b",
     re.IGNORECASE,
 )
 
