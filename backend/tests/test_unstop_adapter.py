@@ -70,7 +70,12 @@ def test_fetch_stops_at_its_deadline_before_requesting_the_next_page(
     assert raw_listings == []
     assert adapter.stopped_early is True
     assert request_params == [
-        {"opportunity": "internships", "per_page": 100, "page": 1},
+        {
+            "opportunity": "internships",
+            "oppstatus": "open",
+            "per_page": 300,
+            "page": 1,
+        },
     ]
 
 
@@ -100,12 +105,25 @@ def test_fetch_returns_fixture_opportunities_and_deduplicates_across_types(
         str(opportunity["id"]) for opportunity in fixture_items
     }
     assert request_params == [
-        {"opportunity": "internships", "per_page": 100, "page": 1},
-        {"opportunity": "internships", "per_page": 100, "page": 2},
-        {"opportunity": "competitions", "per_page": 100, "page": 1},
-        {"opportunity": "competitions", "per_page": 100, "page": 2},
-        {"opportunity": "hackathons", "per_page": 100, "page": 1},
-        {"opportunity": "hackathons", "per_page": 100, "page": 2},
+        {
+            "opportunity": "internships",
+            "oppstatus": "open",
+            "per_page": 300,
+            "page": 1,
+        },
+        {
+            "opportunity": "competitions",
+            "oppstatus": "open",
+            "per_page": 300,
+            "page": 1,
+        },
+        {
+            "opportunity": "hackathons",
+            "oppstatus": "open",
+            "per_page": 300,
+            "page": 1,
+        },
+        {"opportunity": "jobs", "oppstatus": "open", "per_page": 300, "page": 1},
     ]
     assert adapter.health() == "ok"
 
@@ -357,6 +375,30 @@ def test_parse_maps_internship_deadline_organizer_and_meta(
         "skills": [skill["skill_name"] for skill in opportunity["required_skills"]],
         "is_paid": opportunity["isPaid"],
     }
+
+
+def test_parse_search_opportunity_wins_over_unreliable_item_type(
+    adapter: UnstopAdapter,
+    fixture_payload: dict,
+) -> None:
+    base = _fixture_items(fixture_payload)[0]
+    job_payload = {
+        **base,
+        "id": 101,
+        "seo_url": "https://unstop.com/jobs/software-engineer-101",
+        "type": "competitions",
+        "_aspirova_opportunity": "jobs",
+    }
+    internship_payload = {
+        **base,
+        "id": 102,
+        "seo_url": "https://unstop.com/internships/software-intern-102",
+        "type": "jobs",
+        "_aspirova_opportunity": "internships",
+    }
+
+    assert adapter.parse(_raw_listing_for(job_payload)).category == "job"
+    assert adapter.parse(_raw_listing_for(internship_payload)).category == "internship"
 
 
 def test_parse_maps_pre_placement_prizes_to_offer_flags(
