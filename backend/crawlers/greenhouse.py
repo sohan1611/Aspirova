@@ -10,7 +10,7 @@ from typing import Literal
 import httpx
 
 from core.adapters import NormalizedListing, RawListing
-from crawlers.common import USER_AGENT, build_listings
+from crawlers.common import USER_AGENT, build_http_timeout, build_listings
 from crawlers.common import content_hash as _content_hash
 from crawlers.common import extract_text as _extract_text
 from pipeline.normalize import classify_category
@@ -27,7 +27,10 @@ class GreenhouseAdapter:
     def __init__(self, board_token: str, company_name: str, timeout: float = 15.0) -> None:
         self.board_token = board_token
         self.company_name = company_name
-        self._client = httpx.Client(timeout=timeout, headers={"User-Agent": USER_AGENT})
+        self._client = httpx.Client(
+            timeout=build_http_timeout(timeout),
+            headers={"User-Agent": USER_AGENT},
+        )
         self._last_health: Literal["ok", "degraded", "broken"] = "ok"
 
     def fetch(self) -> list[RawListing]:

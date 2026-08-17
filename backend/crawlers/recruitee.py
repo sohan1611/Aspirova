@@ -6,7 +6,13 @@ from typing import Any
 import httpx
 
 from core.adapters import NormalizedListing, RawListing, SourceAdapter
-from crawlers.common import USER_AGENT, build_listings, content_hash, extract_text
+from crawlers.common import (
+    USER_AGENT,
+    build_http_timeout,
+    build_listings,
+    content_hash,
+    extract_text,
+)
 from pipeline.normalize import classify_category
 
 
@@ -20,7 +26,7 @@ class RecruiteeAdapter(SourceAdapter):
         self._last_health = "unknown"
         self.client = httpx.Client(
             headers={"User-Agent": USER_AGENT},
-            timeout=timeout,
+            timeout=build_http_timeout(timeout),
             follow_redirects=True,
         )
 

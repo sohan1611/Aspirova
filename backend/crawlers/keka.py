@@ -8,6 +8,7 @@ import httpx
 
 from core.adapters import NormalizedListing, RawListing
 from crawlers.common import USER_AGENT
+from crawlers.common import build_http_timeout
 from crawlers.common import build_listings
 from crawlers.common import content_hash as _content_hash
 from crawlers.common import extract_text as _extract_text
@@ -32,7 +33,10 @@ class KekaAdapter:
         self.board_token = board_token
         self.company_name = company_name
         self._careers_url = f"https://{board_token}.keka.com/careers/"
-        self._client = httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=timeout)
+        self._client = httpx.Client(
+            headers={"User-Agent": USER_AGENT},
+            timeout=build_http_timeout(timeout),
+        )
         self._last_health: HealthStatus = "ok"
 
     def health(self) -> HealthStatus:

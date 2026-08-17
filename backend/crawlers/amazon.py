@@ -14,7 +14,13 @@ from typing import Any, Literal
 import httpx
 
 from core.adapters import NormalizedListing, RawListing
-from crawlers.common import USER_AGENT, build_listings, content_hash, extract_text
+from crawlers.common import (
+    USER_AGENT,
+    build_http_timeout,
+    build_listings,
+    content_hash,
+    extract_text,
+)
 from pipeline.normalize import classify_category
 
 _BASE_URL = "https://www.amazon.jobs"
@@ -37,7 +43,10 @@ class AmazonAdapter:
     def __init__(self, board_token: str, company_name: str, timeout: float = 15.0) -> None:
         self.board_token = board_token
         self.company_name = company_name
-        self._client = httpx.Client(timeout=timeout, headers={"User-Agent": USER_AGENT})
+        self._client = httpx.Client(
+            timeout=build_http_timeout(timeout),
+            headers={"User-Agent": USER_AGENT},
+        )
         self._last_health: HealthStatus = "ok"
         self._declared_hits_by_query: dict[str, int] = {}
 

@@ -16,7 +16,7 @@ from typing import Literal
 import httpx
 
 from core.adapters import NormalizedListing, RawListing
-from crawlers.common import USER_AGENT, build_listings, content_hash
+from crawlers.common import USER_AGENT, build_http_timeout, build_listings, content_hash
 from pipeline.normalize import classify_category
 
 
@@ -31,7 +31,10 @@ class LeverAdapter:
     def __init__(self, board_token: str, company_name: str, timeout: float = 15.0) -> None:
         self.board_token = board_token
         self.company_name = company_name
-        self._client = httpx.Client(timeout=timeout, headers={"User-Agent": USER_AGENT})
+        self._client = httpx.Client(
+            timeout=build_http_timeout(timeout),
+            headers={"User-Agent": USER_AGENT},
+        )
         self._last_health: Literal["ok", "degraded", "broken"] = "ok"
 
     def fetch(self) -> list[RawListing]:

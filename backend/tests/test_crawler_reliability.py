@@ -1,13 +1,16 @@
 """Unit coverage for crawler prefetching and graceful soft stops."""
 
+import io
 import threading
 import time
 from types import SimpleNamespace
 
 from core import models
 from core.adapters import NormalizedListing, RawListing
+from crawlers.common import build_http_timeout
 from crawlers import runner
 from crawlers.unstop import UnstopAdapter
+from crawlers.watchdog import CrawlWatchdog
 
 
 def _raw_listing(external_id: str) -> RawListing:
@@ -531,6 +534,96 @@ def test_aggregator_forwards_deadline_controls_to_unstop(monkeypatch, capsys) ->
     assert result["truncation_elapsed_seconds"] == 5.0
     assert result["truncation_budget_seconds"] == 60.0
     assert "TRUNCATED: unstop stopped early after 5.0s (budget 60.0s)" in capsys.readouterr().out
+
+
+class _FakeClock:
+    def __init__(self, value: float = 0.0) -> None:
+        self.value = value
+
+    def __call__(self) -> float:
+        return self.value
+
+
+def test_watchdog_steady_beats_never_trigger_false_hang() -> None:
+    clock = _FakeClock()
+    output = io.StringIO()
+    soft_calls: list[float] = []
+    hard_calls: list[float] = []
+    watchdog = CrawlWatchdog(
+        hang_after_seconds=10.0,
+        hard_after_seconds=5.0,
+        on_soft_hang=lambda: soft_calls.append(clock.value),
+        hard_exit=lambda: hard_calls.append(clock.value),
+        clock=clock,
+        output=output,
+    )
+    watchdog.beat("greenhouse:stripe")
+
+    for index in range(5):
+        clock.value += 9.0
+        watchdog.check_once()
+        watchdog.beat(f"greenhouse:stripe:batch-{index}")
+
+    assert soft_calls == []
+    assert hard_calls == []
+    assert output.getvalue() == ""
+
+
+def test_watchdog_silence_past_soft_threshold_requests_graceful_stop() -> None:
+    clock = _FakeClock()
+    output = io.StringIO()
+    soft_calls: list[float] = []
+    hard_calls: list[float] = []
+    watchdog = CrawlWatchdog(
+        hang_after_seconds=10.0,
+        hard_after_seconds=5.0,
+        on_soft_hang=lambda: soft_calls.append(clock.value),
+        hard_exit=lambda: hard_calls.append(clock.value),
+        clock=clock,
+        output=output,
+    )
+    watchdog.beat("greenhouse:stripe")
+
+    clock.value = 11.0
+    watchdog.check_once()
+
+    assert soft_calls == [11.0]
+    assert hard_calls == []
+    assert "HUNG: no progress for 11s; last activity was greenhouse:stripe" in output.getvalue()
+
+
+def test_watchdog_continued_silence_past_hard_threshold_exits() -> None:
+    clock = _FakeClock()
+    output = io.StringIO()
+    soft_calls: list[float] = []
+    hard_calls: list[float] = []
+    watchdog = CrawlWatchdog(
+        hang_after_seconds=10.0,
+        hard_after_seconds=5.0,
+        on_soft_hang=lambda: soft_calls.append(clock.value),
+        hard_exit=lambda: hard_calls.append(clock.value),
+        clock=clock,
+        output=output,
+    )
+    watchdog.beat("greenhouse:stripe")
+
+    clock.value = 11.0
+    watchdog.check_once()
+    clock.value = 16.0
+    watchdog.check_once()
+
+    assert soft_calls == [11.0]
+    assert hard_calls == [16.0]
+    assert "HUNG: hard exit after 16s without progress; last activity was greenhouse:stripe" in (
+        output.getvalue()
+    )
+
+
+def test_http_timeout_sets_connect_and_read_limits() -> None:
+    timeout = build_http_timeout(7.0)
+
+    assert timeout.connect == 7.0
+    assert timeout.read == 7.0
 
 
 def _run_tier_ats_scaffold(monkeypatch, companies, source_states, crawl_order):

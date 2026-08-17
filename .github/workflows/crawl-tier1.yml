@@ -6,10 +6,19 @@ name: Crawl Tier 1
 # not cost-rationing knobs: a real hang (one July run had a silent 24-minute
 # stall, suspected pooler-slot queueing) would otherwise occupy the crawl-tier1
 # concurrency group indefinitely and block the next scheduled run.
-on:
+"on":
   schedule:
     - cron: "0 1 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      attempt:
+        description: "Crawl retry attempt number"
+        required: false
+        default: "1"
+
+permissions:
+  actions: write
+  contents: read
 
 concurrency:
   group: crawl-tier1
@@ -23,6 +32,8 @@ jobs:
     # ATS 150 + aggregators 150 + stale-liveness 60 + 5 minutes margin = 365.
     # Otherwise adding a future step can silently reintroduce job-level kills.
     timeout-minutes: 365
+    env:
+      CRAWL_ATTEMPT: ${{ github.event.inputs.attempt || '1' }}
     defaults:
       run:
         working-directory: backend
@@ -40,6 +51,7 @@ jobs:
         run: uv sync --frozen
 
       - name: Run ATS crawl (tier 1)
+        id: ats_crawl
         # Hard cap only catches hangs. The runner's 7200s soft ATS budget should
         # stop cleanly first, preserving committed work and printing TRUNCATED.
         timeout-minutes: 150
@@ -53,9 +65,13 @@ jobs:
           # of incrementally, making it look like a multi-minute silent hang
           # when the real-time picture was just hidden, not absent.
           PYTHONUNBUFFERED: "1"
-        run: uv run python -m crawlers.runner --tier 1 --group ats
+        run: |
+          echo "Crawl attempt ${CRAWL_ATTEMPT}"
+          set -o pipefail
+          uv run python -m crawlers.runner --tier 1 --group ats 2>&1 | tee ../crawl-ats.log
 
       - name: Run aggregators (tier 1, best-effort)
+        id: aggregator_crawl
         continue-on-error: true
         # Keep best-effort semantics for transient source/network failures, but
         # make the cap a hang guard only. The runner gives each aggregator its
@@ -67,7 +83,10 @@ jobs:
           REVALIDATE_URL: ${{ secrets.REVALIDATE_URL }}
           REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
           PYTHONUNBUFFERED: "1"
-        run: uv run python -m crawlers.runner --tier 1 --group aggregator
+        run: |
+          echo "Crawl attempt ${CRAWL_ATTEMPT}"
+          set -o pipefail
+          uv run python -m crawlers.runner --tier 1 --group aggregator 2>&1 | tee ../crawl-aggregators.log
 
       # success() || failure() - NOT always(): these must still run when the
       # ATS step overruns its cap (run 29800767109 was SIGKILL'd there, which
@@ -127,3 +146,15 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           PYTHONUNBUFFERED: "1"
         run: uv run python -m scripts.report_crawl_staleness --fail-on-stale
+
+      - name: Redispatch hung or truncated crawl
+        if: success() || failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PYTHONUNBUFFERED: "1"
+        run: |
+          uv run python -m scripts.crawl_retry \
+            --attempt "${CRAWL_ATTEMPT}" \
+            --ref "${GITHUB_REF_NAME}" \
+            ../crawl-ats.log \
+            ../crawl-aggregators.log
