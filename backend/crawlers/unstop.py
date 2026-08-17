@@ -158,6 +158,7 @@ class UnstopAdapter:
         region = _as_text(opportunity.get("region")) or None
         deadline = _registration_deadline(opportunity)
         apply_url = _as_text(opportunity.get("seo_url")) or raw.source_url
+        location = _location_from_payload(opportunity, region)
 
         prizes = opportunity.get("prizes")
         if not isinstance(prizes, list):
@@ -198,7 +199,7 @@ class UnstopAdapter:
             title=extract_text(_as_text(opportunity.get("title"))),
             company_name=organizer or "Unstop",
             company_domain=None,
-            location=region,
+            location=location,
             is_remote=(region or "").lower() == "online",
             category=category,
             description_raw=extract_text(_as_text(opportunity.get("details"))),
@@ -240,6 +241,33 @@ def _opportunity_items(payload: Any) -> list[Any] | None:
     if not isinstance(items, list):
         return None
     return items
+
+
+def _location_from_payload(opportunity: dict[str, Any], region: str | None) -> str | None:
+    if (region or "").lower() == "online":
+        return "Online"
+
+    address = opportunity.get("address_with_country_logo")
+    if not isinstance(address, dict):
+        return None
+
+    parts = [
+        _as_text(address.get("city")),
+        _as_text(address.get("state")),
+        _country_name(address.get("country")),
+    ]
+    location = ", ".join(part for part in parts if part)
+    return location or None
+
+
+def _country_name(country: Any) -> str:
+    if isinstance(country, dict):
+        return _as_text(country.get("name"))
+
+    text = _as_text(country)
+    if len(text) in {2, 3} and text.isalpha():
+        return ""
+    return text
 
 
 def _parse_iso_datetime(value: Any) -> datetime | None:

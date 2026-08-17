@@ -91,6 +91,16 @@
         "subtype": "online_coding_challenge",
         "regn_open": 1,
         "region": "offline",
+        "address_with_country_logo": {
+          "city": "Ghaziabad",
+          "state": "Uttar Pradesh",
+          "address": "INDERPRASTHA ENGINEERING COLLEGE, SAHIBABAD, GHAZIABAD",
+          "country": {
+            "iso": "IN",
+            "iso3": "IND",
+            "name": "India"
+          }
+        },
         "status": "LIVE",
         "organisation": {
           "id": 1550102,

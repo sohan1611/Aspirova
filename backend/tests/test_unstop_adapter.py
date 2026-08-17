@@ -11,6 +11,7 @@ from core.adapters import RawListing
 from crawlers import unstop
 from crawlers.common import content_hash
 from crawlers.unstop import UnstopAdapter
+from pipeline.location_country import derive_country
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "unstop_sample.json"
 
@@ -230,6 +231,87 @@ def test_parse_maps_category_deadline_organizer_and_meta(
     }
 
 
+def test_parse_uses_address_country_name_for_offline_location(
+    adapter: UnstopAdapter,
+    fixture_payload: dict,
+) -> None:
+    opportunity = _fixture_items(fixture_payload)[1]
+
+    normalized = adapter.parse(_raw_listing_for(opportunity))
+
+    assert normalized.location == "Ghaziabad, Uttar Pradesh, India"
+    assert normalized.is_remote is False
+    assert derive_country(normalized.location) == "IN"
+
+
+def test_parse_maps_online_location_without_country(
+    adapter: UnstopAdapter,
+    fixture_payload: dict,
+) -> None:
+    opportunity = _fixture_items(fixture_payload)[0]
+
+    normalized = adapter.parse(_raw_listing_for(opportunity))
+
+    assert normalized.location == "Online"
+    assert normalized.is_remote is True
+    assert derive_country(normalized.location) is None
+
+
+@pytest.mark.parametrize(
+    "address",
+    [
+        None,
+        {"city": " ", "state": "", "country": {"name": " "}},
+    ],
+)
+def test_parse_maps_offline_missing_or_blank_address_to_no_location(
+    adapter: UnstopAdapter,
+    fixture_payload: dict,
+    address: dict | None,
+) -> None:
+    opportunity = {
+        **_fixture_items(fixture_payload)[1],
+        "region": "offline",
+    }
+    if address is None:
+        opportunity.pop("address_with_country_logo", None)
+    else:
+        opportunity["address_with_country_logo"] = address
+
+    normalized = adapter.parse(_raw_listing_for(opportunity))
+
+    assert normalized.location is None
+    assert normalized.is_remote is False
+
+
+@pytest.mark.parametrize(
+    ("address", "expected_location"),
+    [
+        (None, None),
+        ("not an object", None),
+        ({"city": "Kyoto", "state": "Kyoto", "country": None}, "Kyoto, Kyoto"),
+        ({"city": "Tokyo", "state": "", "country": "Japan"}, "Tokyo, Japan"),
+        ({"city": "Pune", "state": "Maharashtra", "country": "IN"}, "Pune, Maharashtra"),
+    ],
+)
+def test_parse_handles_malformed_address_payload_without_raising(
+    adapter: UnstopAdapter,
+    fixture_payload: dict,
+    address: object,
+    expected_location: str | None,
+) -> None:
+    opportunity = {
+        **_fixture_items(fixture_payload)[1],
+        "region": "offline",
+        "address_with_country_logo": address,
+    }
+
+    normalized = adapter.parse(_raw_listing_for(opportunity))
+
+    assert normalized.location == expected_location
+    assert normalized.is_remote is False
+
+
 def test_parse_maps_internship_deadline_organizer_and_meta(
     adapter: UnstopAdapter,
     fixture_payload: dict,
@@ -252,7 +334,7 @@ def test_parse_maps_internship_deadline_organizer_and_meta(
 
     assert normalized.category == "internship"
     assert normalized.company_name == opportunity["organisation"]["name"]
-    assert normalized.location == opportunity["region"]
+    assert normalized.location == "Online"
     assert normalized.deadline == datetime.fromisoformat(opportunity["end_date"])
     assert normalized.deadline_confidence == "explicit"
     assert normalized.meta == {
