@@ -33,6 +33,7 @@ class UnstopAdapter:
         self._client = httpx.Client(timeout=timeout, headers={"User-Agent": USER_AGENT})
         self._last_health: HealthStatus = "ok"
         self._stopped_early = False
+        self._declared_totals: dict[str, int] = {}
 
     @property
     def stopped_early(self) -> bool:
@@ -51,6 +52,7 @@ class UnstopAdapter:
         degraded = False
         expiry_cutoff = datetime.now(UTC) - timedelta(days=14)
         self._stopped_early = False
+        self._declared_totals = {}
 
         for opportunity_type in _OPPORTUNITY_TYPES:
             for page in range(1, _MAX_PAGES + 1):
@@ -93,6 +95,9 @@ class UnstopAdapter:
                 if items is None:
                     self._last_health = "degraded"
                     return listings
+                declared_total = _declared_total(payload)
+                if declared_total is not None:
+                    self._declared_totals[opportunity_type] = declared_total
                 if not items:
                     break
 
@@ -230,6 +235,22 @@ class UnstopAdapter:
     def health(self) -> HealthStatus:
         return self._last_health
 
+    def coverage(self) -> dict[str, Any]:
+        expected_total = None
+        note = None
+        if len(self._declared_totals) == len(_OPPORTUNITY_TYPES):
+            expected_total = sum(self._declared_totals.values())
+        else:
+            note = "source total was not fully declared"
+
+        return {
+            "mode": "declared_total" if expected_total is not None else "unknown",
+            "expected_total": expected_total,
+            "status": "partial" if self._stopped_early else None,
+            "note": note,
+            "details": {"declared_totals_by_type": dict(self._declared_totals)},
+        }
+
 
 def _should_stop(deadline_monotonic: float | None, should_stop: Callable[[], bool] | None) -> bool:
     if deadline_monotonic is not None and monotonic() >= deadline_monotonic:
@@ -247,6 +268,28 @@ def _opportunity_items(payload: Any) -> list[Any] | None:
     if not isinstance(items, list):
         return None
     return items
+
+
+def _declared_total(payload: Any) -> int | None:
+    containers: list[Any] = [payload]
+    if isinstance(payload, dict):
+        for key in ("data", "meta", "pagination"):
+            nested = payload.get(key)
+            if isinstance(nested, dict):
+                containers.append(nested)
+
+    for container in containers:
+        if not isinstance(container, dict):
+            continue
+        for key in ("total", "total_count", "totalCount", "recordsTotal"):
+            value = container.get(key)
+            if value is None:
+                continue
+            try:
+                return max(int(value), 0)
+            except (TypeError, ValueError):
+                return None
+    return None
 
 
 def _location_from_payload(opportunity: dict[str, Any], region: str | None) -> str | None:

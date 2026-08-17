@@ -97,6 +97,50 @@ def test_fingerprint_empty_list_is_deterministic() -> None:
     assert _board_fingerprint([]) == _board_fingerprint([])
 
 
+def test_order_ats_jobs_interleaves_sources_to_prevent_source_starvation() -> None:
+    from datetime import datetime, timezone
+
+    jobs = [
+        runner._AtsJob(
+            company_id=3,
+            source_id=1,
+            company_slug="source-one-oldest",
+            adapter_key="ashby",
+            board_token="source-one-oldest",
+            company_name="Source One Oldest",
+        ),
+        runner._AtsJob(
+            company_id=2,
+            source_id=1,
+            company_slug="source-one-second",
+            adapter_key="ashby",
+            board_token="source-one-second",
+            company_name="Source One Second",
+        ),
+        runner._AtsJob(
+            company_id=1,
+            source_id=2,
+            company_slug="source-two-only",
+            adapter_key="amazon",
+            board_token="source-two-only",
+            company_name="Source Two Only",
+        ),
+    ]
+    states = {
+        (1, "source-one-oldest"): datetime(2026, 7, 1, tzinfo=timezone.utc),
+        (1, "source-one-second"): datetime(2026, 7, 2, tzinfo=timezone.utc),
+        (2, "source-two-only"): datetime(2026, 8, 1, tzinfo=timezone.utc),
+    }
+
+    ordered = runner._order_ats_jobs(jobs, states)
+
+    assert [job.company_slug for job in ordered] == [
+        "source-one-oldest",
+        "source-two-only",
+        "source-one-second",
+    ]
+
+
 @pytest.mark.parametrize(
     ("group", "expected_call", "expected_gather_queries"),
     [("ats", "ats", 2), ("aggregator", "aggregator", 1)],
@@ -186,7 +230,7 @@ def test_run_tier_processes_remoteok_after_competition_aggregators(monkeypatch) 
     assert calls[-1] == "remoteok"
 
 
-def test_run_tier_shares_the_aggregator_time_budget(monkeypatch) -> None:
+def test_run_tier_gives_each_aggregator_its_own_time_budget(monkeypatch) -> None:
     sources = [
         SimpleNamespace(id=1, adapter_key="devpost"),
         SimpleNamespace(id=2, adapter_key="unstop"),
@@ -205,6 +249,13 @@ def test_run_tier_shares_the_aggregator_time_budget(monkeypatch) -> None:
         **_kwargs,
     ):
         calls.append((source.adapter_key, max_seconds, deadline_monotonic))
+        if source.adapter_key == "devpost":
+            return {
+                "status": "partial",
+                "stopped_early": True,
+                "truncation_elapsed_seconds": 600.0,
+                "truncation_budget_seconds": 600.0,
+            }
         return {}
 
     monkeypatch.setattr(runner, "make_engine", lambda: object())
@@ -214,9 +265,14 @@ def test_run_tier_shares_the_aggregator_time_budget(monkeypatch) -> None:
     monkeypatch.setattr(runner.time, "monotonic", lambda: next(monotonic_values))
     monkeypatch.setattr(runner, "_refresh_prestige_matches", lambda _engine: None)
 
-    runner.run_tier(1, group="aggregator", aggregator_max_seconds=600.0)
+    runner.run_tier(
+        1,
+        group="aggregator",
+        aggregator_max_seconds=600.0,
+        aggregator_group_max_seconds=5_000.0,
+    )
 
-    assert calls == [("devpost", 600.0, 700.0)]
+    assert calls == [("devpost", 600.0, 700.0), ("unstop", 600.0, 1301.0)]
 
 
 def test_run_tier_summarizes_truncated_aggregators(monkeypatch, capsys) -> None:

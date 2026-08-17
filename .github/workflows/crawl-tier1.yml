@@ -55,12 +55,12 @@ jobs:
           PYTHONUNBUFFERED: "1"
         run: uv run python -m crawlers.runner --tier 1 --group ats
 
-      - name: Run RemoteOK aggregator (tier 1, best-effort)
+      - name: Run aggregators (tier 1, best-effort)
         continue-on-error: true
         # Keep best-effort semantics for transient source/network failures, but
-        # make the cap a hang guard only. The runner's shared 7200s aggregator
-        # soft budget should stop cleanly first and print TRUNCATED instead of
-        # letting a partial crawl look identical to a complete one.
+        # make the cap a hang guard only. The runner gives each aggregator its
+        # own 7200s soft budget; the separate group ceiling is only a final
+        # backstop so one source cannot consume another source's allowance.
         timeout-minutes: 150
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -120,3 +120,10 @@ jobs:
           RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
           PYTHONUNBUFFERED: "1"
         run: uv run python -m scripts.notification_worker --instant-alerts
+
+      - name: Report crawl source staleness
+        if: success() || failure()
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONUNBUFFERED: "1"
+        run: uv run python -m scripts.report_crawl_staleness --fail-on-stale

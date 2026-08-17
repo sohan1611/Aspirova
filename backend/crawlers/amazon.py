@@ -39,12 +39,14 @@ class AmazonAdapter:
         self.company_name = company_name
         self._client = httpx.Client(timeout=timeout, headers={"User-Agent": USER_AGENT})
         self._last_health: HealthStatus = "ok"
+        self._declared_hits_by_query: dict[str, int] = {}
 
     def fetch(self) -> list[RawListing]:
         listings: list[RawListing] = []
         seen_ids: set[str] = set()
         request_count = 0
         degraded = False
+        self._declared_hits_by_query = {}
 
         for query in _SEARCH_TERMS:
             offset = 0
@@ -95,6 +97,7 @@ class AmazonAdapter:
                 except (TypeError, ValueError):
                     self._last_health = "degraded"
                     return listings
+                self._declared_hits_by_query.setdefault(query, min(hits, _PER_QUERY_CAP))
 
                 remaining = _PER_QUERY_CAP - offset
 
@@ -188,6 +191,20 @@ class AmazonAdapter:
 
     def health(self) -> HealthStatus:
         return self._last_health
+
+    def coverage(self) -> dict[str, Any]:
+        expected_total = None
+        note = "source total was not fully declared"
+        if len(self._declared_hits_by_query) == len(_SEARCH_TERMS):
+            expected_total = sum(self._declared_hits_by_query.values())
+            note = "source declares per-query hits; denominator is capped before dedupe"
+
+        return {
+            "mode": "declared_total" if expected_total is not None else "unknown",
+            "expected_total": expected_total,
+            "note": note,
+            "details": {"declared_hits_by_query": dict(self._declared_hits_by_query)},
+        }
 
 
 def _as_text(value: Any) -> str:
