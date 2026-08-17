@@ -101,7 +101,7 @@ class HimalayasAdapter:
                 job
                 for job in jobs
                 if isinstance(job, dict)
-                and is_student_relevant_role(_job_title(job), _job_seniority(job))
+                and is_student_relevant_role(_job_title(job), job.get("seniority"))
             ]
 
             page_listings = build_listings(

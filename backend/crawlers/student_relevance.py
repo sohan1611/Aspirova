@@ -1,8 +1,9 @@
 """Student relevance helpers for broad aggregator feeds.
 
-These adapters fetch sources that are mostly senior roles. The exclusion
-boundary must stay aligned with the API/feed ranking boundary, so this module
-imports the canonical pattern instead of redefining what "senior" means.
+These adapters fetch broad sources where "not senior" is not enough. The senior
+exclusion boundary must stay aligned with the API/feed ranking boundary, so
+this module imports the canonical pattern instead of redefining what "senior"
+means.
 """
 
 import re
@@ -12,6 +13,12 @@ from api.filters import SENIOR_TITLE_PATTERN
 from pipeline.normalize import classify_category
 
 _SENIOR_SIGNAL_RE = re.compile(SENIOR_TITLE_PATTERN, re.IGNORECASE)
+_STUDENT_TITLE_SIGNAL_RE = re.compile(
+    r"\b(intern(s|ship|ships)?|graduate|new\s+grad(uate)?|entry[-\s]+level|"
+    r"junior|trainee|apprentice(ship)?|campus|fresher)\b",
+    re.IGNORECASE,
+)
+_SOURCE_ENTRY_LEVEL_RE = re.compile(r"\b(entry|junior)\b", re.IGNORECASE)
 _STUDENT_CATEGORY_RE = re.compile(
     r"\b(intern(s|ship|ships)?|co-?op|trainee|apprentice(ship)?|campus|"
     r"graduate|new grad(uate)?)\b",
@@ -20,10 +27,17 @@ _STUDENT_CATEGORY_RE = re.compile(
 
 
 def is_student_relevant_role(title: Any, *level_fields: Any) -> bool:
-    """Return False only when title or source level clearly says senior."""
+    """Return True only for non-senior roles with a positive student signal."""
 
-    signals = [_signal_text(title), *[_signal_text(field) for field in level_fields]]
-    return not any(signal and _SENIOR_SIGNAL_RE.search(signal) for signal in signals)
+    title_text = _signal_text(title)
+    level_signals = [_signal_text(field) for field in level_fields]
+    signals = [title_text, *level_signals]
+
+    if any(signal and _SENIOR_SIGNAL_RE.search(signal) for signal in signals):
+        return False
+    if _STUDENT_TITLE_SIGNAL_RE.search(title_text):
+        return True
+    return any(signal and _SOURCE_ENTRY_LEVEL_RE.search(signal) for signal in level_signals)
 
 
 def classify_student_role(title: Any, *level_fields: Any) -> str:

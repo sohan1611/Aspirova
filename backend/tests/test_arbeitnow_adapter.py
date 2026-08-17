@@ -72,6 +72,44 @@ def test_fetch_filters_senior_titles_before_returning_raw_listings(
     assert adapter.health() == "ok"
 
 
+def test_fetch_retries_transient_rate_limit_before_marking_degraded(
+    adapter: ArbeitnowAdapter,
+    fixture_payload: dict,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    page_one = {
+        "data": [fixture_payload["data"][0]],
+        "links": {"next": "https://www.arbeitnow.com/api/job-board-api?page=2"},
+    }
+    page_two = {"data": [fixture_payload["data"][2]], "links": {"next": None}}
+    responses = [(200, page_one), (429, None), (200, page_two)]
+    request_params: list[dict] = []
+
+    def fake_get(url: str, *, params: dict) -> httpx.Response:
+        request_params.append(params)
+        status_code, payload = responses.pop(0)
+        request = httpx.Request("GET", url, params=params)
+        if payload is None:
+            return httpx.Response(status_code, text="Too Many Requests", request=request)
+        return httpx.Response(status_code, json=payload, request=request)
+
+    monkeypatch.setattr(adapter._client, "get", fake_get)
+    monkeypatch.setattr("crawlers.arbeitnow.sleep", lambda _seconds: None)
+
+    raw_listings = adapter.fetch()
+
+    assert [listing.external_id for listing in raw_listings] == [
+        "junior-software-engineer-alpha",
+        "graduate-trainee-developer-gamma",
+    ]
+    assert request_params == [
+        {"page": 1, "per_page": 175},
+        {"page": 2, "per_page": 175},
+        {"page": 2, "per_page": 175},
+    ]
+    assert adapter.health() == "ok"
+
+
 def test_parse_maps_original_url_category_and_remote_flag(
     adapter: ArbeitnowAdapter, fixture_payload: dict
 ) -> None:

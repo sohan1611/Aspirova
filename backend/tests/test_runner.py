@@ -2,11 +2,14 @@
 
 from types import SimpleNamespace
 
+import httpx
 import pytest
 
 from core.adapters import RawListing
+from crawlers.hackerearth import HackerEarthAdapter
 from crawlers import runner
 from crawlers.runner import _board_fingerprint
+from crawlers.student_relevance import is_student_relevant_role
 from scripts.crawl_retry import retry_decision
 
 
@@ -105,6 +108,73 @@ def test_new_aggregator_sources_are_registered() -> None:
         "himalayas",
         "jobicy",
     }.issubset(runner.AGGREGATOR_ADAPTERS)
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "Software Engineer Intern",
+        "Graduate Data Analyst",
+        "Junior Developer",
+        "New Grad Software Engineer",
+        "Trainee Consultant",
+    ],
+)
+def test_new_job_aggregator_filter_keeps_positive_student_titles(title: str) -> None:
+    assert is_student_relevant_role(title)
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "Procurement Coordinator",
+        "Managed Services Field Engineer",
+        "MÜNCHEN - Campervan Reinigung (m/w/d)",
+    ],
+)
+def test_new_job_aggregator_filter_rejects_titles_without_student_signal(title: str) -> None:
+    assert not is_student_relevant_role(title)
+
+
+@pytest.mark.parametrize("level_field", ["Entry", "Entry-level", ["Junior"]])
+def test_new_job_aggregator_filter_keeps_source_entry_level_fields(
+    level_field: object,
+) -> None:
+    assert is_student_relevant_role("Product Analyst", level_field)
+
+
+def test_hackerearth_keeps_competition_without_entry_level_title(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert not is_student_relevant_role("August Circuits")
+
+    adapter = HackerEarthAdapter()
+    payload = {
+        "response": [
+            {
+                "challenge_type": "Monthly Challenges",
+                "title": "August Circuits",
+                "url": "/challenges/competitive/august-circuits-26/",
+                "start_timestamp": 1786934400,
+                "end_timestamp": 1789526400,
+                "status": "ONGOING",
+            }
+        ]
+    }
+
+    def fake_get(url: str) -> httpx.Response:
+        request = httpx.Request("GET", url)
+        return httpx.Response(200, json=payload, request=request)
+
+    monkeypatch.setattr(adapter._client, "get", fake_get)
+
+    raw_listings = adapter.fetch()
+
+    assert len(raw_listings) == 1
+    assert raw_listings[0].source_url == (
+        "https://www.hackerearth.com/challenges/competitive/august-circuits-26/"
+    )
+    assert adapter.health() == "ok"
 
 
 def test_order_ats_jobs_interleaves_sources_to_prevent_source_starvation() -> None:

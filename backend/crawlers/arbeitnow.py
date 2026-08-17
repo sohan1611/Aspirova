@@ -20,6 +20,7 @@ _API_URL = "https://www.arbeitnow.com/api/job-board-api"
 _PAGE_SIZE = 175
 _MAX_PAGES = 12
 _REQUEST_DELAY_SECONDS = 0.5
+_RATE_LIMIT_RETRY_DELAY_SECONDS = 5.0
 
 HealthStatus = Literal["ok", "degraded", "broken"]
 
@@ -55,10 +56,7 @@ class ArbeitnowAdapter:
                 sleep(_REQUEST_DELAY_SECONDS)
 
             try:
-                response = self._client.get(
-                    _API_URL,
-                    params={"page": page, "per_page": _PAGE_SIZE},
-                )
+                response = self._get_page(page)
             except httpx.RequestError:
                 self._last_health = "degraded"
                 return listings
@@ -182,6 +180,20 @@ class ArbeitnowAdapter:
             source_url=source_url,
             content_hash=content_hash(job),
             raw_payload=job,
+        )
+
+    def _get_page(self, page: int) -> httpx.Response:
+        response = self._client.get(
+            _API_URL,
+            params={"page": page, "per_page": _PAGE_SIZE},
+        )
+        if response.status_code != 429:
+            return response
+
+        sleep(_RATE_LIMIT_RETRY_DELAY_SECONDS)
+        return self._client.get(
+            _API_URL,
+            params={"page": page, "per_page": _PAGE_SIZE},
         )
 
 
