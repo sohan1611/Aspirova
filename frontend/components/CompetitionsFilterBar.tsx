@@ -4,89 +4,84 @@ import { Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useFeedNavigation } from "@/components/FeedNavigation";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 type CompetitionSort = "recent" | "deadline";
 type LocationScope = "abroad" | "domestic" | "both";
+type CompetitionLocation = "all" | "online" | "india" | "abroad";
+type SearchParamReader = Pick<URLSearchParams, "get">;
 
 const COMPETITIONS_PATH = "/competitions";
 const INDIA_COUNTRY_CODE = "IN";
+const LOCATION_PARAM_KEYS = ["scope", "country", "remote", "remote_abroad"];
 
-function getScope(value: string | null): LocationScope {
+function isScope(value: string | null): value is LocationScope {
   if (value === "abroad" || value === "domestic" || value === "both") {
-    return value;
+    return true;
   }
 
-  return "both";
+  return false;
 }
 
 function getSort(value: string | null): CompetitionSort {
   return value === "recent" ? "recent" : "deadline";
 }
 
+function getLocation(searchParams: SearchParamReader): CompetitionLocation {
+  const remote = searchParams.get("remote");
+  const scope = searchParams.get("scope");
+  const country = searchParams.get("country")?.toUpperCase();
+
+  if (remote === "true") {
+    return "online";
+  }
+
+  if (remote === "false" && country === INDIA_COUNTRY_CODE && isScope(scope)) {
+    if (scope === "domestic") return "india";
+    if (scope === "abroad") return "abroad";
+  }
+
+  return "all";
+}
+
+function clearLocationParams(params: URLSearchParams) {
+  for (const key of LOCATION_PARAM_KEYS) {
+    params.delete(key);
+  }
+}
+
+function applyLocationParams(params: URLSearchParams, location: CompetitionLocation) {
+  clearLocationParams(params);
+
+  if (location === "online") {
+    params.set("remote", "true");
+  } else if (location === "india") {
+    params.set("scope", "domestic");
+    params.set("country", INDIA_COUNTRY_CODE);
+    params.set("remote", "false");
+  } else if (location === "abroad") {
+    params.set("scope", "abroad");
+    params.set("country", INDIA_COUNTRY_CODE);
+    params.set("remote", "false");
+  }
+}
+
 export default function CompetitionsFilterBar() {
   const searchParams = useSearchParams();
   const { navigate, isFeedPending: isPending } = useFeedNavigation();
-  const activeScope = getScope(searchParams.get("scope"));
+  const activeLocation = getLocation(searchParams);
   const sort = getSort(searchParams.get("sort"));
-  const includeRemoteAbroad =
-    activeScope === "domestic" && searchParams.get("remote_abroad") === "true";
-
-  function normalizeLocationParams(params: URLSearchParams) {
-    const scope = getScope(params.get("scope"));
-
-    if (scope === "both") {
-      params.delete("scope");
-      params.delete("country");
-      params.delete("remote_abroad");
-      return;
-    }
-
-    params.set("scope", scope);
-    params.set("country", INDIA_COUNTRY_CODE);
-    if (scope !== "domestic" || params.get("remote_abroad") !== "true") {
-      params.delete("remote_abroad");
-    }
-  }
 
   function commit(params: URLSearchParams) {
-    normalizeLocationParams(params);
+    applyLocationParams(params, getLocation(params));
     params.delete("page");
     const query = params.toString();
     navigate(query ? `${COMPETITIONS_PATH}?${query}` : COMPETITIONS_PATH);
   }
 
-  function setScope(scope: LocationScope) {
+  function setLocation(location: CompetitionLocation) {
     const params = new URLSearchParams(searchParams.toString());
-
-    if (scope === "both") {
-      params.delete("scope");
-      params.delete("country");
-      params.delete("remote_abroad");
-    } else {
-      params.set("scope", scope);
-      params.set("country", INDIA_COUNTRY_CODE);
-      if (scope !== "domestic" || !includeRemoteAbroad) {
-        params.delete("remote_abroad");
-      }
-    }
-
-    commit(params);
-  }
-
-  function setRemoteAbroad(checked: boolean) {
-    if (activeScope !== "domestic") return;
-
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("scope", "domestic");
-    params.set("country", INDIA_COUNTRY_CODE);
-    if (checked) {
-      params.set("remote_abroad", "true");
-    } else {
-      params.delete("remote_abroad");
-    }
-
+    applyLocationParams(params, location);
     commit(params);
   }
 
@@ -101,9 +96,10 @@ export default function CompetitionsFilterBar() {
     commit(params);
   }
 
-  const scopeOptions: { value: LocationScope; label: string }[] = [
-    { value: "both", label: "Both" },
-    { value: "domestic", label: "India" },
+  const locationOptions: { value: CompetitionLocation; label: string }[] = [
+    { value: "all", label: "All" },
+    { value: "online", label: "Online" },
+    { value: "india", label: "India" },
     { value: "abroad", label: "Abroad" },
   ];
 
@@ -132,8 +128,8 @@ export default function CompetitionsFilterBar() {
         aria-label="Filter competitions by location"
       >
         <span className="eyebrow mr-1">Location</span>
-        {scopeOptions.map((option) => {
-          const isActive = option.value === activeScope;
+        {locationOptions.map((option) => {
+          const isActive = option.value === activeLocation;
 
           return (
             <Badge
@@ -146,7 +142,7 @@ export default function CompetitionsFilterBar() {
                 type="button"
                 aria-pressed={isActive}
                 disabled={isPending}
-                onClick={() => setScope(option.value)}
+                onClick={() => setLocation(option.value)}
                 className="disabled:cursor-wait"
               >
                 {option.label}
@@ -155,25 +151,6 @@ export default function CompetitionsFilterBar() {
           );
         })}
       </div>
-
-      {activeScope === "domestic" && (
-        <div className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-muted px-2.5 py-1.5">
-          <input
-            id="competitions-remote-abroad"
-            type="checkbox"
-            checked={includeRemoteAbroad}
-            disabled={isPending}
-            onChange={(event) => setRemoteAbroad(event.target.checked)}
-            className="h-4 w-4 shrink-0 rounded border-border bg-background accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-wait disabled:opacity-50"
-          />
-          <Label
-            htmlFor="competitions-remote-abroad"
-            className="cursor-pointer whitespace-nowrap text-sm leading-tight"
-          >
-            Include remote roles as well
-          </Label>
-        </div>
-      )}
 
       <div
         className="flex min-w-0 flex-wrap items-center justify-end gap-2"

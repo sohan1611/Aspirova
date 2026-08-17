@@ -27,14 +27,12 @@ interface PageProps {
     page?: string;
     scope?: string;
     country?: string;
-    remote_abroad?: string;
+    remote?: string;
   }>;
 }
 
 type CompetitionSort = "recent" | "deadline";
 type LocationScope = "abroad" | "domestic" | "both";
-
-const INDIA_COUNTRY_CODE = "IN";
 
 function opportunityCountLabel(count: number): string {
   return `${count} ${count === 1 ? "opportunity" : "opportunities"}`;
@@ -46,20 +44,29 @@ function parseScope(scope: string | undefined): LocationScope | undefined {
     : undefined;
 }
 
+function parseRemote(remote: string | undefined): boolean | undefined {
+  if (remote === "true") return true;
+  if (remote === "false") return false;
+  return undefined;
+}
+
+function parseCountry(country: string | undefined): string | undefined {
+  if (!country || !/^[A-Za-z]{2}$/.test(country)) return undefined;
+  return country.toUpperCase();
+}
+
 export default async function CompetitionsPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const page = Math.max(1, Number(params.page ?? "1") || 1);
   const sort: CompetitionSort = params.sort === "recent" ? "recent" : "deadline";
   const scope = parseScope(params.scope);
-  const scopedCountry =
-    scope === "domestic" || scope === "abroad" ? INDIA_COUNTRY_CODE : undefined;
-  const remoteAbroad =
-    scope === "domestic" && params.remote_abroad === "true" ? true : undefined;
+  const country = parseCountry(params.country);
+  const remote = parseRemote(params.remote);
   const data = await getFeed({
     kind: "competitions",
     scope,
-    country: scopedCountry,
-    remote_abroad: remoteAbroad,
+    country,
+    remote,
     sort,
     page,
     limit: LIMIT,
@@ -68,8 +75,8 @@ export default async function CompetitionsPage({ searchParams }: PageProps) {
   const paginationParams = {
     sort: sort === "recent" ? "recent" : undefined,
     scope,
-    country: scopedCountry,
-    remote_abroad: remoteAbroad ? "true" : undefined,
+    country,
+    remote: remote === undefined ? undefined : String(remote),
   };
 
   return (
