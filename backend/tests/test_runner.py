@@ -219,6 +219,33 @@ def test_run_tier_shares_the_aggregator_time_budget(monkeypatch) -> None:
     assert calls == [("devpost", 600.0, 700.0)]
 
 
+def test_run_tier_summarizes_truncated_aggregators(monkeypatch, capsys) -> None:
+    source = SimpleNamespace(id=1, adapter_key="unstop")
+    session_factory = _SessionFactory([source], [])
+
+    def fake_crawl_aggregator(_session, selected_source, _adapter_class, **_kwargs):
+        assert selected_source is source
+        return {
+            "status": "partial",
+            "stopped_early": True,
+            "truncation_elapsed_seconds": 7.0,
+            "truncation_budget_seconds": 60.0,
+        }
+
+    monkeypatch.setattr(runner, "make_engine", lambda: object())
+    monkeypatch.setattr(runner, "verify_connection_guards", lambda _engine: None)
+    monkeypatch.setattr(runner, "Session", session_factory)
+    monkeypatch.setattr(runner, "crawl_aggregator", fake_crawl_aggregator)
+    monkeypatch.setattr(runner, "_refresh_prestige_matches", lambda _engine: None)
+    monkeypatch.setattr(runner, "notify_changed", lambda _slugs: None)
+
+    runner.run_tier(1, group="aggregator")
+
+    output = capsys.readouterr().out
+    assert "TRUNCATION SUMMARY: truncated sources:" in output
+    assert "  - unstop: after 7.0s (budget 60.0s)" in output
+
+
 def test_refresh_prestige_matches_calls_matcher_without_reset(monkeypatch, capsys) -> None:
     fake_engine = object()
     sessions: list[object] = []

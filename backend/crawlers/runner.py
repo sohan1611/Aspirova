@@ -74,18 +74,59 @@ AGGREGATOR_ADAPTERS: dict[str, type] = {
 }
 
 ATS_FETCH_MAX_WORKERS = 10
-DEFAULT_AGGREGATOR_MAX_SECONDS = 600.0
+DEFAULT_AGGREGATOR_MAX_SECONDS = 7200.0
 # Soft wall-clock budget for the WHOLE ATS phase (prefetch + ingest), armed
-# before the prefetch below. Keep this under the workflow's ATS step cap so the
-# loop exits cleanly, commits work, and lets aggregator + tail steps run instead
-# of being SIGKILL'd at the hard cap. Env-tunable (CRAWLER_ATS_MAX_SECONDS).
+# before the prefetch below. This is no longer an Actions-minute rationing
+# guard; the public repo gets standard runners without the old private-repo
+# included-minutes ceiling. Keep it under the workflow's ATS step cap only so a
+# genuine hang exits cleanly, commits work, and lets aggregator + tail steps run
+# instead of being SIGKILL'd at the hard cap. Env-tunable
+# (CRAWLER_ATS_MAX_SECONDS).
 #
 # The gap between this soft budget and the ATS step timeout must exceed the
 # SLOWEST SINGLE BOARD, because the deadline only gates whether a board may
-# START; once one is in flight it runs to completion. With a 1320s soft budget
-# and 32-minute step timeout, that in-flight-board gap remains 10 minutes.
-DEFAULT_ATS_MAX_SECONDS = 1320.0
+# START; once one is in flight it runs to completion. With a 7200s soft budget
+# and 150-minute step timeout, that in-flight-board gap remains 30 minutes.
+DEFAULT_ATS_MAX_SECONDS = 7200.0
 _STOP_REQUESTED = threading.Event()
+
+
+@dataclass(frozen=True)
+class _TruncationEvent:
+    source: str
+    elapsed_seconds: float
+    budget_seconds: float
+
+
+def _format_seconds(seconds: float) -> str:
+    return f"{max(seconds, 0.0):.1f}"
+
+
+def _truncation_line(event: _TruncationEvent) -> str:
+    return (
+        f"TRUNCATED: {event.source} stopped early after "
+        f"{_format_seconds(event.elapsed_seconds)}s "
+        f"(budget {_format_seconds(event.budget_seconds)}s)"
+    )
+
+
+def _print_truncation(event: _TruncationEvent) -> None:
+    print(_truncation_line(event), flush=True)
+
+
+def _print_truncation_summary(events: list[_TruncationEvent]) -> None:
+    if not events:
+        print("TRUNCATION SUMMARY: no sources truncated", flush=True)
+        return
+
+    print("TRUNCATION SUMMARY: truncated sources:", flush=True)
+    for event in events:
+        print(
+            "  - "
+            f"{event.source}: after {_format_seconds(event.elapsed_seconds)}s "
+            f"(budget {_format_seconds(event.budget_seconds)}s)",
+            flush=True,
+        )
 
 
 def _order_ats_jobs(
@@ -539,6 +580,12 @@ def crawl_aggregator(
     pass sources already filtered to legal_status == "ok"; that filter is
     the actual kill switch and lives in exactly one place, not duplicated.
     """
+    crawl_started_monotonic = time.monotonic()
+    source_label = getattr(
+        source,
+        "adapter_key",
+        getattr(adapter_class, "source_slug", adapter_class.__name__),
+    )
     source_id = source.id
     tier = source.crawl_tier
     started_at = datetime.now(timezone.utc)
@@ -548,11 +595,18 @@ def crawl_aggregator(
         "errors": 0,
         "status": "success",
         "changed_slugs": 0,
+        "stopped_early": False,
     }
     run_changed_slugs = changed_slugs if changed_slugs is not None else set()
     committed_changed_slugs: set[str] = set()
+    stopped_early = False
+    budget_seconds = (
+        max_seconds
+        if max_seconds is not None
+        else max((deadline_monotonic or crawl_started_monotonic) - crawl_started_monotonic, 0.0)
+    )
     if deadline_monotonic is None and max_seconds is not None:
-        deadline_monotonic = time.monotonic() + max_seconds
+        deadline_monotonic = crawl_started_monotonic + max_seconds
 
     def stop_now() -> bool:
         return _is_stop_requested(should_stop, deadline_monotonic)
@@ -674,6 +728,18 @@ def crawl_aggregator(
         if stop_now():
             stopped_early = True
             result["status"] = "partial"
+        result["stopped_early"] = stopped_early
+        if stopped_early:
+            truncation_elapsed_seconds = time.monotonic() - crawl_started_monotonic
+            result["truncation_elapsed_seconds"] = truncation_elapsed_seconds
+            result["truncation_budget_seconds"] = budget_seconds
+            _print_truncation(
+                _TruncationEvent(
+                    source=str(source_label),
+                    elapsed_seconds=truncation_elapsed_seconds,
+                    budget_seconds=budget_seconds,
+                )
+            )
 
         # An incomplete page set must never become the change-detection
         # fingerprint. Otherwise a later run with the same truncated prefix
@@ -756,6 +822,7 @@ def run_tier(
         should_stop = _STOP_REQUESTED.is_set
 
     changed_slugs: set[str] = set()
+    truncations: list[_TruncationEvent] = []
 
     engine = make_engine()
     # Fail fast if the query-timeout guard is missing; a pooler mismatch must never silently hang.
@@ -860,15 +927,31 @@ def run_tier(
     # was - the run then started a fresh board at ~23min and was SIGKILL'd
     # mid-ingest at the ATS step hard cap. The budget has to cover the phase it
     # bounds.
-    ats_deadline_monotonic = time.monotonic() + ats_max_seconds if ats_jobs else 0.0
+    ats_started_monotonic = time.monotonic() if ats_jobs else 0.0
+    ats_deadline_monotonic = ats_started_monotonic + ats_max_seconds if ats_jobs else 0.0
 
     prefetched_boards = _prefetch_ats_boards(ats_jobs, should_stop=should_stop)
 
     for job in ats_jobs:
         if _is_stop_requested(should_stop):
+            event = _TruncationEvent(
+                source="ATS",
+                elapsed_seconds=time.monotonic() - ats_started_monotonic,
+                budget_seconds=ats_max_seconds,
+            )
+            truncations.append(event)
+            _print_truncation(event)
             print("Stop requested; ending ATS ingestion after committed work", flush=True)
             break
-        if time.monotonic() >= ats_deadline_monotonic:
+        now_monotonic = time.monotonic()
+        if now_monotonic >= ats_deadline_monotonic:
+            event = _TruncationEvent(
+                source="ATS",
+                elapsed_seconds=now_monotonic - ats_started_monotonic,
+                budget_seconds=ats_max_seconds,
+            )
+            truncations.append(event)
+            _print_truncation(event)
             print("ATS time budget reached; ending after committed work", flush=True)
             break
 
@@ -912,19 +995,35 @@ def run_tier(
                 continue
             print(f"{job.company_slug}: {result}", flush=True)
 
-    # Treat the soft limit as a budget for the entire aggregator phase, not
-    # a fresh 10-minute allowance for every source. That leaves the phase
+    # Treat the soft limit as a shared budget for the entire aggregator phase,
+    # not a fresh two-hour allowance for every source. That leaves the phase
     # safely below the workflow cap even when more than one aggregator is
     # enabled.
-    aggregator_deadline_monotonic = time.monotonic() + aggregator_max_seconds
+    aggregator_started_monotonic = time.monotonic()
+    aggregator_deadline_monotonic = aggregator_started_monotonic + aggregator_max_seconds
 
     for source_id, adapter_key in aggregator_jobs:
         if _is_stop_requested(should_stop):
+            event = _TruncationEvent(
+                source="aggregator group",
+                elapsed_seconds=time.monotonic() - aggregator_started_monotonic,
+                budget_seconds=aggregator_max_seconds,
+            )
+            truncations.append(event)
+            _print_truncation(event)
             print("Stop requested; ending aggregator crawl after committed work", flush=True)
             break
 
-        remaining_seconds = aggregator_deadline_monotonic - time.monotonic()
+        now_monotonic = time.monotonic()
+        remaining_seconds = aggregator_deadline_monotonic - now_monotonic
         if remaining_seconds <= 0:
+            event = _TruncationEvent(
+                source="aggregator group",
+                elapsed_seconds=now_monotonic - aggregator_started_monotonic,
+                budget_seconds=aggregator_max_seconds,
+            )
+            truncations.append(event)
+            _print_truncation(event)
             print("Aggregator time budget reached; ending after committed work", flush=True)
             break
 
@@ -950,9 +1049,18 @@ def run_tier(
                 )
                 continue
             print(f"{adapter_key} (aggregator): {result}", flush=True)
+            if result.get("stopped_early"):
+                truncations.append(
+                    _TruncationEvent(
+                        source=adapter_key,
+                        elapsed_seconds=float(result.get("truncation_elapsed_seconds", 0.0)),
+                        budget_seconds=float(result.get("truncation_budget_seconds", 0.0)),
+                    )
+                )
 
     _refresh_prestige_matches(engine)
     notify_changed(changed_slugs)
+    _print_truncation_summary(truncations)
 
 
 def _handle_stop_signal(_signum: int, _frame: object) -> None:

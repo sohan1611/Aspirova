@@ -402,6 +402,9 @@ def test_aggregator_deadline_commits_completed_work_and_returns_partial(monkeypa
         "errors": 0,
         "status": "partial",
         "changed_slugs": 0,
+        "stopped_early": True,
+        "truncation_elapsed_seconds": 11.0,
+        "truncation_budget_seconds": 10.0,
     }
     assert session.ingested == ["one"]
     assert session.commits >= 3  # trailing batch, final state, and CrawlRun
@@ -412,7 +415,7 @@ def test_aggregator_deadline_commits_completed_work_and_returns_partial(monkeypa
     assert previous_state.last_crawled_at == "before-partial-run"
 
 
-def test_aggregator_forwards_deadline_controls_to_unstop(monkeypatch) -> None:
+def test_aggregator_forwards_deadline_controls_to_unstop(monkeypatch, capsys) -> None:
     class _DeadlineAwareUnstop(UnstopAdapter):
         instance = None
 
@@ -440,7 +443,7 @@ def test_aggregator_forwards_deadline_controls_to_unstop(monkeypatch) -> None:
 
     session = _MemorySession()
     source = SimpleNamespace(id=1, crawl_tier=1)
-    deadline = runner.time.monotonic() + 60.0
+    deadline = 160.0
 
     monkeypatch.setattr(runner, "load_board_state", lambda *_args: object())
     monkeypatch.setattr(runner, "resolve_company", lambda *_args: SimpleNamespace(id=2))
@@ -448,6 +451,11 @@ def test_aggregator_forwards_deadline_controls_to_unstop(monkeypatch) -> None:
         runner,
         "ingest_one",
         lambda *_args, seen_opportunity_ids=None, changed_slugs=None: (object(), True),
+    )
+    monkeypatch.setattr(
+        runner.time,
+        "monotonic",
+        iter([100.0, 100.0, 100.0, 100.0, 105.0, 100.0]).__next__,
     )
 
     result = runner.crawl_aggregator(
@@ -463,6 +471,10 @@ def test_aggregator_forwards_deadline_controls_to_unstop(monkeypatch) -> None:
     assert adapter.received_should_stop() is False
     assert result["status"] == "partial"
     assert result["new_opps"] == 1
+    assert result["stopped_early"] is True
+    assert result["truncation_elapsed_seconds"] == 5.0
+    assert result["truncation_budget_seconds"] == 60.0
+    assert "TRUNCATED: unstop stopped early after 5.0s (budget 60.0s)" in capsys.readouterr().out
 
 
 def _run_tier_ats_scaffold(monkeypatch, companies, source_states, crawl_order):
