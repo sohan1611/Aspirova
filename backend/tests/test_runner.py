@@ -275,6 +275,64 @@ def test_run_tier_gives_each_aggregator_its_own_time_budget(monkeypatch) -> None
     assert calls == [("devpost", 600.0, 700.0), ("unstop", 600.0, 1301.0)]
 
 
+def test_run_tier_never_lets_one_aggregator_consume_the_group_budget(monkeypatch) -> None:
+    """A per-source budget alone is not enough to stop starvation.
+
+    With a 7200s per-source budget under a 900s group ceiling, the first source
+    would be handed a deadline 8x past the point at which the group loop breaks,
+    so the sources behind it would be skipped entirely - which is what left
+    devpost and remoteok 11 days stale while unstop ate the shared budget.
+
+    Each source must instead get the FAIR SHARE of the time still remaining, so
+    no source's deadline can ever exceed the group deadline.
+    """
+    sources = [
+        SimpleNamespace(id=1, adapter_key="unstop"),
+        SimpleNamespace(id=2, adapter_key="devpost"),
+        SimpleNamespace(id=3, adapter_key="remoteok"),
+    ]
+    session_factory = _SessionFactory(sources, [])
+    calls: list[tuple[str, float, float]] = []
+    # started, then one reading per iteration; source 1 is slow (0 -> 400s).
+    monotonic_values = iter([0.0, 0.0, 400.0, 500.0])
+
+    def fake_crawl_aggregator(
+        _session, source, _adapter_class, *, max_seconds, deadline_monotonic, **_kwargs
+    ):
+        calls.append((source.adapter_key, max_seconds, deadline_monotonic))
+        return {}
+
+    monkeypatch.setattr(runner, "make_engine", lambda: object())
+    monkeypatch.setattr(runner, "verify_connection_guards", lambda _engine: None)
+    monkeypatch.setattr(runner, "Session", session_factory)
+    monkeypatch.setattr(runner, "crawl_aggregator", fake_crawl_aggregator)
+    monkeypatch.setattr(runner.time, "monotonic", lambda: next(monotonic_values))
+    monkeypatch.setattr(runner, "_refresh_prestige_matches", lambda _engine: None)
+
+    runner.run_tier(
+        1,
+        group="aggregator",
+        aggregator_max_seconds=7_200.0,
+        aggregator_group_max_seconds=900.0,
+    )
+
+    # Every source ran - none was starved by the one before it. Order is set by
+    # _order_aggregator_jobs (stalest-first), so compare as a set, not a sequence.
+    assert {call[0] for call in calls} == {"unstop", "devpost", "remoteok"}
+    assert len(calls) == 3
+
+    group_deadline = 900.0
+    for adapter_key, budget, deadline in calls:
+        assert deadline <= group_deadline, (
+            f"{adapter_key} was given a deadline past the group ceiling; "
+            "it could consume the whole budget and starve the sources behind it"
+        )
+        assert budget < 7_200.0, f"{adapter_key} got the nominal budget, not its fair share"
+
+    # First source is capped at its share of the group, not the nominal budget.
+    assert calls[0][1] == pytest.approx(300.0)
+
+
 def test_run_tier_summarizes_truncated_aggregators(monkeypatch, capsys) -> None:
     source = SimpleNamespace(id=1, adapter_key="unstop")
     session_factory = _SessionFactory([source], [])

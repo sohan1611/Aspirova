@@ -1365,7 +1365,7 @@ def run_tier(
         aggregator_started_monotonic + aggregator_group_max_seconds
     )
 
-    for source_id, adapter_key in aggregator_jobs:
+    for job_index, (source_id, adapter_key) in enumerate(aggregator_jobs):
         if _is_stop_requested(should_stop):
             event = _TruncationEvent(
                 source="aggregator group",
@@ -1389,7 +1389,21 @@ def run_tier(
             print("Aggregator time budget reached; ending after committed work", flush=True)
             break
 
-        source_deadline_monotonic = now_monotonic + aggregator_max_seconds
+        # A per-source budget alone does NOT guarantee every source runs: with
+        # a 7200s per-source budget under an 8700s group ceiling, one slow
+        # source can consume 83% of the group and the sources behind it are
+        # skipped by the `break` above - the exact starvation that left devpost
+        # and remoteok 11 days stale while unstop ate the shared budget.
+        #
+        # So each source may take at most its FAIR SHARE of the time still
+        # remaining, computed fresh each iteration. A source that finishes early
+        # hands its unused time to the ones behind it, and no source can spend
+        # time that a later source still needs.
+        sources_remaining = len(aggregator_jobs) - job_index
+        group_time_remaining = aggregator_group_deadline_monotonic - now_monotonic
+        fair_share_seconds = group_time_remaining / sources_remaining
+        source_budget_seconds = min(aggregator_max_seconds, fair_share_seconds)
+        source_deadline_monotonic = now_monotonic + source_budget_seconds
         with Session(engine, expire_on_commit=False) as session:
             source = session.get(models.Source, source_id)
             try:
@@ -1397,7 +1411,9 @@ def run_tier(
                     session,
                     source,
                     AGGREGATOR_ADAPTERS[adapter_key],
-                    max_seconds=aggregator_max_seconds,
+                    # The fair share, not the nominal per-source budget, so a
+                    # truncation is reported against the budget actually applied.
+                    max_seconds=source_budget_seconds,
                     should_stop=should_stop,
                     deadline_monotonic=source_deadline_monotonic,
                     changed_slugs=changed_slugs,
