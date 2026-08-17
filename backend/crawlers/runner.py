@@ -35,9 +35,13 @@ from core.adapters import RawListing
 from core.db import make_engine, verify_connection_guards
 from crawlers import watchdog
 from crawlers.amazon import AmazonAdapter
+from crawlers.arbeitnow import ArbeitnowAdapter
 from crawlers.ashby import AshbyAdapter
 from crawlers.devpost import DevpostAdapter
 from crawlers.greenhouse import GreenhouseAdapter
+from crawlers.hackerearth import HackerEarthAdapter
+from crawlers.himalayas import HimalayasAdapter
+from crawlers.jobicy import JobicyAdapter
 from crawlers.recruitee import RecruiteeAdapter
 from crawlers.workable import WorkableAdapter
 from crawlers.keka import KekaAdapter
@@ -70,7 +74,11 @@ ATS_ADAPTERS: dict[str, type] = {
 # source, one fetch spans many different companies (crawl_aggregator
 # below), so these are dispatched separately from ATS_ADAPTERS.
 AGGREGATOR_ADAPTERS: dict[str, type] = {
+    "arbeitnow": ArbeitnowAdapter,
     "devpost": DevpostAdapter,
+    "hackerearth": HackerEarthAdapter,
+    "himalayas": HimalayasAdapter,
+    "jobicy": JobicyAdapter,
     "remoteok": RemoteOkAdapter,
     "unstop": UnstopAdapter,
 }

@@ -1,0 +1,58 @@
+{
+  "jobCount": 4,
+  "jobs": [
+    {
+      "id": 101,
+      "url": "https://jobicy.com/jobs/101-entry-junior-product-engineer",
+      "jobTitle": "Entry Junior Product Engineer",
+      "companyName": "Orbit Labs",
+      "jobGeo": "Anywhere",
+      "jobLevel": "Entry/Junior",
+      "jobType": ["full-time"],
+      "jobIndustry": ["Software Engineering"],
+      "jobExcerpt": "Build product features.",
+      "jobDescription": "<p>Early career engineering role.</p>",
+      "pubDate": "2026-08-16T10:00:00+00:00",
+      "tags": ["javascript", "frontend"]
+    },
+    {
+      "id": 102,
+      "url": "https://jobicy.com/jobs/102-senior-product-manager",
+      "jobTitle": "Product Manager",
+      "companyName": "Orbit Labs",
+      "jobGeo": "Anywhere",
+      "jobLevel": "Senior",
+      "jobType": ["full-time"],
+      "jobIndustry": ["Product"],
+      "jobDescription": "<p>Senior product ownership.</p>",
+      "pubDate": "2026-08-16T10:00:00+00:00",
+      "tags": ["product"]
+    },
+    {
+      "id": 103,
+      "url": "https://jobicy.com/jobs/103-vp-engineering",
+      "jobTitle": "VP Engineering",
+      "companyName": "Orbit Labs",
+      "jobGeo": "Anywhere",
+      "jobLevel": "Any",
+      "jobType": ["full-time"],
+      "jobIndustry": ["Software Engineering"],
+      "jobDescription": "<p>Executive engineering role.</p>",
+      "pubDate": "2026-08-16T10:00:00+00:00",
+      "tags": ["engineering"]
+    },
+    {
+      "id": 104,
+      "url": "https://jobicy.com/jobs/104-graduate-trainee-designer",
+      "jobTitle": "Graduate Trainee Designer",
+      "companyName": "Studio Remote",
+      "jobGeo": "Anywhere",
+      "jobLevel": "Any",
+      "jobType": ["contract"],
+      "jobIndustry": ["Design"],
+      "jobDescription": "<p>Graduate design trainee.</p>",
+      "pubDate": "2026-08-16T10:00:00+00:00",
+      "tags": ["design", "graduate"]
+    }
+  ]
+}

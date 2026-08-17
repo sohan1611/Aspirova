@@ -98,6 +98,15 @@ def test_fingerprint_empty_list_is_deterministic() -> None:
     assert _board_fingerprint([]) == _board_fingerprint([])
 
 
+def test_new_aggregator_sources_are_registered() -> None:
+    assert {
+        "arbeitnow",
+        "hackerearth",
+        "himalayas",
+        "jobicy",
+    }.issubset(runner.AGGREGATOR_ADAPTERS)
+
+
 def test_order_ats_jobs_interleaves_sources_to_prevent_source_starvation() -> None:
     from datetime import datetime, timezone
 

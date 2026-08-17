@@ -1,0 +1,31 @@
+{
+  "response": [
+    {
+      "challenge_type": "Monthly Challenges",
+      "title": "August Circuits",
+      "url": "/challenges/competitive/august-circuits-26/",
+      "description": "<p>Monthly algorithmic challenge.</p>",
+      "start_timestamp": 1786934400,
+      "end_timestamp": 1789526400,
+      "status": "ONGOING"
+    },
+    {
+      "challenge_type": "Hackathon",
+      "title": "Campus Innovation Hackathon",
+      "url": "https://www.hackerearth.com/challenges/hackathon/campus-innovation/",
+      "description": "<p>Build a project with a team.</p>",
+      "start_timestamp": 1787020800,
+      "end_timestamp": 1789609200,
+      "status": "UPCOMING"
+    },
+    {
+      "challenge_type": "Monthly Challenges",
+      "title": "Data Structures Sprint",
+      "url": "/challenges/competitive/data-structures-sprint/",
+      "description": "<p>Practice data structures.</p>",
+      "start_timestamp": 1787107200,
+      "end_timestamp": 1789695600,
+      "status": "UPCOMING"
+    }
+  ]
+}
