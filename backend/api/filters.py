@@ -1,6 +1,8 @@
 """Shared optional filters for opportunity query endpoints."""
 
-from sqlalchemy import and_, func, not_, or_, text
+from datetime import datetime, timedelta
+
+from sqlalchemy import and_, case, func, not_, or_, text
 
 from core import models
 
@@ -15,6 +17,36 @@ SENIOR_TITLE_PATTERN = (
     r"(^|[^a-z])(senior|sr|staff|principal|director|vp|head of|lead|manager|"
     r"architect|distinguished|fellow|executive)([^a-z]|$)"
 )
+
+
+def student_rank_expression():
+    return case(
+        (models.Opportunity.category == "internship", 0),
+        (
+            and_(
+                models.Opportunity.category == "job",
+                func.coalesce(models.Opportunity.title_normalized, "").op("~*")(
+                    SENIOR_TITLE_PATTERN
+                ),
+            ),
+            2,
+        ),
+        else_=1,
+    )
+
+
+def exclude_stale_opportunities(now: datetime | None = None):
+    """Exclude old promoted listings unless a future deadline keeps them current."""
+    current = now or func.now()
+    stale_cutoff = now - timedelta(days=365) if now else current - text("interval '365 days'")
+    stale = and_(
+        models.Opportunity.posted_at < stale_cutoff,
+        or_(
+            models.Opportunity.deadline.is_(None),
+            models.Opportunity.deadline <= current,
+        ),
+    )
+    return stale.is_not(True)
 
 
 def exclude_closed_competitions():
@@ -163,6 +195,7 @@ def saved_search_base_filters(params: dict) -> list:
 
     base_filters = [
         models.Opportunity.status == "active",
+        exclude_stale_opportunities(),
         exclude_closed_competitions(),
         *opportunity_filters(category, remote, None, None, None),
         *experience_filters(experience),

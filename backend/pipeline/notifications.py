@@ -36,6 +36,7 @@ from html import escape
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from api.filters import exclude_stale_opportunities, student_rank_expression
 from core import models
 from core.config import get_settings
 from core.email_client import send_email
@@ -117,7 +118,7 @@ def _already_alerted(
 
 
 def _dream_company_opportunities(
-    session: Session, user_id, since: datetime
+    session: Session, user_id, since: datetime, now: datetime
 ) -> list[models.Opportunity]:
     return list(
         session.scalars(
@@ -130,6 +131,7 @@ def _dream_company_opportunities(
                 models.DreamCompany.user_id == user_id,
                 models.Opportunity.status == "active",
                 models.Opportunity.first_seen_at >= since,
+                exclude_stale_opportunities(now),
             )
             .order_by(models.Opportunity.first_seen_at.desc())
         ).all()
@@ -137,13 +139,26 @@ def _dream_company_opportunities(
 
 
 def _generic_recent_opportunities(
-    session: Session, since: datetime, limit: int
+    session: Session, since: datetime, limit: int, now: datetime
 ) -> list[models.Opportunity]:
+    student_rank = student_rank_expression()
     return list(
         session.scalars(
             select(models.Opportunity)
-            .where(models.Opportunity.status == "active", models.Opportunity.first_seen_at >= since)
-            .order_by(models.Opportunity.first_seen_at.desc())
+            .outerjoin(models.Company, models.Company.id == models.Opportunity.company_id)
+            .where(
+                models.Opportunity.status == "active",
+                models.Opportunity.first_seen_at >= since,
+                exclude_stale_opportunities(now),
+                models.Opportunity.category.in_(["internship", "job"]),
+                student_rank < 2,
+            )
+            .order_by(
+                student_rank.asc(),
+                models.Company.prestige_rank.asc().nullslast(),
+                models.Opportunity.first_seen_at.desc(),
+                models.Opportunity.id.desc(),
+            )
             .limit(limit)
         ).all()
     )
@@ -321,7 +336,7 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
                 result["skipped_capped"] += 1
                 continue
 
-            opportunities = _dream_company_opportunities(session, user.id, since)
+            opportunities = _dream_company_opportunities(session, user.id, since, now)
             opportunities = [
                 o for o in opportunities if not _already_alerted(session, user.id, o.id)
             ]
@@ -336,7 +351,7 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
                 opportunities = [
                     o
                     for o in _generic_recent_opportunities(
-                        session, since, DIGEST_GENERIC_SAMPLE_SIZE
+                        session, since, DIGEST_GENERIC_SAMPLE_SIZE, now
                     )
                     if not _already_alerted(session, user.id, o.id)
                 ]
@@ -373,7 +388,11 @@ def send_instant_alerts(session: Session, *, now: datetime | None = None) -> dic
     matches = session.execute(
         select(models.DreamCompany.user_id, models.Opportunity)
         .join(models.Opportunity, models.Opportunity.company_id == models.DreamCompany.company_id)
-        .where(models.Opportunity.status == "active", models.Opportunity.first_seen_at >= since)
+        .where(
+            models.Opportunity.status == "active",
+            models.Opportunity.first_seen_at >= since,
+            exclude_stale_opportunities(now),
+        )
     ).all()
 
     for user_id, opportunity in matches:
@@ -432,6 +451,7 @@ def send_closing_soon_alerts(
                     .where(
                         models.Bookmark.user_id == user.id,
                         models.Opportunity.status == "active",
+                        exclude_stale_opportunities(now),
                         models.Opportunity.deadline.is_not(None),
                         models.Opportunity.deadline.between(now, cutoff),
                     )

@@ -103,12 +103,19 @@ def _make_opportunity(
     *,
     first_seen_at: datetime,
     deadline: datetime | None = None,
+    posted_at: datetime | None = None,
+    category: str | None = None,
+    title: str = "Test Opportunity",
+    title_normalized: str | None = None,
 ) -> models.Opportunity:
     opp = models.Opportunity(
         slug=f"notif-test-opp-{uuid.uuid4()}",
         company_id=company.id,
-        title="Test Opportunity",
+        title=title,
+        title_normalized=title_normalized,
+        category=category,
         apply_url="https://example.com/apply",
+        posted_at=posted_at,
         deadline=deadline,
         first_seen_at=first_seen_at,
         last_seen_at=first_seen_at,
@@ -215,6 +222,189 @@ def test_digest_excludes_already_instant_alerted_opportunities(
         assert opp.id not in notification.meta["opportunity_ids"]
 
 
+def test_digest_excludes_stale_dream_company_matches(
+    db_session, sent_emails, free_plan, source_and_company
+) -> None:
+    _source, company = source_and_company
+    user = _make_user(db_session)
+    now = datetime(2030, 1, 1, 12, tzinfo=timezone.utc)
+    stale = _make_opportunity(
+        db_session,
+        company,
+        first_seen_at=now - timedelta(minutes=30),
+        posted_at=now - timedelta(days=366),
+        category="job",
+    )
+    db_session.add(models.DreamCompany(user_id=user.id, company_id=company.id))
+    db_session.flush()
+
+    result = send_daily_digests(db_session, now=now)
+
+    assert stale.deadline is None
+    assert not any(email["to"] == user.email for email in sent_emails)
+    assert result["skipped_empty"] >= 1
+
+
+def test_generic_digest_prioritizes_student_quality_and_keeps_unranked_companies(
+    db_session: Session,
+) -> None:
+    suffix = uuid.uuid4().hex
+    now = datetime(2030, 1, 1, 12, tzinfo=timezone.utc)
+    since = now - timedelta(hours=1)
+    ranked_one = models.Company(
+        slug=f"notif-quality-ranked-one-{suffix}",
+        name=f"Digest Quality Ranked One {suffix}",
+        prestige_rank=1,
+    )
+    ranked_two = models.Company(
+        slug=f"notif-quality-ranked-two-{suffix}",
+        name=f"Digest Quality Ranked Two {suffix}",
+        prestige_rank=2,
+    )
+    ranked_five = models.Company(
+        slug=f"notif-quality-ranked-five-{suffix}",
+        name=f"Digest Quality Ranked Five {suffix}",
+        prestige_rank=5,
+    )
+    unranked = models.Company(
+        slug=f"notif-quality-unranked-{suffix}",
+        name=f"Digest Quality Unranked {suffix}",
+    )
+
+    old_future_deadline_internship = models.Opportunity(
+        slug=f"notif-quality-old-future-internship-{suffix}",
+        title="Backend Intern",
+        title_normalized="backend intern",
+        company=ranked_two,
+        category="internship",
+        apply_url=f"https://example.com/notif-quality/old-future/{suffix}",
+        posted_at=now - timedelta(days=500),
+        deadline=now + timedelta(days=10),
+        first_seen_at=now - timedelta(minutes=12),
+        last_seen_at=now,
+        status="active",
+    )
+    ranked_internship = models.Opportunity(
+        slug=f"notif-quality-ranked-internship-{suffix}",
+        title="Software Engineering Intern",
+        title_normalized="software engineering intern",
+        company=ranked_five,
+        category="internship",
+        apply_url=f"https://example.com/notif-quality/ranked-internship/{suffix}",
+        posted_at=now - timedelta(days=10),
+        first_seen_at=now - timedelta(minutes=10),
+        last_seen_at=now,
+        status="active",
+    )
+    unranked_internship = models.Opportunity(
+        slug=f"notif-quality-unranked-internship-{suffix}",
+        title="Product Intern",
+        title_normalized="product intern",
+        company=unranked,
+        category="internship",
+        apply_url=f"https://example.com/notif-quality/unranked-internship/{suffix}",
+        posted_at=now - timedelta(days=5),
+        first_seen_at=now - timedelta(minutes=1),
+        last_seen_at=now,
+        status="active",
+    )
+    newer_ranked_job = models.Opportunity(
+        slug=f"notif-quality-newer-job-{suffix}",
+        title="Software Engineer",
+        title_normalized="software engineer",
+        company=ranked_one,
+        category="job",
+        apply_url=f"https://example.com/notif-quality/newer-job/{suffix}",
+        posted_at=now - timedelta(days=5),
+        first_seen_at=now - timedelta(minutes=2),
+        last_seen_at=now,
+        status="active",
+    )
+    older_ranked_job = models.Opportunity(
+        slug=f"notif-quality-older-job-{suffix}",
+        title="Backend Engineer",
+        title_normalized="backend engineer",
+        company=ranked_one,
+        category="job",
+        apply_url=f"https://example.com/notif-quality/older-job/{suffix}",
+        posted_at=now - timedelta(days=5),
+        first_seen_at=now - timedelta(minutes=20),
+        last_seen_at=now,
+        status="active",
+    )
+    senior_job = models.Opportunity(
+        slug=f"notif-quality-senior-{suffix}",
+        title="Senior Staff Engineer",
+        title_normalized="senior staff engineer",
+        company=ranked_one,
+        category="job",
+        apply_url=f"https://example.com/notif-quality/senior/{suffix}",
+        posted_at=now - timedelta(days=5),
+        first_seen_at=now - timedelta(minutes=1),
+        last_seen_at=now,
+        status="active",
+    )
+    stale_internship = models.Opportunity(
+        slug=f"notif-quality-stale-{suffix}",
+        title="Stale Intern",
+        title_normalized="stale intern",
+        company=ranked_one,
+        category="internship",
+        apply_url=f"https://example.com/notif-quality/stale/{suffix}",
+        posted_at=now - timedelta(days=500),
+        first_seen_at=now,
+        last_seen_at=now,
+        status="active",
+    )
+    competition = models.Opportunity(
+        slug=f"notif-quality-competition-{suffix}",
+        title="Fresh Competition",
+        title_normalized="fresh competition",
+        company=ranked_one,
+        category="competition",
+        apply_url=f"https://example.com/notif-quality/competition/{suffix}",
+        posted_at=now - timedelta(days=5),
+        first_seen_at=now,
+        last_seen_at=now,
+        status="active",
+    )
+    db_session.add_all(
+        [
+            ranked_one,
+            ranked_two,
+            ranked_five,
+            unranked,
+            old_future_deadline_internship,
+            ranked_internship,
+            unranked_internship,
+            newer_ranked_job,
+            older_ranked_job,
+            senior_job,
+            stale_internship,
+            competition,
+        ]
+    )
+    db_session.flush()
+
+    opportunities = notifications_module._generic_recent_opportunities(
+        db_session,
+        since,
+        limit=5,
+        now=now,
+    )
+
+    assert [opportunity.slug for opportunity in opportunities] == [
+        old_future_deadline_internship.slug,
+        ranked_internship.slug,
+        unranked_internship.slug,
+        newer_ranked_job.slug,
+        older_ranked_job.slug,
+    ]
+    assert senior_job.slug not in {opportunity.slug for opportunity in opportunities}
+    assert stale_internship.slug not in {opportunity.slug for opportunity in opportunities}
+    assert competition.slug not in {opportunity.slug for opportunity in opportunities}
+
+
 def test_digest_skipped_when_plan_does_not_grant_it(
     db_session, sent_emails, source_and_company
 ) -> None:
@@ -303,6 +493,29 @@ def test_instant_alert_ignores_opportunities_outside_lookback_window(
 
     send_instant_alerts(db_session)
 
+    assert not any(e["to"] == user.email for e in sent_emails)
+
+
+def test_instant_alert_excludes_stale_dream_company_matches(
+    db_session, sent_emails, pro_plan, source_and_company
+) -> None:
+    _source, company = source_and_company
+    user = _make_user(db_session)
+    now = datetime(2030, 1, 1, 12, tzinfo=timezone.utc)
+    db_session.add(models.Subscription(user_id=user.id, plan_id=pro_plan.id, status="active"))
+    stale = _make_opportunity(
+        db_session,
+        company,
+        first_seen_at=now - timedelta(minutes=30),
+        posted_at=now - timedelta(days=366),
+        category="job",
+    )
+    db_session.add(models.DreamCompany(user_id=user.id, company_id=company.id))
+    db_session.flush()
+
+    send_instant_alerts(db_session, now=now)
+
+    assert stale.deadline is None
     assert not any(e["to"] == user.email for e in sent_emails)
 
 
@@ -429,6 +642,27 @@ def test_closing_soon_alert_is_deduplicated_per_opportunity(
         ).all()
     )
     assert len(notifications) == 1
+
+
+def test_closing_soon_keeps_old_listing_with_future_deadline(
+    db_session, sent_emails, source_and_company
+) -> None:
+    _source, company = source_and_company
+    now = datetime(2030, 1, 1, 12, tzinfo=timezone.utc)
+    user = _make_user(db_session)
+    opportunity = _make_opportunity(
+        db_session,
+        company,
+        first_seen_at=now,
+        posted_at=now - timedelta(days=500),
+        deadline=now + timedelta(days=2),
+    )
+    db_session.add(models.Bookmark(user_id=user.id, opportunity_id=opportunity.id))
+    db_session.flush()
+
+    send_closing_soon_alerts(db_session, now=now)
+
+    assert any(email["to"] == user.email for email in sent_emails)
 
 
 def test_closing_soon_alert_respects_notification_preference(

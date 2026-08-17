@@ -15,12 +15,13 @@ from sqlalchemy.orm import Session
 
 from api.deps import get_db
 from api.filters import (
-    SENIOR_TITLE_PATTERN,
     SOURCE_GROUPS,
     exclude_closed_competitions,
+    exclude_stale_opportunities,
     experience_filters,
     location_scope_filters,
     opportunity_filters,
+    student_rank_expression,
 )
 from api.opportunity_loading import opportunity_list_load_options
 from api.schemas import FeedResponse, OpportunityListItem
@@ -49,6 +50,7 @@ def get_feed(
 ) -> FeedResponse:
     base_filters = [
         models.Opportunity.status == "active",
+        exclude_stale_opportunities(),
         exclude_closed_competitions(),
         *opportunity_filters(category, remote, company, location, top),
         *experience_filters(experience),
@@ -109,19 +111,7 @@ def get_feed(
         )
         ordering.append(roles_first.asc())
 
-    student_rank = case(
-        (models.Opportunity.category == "internship", 0),
-        (
-            and_(
-                models.Opportunity.category == "job",
-                func.coalesce(models.Opportunity.title_normalized, "").op("~*")(
-                    SENIOR_TITLE_PATTERN
-                ),
-            ),
-            2,
-        ),
-        else_=1,
-    )
+    student_rank = student_rank_expression()
 
     if sort == "deadline":
         open_deadline = case(

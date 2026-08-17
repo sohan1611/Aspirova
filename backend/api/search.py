@@ -20,6 +20,7 @@ from api.deps import get_db
 from api.filters import (
     SOURCE_GROUPS,
     exclude_closed_competitions,
+    exclude_stale_opportunities,
     experience_filters,
     location_scope_filters,
     opportunity_filters,
@@ -56,6 +57,7 @@ def search_opportunities(
     extra_filters = opportunity_filters(category, remote, company, location, top)
     base_filters = [
         models.Opportunity.status == "active",
+        exclude_stale_opportunities(),
         exclude_closed_competitions(),
         *extra_filters,
         *experience_filters(experience),
