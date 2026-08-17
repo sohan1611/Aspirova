@@ -5,6 +5,7 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from api.deps import get_db
+from api.filters import exclude_stale_opportunities
 from api.opportunity_loading import opportunity_list_load_options
 from api.schemas import (
     CompanyListItem,
@@ -33,7 +34,8 @@ def list_top_companies(
         .join(
             models.Opportunity,
             (models.Opportunity.company_id == models.Company.id)
-            & (models.Opportunity.status == "active"),
+            & (models.Opportunity.status == "active")
+            & exclude_stale_opportunities(),
         )
         .where(models.Company.prestige_rank.is_not(None))
         .group_by(
@@ -73,7 +75,8 @@ def list_companies(db: Session = Depends(get_db)) -> list[CompanyListItem]:
         .join(
             models.Opportunity,
             (models.Opportunity.company_id == models.Company.id)
-            & (models.Opportunity.status == "active"),
+            & (models.Opportunity.status == "active")
+            & exclude_stale_opportunities(),
         )
         .group_by(
             models.Company.id,
@@ -115,6 +118,7 @@ def get_company_page(
         .where(
             models.Opportunity.company_id == company.id,
             models.Opportunity.status == "active",
+            exclude_stale_opportunities(),
         )
         .order_by(models.Opportunity.first_seen_at.desc(), models.Opportunity.id.desc())
     )

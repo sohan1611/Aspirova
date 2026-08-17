@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from api import middleware, trending
 from api.deps import get_db
+from api.filters import STALE_AFTER_DAYS
 from api.main import app
 from core import models
 
@@ -43,6 +44,7 @@ def _opportunity(
     *,
     category: str = "job",
     status: str = "active",
+    posted_at: datetime | None = None,
     deadline: datetime | None = None,
     meta: dict[str, bool] | None = None,
 ) -> models.Opportunity:
@@ -53,6 +55,7 @@ def _opportunity(
         category=category,
         apply_url=f"https://example.com/trending/{name}/{suffix}",
         status=status,
+        posted_at=posted_at,
         deadline=deadline,
         meta=meta,
         last_seen_at=datetime.now(UTC),
@@ -132,7 +135,7 @@ def test_opportunity_view_endpoint_returns_404_for_unknown_slug(
     assert response.status_code == 404
 
 
-def test_trending_excludes_inactive_and_closed_opportunities(
+def test_trending_excludes_stale_inactive_and_closed_opportunities(
     client: TestClient,
     db_session: Session,
 ) -> None:
@@ -144,6 +147,13 @@ def test_trending_excludes_inactive_and_closed_opportunities(
     )
     visible = _opportunity(suffix, "visible", company)
     inactive = _opportunity(suffix, "inactive", company, status="inactive")
+    stale = _opportunity(
+        suffix,
+        "stale",
+        company,
+        posted_at=now - timedelta(days=STALE_AFTER_DAYS + 1),
+    )
+    unknown_posted_at = _opportunity(suffix, "null-posted-at", company, posted_at=None)
     closed_competition = _opportunity(
         suffix,
         "closed-competition",
@@ -152,12 +162,14 @@ def test_trending_excludes_inactive_and_closed_opportunities(
         deadline=now - timedelta(days=15),
         meta={"offers_ppi": True},
     )
-    db_session.add_all([company, visible, inactive, closed_competition])
+    db_session.add_all([company, visible, inactive, stale, unknown_posted_at, closed_competition])
     db_session.flush()
     db_session.add_all(
         [
             models.OpportunityViewCount(opportunity_id=visible.id, views=20_000),
             models.OpportunityViewCount(opportunity_id=inactive.id, views=30_000),
+            models.OpportunityViewCount(opportunity_id=stale.id, views=40_000),
+            models.OpportunityViewCount(opportunity_id=unknown_posted_at.id, views=20_001),
             models.OpportunityViewCount(
                 opportunity_id=closed_competition.id,
                 views=30_000,
@@ -171,5 +183,7 @@ def test_trending_excludes_inactive_and_closed_opportunities(
     assert response.status_code == 200
     slugs = {item["slug"] for item in response.json()["items"]}
     assert visible.slug in slugs
+    assert unknown_posted_at.slug in slugs
     assert inactive.slug not in slugs
+    assert stale.slug not in slugs
     assert closed_competition.slug not in slugs

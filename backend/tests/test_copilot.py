@@ -1,6 +1,7 @@
 """Integration tests for the gated, bounded, grounded Career Copilot."""
 
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -11,6 +12,7 @@ import pipeline.copilot as copilot_pipeline
 from api import copilot as copilot_api
 from api.auth import get_current_user
 from api.deps import get_db
+from api.filters import STALE_AFTER_DAYS
 from api.main import app
 from core import models
 from core.ai_client import GenerationResult
@@ -118,6 +120,15 @@ def seeded(db_session: Session):
         embedding=query_vector,
         embedding_model=get_settings().ai_embedding_model,
     )
+    stale = models.Opportunity(
+        slug=f"copilot-stale-{suffix}",
+        title=f"Stale Exact Match {suffix}",
+        apply_url=f"https://example.com/copilot/stale/{suffix}",
+        status="active",
+        posted_at=datetime.now(UTC) - timedelta(days=STALE_AFTER_DAYS + 1),
+        embedding=query_vector,
+        embedding_model=get_settings().ai_embedding_model,
+    )
     missing_embedding = models.Opportunity(
         slug=f"copilot-no-embedding-{suffix}",
         title=f"Missing Embedding {suffix}",
@@ -125,7 +136,9 @@ def seeded(db_session: Session):
         status="active",
         embedding=None,
     )
-    db_session.add_all([pro_plan, user, company, nearest, farthest, inactive, missing_embedding])
+    db_session.add_all(
+        [pro_plan, user, company, nearest, farthest, inactive, stale, missing_embedding]
+    )
     db_session.flush()
     return {
         "pro_plan": pro_plan,
@@ -134,6 +147,7 @@ def seeded(db_session: Session):
         "nearest": nearest,
         "farthest": farthest,
         "inactive": inactive,
+        "stale": stale,
         "missing_embedding": missing_embedding,
     }
 
@@ -259,6 +273,7 @@ def test_keyed_answer_is_grounded_in_cosine_top_k(
     assert seeded["nearest"].title in captured["prompt"]
     assert seeded["nearest"].apply_url in captured["prompt"]
     assert seeded["inactive"].title not in captured["prompt"]
+    assert seeded["stale"].title not in captured["prompt"]
     assert seeded["missing_embedding"].title not in captured["prompt"]
     assert "Never invent or fabricate" in captured["system"]
     assert "Keep the answer brief" in captured["system"]

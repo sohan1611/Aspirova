@@ -94,6 +94,7 @@ export interface OpportunityDetail extends OpportunityListItem {
   summary: string | null;
   apply_url: string;
   skills: string[];
+  is_stale: boolean;
   reopen_estimate?: {
     window: string;
     basis: "historical" | "curated";

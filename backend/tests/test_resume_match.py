@@ -1,6 +1,7 @@
 """Integration tests for Pro-gated, zero-generation resume cosine matching."""
 
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -10,6 +11,7 @@ from sqlalchemy.orm import Session
 import pipeline.resume_match as resume_match_module
 from api.auth import get_current_user
 from api.deps import get_db
+from api.filters import STALE_AFTER_DAYS
 from api.main import app
 from core import models
 from core.config import get_settings
@@ -64,6 +66,7 @@ def seeded(db_session: Session):
         company=company,
         title="Backend Engineering Internship",
         apply_url="https://example.com/resume-match-apply",
+        status="active",
         embedding=[1.0] + [0.0] * 1535,
         embedding_model=get_settings().ai_embedding_model,
     )
@@ -125,6 +128,24 @@ def test_match_orders_by_cosine_excludes_null_and_creates_no_generation_usage(
         slug=f"resume-match-nearest-{suffix}",
         title="Nearest Resume Match",
         apply_url="https://example.com/nearest",
+        status="active",
+        embedding=resume_vector,
+        embedding_model=get_settings().ai_embedding_model,
+    )
+    stale_exact_match = models.Opportunity(
+        slug=f"resume-match-stale-{suffix}",
+        title="Stale Exact Resume Match",
+        apply_url="https://example.com/stale",
+        status="active",
+        posted_at=datetime.now(UTC) - timedelta(days=STALE_AFTER_DAYS + 1),
+        embedding=resume_vector,
+        embedding_model=get_settings().ai_embedding_model,
+    )
+    inactive_exact_match = models.Opportunity(
+        slug=f"resume-match-inactive-{suffix}",
+        title="Inactive Exact Resume Match",
+        apply_url="https://example.com/inactive",
+        status="closed",
         embedding=resume_vector,
         embedding_model=get_settings().ai_embedding_model,
     )
@@ -132,6 +153,7 @@ def test_match_orders_by_cosine_excludes_null_and_creates_no_generation_usage(
         slug=f"resume-match-orthogonal-{suffix}",
         title="Orthogonal Resume Match",
         apply_url="https://example.com/orthogonal",
+        status="active",
         embedding=orthogonal_vector,
         embedding_model=get_settings().ai_embedding_model,
     )
@@ -139,6 +161,7 @@ def test_match_orders_by_cosine_excludes_null_and_creates_no_generation_usage(
         slug=f"resume-match-farthest-{suffix}",
         title="Farthest Resume Match",
         apply_url="https://example.com/farthest",
+        status="active",
         embedding=[-value for value in resume_vector],
         embedding_model=get_settings().ai_embedding_model,
     )
@@ -146,9 +169,19 @@ def test_match_orders_by_cosine_excludes_null_and_creates_no_generation_usage(
         slug=f"resume-match-null-{suffix}",
         title="Missing Resume Embedding",
         apply_url="https://example.com/missing",
+        status="active",
         embedding=None,
     )
-    db_session.add_all([nearest, orthogonal, farthest, missing_embedding])
+    db_session.add_all(
+        [
+            nearest,
+            stale_exact_match,
+            inactive_exact_match,
+            orthogonal,
+            farthest,
+            missing_embedding,
+        ]
+    )
     db_session.flush()
 
     usage_after_embed = list(
@@ -162,7 +195,10 @@ def test_match_orders_by_cosine_excludes_null_and_creates_no_generation_usage(
 
     assert matches[0][0].slug == nearest.slug
     assert matches[0][1] == pytest.approx(1.0)
-    assert missing_embedding.slug not in {opportunity.slug for opportunity, _score in matches}
+    matched_slugs = {opportunity.slug for opportunity, _score in matches}
+    assert stale_exact_match.slug not in matched_slugs
+    assert inactive_exact_match.slug not in matched_slugs
+    assert missing_embedding.slug not in matched_slugs
     usage_after_match = list(
         db_session.scalars(
             select(models.AiUsage).where(models.AiUsage.id > baseline_usage_id)

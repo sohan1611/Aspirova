@@ -308,6 +308,7 @@ class OpportunityDetail(OpportunityListItem):
     apply_url: str
     skills: list[str] = []
     reopen_estimate: ReopenEstimateSchema | None = None
+    is_stale: bool = False
 
     @classmethod
     def from_model(
@@ -315,6 +316,7 @@ class OpportunityDetail(OpportunityListItem):
         o: "models.Opportunity",
         *,
         reopen_estimate: ReopenEstimateSchema | None = None,
+        is_stale: bool = False,
     ) -> "OpportunityDetail":
         return cls(
             slug=o.slug,
@@ -337,6 +339,7 @@ class OpportunityDetail(OpportunityListItem):
             apply_url=o.apply_url,
             skills=list(o.skills or []),
             reopen_estimate=reopen_estimate,
+            is_stale=is_stale,
         )
 
 

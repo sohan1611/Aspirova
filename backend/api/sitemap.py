@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from api.deps import get_db
+from api.filters import exclude_stale_opportunities
 from api.schemas import SitemapCompany, SitemapOpportunity
 from core import models
 
@@ -17,7 +18,10 @@ SITEMAP_OPPORTUNITY_LIMIT = 5000
 def get_sitemap_opportunities(db: Session = Depends(get_db)) -> list[SitemapOpportunity]:
     rows = db.execute(
         select(models.Opportunity.slug, models.Opportunity.last_seen_at)
-        .where(models.Opportunity.status == "active")
+        .where(
+            models.Opportunity.status == "active",
+            exclude_stale_opportunities(),
+        )
         .order_by(models.Opportunity.last_seen_at.desc(), models.Opportunity.slug.asc())
         .limit(SITEMAP_OPPORTUNITY_LIMIT)
     ).all()
@@ -29,7 +33,10 @@ def get_sitemap_companies(db: Session = Depends(get_db)) -> list[SitemapCompany]
     rows = db.execute(
         select(models.Company.slug)
         .join(models.Opportunity, models.Opportunity.company_id == models.Company.id)
-        .where(models.Opportunity.status == "active")
+        .where(
+            models.Opportunity.status == "active",
+            exclude_stale_opportunities(),
+        )
         .distinct()
         .order_by(models.Company.slug.asc())
     ).all()

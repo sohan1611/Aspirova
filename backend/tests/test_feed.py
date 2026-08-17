@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from api import middleware
 from api.deps import get_db
+from api.filters import STALE_AFTER_DAYS
 from api.main import app
 from core import models
 
@@ -53,7 +54,7 @@ def test_promoted_surfaces_exclude_stale_rows_but_detail_remains_reachable(
         category="job",
         location=location_token,
         apply_url=f"https://example.com/stale-promoted/stale/{suffix}",
-        posted_at=now - timedelta(days=366),
+        posted_at=now - timedelta(days=STALE_AFTER_DAYS + 1),
         deadline=None,
         status="active",
         first_seen_at=now,
@@ -66,8 +67,21 @@ def test_promoted_surfaces_exclude_stale_rows_but_detail_remains_reachable(
         category="job",
         location=location_token,
         apply_url=f"https://example.com/stale-promoted/future/{suffix}",
-        posted_at=now - timedelta(days=366),
+        posted_at=now - timedelta(days=STALE_AFTER_DAYS + 1),
         deadline=now + timedelta(days=10),
+        status="active",
+        first_seen_at=now,
+        last_seen_at=now,
+    )
+    unknown_posted_at = models.Opportunity(
+        slug=f"stale-promoted-null-posted-at-{suffix}",
+        title=f"{term} null posted_at role",
+        company=company,
+        category="job",
+        location=location_token,
+        apply_url=f"https://example.com/stale-promoted/null-posted-at/{suffix}",
+        posted_at=None,
+        deadline=None,
         status="active",
         first_seen_at=now,
         last_seen_at=now,
@@ -85,7 +99,7 @@ def test_promoted_surfaces_exclude_stale_rows_but_detail_remains_reachable(
         first_seen_at=now,
         last_seen_at=now,
     )
-    db_session.add_all([company, stale, old_with_future_deadline, recent])
+    db_session.add_all([company, stale, old_with_future_deadline, unknown_posted_at, recent])
     db_session.flush()
 
     feed = client.get("/feed", params={"location": location_token, "limit": 10})
@@ -99,12 +113,25 @@ def test_promoted_surfaces_exclude_stale_rows_but_detail_remains_reachable(
     assert feed.status_code == 200
     assert search.status_code == 200
     assert for_you.status_code == 200
-    expected_promoted_slugs = {old_with_future_deadline.slug, recent.slug}
-    assert feed.json()["total"] == 2
+    expected_promoted_slugs = {
+        old_with_future_deadline.slug,
+        unknown_posted_at.slug,
+        recent.slug,
+    }
+    assert feed.json()["total"] == 3
     assert {item["slug"] for item in feed.json()["items"]} == expected_promoted_slugs
-    assert search.json()["total"] == 2
+    assert search.json()["total"] == 3
     assert {item["slug"] for item in search.json()["items"]} == expected_promoted_slugs
-    assert for_you.json()["total"] == 2
+    assert for_you.json()["total"] == 3
     assert {item["slug"] for item in for_you.json()["items"]} == expected_promoted_slugs
     assert detail.status_code == 200
     assert detail.json()["slug"] == stale.slug
+    assert detail.json()["is_stale"] is True
+
+    current_detail = client.get(f"/opportunity/{old_with_future_deadline.slug}")
+    null_posted_at_detail = client.get(f"/opportunity/{unknown_posted_at.slug}")
+
+    assert current_detail.status_code == 200
+    assert current_detail.json()["is_stale"] is False
+    assert null_posted_at_detail.status_code == 200
+    assert null_posted_at_detail.json()["is_stale"] is False
