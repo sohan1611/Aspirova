@@ -430,6 +430,60 @@ def test_run_tier_never_lets_one_aggregator_consume_the_group_budget(monkeypatch
     assert calls[0][1] == pytest.approx(300.0)
 
 
+def test_run_tier_gives_a_slow_aggregator_the_time_the_others_do_not_need(
+    monkeypatch,
+) -> None:
+    """Reserving a floor beats dividing the group evenly.
+
+    Measured on the 2026-08-17 crawl: an even split gave all three aggregators
+    2900s of an 8700s ceiling, so unstop truncated at 95.4% coverage after 2904s
+    while devpost finished in 130s and remoteok in 240s. The slow source was
+    starved so surplus could be handed to two that did not need it.
+
+    The first source should now receive nearly the whole group budget, with only
+    a floor held back for each source behind it.
+    """
+    sources = [
+        SimpleNamespace(id=1, adapter_key="unstop"),
+        SimpleNamespace(id=2, adapter_key="devpost"),
+        SimpleNamespace(id=3, adapter_key="remoteok"),
+    ]
+    session_factory = _SessionFactory(sources, [])
+    calls: list[tuple[str, float]] = []
+    monotonic_values = iter([0.0, 0.0, 3_100.0, 3_230.0])
+
+    def fake_crawl_aggregator(_session, source, _adapter_class, *, max_seconds, **_kwargs):
+        calls.append((source.adapter_key, max_seconds))
+        return {}
+
+    monkeypatch.setattr(runner, "make_engine", lambda: object())
+    monkeypatch.setattr(runner, "verify_connection_guards", lambda _engine: None)
+    monkeypatch.setattr(runner, "Session", session_factory)
+    monkeypatch.setattr(runner, "crawl_aggregator", fake_crawl_aggregator)
+    monkeypatch.setattr(runner.time, "monotonic", lambda: next(monotonic_values))
+    monkeypatch.setattr(runner, "_refresh_prestige_matches", lambda _engine: None)
+
+    runner.run_tier(
+        1,
+        group="aggregator",
+        aggregator_max_seconds=7_200.0,
+        aggregator_group_max_seconds=8_700.0,
+    )
+
+    assert len(calls) == 3
+    first_budget = calls[0][1]
+    # Far more than an even split (8700/3 = 2900), which is what truncated unstop.
+    assert first_budget > 5_000.0, (
+        f"first aggregator got {first_budget}s; an even split would starve the one "
+        "source that actually needs the time"
+    )
+    # Every source behind it still gets a workable slice.
+    for adapter_key, budget in calls[1:]:
+        assert (
+            budget >= runner.AGGREGATOR_MIN_RESERVE_SECONDS
+        ), f"{adapter_key} got {budget}s, below the reserved floor"
+
+
 def test_run_tier_summarizes_truncated_aggregators(monkeypatch, capsys) -> None:
     source = SimpleNamespace(id=1, adapter_key="unstop")
     session_factory = _SessionFactory([source], [])

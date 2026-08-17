@@ -89,6 +89,11 @@ DEFAULT_AGGREGATOR_MAX_SECONDS = 7200.0
 # backstop; it must not turn back into the shared pool that let Unstop consume
 # every aggregator minute and starve Devpost/RemoteOK.
 DEFAULT_AGGREGATOR_GROUP_MAX_SECONDS = 8700.0
+# Time held back for each aggregator still waiting its turn, so a slow source
+# cannot skip them. Measured against real runs: devpost completes in ~130s and
+# remoteok in ~240s, so 600s is several times what either has ever needed while
+# leaving the bulk of the group budget to whichever source actually needs it.
+AGGREGATOR_MIN_RESERVE_SECONDS = 600.0
 # Soft wall-clock budget for the WHOLE ATS phase (prefetch + ingest), armed
 # before the prefetch below. This is no longer an Actions-minute rationing
 # guard; the public repo gets standard runners without the old private-repo
@@ -1434,14 +1439,28 @@ def run_tier(
         # skipped by the `break` above - the exact starvation that left devpost
         # and remoteok 11 days stale while unstop ate the shared budget.
         #
-        # So each source may take at most its FAIR SHARE of the time still
-        # remaining, computed fresh each iteration. A source that finishes early
-        # hands its unused time to the ones behind it, and no source can spend
-        # time that a later source still needs.
+        # So the current source may use everything still remaining EXCEPT a
+        # reserve held back for each source behind it. That guarantees no source
+        # is skipped, without the waste of dividing the group evenly.
+        #
+        # Even division was measured and found wanting: with 3 aggregators and an
+        # 8700s ceiling each got 2900s, so unstop truncated at 95.4% coverage
+        # after 2904s while devpost finished in 130s and remoteok in 240s. The
+        # slow source was starved to hand surplus to two that did not need it.
+        # Reserving a floor instead gives unstop ~7500s and still leaves devpost
+        # and remoteok far more than they have ever used.
         sources_remaining = len(aggregator_jobs) - job_index
+        sources_behind = sources_remaining - 1
         group_time_remaining = aggregator_group_deadline_monotonic - now_monotonic
-        fair_share_seconds = group_time_remaining / sources_remaining
-        source_budget_seconds = min(aggregator_max_seconds, fair_share_seconds)
+        available_seconds = group_time_remaining - (AGGREGATOR_MIN_RESERVE_SECONDS * sources_behind)
+        # The floor is itself capped at an even split of what is left. Without
+        # that cap, a group ceiling smaller than reserve x sources would hand out
+        # deadlines PAST the group deadline, and the `break` above would skip the
+        # sources behind - reintroducing the starvation this exists to prevent.
+        floor_seconds = min(
+            AGGREGATOR_MIN_RESERVE_SECONDS, group_time_remaining / sources_remaining
+        )
+        source_budget_seconds = min(aggregator_max_seconds, max(available_seconds, floor_seconds))
         source_deadline_monotonic = now_monotonic + source_budget_seconds
         with Session(engine, expire_on_commit=False) as session:
             source = session.get(models.Source, source_id)
