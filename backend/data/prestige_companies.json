@@ -1,128 +1,1217 @@
 [
-  {"prestige_rank": 1, "name": "Google", "domain": "google.com"},
-  {"prestige_rank": 2, "name": "Microsoft", "domain": "microsoft.com"},
-  {"prestige_rank": 3, "name": "Apple", "domain": "apple.com"},
-  {"prestige_rank": 4, "name": "Amazon", "domain": "amazon.com"},
-  {"prestige_rank": 5, "name": "Meta", "domain": "meta.com"},
-  {"prestige_rank": 6, "name": "Nvidia", "domain": "nvidia.com"},
-  {"prestige_rank": 7, "name": "OpenAI", "domain": "openai.com"},
-  {"prestige_rank": 8, "name": "Netflix", "domain": "netflix.com"},
-  {"prestige_rank": 9, "name": "Tesla", "domain": "tesla.com"},
-  {"prestige_rank": 10, "name": "Anthropic", "domain": "anthropic.com"},
-  {"prestige_rank": 11, "name": "Alphabet", "domain": "abc.xyz"},
-  {"prestige_rank": 12, "name": "Stripe", "domain": "stripe.com"},
-  {"prestige_rank": 13, "name": "Databricks", "domain": "databricks.com"},
-  {"prestige_rank": 14, "name": "Uber", "domain": "uber.com"},
-  {"prestige_rank": 15, "name": "Airbnb", "domain": "airbnb.com"},
-  {"prestige_rank": 16, "name": "Salesforce", "domain": "salesforce.com"},
-  {"prestige_rank": 17, "name": "Adobe", "domain": "adobe.com"},
-  {"prestige_rank": 18, "name": "Snowflake", "domain": "snowflake.com"},
-  {"prestige_rank": 19, "name": "Palantir", "domain": "palantir.com"},
-  {"prestige_rank": 20, "name": "Coinbase", "domain": "coinbase.com"},
-  {"prestige_rank": 21, "name": "Figma", "domain": "figma.com"},
-  {"prestige_rank": 22, "name": "Notion", "domain": "notion.so"},
-  {"prestige_rank": 23, "name": "Perplexity", "domain": "perplexity.ai"},
-  {"prestige_rank": 24, "name": "Cohere", "domain": "cohere.com"},
-  {"prestige_rank": 25, "name": "Scale AI", "domain": "scale.com"},
-  {"prestige_rank": 26, "name": "Cloudflare", "domain": "cloudflare.com"},
-  {"prestige_rank": 27, "name": "MongoDB", "domain": "mongodb.com"},
-  {"prestige_rank": 28, "name": "Datadog", "domain": "datadoghq.com"},
-  {"prestige_rank": 29, "name": "Ramp", "domain": "ramp.com"},
-  {"prestige_rank": 30, "name": "Instacart", "domain": "instacart.com"},
-  {"prestige_rank": 31, "name": "DoorDash", "domain": "doordash.com"},
-  {"prestige_rank": 32, "name": "Dropbox", "domain": "dropbox.com"},
-  {"prestige_rank": 33, "name": "Lyft", "domain": "lyft.com"},
-  {"prestige_rank": 34, "name": "Spotify", "domain": "spotify.com"},
-  {"prestige_rank": 35, "name": "Reddit", "domain": "reddit.com"},
-  {"prestige_rank": 36, "name": "Pinterest", "domain": "pinterest.com"},
-  {"prestige_rank": 37, "name": "Discord", "domain": "discord.com"},
-  {"prestige_rank": 38, "name": "Robinhood", "domain": "robinhood.com"},
-  {"prestige_rank": 39, "name": "Plaid", "domain": "plaid.com"},
-  {"prestige_rank": 40, "name": "Brex", "domain": "brex.com"},
-  {"prestige_rank": 41, "name": "Affirm", "domain": "affirm.com"},
-  {"prestige_rank": 42, "name": "Chime", "domain": "chime.com"},
-  {"prestige_rank": 43, "name": "SoFi", "domain": "sofi.com"},
-  {"prestige_rank": 45, "name": "ElevenLabs", "domain": "elevenlabs.io"},
-  {"prestige_rank": 46, "name": "Replit", "domain": "replit.com"},
-  {"prestige_rank": 47, "name": "Vanta", "domain": "vanta.com"},
-  {"prestige_rank": 48, "name": "Samsara", "domain": "samsara.com"},
-  {"prestige_rank": 49, "name": "Flexport", "domain": "flexport.com"},
-  {"prestige_rank": 50, "name": "Airtable", "domain": "airtable.com"},
-  {"prestige_rank": 51, "name": "GitLab", "domain": "gitlab.com"},
-  {"prestige_rank": 52, "name": "HashiCorp", "domain": "hashicorp.com"},
-  {"prestige_rank": 53, "name": "Confluent", "domain": "confluent.io"},
-  {"prestige_rank": 54, "name": "Elastic", "domain": "elastic.co"},
-  {"prestige_rank": 55, "name": "Twilio", "domain": "twilio.com"},
-  {"prestige_rank": 56, "name": "Asana", "domain": "asana.com"},
-  {"prestige_rank": 57, "name": "Faire", "domain": "faire.com"},
-  {"prestige_rank": 58, "name": "CockroachLabs", "domain": "cockroachlabs.com"},
-  {"prestige_rank": 59, "name": "Gemini", "domain": "gemini.com"},
-  {"prestige_rank": 60, "name": "Twitch", "domain": "twitch.tv"},
-  {"prestige_rank": 61, "name": "Modal", "domain": "modal.com"},
-  {"prestige_rank": 62, "name": "Mercor", "domain": "mercor.com"},
-  {"prestige_rank": 63, "name": "Browserbase", "domain": "browserbase.com"},
-  {"prestige_rank": 64, "name": "Sardine", "domain": "sardine.ai"},
-  {"prestige_rank": 65, "name": "Watershed", "domain": "watershed.com"},
-  {"prestige_rank": 66, "name": "Wise", "domain": "wise.com"},
-  {"prestige_rank": 67, "name": "Western Digital", "domain": "westerndigital.com"},
-  {"prestige_rank": 68, "name": "Visa", "domain": "visa.com"},
-  {"prestige_rank": 69, "name": "Mastercard", "domain": "mastercard.com"},
-  {"prestige_rank": 70, "name": "PayPal", "domain": "paypal.com"},
-  {"prestige_rank": 71, "name": "IBM", "domain": "ibm.com"},
-  {"prestige_rank": 72, "name": "Intel", "domain": "intel.com"},
-  {"prestige_rank": 73, "name": "AMD", "domain": "amd.com"},
-  {"prestige_rank": 74, "name": "Qualcomm", "domain": "qualcomm.com"},
-  {"prestige_rank": 75, "name": "Oracle", "domain": "oracle.com"},
-  {"prestige_rank": 76, "name": "SAP", "domain": "sap.com"},
-  {"prestige_rank": 77, "name": "ServiceNow", "domain": "servicenow.com"},
-  {"prestige_rank": 78, "name": "Atlassian", "domain": "atlassian.com"},
-  {"prestige_rank": 79, "name": "Shopify", "domain": "shopify.com"},
-  {"prestige_rank": 80, "name": "Block", "domain": "block.xyz"},
-  {"prestige_rank": 81, "name": "Flipkart", "domain": "flipkart.com"},
-  {"prestige_rank": 82, "name": "Zomato", "domain": "zomato.com"},
-  {"prestige_rank": 83, "name": "Swiggy", "domain": "swiggy.com"},
-  {"prestige_rank": 84, "name": "Razorpay", "domain": "razorpay.com"},
-  {"prestige_rank": 85, "name": "CRED", "domain": "cred.club"},
-  {"prestige_rank": 86, "name": "Zerodha", "domain": "zerodha.com"},
-  {"prestige_rank": 87, "name": "PhonePe", "domain": "phonepe.com"},
-  {"prestige_rank": 88, "name": "Paytm", "domain": "paytm.com"},
-  {"prestige_rank": 89, "name": "Meesho", "domain": "meesho.com"},
-  {"prestige_rank": 90, "name": "Freshworks", "domain": "freshworks.com"},
-  {"prestige_rank": 91, "name": "Zoho", "domain": "zoho.com"},
-  {"prestige_rank": 92, "name": "Postman", "domain": "postman.com"},
-  {"prestige_rank": 93, "name": "Groww", "domain": "groww.in"},
-  {"prestige_rank": 96, "name": "Goldman Sachs", "domain": "goldmansachs.com"},
-  {"prestige_rank": 97, "name": "JPMorgan Chase", "domain": "jpmorganchase.com"},
-  {"prestige_rank": 98, "name": "Morgan Stanley", "domain": "morganstanley.com"},
-  {"prestige_rank": 99, "name": "McKinsey", "domain": "mckinsey.com"},
-  {"prestige_rank": 100, "name": "Boston Consulting Group", "domain": "bcg.com"},
-  {"prestige_rank": 101, "name": "Bain", "domain": "bain.com"},
-  {"prestige_rank": 102, "name": "Deloitte", "domain": "deloitte.com"},
-  {"prestige_rank": 103, "name": "Accenture", "domain": "accenture.com"},
-  {"prestige_rank": 104, "name": "Cisco", "domain": "cisco.com"},
-  {"prestige_rank": 105, "name": "Broadcom", "domain": "broadcom.com"},
-  {"prestige_rank": 106, "name": "Texas Instruments", "domain": "ti.com"},
-  {"prestige_rank": 107, "name": "Micron", "domain": "micron.com"},
-  {"prestige_rank": 108, "name": "Samsung", "domain": "samsung.com"},
-  {"prestige_rank": 109, "name": "Sony", "domain": "sony.com"},
-  {"prestige_rank": 110, "name": "TSMC", "domain": "tsmc.com"},
-  {"prestige_rank": 112, "name": "Snap", "domain": "snap.com"},
-  {"prestige_rank": 113, "name": "ByteDance", "domain": "bytedance.com"},
-  {"prestige_rank": 114, "name": "TikTok", "domain": "tiktok.com"},
-  {"prestige_rank": 115, "name": "LinkedIn", "domain": "linkedin.com"},
-  {"prestige_rank": 116, "name": "Roblox", "domain": "roblox.com"},
-  {"prestige_rank": 117, "name": "Unity", "domain": "unity.com"},
-  {"prestige_rank": 118, "name": "Epic Games", "domain": "epicgames.com"},
-  {"prestige_rank": 119, "name": "Riot Games", "domain": "riotgames.com"},
-  {"prestige_rank": 120, "name": "Nubank", "domain": "nubank.com.br"},
-  {"prestige_rank": 121, "name": "Mercado Libre", "domain": "mercadolibre.com"},
-  {"prestige_rank": 122, "name": "Grab", "domain": "grab.com"},
-  {"prestige_rank": 123, "name": "Sea", "domain": "sea.com"},
-  {"prestige_rank": 124, "name": "Rippling", "domain": "rippling.com"},
-  {"prestige_rank": 125, "name": "Gusto", "domain": "gusto.com"},
-  {"prestige_rank": 126, "name": "Benchling", "domain": "benchling.com"},
-  {"prestige_rank": 127, "name": "Retool", "domain": "retool.com"},
-  {"prestige_rank": 128, "name": "Vercel", "domain": "vercel.com"},
-  {"prestige_rank": 129, "name": "Snyk", "domain": "snyk.io"},
-  {"prestige_rank": 130, "name": "HubSpot", "domain": "hubspot.com"}
+  {
+    "prestige_rank": 1,
+    "name": "Google",
+    "domain": "google.com"
+  },
+  {
+    "prestige_rank": 2,
+    "name": "Microsoft",
+    "domain": "microsoft.com"
+  },
+  {
+    "prestige_rank": 3,
+    "name": "Apple",
+    "domain": "apple.com"
+  },
+  {
+    "prestige_rank": 4,
+    "name": "Amazon",
+    "domain": "amazon.com"
+  },
+  {
+    "prestige_rank": 5,
+    "name": "Meta",
+    "domain": "meta.com"
+  },
+  {
+    "prestige_rank": 6,
+    "name": "Nvidia",
+    "domain": "nvidia.com"
+  },
+  {
+    "prestige_rank": 7,
+    "name": "OpenAI",
+    "domain": "openai.com"
+  },
+  {
+    "prestige_rank": 8,
+    "name": "Netflix",
+    "domain": "netflix.com"
+  },
+  {
+    "prestige_rank": 9,
+    "name": "Tesla",
+    "domain": "tesla.com"
+  },
+  {
+    "prestige_rank": 10,
+    "name": "Anthropic",
+    "domain": "anthropic.com"
+  },
+  {
+    "prestige_rank": 11,
+    "name": "Alphabet",
+    "domain": "abc.xyz"
+  },
+  {
+    "prestige_rank": 12,
+    "name": "Stripe",
+    "domain": "stripe.com"
+  },
+  {
+    "prestige_rank": 13,
+    "name": "Databricks",
+    "domain": "databricks.com"
+  },
+  {
+    "prestige_rank": 14,
+    "name": "Uber",
+    "domain": "uber.com"
+  },
+  {
+    "prestige_rank": 15,
+    "name": "Airbnb",
+    "domain": "airbnb.com"
+  },
+  {
+    "prestige_rank": 16,
+    "name": "Salesforce",
+    "domain": "salesforce.com"
+  },
+  {
+    "prestige_rank": 17,
+    "name": "Adobe",
+    "domain": "adobe.com"
+  },
+  {
+    "prestige_rank": 18,
+    "name": "Snowflake",
+    "domain": "snowflake.com"
+  },
+  {
+    "prestige_rank": 19,
+    "name": "Palantir",
+    "domain": "palantir.com"
+  },
+  {
+    "prestige_rank": 20,
+    "name": "Coinbase",
+    "domain": "coinbase.com"
+  },
+  {
+    "prestige_rank": 21,
+    "name": "Figma",
+    "domain": "figma.com"
+  },
+  {
+    "prestige_rank": 22,
+    "name": "Notion",
+    "domain": "notion.so"
+  },
+  {
+    "prestige_rank": 23,
+    "name": "Perplexity",
+    "domain": "perplexity.ai"
+  },
+  {
+    "prestige_rank": 24,
+    "name": "Cohere",
+    "domain": "cohere.com"
+  },
+  {
+    "prestige_rank": 25,
+    "name": "Scale AI",
+    "domain": "scale.com"
+  },
+  {
+    "prestige_rank": 26,
+    "name": "Cloudflare",
+    "domain": "cloudflare.com"
+  },
+  {
+    "prestige_rank": 27,
+    "name": "MongoDB",
+    "domain": "mongodb.com"
+  },
+  {
+    "prestige_rank": 28,
+    "name": "Datadog",
+    "domain": "datadoghq.com"
+  },
+  {
+    "prestige_rank": 29,
+    "name": "Ramp",
+    "domain": "ramp.com"
+  },
+  {
+    "prestige_rank": 30,
+    "name": "Instacart",
+    "domain": "instacart.com"
+  },
+  {
+    "prestige_rank": 31,
+    "name": "DoorDash",
+    "domain": "doordash.com"
+  },
+  {
+    "prestige_rank": 32,
+    "name": "Dropbox",
+    "domain": "dropbox.com"
+  },
+  {
+    "prestige_rank": 33,
+    "name": "Lyft",
+    "domain": "lyft.com"
+  },
+  {
+    "prestige_rank": 34,
+    "name": "Spotify",
+    "domain": "spotify.com"
+  },
+  {
+    "prestige_rank": 35,
+    "name": "Reddit",
+    "domain": "reddit.com"
+  },
+  {
+    "prestige_rank": 36,
+    "name": "Pinterest",
+    "domain": "pinterest.com"
+  },
+  {
+    "prestige_rank": 37,
+    "name": "Discord",
+    "domain": "discord.com"
+  },
+  {
+    "prestige_rank": 38,
+    "name": "Robinhood",
+    "domain": "robinhood.com"
+  },
+  {
+    "prestige_rank": 39,
+    "name": "Plaid",
+    "domain": "plaid.com"
+  },
+  {
+    "prestige_rank": 40,
+    "name": "Brex",
+    "domain": "brex.com"
+  },
+  {
+    "prestige_rank": 41,
+    "name": "Affirm",
+    "domain": "affirm.com"
+  },
+  {
+    "prestige_rank": 42,
+    "name": "Chime",
+    "domain": "chime.com"
+  },
+  {
+    "prestige_rank": 43,
+    "name": "SoFi",
+    "domain": "sofi.com"
+  },
+  {
+    "prestige_rank": 45,
+    "name": "ElevenLabs",
+    "domain": "elevenlabs.io"
+  },
+  {
+    "prestige_rank": 46,
+    "name": "Replit",
+    "domain": "replit.com"
+  },
+  {
+    "prestige_rank": 47,
+    "name": "Vanta",
+    "domain": "vanta.com"
+  },
+  {
+    "prestige_rank": 48,
+    "name": "Samsara",
+    "domain": "samsara.com"
+  },
+  {
+    "prestige_rank": 49,
+    "name": "Flexport",
+    "domain": "flexport.com"
+  },
+  {
+    "prestige_rank": 50,
+    "name": "Airtable",
+    "domain": "airtable.com"
+  },
+  {
+    "prestige_rank": 51,
+    "name": "GitLab",
+    "domain": "gitlab.com"
+  },
+  {
+    "prestige_rank": 52,
+    "name": "HashiCorp",
+    "domain": "hashicorp.com"
+  },
+  {
+    "prestige_rank": 53,
+    "name": "Confluent",
+    "domain": "confluent.io"
+  },
+  {
+    "prestige_rank": 54,
+    "name": "Elastic",
+    "domain": "elastic.co"
+  },
+  {
+    "prestige_rank": 55,
+    "name": "Twilio",
+    "domain": "twilio.com"
+  },
+  {
+    "prestige_rank": 56,
+    "name": "Asana",
+    "domain": "asana.com"
+  },
+  {
+    "prestige_rank": 57,
+    "name": "Faire",
+    "domain": "faire.com"
+  },
+  {
+    "prestige_rank": 58,
+    "name": "CockroachLabs",
+    "domain": "cockroachlabs.com"
+  },
+  {
+    "prestige_rank": 59,
+    "name": "Gemini",
+    "domain": "gemini.com"
+  },
+  {
+    "prestige_rank": 60,
+    "name": "Twitch",
+    "domain": "twitch.tv"
+  },
+  {
+    "prestige_rank": 61,
+    "name": "Modal",
+    "domain": "modal.com"
+  },
+  {
+    "prestige_rank": 62,
+    "name": "Mercor",
+    "domain": "mercor.com"
+  },
+  {
+    "prestige_rank": 63,
+    "name": "Browserbase",
+    "domain": "browserbase.com"
+  },
+  {
+    "prestige_rank": 64,
+    "name": "Sardine",
+    "domain": "sardine.ai"
+  },
+  {
+    "prestige_rank": 65,
+    "name": "Watershed",
+    "domain": "watershed.com"
+  },
+  {
+    "prestige_rank": 66,
+    "name": "Wise",
+    "domain": "wise.com"
+  },
+  {
+    "prestige_rank": 67,
+    "name": "Western Digital",
+    "domain": "westerndigital.com"
+  },
+  {
+    "prestige_rank": 68,
+    "name": "Visa",
+    "domain": "visa.com"
+  },
+  {
+    "prestige_rank": 69,
+    "name": "Mastercard",
+    "domain": "mastercard.com"
+  },
+  {
+    "prestige_rank": 70,
+    "name": "PayPal",
+    "domain": "paypal.com"
+  },
+  {
+    "prestige_rank": 71,
+    "name": "IBM",
+    "domain": "ibm.com"
+  },
+  {
+    "prestige_rank": 72,
+    "name": "Intel",
+    "domain": "intel.com"
+  },
+  {
+    "prestige_rank": 73,
+    "name": "AMD",
+    "domain": "amd.com"
+  },
+  {
+    "prestige_rank": 74,
+    "name": "Qualcomm",
+    "domain": "qualcomm.com"
+  },
+  {
+    "prestige_rank": 75,
+    "name": "Oracle",
+    "domain": "oracle.com"
+  },
+  {
+    "prestige_rank": 76,
+    "name": "SAP",
+    "domain": "sap.com"
+  },
+  {
+    "prestige_rank": 77,
+    "name": "ServiceNow",
+    "domain": "servicenow.com"
+  },
+  {
+    "prestige_rank": 78,
+    "name": "Atlassian",
+    "domain": "atlassian.com"
+  },
+  {
+    "prestige_rank": 79,
+    "name": "Shopify",
+    "domain": "shopify.com"
+  },
+  {
+    "prestige_rank": 80,
+    "name": "Block",
+    "domain": "block.xyz"
+  },
+  {
+    "prestige_rank": 81,
+    "name": "Flipkart",
+    "domain": "flipkart.com"
+  },
+  {
+    "prestige_rank": 82,
+    "name": "Zomato",
+    "domain": "zomato.com"
+  },
+  {
+    "prestige_rank": 83,
+    "name": "Swiggy",
+    "domain": "swiggy.com"
+  },
+  {
+    "prestige_rank": 84,
+    "name": "Razorpay",
+    "domain": "razorpay.com"
+  },
+  {
+    "prestige_rank": 85,
+    "name": "CRED",
+    "domain": "cred.club"
+  },
+  {
+    "prestige_rank": 86,
+    "name": "Zerodha",
+    "domain": "zerodha.com"
+  },
+  {
+    "prestige_rank": 87,
+    "name": "PhonePe",
+    "domain": "phonepe.com"
+  },
+  {
+    "prestige_rank": 88,
+    "name": "Paytm",
+    "domain": "paytm.com"
+  },
+  {
+    "prestige_rank": 89,
+    "name": "Meesho",
+    "domain": "meesho.com"
+  },
+  {
+    "prestige_rank": 90,
+    "name": "Freshworks",
+    "domain": "freshworks.com"
+  },
+  {
+    "prestige_rank": 91,
+    "name": "Zoho",
+    "domain": "zoho.com"
+  },
+  {
+    "prestige_rank": 92,
+    "name": "Postman",
+    "domain": "postman.com"
+  },
+  {
+    "prestige_rank": 93,
+    "name": "Groww",
+    "domain": "groww.in"
+  },
+  {
+    "prestige_rank": 96,
+    "name": "Goldman Sachs",
+    "domain": "goldmansachs.com"
+  },
+  {
+    "prestige_rank": 97,
+    "name": "JPMorgan Chase",
+    "domain": "jpmorganchase.com"
+  },
+  {
+    "prestige_rank": 98,
+    "name": "Morgan Stanley",
+    "domain": "morganstanley.com"
+  },
+  {
+    "prestige_rank": 99,
+    "name": "McKinsey",
+    "domain": "mckinsey.com"
+  },
+  {
+    "prestige_rank": 100,
+    "name": "Boston Consulting Group",
+    "domain": "bcg.com"
+  },
+  {
+    "prestige_rank": 101,
+    "name": "Bain",
+    "domain": "bain.com"
+  },
+  {
+    "prestige_rank": 102,
+    "name": "Deloitte",
+    "domain": "deloitte.com"
+  },
+  {
+    "prestige_rank": 103,
+    "name": "Accenture",
+    "domain": "accenture.com"
+  },
+  {
+    "prestige_rank": 104,
+    "name": "Cisco",
+    "domain": "cisco.com"
+  },
+  {
+    "prestige_rank": 105,
+    "name": "Broadcom",
+    "domain": "broadcom.com"
+  },
+  {
+    "prestige_rank": 106,
+    "name": "Texas Instruments",
+    "domain": "ti.com"
+  },
+  {
+    "prestige_rank": 107,
+    "name": "Micron",
+    "domain": "micron.com"
+  },
+  {
+    "prestige_rank": 108,
+    "name": "Samsung",
+    "domain": "samsung.com"
+  },
+  {
+    "prestige_rank": 109,
+    "name": "Sony",
+    "domain": "sony.com"
+  },
+  {
+    "prestige_rank": 110,
+    "name": "TSMC",
+    "domain": "tsmc.com"
+  },
+  {
+    "prestige_rank": 112,
+    "name": "Snap",
+    "domain": "snap.com"
+  },
+  {
+    "prestige_rank": 113,
+    "name": "ByteDance",
+    "domain": "bytedance.com"
+  },
+  {
+    "prestige_rank": 114,
+    "name": "TikTok",
+    "domain": "tiktok.com"
+  },
+  {
+    "prestige_rank": 115,
+    "name": "LinkedIn",
+    "domain": "linkedin.com"
+  },
+  {
+    "prestige_rank": 116,
+    "name": "Roblox",
+    "domain": "roblox.com"
+  },
+  {
+    "prestige_rank": 117,
+    "name": "Unity",
+    "domain": "unity.com"
+  },
+  {
+    "prestige_rank": 118,
+    "name": "Epic Games",
+    "domain": "epicgames.com"
+  },
+  {
+    "prestige_rank": 119,
+    "name": "Riot Games",
+    "domain": "riotgames.com"
+  },
+  {
+    "prestige_rank": 120,
+    "name": "Nubank",
+    "domain": "nubank.com.br"
+  },
+  {
+    "prestige_rank": 121,
+    "name": "Mercado Libre",
+    "domain": "mercadolibre.com"
+  },
+  {
+    "prestige_rank": 122,
+    "name": "Grab",
+    "domain": "grab.com"
+  },
+  {
+    "prestige_rank": 123,
+    "name": "Sea",
+    "domain": "sea.com"
+  },
+  {
+    "prestige_rank": 124,
+    "name": "Rippling",
+    "domain": "rippling.com"
+  },
+  {
+    "prestige_rank": 125,
+    "name": "Gusto",
+    "domain": "gusto.com"
+  },
+  {
+    "prestige_rank": 126,
+    "name": "Benchling",
+    "domain": "benchling.com"
+  },
+  {
+    "prestige_rank": 127,
+    "name": "Retool",
+    "domain": "retool.com"
+  },
+  {
+    "prestige_rank": 128,
+    "name": "Vercel",
+    "domain": "vercel.com"
+  },
+  {
+    "prestige_rank": 129,
+    "name": "Snyk",
+    "domain": "snyk.io"
+  },
+  {
+    "prestige_rank": 130,
+    "name": "HubSpot",
+    "domain": "hubspot.com"
+  },
+  {
+    "prestige_rank": 131,
+    "name": "Jane Street",
+    "domain": "janestreet.com"
+  },
+  {
+    "prestige_rank": 132,
+    "name": "Jump Trading",
+    "domain": "jumptrading.com"
+  },
+  {
+    "prestige_rank": 133,
+    "name": "IMC Trading",
+    "domain": "imc.com"
+  },
+  {
+    "prestige_rank": 134,
+    "name": "AQR Capital Management",
+    "domain": "aqr.com"
+  },
+  {
+    "prestige_rank": 135,
+    "name": "Flow Traders",
+    "domain": "flowtraders.com"
+  },
+  {
+    "prestige_rank": 136,
+    "name": "WorldQuant",
+    "domain": "worldquant.com"
+  },
+  {
+    "prestige_rank": 137,
+    "name": "Duolingo",
+    "domain": "duolingo.com"
+  },
+  {
+    "prestige_rank": 138,
+    "name": "Docker",
+    "domain": "docker.com"
+  },
+  {
+    "prestige_rank": 139,
+    "name": "JetBrains",
+    "domain": "jetbrains.com"
+  },
+  {
+    "prestige_rank": 140,
+    "name": "Redis",
+    "domain": "redis.io"
+  },
+  {
+    "prestige_rank": 141,
+    "name": "Coursera",
+    "domain": "coursera.org"
+  },
+  {
+    "prestige_rank": 142,
+    "name": "HackerRank",
+    "domain": "hackerrank.com"
+  },
+  {
+    "prestige_rank": 143,
+    "name": "Supabase",
+    "domain": "supabase.com"
+  },
+  {
+    "prestige_rank": 144,
+    "name": "Linear",
+    "domain": "linear.app"
+  },
+  {
+    "prestige_rank": 145,
+    "name": "Sentry",
+    "domain": "sentry.io"
+  },
+  {
+    "prestige_rank": 146,
+    "name": "Webflow",
+    "domain": "webflow.com"
+  },
+  {
+    "prestige_rank": 147,
+    "name": "Squarespace",
+    "domain": "squarespace.com"
+  },
+  {
+    "prestige_rank": 148,
+    "name": "Calendly",
+    "domain": "calendly.com"
+  },
+  {
+    "prestige_rank": 149,
+    "name": "PagerDuty",
+    "domain": "pagerduty.com"
+  },
+  {
+    "prestige_rank": 150,
+    "name": "New Relic",
+    "domain": "newrelic.com"
+  },
+  {
+    "prestige_rank": 151,
+    "name": "Fastly",
+    "domain": "fastly.com"
+  },
+  {
+    "prestige_rank": 152,
+    "name": "Peloton",
+    "domain": "onepeloton.com"
+  },
+  {
+    "prestige_rank": 153,
+    "name": "AngelList",
+    "domain": "angellist.com"
+  },
+  {
+    "prestige_rank": 154,
+    "name": "Cursor",
+    "domain": "cursor.com"
+  },
+  {
+    "prestige_rank": 155,
+    "name": "Cognition AI",
+    "domain": "cognition.ai"
+  },
+  {
+    "prestige_rank": 156,
+    "name": "Character.AI",
+    "domain": "character.ai"
+  },
+  {
+    "prestige_rank": 157,
+    "name": "Cerebras",
+    "domain": "cerebras.ai"
+  },
+  {
+    "prestige_rank": 158,
+    "name": "Harvey",
+    "domain": "harvey.ai"
+  },
+  {
+    "prestige_rank": 159,
+    "name": "Sierra",
+    "domain": "sierra.ai"
+  },
+  {
+    "prestige_rank": 160,
+    "name": "LangChain",
+    "domain": "langchain.com"
+  },
+  {
+    "prestige_rank": 161,
+    "name": "Synthesia",
+    "domain": "synthesia.io"
+  },
+  {
+    "prestige_rank": 162,
+    "name": "Suno",
+    "domain": "suno.com"
+  },
+  {
+    "prestige_rank": 163,
+    "name": "Deepgram",
+    "domain": "deepgram.com"
+  },
+  {
+    "prestige_rank": 164,
+    "name": "Poolside",
+    "domain": "poolside.ai"
+  },
+  {
+    "prestige_rank": 165,
+    "name": "Fireworks AI",
+    "domain": "fireworks.ai"
+  },
+  {
+    "prestige_rank": 166,
+    "name": "Baseten",
+    "domain": "baseten.co"
+  },
+  {
+    "prestige_rank": 167,
+    "name": "Writer",
+    "domain": "writer.com"
+  },
+  {
+    "prestige_rank": 168,
+    "name": "Decagon",
+    "domain": "decagon.ai"
+  },
+  {
+    "prestige_rank": 169,
+    "name": "Abridge",
+    "domain": "abridge.com"
+  },
+  {
+    "prestige_rank": 170,
+    "name": "Cartesia",
+    "domain": "cartesia.ai"
+  },
+  {
+    "prestige_rank": 171,
+    "name": "Lovable",
+    "domain": "lovable.dev"
+  },
+  {
+    "prestige_rank": 172,
+    "name": "Gamma",
+    "domain": "gamma.app"
+  },
+  {
+    "prestige_rank": 173,
+    "name": "Krea",
+    "domain": "krea.ai"
+  },
+  {
+    "prestige_rank": 174,
+    "name": "Tavus",
+    "domain": "tavus.io"
+  },
+  {
+    "prestige_rank": 175,
+    "name": "Pika",
+    "domain": "pika.art"
+  },
+  {
+    "prestige_rank": 176,
+    "name": "Granola",
+    "domain": "granola.ai"
+  },
+  {
+    "prestige_rank": 177,
+    "name": "Labelbox",
+    "domain": "labelbox.com"
+  },
+  {
+    "prestige_rank": 178,
+    "name": "Hyperbolic",
+    "domain": "hyperbolic.xyz"
+  },
+  {
+    "prestige_rank": 179,
+    "name": "E2B",
+    "domain": "e2b.dev"
+  },
+  {
+    "prestige_rank": 180,
+    "name": "Physical Intelligence",
+    "domain": "physicalintelligence.company"
+  },
+  {
+    "prestige_rank": 181,
+    "name": "Etched",
+    "domain": "etched.com"
+  },
+  {
+    "prestige_rank": 182,
+    "name": "1X",
+    "domain": "1x.tech"
+  },
+  {
+    "prestige_rank": 183,
+    "name": "Wayve",
+    "domain": "wayve.ai"
+  },
+  {
+    "prestige_rank": 184,
+    "name": "Nuro",
+    "domain": "nuro.ai"
+  },
+  {
+    "prestige_rank": 185,
+    "name": "WeRide",
+    "domain": "weride.ai"
+  },
+  {
+    "prestige_rank": 186,
+    "name": "ClickHouse",
+    "domain": "clickhouse.com"
+  },
+  {
+    "prestige_rank": 187,
+    "name": "Fivetran",
+    "domain": "fivetran.com"
+  },
+  {
+    "prestige_rank": 188,
+    "name": "Temporal",
+    "domain": "temporal.io"
+  },
+  {
+    "prestige_rank": 189,
+    "name": "Tailscale",
+    "domain": "tailscale.com"
+  },
+  {
+    "prestige_rank": 190,
+    "name": "Algolia",
+    "domain": "algolia.com"
+  },
+  {
+    "prestige_rank": 191,
+    "name": "Amplitude",
+    "domain": "amplitude.com"
+  },
+  {
+    "prestige_rank": 192,
+    "name": "Mixpanel",
+    "domain": "mixpanel.com"
+  },
+  {
+    "prestige_rank": 193,
+    "name": "LaunchDarkly",
+    "domain": "launchdarkly.com"
+  },
+  {
+    "prestige_rank": 194,
+    "name": "Dataiku",
+    "domain": "dataiku.com"
+  },
+  {
+    "prestige_rank": 195,
+    "name": "Starburst",
+    "domain": "starburst.io"
+  },
+  {
+    "prestige_rank": 196,
+    "name": "PlanetScale",
+    "domain": "planetscale.com"
+  },
+  {
+    "prestige_rank": 197,
+    "name": "Railway",
+    "domain": "railway.app"
+  },
+  {
+    "prestige_rank": 198,
+    "name": "Render",
+    "domain": "render.com"
+  },
+  {
+    "prestige_rank": 199,
+    "name": "WorkOS",
+    "domain": "workos.com"
+  },
+  {
+    "prestige_rank": 200,
+    "name": "Resend",
+    "domain": "resend.com"
+  },
+  {
+    "prestige_rank": 201,
+    "name": "Warp",
+    "domain": "warp.dev"
+  },
+  {
+    "prestige_rank": 202,
+    "name": "Mintlify",
+    "domain": "mintlify.com"
+  },
+  {
+    "prestige_rank": 203,
+    "name": "Contentful",
+    "domain": "contentful.com"
+  },
+  {
+    "prestige_rank": 204,
+    "name": "Ashby",
+    "domain": "ashbyhq.com"
+  },
+  {
+    "prestige_rank": 205,
+    "name": "Verkada",
+    "domain": "verkada.com"
+  },
+  {
+    "prestige_rank": 206,
+    "name": "Netskope",
+    "domain": "netskope.com"
+  },
+  {
+    "prestige_rank": 207,
+    "name": "Recorded Future",
+    "domain": "recordedfuture.com"
+  },
+  {
+    "prestige_rank": 208,
+    "name": "HackerOne",
+    "domain": "hackerone.com"
+  },
+  {
+    "prestige_rank": 209,
+    "name": "Bugcrowd",
+    "domain": "bugcrowd.com"
+  },
+  {
+    "prestige_rank": 210,
+    "name": "Synack",
+    "domain": "synack.com"
+  },
+  {
+    "prestige_rank": 211,
+    "name": "Sophos",
+    "domain": "sophos.com"
+  },
+  {
+    "prestige_rank": 212,
+    "name": "Mercury",
+    "domain": "mercury.com"
+  },
+  {
+    "prestige_rank": 213,
+    "name": "Marqeta",
+    "domain": "marqeta.com"
+  },
+  {
+    "prestige_rank": 214,
+    "name": "Monzo",
+    "domain": "monzo.com"
+  },
+  {
+    "prestige_rank": 215,
+    "name": "GoCardless",
+    "domain": "gocardless.com"
+  },
+  {
+    "prestige_rank": 216,
+    "name": "Wealthfront",
+    "domain": "wealthfront.com"
+  },
+  {
+    "prestige_rank": 217,
+    "name": "Anchorage Digital",
+    "domain": "anchoragedigital.com"
+  },
+  {
+    "prestige_rank": 218,
+    "name": "Checkr",
+    "domain": "checkr.com"
+  },
+  {
+    "prestige_rank": 219,
+    "name": "Justworks",
+    "domain": "justworks.com"
+  },
+  {
+    "prestige_rank": 220,
+    "name": "Culture Amp",
+    "domain": "cultureamp.com"
+  },
+  {
+    "prestige_rank": 221,
+    "name": "Lattice",
+    "domain": "lattice.com"
+  },
+  {
+    "prestige_rank": 222,
+    "name": "Included Health",
+    "domain": "includedhealth.com"
+  },
+  {
+    "prestige_rank": 223,
+    "name": "Ro",
+    "domain": "ro.co"
+  },
+  {
+    "prestige_rank": 224,
+    "name": "InMobi",
+    "domain": "inmobi.com"
+  },
+  {
+    "prestige_rank": 225,
+    "name": "Sarvam AI",
+    "domain": "sarvam.ai"
+  },
+  {
+    "prestige_rank": 226,
+    "name": "HighRadius",
+    "domain": "highradius.com"
+  },
+  {
+    "prestige_rank": 227,
+    "name": "Slice",
+    "domain": "sliceit.com"
+  },
+  {
+    "prestige_rank": 228,
+    "name": "Zeta",
+    "domain": "zeta.tech"
+  },
+  {
+    "prestige_rank": 229,
+    "name": "DevRev",
+    "domain": "devrev.ai"
+  },
+  {
+    "prestige_rank": 230,
+    "name": "Druva",
+    "domain": "druva.com"
+  },
+  {
+    "prestige_rank": 231,
+    "name": "Thoughtworks",
+    "domain": "thoughtworks.com"
+  },
+  {
+    "prestige_rank": 232,
+    "name": "Mindtickle",
+    "domain": "mindtickle.com"
+  },
+  {
+    "prestige_rank": 233,
+    "name": "Netradyne",
+    "domain": "netradyne.com"
+  },
+  {
+    "prestige_rank": 234,
+    "name": "Zenoti",
+    "domain": "zenoti.com"
+  },
+  {
+    "prestige_rank": 235,
+    "name": "Porter",
+    "domain": "porter.in"
+  },
+  {
+    "prestige_rank": 236,
+    "name": "Turing",
+    "domain": "turing.com"
+  },
+  {
+    "prestige_rank": 237,
+    "name": "Observe.AI",
+    "domain": "observe.ai"
+  },
+  {
+    "prestige_rank": 238,
+    "name": "CloudSEK",
+    "domain": "cloudsek.com"
+  },
+  {
+    "prestige_rank": 239,
+    "name": "CloudThat",
+    "domain": "cloudthat.com"
+  },
+  {
+    "prestige_rank": 240,
+    "name": "Sigmoid",
+    "domain": "sigmoid.com"
+  },
+  {
+    "prestige_rank": 241,
+    "name": "Zluri",
+    "domain": "zluri.com"
+  },
+  {
+    "prestige_rank": 242,
+    "name": "ClickPost",
+    "domain": "clickpost.ai"
+  },
+  {
+    "prestige_rank": 243,
+    "name": "SatSure Analytics India",
+    "domain": "satsure.co"
+  },
+  {
+    "prestige_rank": 244,
+    "name": "Lumel",
+    "domain": "lumel.com"
+  },
+  {
+    "prestige_rank": 245,
+    "name": "QualMinds",
+    "domain": "qualminds.com"
+  },
+  {
+    "prestige_rank": 246,
+    "name": "ArisInfra",
+    "domain": "aris.in"
+  },
+  {
+    "prestige_rank": 247,
+    "name": "Remote",
+    "domain": "remote.com"
+  }
 ]
