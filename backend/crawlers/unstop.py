@@ -16,9 +16,9 @@ from crawlers.common import (
 )
 
 _API_URL = "https://unstop.com/api/public/opportunity/search-result"
-_OPPORTUNITY_TYPES = ("internships", "competitions", "hackathons")
-_PAGE_SIZE = 100
-_MAX_PAGES = 10
+_OPPORTUNITY_TYPES = ("internships", "competitions", "hackathons", "jobs")
+_PAGE_SIZE = 300
+_MAX_PAGES = 8
 
 HealthStatus = Literal["ok", "degraded", "broken"]
 
@@ -63,6 +63,7 @@ class UnstopAdapter:
                         _API_URL,
                         params={
                             "opportunity": opportunity_type,
+                            "oppstatus": "open",
                             "per_page": _PAGE_SIZE,
                             "page": page,
                         },
@@ -135,6 +136,9 @@ class UnstopAdapter:
                         continue
                     listings.extend(item_listings)
 
+                if len(items) < _PAGE_SIZE:
+                    break
+
         self._last_health = "degraded" if degraded else "ok"
         return listings
 
@@ -151,6 +155,8 @@ class UnstopAdapter:
         item_type = (_as_text(opportunity.get("type")) or "").lower()
         if search_opportunity == "internships":
             category = "internship"
+        elif search_opportunity == "jobs":
+            category = "job"
         elif search_opportunity == "hackathons" or item_type == "hackathons":
             category = "hackathon"
         else:
