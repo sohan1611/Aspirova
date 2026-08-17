@@ -19,7 +19,7 @@ STALE_AFTER_DAYS = 305
 SENIOR_TITLE_PATTERN = (
     r"(^|[^a-z])(senior|sr|staff|principal|director|vp|vice president|president|"
     r"chief|cto|ceo|coo|cfo|cxo|head of|lead|manager|architect|distinguished|"
-    r"fellow|executive|partner|counsel)([^a-z]|$)"
+    r"fellow|executive|counsel)([^a-z]|$)"
 )
 
 

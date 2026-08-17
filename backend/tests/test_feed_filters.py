@@ -238,6 +238,9 @@ def test_feed_early_experience_filter_excludes_new_senior_terms_and_keeps_studen
     )
     senior_titles = [
         "Vice President, Mid Market Sales",
+        "Chief Operating Officer",
+        "Field CTO",
+        "Commercial Counsel",
         "President, Student Programs",
         "Chief Talent Officer",
         "CTO, Platform",
@@ -245,7 +248,6 @@ def test_feed_early_experience_filter_excludes_new_senior_terms_and_keeps_studen
         "COO Operations",
         "CFO Strategy",
         "CXO Program",
-        "Partner Relations",
         "Legal Counsel",
     ]
     student_titles = [
@@ -255,6 +257,9 @@ def test_feed_early_experience_filter_excludes_new_senior_terms_and_keeps_studen
         "Data Science Intern",
         "User Escalation Specialist",
         "Business Consultant Intern",
+        "Partner Solutions Engineer",
+        "Graduate HR Partner",
+        "Business Partner Analyst",
     ]
     senior_opportunities = [
         models.Opportunity(
