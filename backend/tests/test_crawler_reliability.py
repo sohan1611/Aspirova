@@ -402,6 +402,16 @@ def test_aggregator_deadline_commits_completed_work_and_returns_partial(monkeypa
         "errors": 0,
         "status": "partial",
         "changed_slugs": 0,
+        "stopped_early": True,
+        "coverage": {
+            "fetched": 3,
+            "expected_total": None,
+            "mode": "unknown",
+            "status": "unknown",
+            "note": "source declares no total",
+        },
+        "truncation_elapsed_seconds": 11.0,
+        "truncation_budget_seconds": 10.0,
     }
     assert session.ingested == ["one"]
     assert session.commits >= 3  # trailing batch, final state, and CrawlRun
@@ -412,7 +422,56 @@ def test_aggregator_deadline_commits_completed_work_and_returns_partial(monkeypa
     assert previous_state.last_crawled_at == "before-partial-run"
 
 
-def test_aggregator_forwards_deadline_controls_to_unstop(monkeypatch) -> None:
+def test_coverage_unknown_for_source_without_declared_total(monkeypatch, capsys) -> None:
+    class _NoTotalAggregator:
+        def fetch(self) -> list[RawListing]:
+            return [_raw_listing("one")]
+
+        def parse(self, raw: RawListing) -> NormalizedListing:
+            return NormalizedListing(
+                source_slug=raw.source_slug,
+                external_id=raw.external_id,
+                source_url=raw.source_url,
+                title="Role one",
+                company_name="Example Company",
+                description_raw="description",
+                apply_url=raw.source_url,
+            )
+
+        def health(self) -> str:
+            return "ok"
+
+    session = _MemorySession()
+    source = SimpleNamespace(id=1, crawl_tier=1, adapter_key="no-total")
+
+    monkeypatch.setattr(runner, "load_board_state", lambda *_args: object())
+    monkeypatch.setattr(runner, "resolve_company", lambda *_args: SimpleNamespace(id=2))
+    monkeypatch.setattr(
+        runner,
+        "ingest_one",
+        lambda *_args, seen_opportunity_ids=None, changed_slugs=None: (object(), True),
+    )
+
+    result = runner.crawl_aggregator(session, source, _NoTotalAggregator)
+
+    assert result["coverage"] == {
+        "fetched": 1,
+        "expected_total": None,
+        "mode": "unknown",
+        "status": "unknown",
+        "note": "source declares no total",
+    }
+    crawl_runs = [value for value in session.added if isinstance(value, models.CrawlRun)]
+    assert crawl_runs[-1].log["coverage_status"] == "unknown"
+    assert crawl_runs[-1].log["coverage_expected_total"] is None
+    assert crawl_runs[-1].log["coverage"]["note"] == "source declares no total"
+
+    runner._print_coverage_summary({"no-total": [result["coverage"]]})
+
+    assert "COVERAGE: no-total 1/? (UNKNOWN - source declares no total)" in capsys.readouterr().out
+
+
+def test_aggregator_forwards_deadline_controls_to_unstop(monkeypatch, capsys) -> None:
     class _DeadlineAwareUnstop(UnstopAdapter):
         instance = None
 
@@ -440,7 +499,7 @@ def test_aggregator_forwards_deadline_controls_to_unstop(monkeypatch) -> None:
 
     session = _MemorySession()
     source = SimpleNamespace(id=1, crawl_tier=1)
-    deadline = runner.time.monotonic() + 60.0
+    deadline = 160.0
 
     monkeypatch.setattr(runner, "load_board_state", lambda *_args: object())
     monkeypatch.setattr(runner, "resolve_company", lambda *_args: SimpleNamespace(id=2))
@@ -448,6 +507,11 @@ def test_aggregator_forwards_deadline_controls_to_unstop(monkeypatch) -> None:
         runner,
         "ingest_one",
         lambda *_args, seen_opportunity_ids=None, changed_slugs=None: (object(), True),
+    )
+    monkeypatch.setattr(
+        runner.time,
+        "monotonic",
+        iter([100.0, 100.0, 100.0, 100.0, 105.0, 100.0]).__next__,
     )
 
     result = runner.crawl_aggregator(
@@ -463,6 +527,10 @@ def test_aggregator_forwards_deadline_controls_to_unstop(monkeypatch) -> None:
     assert adapter.received_should_stop() is False
     assert result["status"] == "partial"
     assert result["new_opps"] == 1
+    assert result["stopped_early"] is True
+    assert result["truncation_elapsed_seconds"] == 5.0
+    assert result["truncation_budget_seconds"] == 60.0
+    assert "TRUNCATED: unstop stopped early after 5.0s (budget 60.0s)" in capsys.readouterr().out
 
 
 def _run_tier_ats_scaffold(monkeypatch, companies, source_states, crawl_order):

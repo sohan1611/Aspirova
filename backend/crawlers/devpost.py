@@ -32,10 +32,12 @@ class DevpostAdapter:
     def __init__(self, timeout: float = 15.0) -> None:
         self._client = httpx.Client(timeout=timeout, headers={"User-Agent": USER_AGENT})
         self._last_health: HealthStatus = "ok"
+        self._expected_total: int | None = None
 
     def fetch(self) -> list[RawListing]:
         listings: list[RawListing] = []
         degraded = False
+        self._expected_total = None
 
         for page in range(1, _MAX_PAGES + 1):
             try:
@@ -63,6 +65,10 @@ class DevpostAdapter:
             if not isinstance(payload, dict):
                 self._last_health = "degraded"
                 return listings
+
+            declared_total = _declared_total(payload)
+            if declared_total is not None:
+                self._expected_total = declared_total
 
             hackathons = payload.get("hackathons")
             if not isinstance(hackathons, list):
@@ -156,6 +162,13 @@ class DevpostAdapter:
     def health(self) -> HealthStatus:
         return self._last_health
 
+    def coverage(self) -> dict[str, Any]:
+        return {
+            "mode": "declared_total" if self._expected_total is not None else "unknown",
+            "expected_total": self._expected_total,
+            "note": None if self._expected_total is not None else "source declares no total",
+        }
+
 
 def _parse_submission_deadline(value: Any) -> datetime | None:
     text = _as_text(value)
@@ -179,6 +192,26 @@ def _strip_html(value: Any) -> str:
     if not text:
         return ""
     return BeautifulSoup(html.unescape(text), "html.parser").get_text(strip=True)
+
+
+def _declared_total(payload: Any) -> int | None:
+    if not isinstance(payload, dict):
+        return None
+    containers = [payload]
+    meta = payload.get("meta")
+    if isinstance(meta, dict):
+        containers.append(meta)
+
+    for container in containers:
+        for key in ("total", "total_count", "totalCount"):
+            value = container.get(key)
+            if value is None:
+                continue
+            try:
+                return max(int(value), 0)
+            except (TypeError, ValueError):
+                return None
+    return None
 
 
 def _as_text(value: Any) -> str:

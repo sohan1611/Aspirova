@@ -38,10 +38,13 @@ def test_never_crawled_boards_sort_before_previously_crawled_boards() -> None:
 
 
 def test_never_crawled_boards_sort_by_descending_company_id() -> None:
+    # Boards of ONE source. Ordering across sources is round-robin interleaved
+    # (see test_order_ats_jobs_interleaves_sources_to_prevent_source_starvation),
+    # so board-level rules are asserted within a single source.
     jobs = [
         _job(company_id=10, source_id=1, board_token="ten"),
-        _job(company_id=30, source_id=2, board_token="thirty"),
-        _job(company_id=20, source_id=3, board_token="twenty"),
+        _job(company_id=30, source_id=1, board_token="thirty"),
+        _job(company_id=20, source_id=1, board_token="twenty"),
     ]
 
     ordered = _order_ats_jobs(jobs, {})
@@ -65,8 +68,9 @@ def test_crawled_boards_keep_stalest_first() -> None:
 
 
 def test_equal_crawled_timestamps_sort_by_descending_company_id() -> None:
+    # Same source: a company-id tie-break only ever applies within one source.
     lower_id = _job(company_id=10, source_id=1, board_token="lower")
-    higher_id = _job(company_id=20, source_id=2, board_token="higher")
+    higher_id = _job(company_id=20, source_id=1, board_token="higher")
     timestamp = datetime(2026, 7, 1, tzinfo=timezone.utc)
 
     ordered = _order_ats_jobs(
@@ -81,13 +85,16 @@ def test_equal_crawled_timestamps_sort_by_descending_company_id() -> None:
 
 
 def test_ats_job_ordering_orders_mixed_jobs_end_to_end() -> None:
+    # All boards belong to ONE source, so this asserts the full board-level
+    # ordering contract: never-crawled first (descending company id), then
+    # crawled stalest-first, with company id breaking timestamp ties.
     jobs = [
         _job(company_id=10, source_id=1, board_token="newer-crawled"),
-        _job(company_id=50, source_id=2, board_token="never-newest"),
-        _job(company_id=30, source_id=3, board_token="same-time-lower-id"),
-        _job(company_id=40, source_id=4, board_token="never-older"),
-        _job(company_id=60, source_id=5, board_token="oldest-crawled"),
-        _job(company_id=35, source_id=6, board_token="same-time-higher-id"),
+        _job(company_id=50, source_id=1, board_token="never-newest"),
+        _job(company_id=30, source_id=1, board_token="same-time-lower-id"),
+        _job(company_id=40, source_id=1, board_token="never-older"),
+        _job(company_id=60, source_id=1, board_token="oldest-crawled"),
+        _job(company_id=35, source_id=1, board_token="same-time-higher-id"),
     ]
     timestamp = datetime(2026, 7, 2, tzinfo=timezone.utc)
 
@@ -95,9 +102,9 @@ def test_ats_job_ordering_orders_mixed_jobs_end_to_end() -> None:
         jobs,
         {
             (1, "newer-crawled"): datetime(2026, 7, 3, tzinfo=timezone.utc),
-            (3, "same-time-lower-id"): timestamp,
-            (5, "oldest-crawled"): datetime(2026, 7, 1, tzinfo=timezone.utc),
-            (6, "same-time-higher-id"): timestamp,
+            (1, "same-time-lower-id"): timestamp,
+            (1, "oldest-crawled"): datetime(2026, 7, 1, tzinfo=timezone.utc),
+            (1, "same-time-higher-id"): timestamp,
         },
     )
 

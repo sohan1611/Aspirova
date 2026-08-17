@@ -1,13 +1,11 @@
 name: Crawl Tier 1
 
-# Tier 1 crawl runs once daily at 01:00 UTC. Recent 2x/day runs exhausted the
-# 3,000 min/mo included Actions budget by hitting their 40-minute timeout every
-# run. After batching last_seen_at into one bulk UPDATE per company (per-board
-# ingest dropped ~5-7x, e.g. databricks 788 listings 229s -> ~31s), the ATS
-# crawl completes in ~24-26 min - dominated by the amazon board's volume - so
-# the caps are a 60-minute job cap and a 32-minute ATS-step cap (still far
-# leaner than the old failing 40min x 2/day: one completing run beats two
-# cancelled ones).
+# Tier 1 crawl runs once daily at 01:00 UTC. This repo is public now, so the
+# old private-repo Actions included-minutes budget is no longer a constraint for
+# standard GitHub-hosted runners. These caps are deliberately loose hang guards,
+# not cost-rationing knobs: a real hang (one July run had a silent 24-minute
+# stall, suspected pooler-slot queueing) would otherwise occupy the crawl-tier1
+# concurrency group indefinitely and block the next scheduled run.
 on:
   schedule:
     - cron: "0 1 * * *"
@@ -20,12 +18,11 @@ concurrency:
 jobs:
   crawl:
     runs-on: ubuntu-latest
-    # ATS must complete (it's fast now that last_seen_at is batched); the
-    # aggregator runs afterward as best-effort work with its own tight per-step
-    # cap below. The job cap bounds worst-case billed minutes per run.
-    # Must stay >= the sum of step timeouts plus checkout/setup/tail margin.
+    # Job cap is a final hang guard, not a billed-minute budget. Keep it >= the
+    # sum of explicit step timeouts plus setup/tail margin; current arithmetic:
+    # ATS 150 + aggregators 150 + stale-liveness 60 + 5 minutes margin = 365.
     # Otherwise adding a future step can silently reintroduce job-level kills.
-    timeout-minutes: 60
+    timeout-minutes: 365
     defaults:
       run:
         working-directory: backend
@@ -43,7 +40,9 @@ jobs:
         run: uv sync --frozen
 
       - name: Run ATS crawl (tier 1)
-        timeout-minutes: 32
+        # Hard cap only catches hangs. The runner's 7200s soft ATS budget should
+        # stop cleanly first, preserving committed work and printing TRUNCATED.
+        timeout-minutes: 150
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           REVALIDATE_URL: ${{ secrets.REVALIDATE_URL }}
@@ -56,11 +55,13 @@ jobs:
           PYTHONUNBUFFERED: "1"
         run: uv run python -m crawlers.runner --tier 1 --group ats
 
-      - name: Run RemoteOK aggregator (tier 1, best-effort)
+      - name: Run aggregators (tier 1, best-effort)
         continue-on-error: true
-        # Hard cap the aggregator: it's the biggest minute-consumer and lowest-
-        # value tier (many no-name companies). Never let it burn the budget.
-        timeout-minutes: 12
+        # Keep best-effort semantics for transient source/network failures, but
+        # make the cap a hang guard only. The runner gives each aggregator its
+        # own 7200s soft budget; the separate group ceiling is only a final
+        # backstop so one source cannot consume another source's allowance.
+        timeout-minutes: 150
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           REVALIDATE_URL: ${{ secrets.REVALIDATE_URL }}
@@ -96,7 +97,10 @@ jobs:
 
       - name: Check stale undated listing liveness
         if: success() || failure()
-        timeout-minutes: 11
+        # This tail check can be slow when many undated boards need probing; the
+        # cap exists only to catch a hang, not to ration now-free public-repo
+        # runner minutes.
+        timeout-minutes: 60
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           PYTHONUNBUFFERED: "1"
@@ -116,3 +120,10 @@ jobs:
           RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
           PYTHONUNBUFFERED: "1"
         run: uv run python -m scripts.notification_worker --instant-alerts
+
+      - name: Report crawl source staleness
+        if: success() || failure()
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONUNBUFFERED: "1"
+        run: uv run python -m scripts.report_crawl_staleness --fail-on-stale

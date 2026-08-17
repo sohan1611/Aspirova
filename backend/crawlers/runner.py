@@ -25,6 +25,7 @@ from collections.abc import Callable
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Any
 
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
@@ -74,18 +75,282 @@ AGGREGATOR_ADAPTERS: dict[str, type] = {
 }
 
 ATS_FETCH_MAX_WORKERS = 10
-DEFAULT_AGGREGATOR_MAX_SECONDS = 600.0
+DEFAULT_AGGREGATOR_MAX_SECONDS = 7200.0
+# Per-source aggregator budget. The group ceiling remains a separate hang
+# backstop; it must not turn back into the shared pool that let Unstop consume
+# every aggregator minute and starve Devpost/RemoteOK.
+DEFAULT_AGGREGATOR_GROUP_MAX_SECONDS = 8700.0
 # Soft wall-clock budget for the WHOLE ATS phase (prefetch + ingest), armed
-# before the prefetch below. Keep this under the workflow's ATS step cap so the
-# loop exits cleanly, commits work, and lets aggregator + tail steps run instead
-# of being SIGKILL'd at the hard cap. Env-tunable (CRAWLER_ATS_MAX_SECONDS).
+# before the prefetch below. This is no longer an Actions-minute rationing
+# guard; the public repo gets standard runners without the old private-repo
+# included-minutes ceiling. Keep it under the workflow's ATS step cap only so a
+# genuine hang exits cleanly, commits work, and lets aggregator + tail steps run
+# instead of being SIGKILL'd at the hard cap. Env-tunable
+# (CRAWLER_ATS_MAX_SECONDS).
 #
 # The gap between this soft budget and the ATS step timeout must exceed the
 # SLOWEST SINGLE BOARD, because the deadline only gates whether a board may
-# START; once one is in flight it runs to completion. With a 1320s soft budget
-# and 32-minute step timeout, that in-flight-board gap remains 10 minutes.
-DEFAULT_ATS_MAX_SECONDS = 1320.0
+# START; once one is in flight it runs to completion. With a 7200s soft budget
+# and 150-minute step timeout, that in-flight-board gap remains 30 minutes.
+DEFAULT_ATS_MAX_SECONDS = 7200.0
 _STOP_REQUESTED = threading.Event()
+
+_FULL_LIST_SOURCE_KEYS = {
+    "ashby",
+    "greenhouse",
+    "keka",
+    "lever",
+    "recruitee",
+    "remoteok",
+    "workable",
+}
+
+
+@dataclass(frozen=True)
+class _TruncationEvent:
+    source: str
+    elapsed_seconds: float
+    budget_seconds: float
+
+
+def _format_seconds(seconds: float) -> str:
+    return f"{max(seconds, 0.0):.1f}"
+
+
+def _truncation_line(event: _TruncationEvent) -> str:
+    return (
+        f"TRUNCATED: {event.source} stopped early after "
+        f"{_format_seconds(event.elapsed_seconds)}s "
+        f"(budget {_format_seconds(event.budget_seconds)}s)"
+    )
+
+
+def _print_truncation(event: _TruncationEvent) -> None:
+    print(_truncation_line(event), flush=True)
+
+
+def _print_truncation_summary(events: list[_TruncationEvent]) -> None:
+    if not events:
+        print("TRUNCATION SUMMARY: no sources truncated", flush=True)
+        return
+
+    print("TRUNCATION SUMMARY: truncated sources:", flush=True)
+    for event in events:
+        print(
+            "  - "
+            f"{event.source}: after {_format_seconds(event.elapsed_seconds)}s "
+            f"(budget {_format_seconds(event.budget_seconds)}s)",
+            flush=True,
+        )
+
+
+def _coerce_non_negative_int(value: object) -> int | None:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return max(parsed, 0)
+
+
+def _coverage_record(
+    *,
+    fetched: int,
+    mode: str,
+    status: str,
+    expected_total: int | None = None,
+    note: str | None = None,
+    details: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    record: dict[str, Any] = {
+        "fetched": max(int(fetched), 0),
+        "expected_total": expected_total,
+        "mode": mode,
+        "status": status,
+    }
+    if note:
+        record["note"] = note
+    if details:
+        record["details"] = details
+    return record
+
+
+def _coverage_from_adapter(
+    adapter: object,
+    source_key: str,
+    fetched: int,
+    *,
+    health: str,
+    stopped_early: bool = False,
+) -> dict[str, Any]:
+    coverage_method = getattr(adapter, "coverage", None)
+    if callable(coverage_method):
+        try:
+            raw_coverage = coverage_method()
+        except Exception as exc:
+            return _coverage_record(
+                fetched=fetched,
+                mode="unknown",
+                status="unknown",
+                note=f"coverage metadata unavailable: {type(exc).__name__}",
+            )
+        if isinstance(raw_coverage, dict):
+            expected_total = _coerce_non_negative_int(raw_coverage.get("expected_total"))
+            mode = str(
+                raw_coverage.get("mode")
+                or ("declared_total" if expected_total is not None else "unknown")
+            )
+            note = raw_coverage.get("note")
+            details = raw_coverage.get("details")
+            status = raw_coverage.get("status")
+            if expected_total is not None:
+                status = status or (
+                    "complete"
+                    if health == "ok" and not stopped_early and fetched >= expected_total
+                    else "partial"
+                )
+            else:
+                status = status or "unknown"
+                note = note or "source declares no total"
+            return _coverage_record(
+                fetched=fetched,
+                expected_total=expected_total,
+                mode=mode,
+                status=str(status),
+                note=str(note) if note else None,
+                details=details if isinstance(details, dict) else None,
+            )
+
+    if source_key in _FULL_LIST_SOURCE_KEYS:
+        if health == "ok" and not stopped_early:
+            return _coverage_record(
+                fetched=fetched,
+                mode="full_list",
+                status="complete",
+                note="full-list source returned its complete set",
+            )
+        return _coverage_record(
+            fetched=fetched,
+            mode="full_list",
+            status="unknown",
+            note="full-list fetch did not complete cleanly",
+        )
+
+    return _coverage_record(
+        fetched=fetched,
+        mode="unknown",
+        status="unknown",
+        note="source declares no total",
+    )
+
+
+def _log_with_coverage(base_log: dict[str, Any], coverage: dict[str, Any]) -> dict[str, Any]:
+    log = dict(base_log)
+    log["coverage"] = coverage
+    log["coverage_fetched"] = coverage["fetched"]
+    log["coverage_expected_total"] = coverage["expected_total"]
+    log["coverage_mode"] = coverage["mode"]
+    log["coverage_status"] = coverage["status"]
+    if coverage.get("note"):
+        log["coverage_note"] = coverage["note"]
+    return log
+
+
+def _record_crawl_run(
+    session: Session,
+    *,
+    source_id: int,
+    tier: int | None,
+    started_at: datetime,
+    status: str,
+    listings_found: int,
+    new_opps: int,
+    errors: int,
+    log: dict[str, Any],
+) -> None:
+    session.add(
+        models.CrawlRun(
+            source_id=source_id,
+            tier=tier,
+            started_at=started_at,
+            finished_at=datetime.now(timezone.utc),
+            status=status,
+            listings_found=listings_found,
+            new_opps=new_opps,
+            errors=errors,
+            log=log,
+        )
+    )
+
+
+def _merge_coverage(records: list[dict[str, Any]]) -> dict[str, Any]:
+    fetched = sum(int(record.get("fetched") or 0) for record in records)
+    if records and all(
+        record.get("mode") == "full_list" and record.get("status") == "complete"
+        for record in records
+    ):
+        return _coverage_record(
+            fetched=fetched,
+            mode="full_list",
+            status="complete",
+            note="full-list source returned its complete set",
+        )
+
+    expected_totals = [_coerce_non_negative_int(record.get("expected_total")) for record in records]
+    if records and all(expected_total is not None for expected_total in expected_totals):
+        expected_total = sum(expected_total or 0 for expected_total in expected_totals)
+        status = "complete" if expected_total == 0 or fetched >= expected_total else "partial"
+        return _coverage_record(
+            fetched=fetched,
+            expected_total=expected_total,
+            mode="declared_total",
+            status=status,
+            note=next(
+                (str(record["note"]) for record in records if record.get("note")),
+                None,
+            ),
+        )
+
+    note = next(
+        (
+            str(record["note"])
+            for record in records
+            if record.get("status") == "unknown" and record.get("note")
+        ),
+        "source declares no total",
+    )
+    return _coverage_record(
+        fetched=fetched,
+        mode="unknown",
+        status="unknown",
+        note=note,
+    )
+
+
+def _coverage_line(source_key: str, coverage: dict[str, Any]) -> str:
+    fetched = int(coverage.get("fetched") or 0)
+    expected_total = _coerce_non_negative_int(coverage.get("expected_total"))
+    mode = coverage.get("mode")
+    status = coverage.get("status")
+    note = str(coverage.get("note") or "source declares no total")
+
+    if mode == "full_list" and status == "complete":
+        return f"COVERAGE: {source_key} {fetched} (full-list, complete)"
+
+    if expected_total is not None:
+        percentage = 100.0 if expected_total == 0 else (fetched / expected_total) * 100.0
+        percentage_text = f"{percentage:.0f}%" if percentage.is_integer() else f"{percentage:.1f}%"
+        return f"COVERAGE: {source_key} {fetched}/{expected_total} ({percentage_text})"
+
+    return f"COVERAGE: {source_key} {fetched}/? (UNKNOWN - {note})"
+
+
+def _print_coverage_summary(coverage_by_source: dict[str, list[dict[str, Any]]]) -> None:
+    if not coverage_by_source:
+        print("COVERAGE: none/? (UNKNOWN - no sources crawled)", flush=True)
+        return
+
+    for source_key, records in coverage_by_source.items():
+        print(_coverage_line(source_key, _merge_coverage(records)), flush=True)
 
 
 def _order_ats_jobs(
@@ -94,16 +359,44 @@ def _order_ats_jobs(
 ) -> list["_AtsJob"]:
     _stalest_first = datetime.min.replace(tzinfo=timezone.utc)
 
-    # Keep never-crawled boards first, then crawl the stalest boards. When
-    # primary timestamps tie, prioritize the newest-seeded company so an
-    # arbitrary database-order tie cannot leave new boards unreached for days.
-    return sorted(
-        jobs,
-        key=lambda job: (
+    def board_sort_key(job: "_AtsJob") -> tuple[datetime, int]:
+        return (
             last_crawled_by_board.get((job.source_id, job.board_token), _stalest_first),
             -job.company_id,
+        )
+
+    jobs_by_source: dict[int, list["_AtsJob"]] = {}
+    for job in jobs:
+        jobs_by_source.setdefault(job.source_id, []).append(job)
+
+    for source_jobs in jobs_by_source.values():
+        source_jobs.sort(key=board_sort_key)
+
+    # Keep never-crawled boards first within each source, then crawl that
+    # source's stalest boards. Interleave sources by their own stalest board so
+    # one high-cardinality adapter (Greenhouse/Ashby) cannot consume the whole
+    # ATS budget before a one-board source such as Amazon gets a turn.
+    # source_id is the final tie-break and is NOT cosmetic: adapter_key is not
+    # unique per source, so two sources sharing a stalest timestamp AND an
+    # adapter_key tie completely, and a stable sort then falls back to dict
+    # insertion order - i.e. the order rows came out of the database. That makes
+    # the crawl order vary between runs, which is how starvation becomes
+    # intermittent instead of fixed. source_id is unique, so this is total.
+    source_order = sorted(
+        jobs_by_source,
+        key=lambda source_id: (
+            board_sort_key(jobs_by_source[source_id][0])[0],
+            jobs_by_source[source_id][0].adapter_key,
+            source_id,
         ),
     )
+
+    ordered: list[_AtsJob] = []
+    while any(jobs_by_source[source_id] for source_id in source_order):
+        for source_id in source_order:
+            if jobs_by_source[source_id]:
+                ordered.append(jobs_by_source[source_id].pop(0))
+    return ordered
 
 
 def _order_aggregator_jobs(
@@ -112,10 +405,11 @@ def _order_aggregator_jobs(
 ) -> list[tuple[int, str]]:
     _stalest_first = datetime.min.replace(tzinfo=timezone.utc)
 
-    # Crawl aggregators stalest-first so the shared budget rotates coverage.
-    # RemoteOK remains last only when equally stale: always placing it last
-    # left it 11 days stale when Unstop exhausted the aggregator budget.
-    # The adapter key makes equal non-RemoteOK timestamps deterministic.
+    # Crawl aggregators stalest-first as a safety net. This used to be
+    # load-bearing because the aggregator phase had one shared budget; Unstop
+    # exhausted it and left Devpost/RemoteOK untouched for 11 days. Per-source
+    # budgets below remove that starvation path, but stale-first remains the
+    # right order when a source is behind.
     return sorted(
         jobs,
         key=lambda job: (
@@ -140,6 +434,7 @@ class _AtsJob:
 class _PrefetchedBoard:
     listings: list[RawListing]
     health: str
+    coverage: dict[str, Any] | None = None
 
 
 def _board_fingerprint(raw_listings: list) -> str:
@@ -176,6 +471,24 @@ def _configured_aggregator_max_seconds() -> float:
     return max(0.0, max_seconds)
 
 
+def _configured_aggregator_group_max_seconds() -> float:
+    raw_value = os.getenv("AGGREGATOR_GROUP_MAX_SECONDS")
+    if raw_value is None:
+        return DEFAULT_AGGREGATOR_GROUP_MAX_SECONDS
+
+    try:
+        max_seconds = float(raw_value)
+    except ValueError:
+        print(
+            "WARNING: AGGREGATOR_GROUP_MAX_SECONDS must be a number; "
+            f"using {DEFAULT_AGGREGATOR_GROUP_MAX_SECONDS:.0f} seconds",
+            flush=True,
+        )
+        return DEFAULT_AGGREGATOR_GROUP_MAX_SECONDS
+
+    return max(0.0, max_seconds)
+
+
 def _configured_ats_max_seconds() -> float:
     raw_value = os.getenv("CRAWLER_ATS_MAX_SECONDS")
     if raw_value is None:
@@ -208,7 +521,18 @@ def _fetch_company_board(
     if _is_stop_requested(should_stop):
         return None
 
-    return _PrefetchedBoard(listings=list(adapter.fetch()), health=adapter.health())
+    listings = list(adapter.fetch())
+    health = adapter.health()
+    return _PrefetchedBoard(
+        listings=listings,
+        health=health,
+        coverage=_coverage_from_adapter(
+            adapter,
+            getattr(adapter, "source_slug", job.adapter_key),
+            len(listings),
+            health=health,
+        ),
+    )
 
 
 def _prefetch_ats_boards(
@@ -285,6 +609,7 @@ def crawl_company_board(
     adapter_class: type,
     prefetched: list[RawListing] | None = None,
     prefetched_health: str | None = None,
+    prefetched_coverage: dict[str, Any] | None = None,
     should_stop: Callable[[], bool] | None = None,
     changed_slugs: set[str] | None = None,
 ) -> dict:
@@ -303,6 +628,7 @@ def crawl_company_board(
     """
     source_id = source.id
     tier = source.crawl_tier
+    source_label = getattr(source, "adapter_key", getattr(adapter_class, "source_slug", "unknown"))
     board_token = company.ats_board_id
     company_name = company.name
     company_slug = company.slug
@@ -314,6 +640,12 @@ def crawl_company_board(
         "errors": 0,
         "status": "success",
         "changed_slugs": 0,
+        "coverage": _coverage_record(
+            fetched=0,
+            mode="unknown",
+            status="unknown",
+            note="fetch did not complete",
+        ),
     }
     run_changed_slugs = changed_slugs if changed_slugs is not None else set()
     committed_changed_slugs: set[str] = set()
@@ -337,6 +669,14 @@ def crawl_company_board(
         stopped_early = _is_stop_requested(should_stop)
         if stopped_early:
             result["status"] = "partial"
+        coverage = prefetched_coverage or _coverage_from_adapter(
+            adapter,
+            str(source_label),
+            result["listings_found"],
+            health=health,
+            stopped_early=stopped_early,
+        )
+        result["coverage"] = coverage
         state = session.scalar(
             select(models.SourceState).where(
                 models.SourceState.source_id == source_id,
@@ -360,6 +700,35 @@ def crawl_company_board(
             )
             state.last_crawled_at = datetime.now(timezone.utc)
             session.commit()
+            try:
+                _record_crawl_run(
+                    session,
+                    source_id=source_id,
+                    tier=tier,
+                    started_at=started_at,
+                    status=result["status"],
+                    listings_found=result["listings_found"],
+                    new_opps=result["new_opps"],
+                    errors=result["errors"],
+                    log=_log_with_coverage(
+                        {
+                            "company_slug": company_slug,
+                            "board_token": board_token,
+                            "skipped_unchanged": True,
+                        },
+                        result["coverage"],
+                    ),
+                )
+                session.commit()
+            except Exception as exc:
+                try:
+                    session.rollback()
+                except Exception:
+                    pass
+                print(
+                    f"WARNING: failed to record crawl_runs for {company_slug}: {exc}",
+                    flush=True,
+                )
             return result  # change-detection skip: nothing changed since last crawl
 
         # One bulk read of this board's existing raw_listings + this
@@ -489,18 +858,19 @@ def crawl_company_board(
         result["errors"] += 1
 
     try:
-        session.add(
-            models.CrawlRun(
-                source_id=source_id,
-                tier=tier,
-                started_at=started_at,
-                finished_at=datetime.now(timezone.utc),
-                status=result["status"],
-                listings_found=result["listings_found"],
-                new_opps=result["new_opps"],
-                errors=result["errors"],
-                log={"company_slug": company_slug, "board_token": board_token},
-            )
+        _record_crawl_run(
+            session,
+            source_id=source_id,
+            tier=tier,
+            started_at=started_at,
+            status=result["status"],
+            listings_found=result["listings_found"],
+            new_opps=result["new_opps"],
+            errors=result["errors"],
+            log=_log_with_coverage(
+                {"company_slug": company_slug, "board_token": board_token},
+                result["coverage"],
+            ),
         )
         session.commit()
     except Exception as exc:
@@ -539,6 +909,12 @@ def crawl_aggregator(
     pass sources already filtered to legal_status == "ok"; that filter is
     the actual kill switch and lives in exactly one place, not duplicated.
     """
+    crawl_started_monotonic = time.monotonic()
+    source_label = getattr(
+        source,
+        "adapter_key",
+        getattr(adapter_class, "source_slug", adapter_class.__name__),
+    )
     source_id = source.id
     tier = source.crawl_tier
     started_at = datetime.now(timezone.utc)
@@ -548,11 +924,24 @@ def crawl_aggregator(
         "errors": 0,
         "status": "success",
         "changed_slugs": 0,
+        "stopped_early": False,
+        "coverage": _coverage_record(
+            fetched=0,
+            mode="unknown",
+            status="unknown",
+            note="fetch did not complete",
+        ),
     }
     run_changed_slugs = changed_slugs if changed_slugs is not None else set()
     committed_changed_slugs: set[str] = set()
+    stopped_early = False
+    budget_seconds = (
+        max_seconds
+        if max_seconds is not None
+        else max((deadline_monotonic or crawl_started_monotonic) - crawl_started_monotonic, 0.0)
+    )
     if deadline_monotonic is None and max_seconds is not None:
-        deadline_monotonic = time.monotonic() + max_seconds
+        deadline_monotonic = crawl_started_monotonic + max_seconds
 
     def stop_now() -> bool:
         return _is_stop_requested(should_stop, deadline_monotonic)
@@ -575,12 +964,20 @@ def crawl_aggregator(
         )
         result["listings_found"] = len(raw_listings)
 
-        if adapter.health() == "broken":
+        health = adapter.health()
+        if health == "broken":
             result["status"] = "failed"
-        elif adapter.health() == "degraded":
+        elif health == "degraded":
             result["status"] = "partial"
         if stopped_early:
             result["status"] = "partial"
+        result["coverage"] = _coverage_from_adapter(
+            adapter,
+            str(source_label),
+            result["listings_found"],
+            health=health,
+            stopped_early=stopped_early,
+        )
 
         fingerprint = _board_fingerprint(raw_listings) if raw_listings else None
         state = None
@@ -598,7 +995,30 @@ def crawl_aggregator(
             and state is not None
             and state.last_content_hash == fingerprint
         ):
+            state.last_crawled_at = datetime.now(timezone.utc)
             session.commit()
+            try:
+                _record_crawl_run(
+                    session,
+                    source_id=source_id,
+                    tier=tier,
+                    started_at=started_at,
+                    status=result["status"],
+                    listings_found=result["listings_found"],
+                    new_opps=result["new_opps"],
+                    errors=result["errors"],
+                    log=_log_with_coverage(
+                        {"aggregator": True, "skipped_unchanged": True},
+                        result["coverage"],
+                    ),
+                )
+                session.commit()
+            except Exception as exc:
+                try:
+                    session.rollback()
+                except Exception:
+                    pass
+                print(f"WARNING: failed to record crawl_runs for aggregator: {exc}", flush=True)
             return result  # change-detection skip: nothing changed since last crawl
 
         board_states: dict[int, object] = {}
@@ -674,6 +1094,18 @@ def crawl_aggregator(
         if stop_now():
             stopped_early = True
             result["status"] = "partial"
+        result["stopped_early"] = stopped_early
+        if stopped_early:
+            truncation_elapsed_seconds = time.monotonic() - crawl_started_monotonic
+            result["truncation_elapsed_seconds"] = truncation_elapsed_seconds
+            result["truncation_budget_seconds"] = budget_seconds
+            _print_truncation(
+                _TruncationEvent(
+                    source=str(source_label),
+                    elapsed_seconds=truncation_elapsed_seconds,
+                    budget_seconds=budget_seconds,
+                )
+            )
 
         # An incomplete page set must never become the change-detection
         # fingerprint. Otherwise a later run with the same truncated prefix
@@ -696,18 +1128,16 @@ def crawl_aggregator(
         result["errors"] += 1
 
     try:
-        session.add(
-            models.CrawlRun(
-                source_id=source_id,
-                tier=tier,
-                started_at=started_at,
-                finished_at=datetime.now(timezone.utc),
-                status=result["status"],
-                listings_found=result["listings_found"],
-                new_opps=result["new_opps"],
-                errors=result["errors"],
-                log={"aggregator": True},
-            )
+        _record_crawl_run(
+            session,
+            source_id=source_id,
+            tier=tier,
+            started_at=started_at,
+            status=result["status"],
+            listings_found=result["listings_found"],
+            new_opps=result["new_opps"],
+            errors=result["errors"],
+            log=_log_with_coverage({"aggregator": True}, result["coverage"]),
         )
         session.commit()
     except Exception as exc:
@@ -745,17 +1175,22 @@ def run_tier(
     group: str = "all",
     *,
     aggregator_max_seconds: float | None = None,
+    aggregator_group_max_seconds: float | None = None,
     ats_max_seconds: float | None = None,
     should_stop: Callable[[], bool] | None = None,
 ) -> None:
     if aggregator_max_seconds is None:
         aggregator_max_seconds = _configured_aggregator_max_seconds()
+    if aggregator_group_max_seconds is None:
+        aggregator_group_max_seconds = _configured_aggregator_group_max_seconds()
     if ats_max_seconds is None:
         ats_max_seconds = _configured_ats_max_seconds()
     if should_stop is None:
         should_stop = _STOP_REQUESTED.is_set
 
     changed_slugs: set[str] = set()
+    truncations: list[_TruncationEvent] = []
+    coverage_by_source: dict[str, list[dict[str, Any]]] = {}
 
     engine = make_engine()
     # Fail fast if the query-timeout guard is missing; a pooler mismatch must never silently hang.
@@ -860,15 +1295,31 @@ def run_tier(
     # was - the run then started a fresh board at ~23min and was SIGKILL'd
     # mid-ingest at the ATS step hard cap. The budget has to cover the phase it
     # bounds.
-    ats_deadline_monotonic = time.monotonic() + ats_max_seconds if ats_jobs else 0.0
+    ats_started_monotonic = time.monotonic() if ats_jobs else 0.0
+    ats_deadline_monotonic = ats_started_monotonic + ats_max_seconds if ats_jobs else 0.0
 
     prefetched_boards = _prefetch_ats_boards(ats_jobs, should_stop=should_stop)
 
     for job in ats_jobs:
         if _is_stop_requested(should_stop):
+            event = _TruncationEvent(
+                source="ATS",
+                elapsed_seconds=time.monotonic() - ats_started_monotonic,
+                budget_seconds=ats_max_seconds,
+            )
+            truncations.append(event)
+            _print_truncation(event)
             print("Stop requested; ending ATS ingestion after committed work", flush=True)
             break
-        if time.monotonic() >= ats_deadline_monotonic:
+        now_monotonic = time.monotonic()
+        if now_monotonic >= ats_deadline_monotonic:
+            event = _TruncationEvent(
+                source="ATS",
+                elapsed_seconds=now_monotonic - ats_started_monotonic,
+                budget_seconds=ats_max_seconds,
+            )
+            truncations.append(event)
+            _print_truncation(event)
             print("ATS time budget reached; ending after committed work", flush=True)
             break
 
@@ -896,6 +1347,7 @@ def run_tier(
                     ATS_ADAPTERS[job.adapter_key],
                     prefetched=prefetched.listings,
                     prefetched_health=prefetched.health,
+                    prefetched_coverage=prefetched.coverage,
                     should_stop=should_stop,
                     changed_slugs=changed_slugs,
                 )
@@ -911,23 +1363,54 @@ def run_tier(
                 print(f"ERROR: {job.company_slug} crawl raised unexpectedly: {exc}", flush=True)
                 continue
             print(f"{job.company_slug}: {result}", flush=True)
+            coverage = result.get("coverage")
+            if isinstance(coverage, dict):
+                coverage_by_source.setdefault(job.adapter_key, []).append(coverage)
 
-    # Treat the soft limit as a budget for the entire aggregator phase, not
-    # a fresh 10-minute allowance for every source. That leaves the phase
-    # safely below the workflow cap even when more than one aggregator is
-    # enabled.
-    aggregator_deadline_monotonic = time.monotonic() + aggregator_max_seconds
+    aggregator_started_monotonic = time.monotonic()
+    aggregator_group_deadline_monotonic = (
+        aggregator_started_monotonic + aggregator_group_max_seconds
+    )
 
-    for source_id, adapter_key in aggregator_jobs:
+    for job_index, (source_id, adapter_key) in enumerate(aggregator_jobs):
         if _is_stop_requested(should_stop):
+            event = _TruncationEvent(
+                source="aggregator group",
+                elapsed_seconds=time.monotonic() - aggregator_started_monotonic,
+                budget_seconds=aggregator_group_max_seconds,
+            )
+            truncations.append(event)
+            _print_truncation(event)
             print("Stop requested; ending aggregator crawl after committed work", flush=True)
             break
 
-        remaining_seconds = aggregator_deadline_monotonic - time.monotonic()
-        if remaining_seconds <= 0:
+        now_monotonic = time.monotonic()
+        if now_monotonic >= aggregator_group_deadline_monotonic:
+            event = _TruncationEvent(
+                source="aggregator group",
+                elapsed_seconds=now_monotonic - aggregator_started_monotonic,
+                budget_seconds=aggregator_group_max_seconds,
+            )
+            truncations.append(event)
+            _print_truncation(event)
             print("Aggregator time budget reached; ending after committed work", flush=True)
             break
 
+        # A per-source budget alone does NOT guarantee every source runs: with
+        # a 7200s per-source budget under an 8700s group ceiling, one slow
+        # source can consume 83% of the group and the sources behind it are
+        # skipped by the `break` above - the exact starvation that left devpost
+        # and remoteok 11 days stale while unstop ate the shared budget.
+        #
+        # So each source may take at most its FAIR SHARE of the time still
+        # remaining, computed fresh each iteration. A source that finishes early
+        # hands its unused time to the ones behind it, and no source can spend
+        # time that a later source still needs.
+        sources_remaining = len(aggregator_jobs) - job_index
+        group_time_remaining = aggregator_group_deadline_monotonic - now_monotonic
+        fair_share_seconds = group_time_remaining / sources_remaining
+        source_budget_seconds = min(aggregator_max_seconds, fair_share_seconds)
+        source_deadline_monotonic = now_monotonic + source_budget_seconds
         with Session(engine, expire_on_commit=False) as session:
             source = session.get(models.Source, source_id)
             try:
@@ -935,9 +1418,11 @@ def run_tier(
                     session,
                     source,
                     AGGREGATOR_ADAPTERS[adapter_key],
-                    max_seconds=remaining_seconds,
+                    # The fair share, not the nominal per-source budget, so a
+                    # truncation is reported against the budget actually applied.
+                    max_seconds=source_budget_seconds,
                     should_stop=should_stop,
-                    deadline_monotonic=aggregator_deadline_monotonic,
+                    deadline_monotonic=source_deadline_monotonic,
                     changed_slugs=changed_slugs,
                 )
             except Exception as exc:
@@ -950,9 +1435,22 @@ def run_tier(
                 )
                 continue
             print(f"{adapter_key} (aggregator): {result}", flush=True)
+            coverage = result.get("coverage")
+            if isinstance(coverage, dict):
+                coverage_by_source.setdefault(adapter_key, []).append(coverage)
+            if result.get("stopped_early"):
+                truncations.append(
+                    _TruncationEvent(
+                        source=adapter_key,
+                        elapsed_seconds=float(result.get("truncation_elapsed_seconds", 0.0)),
+                        budget_seconds=float(result.get("truncation_budget_seconds", 0.0)),
+                    )
+                )
 
     _refresh_prestige_matches(engine)
     notify_changed(changed_slugs)
+    _print_coverage_summary(coverage_by_source)
+    _print_truncation_summary(truncations)
 
 
 def _handle_stop_signal(_signum: int, _frame: object) -> None:

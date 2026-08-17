@@ -30,11 +30,13 @@ class SmartRecruitersAdapter:
             timeout=timeout,
         )
         self._last_health: HealthStatus = "ok"
+        self._expected_total: int | None = None
 
     def health(self) -> HealthStatus:
         return self._last_health
 
     def fetch(self) -> list[RawListing]:
+        self._expected_total = None
         posting_ids = self._fetch_posting_ids()
         if posting_ids is None:
             return []
@@ -66,6 +68,13 @@ class SmartRecruitersAdapter:
 
         self._last_health = "degraded" if degraded else "ok"
         return listings
+
+    def coverage(self) -> dict[str, Any]:
+        return {
+            "mode": "declared_total" if self._expected_total is not None else "unknown",
+            "expected_total": self._expected_total,
+            "note": None if self._expected_total is not None else "source declares no total",
+        }
 
     def parse(self, raw: RawListing) -> NormalizedListing:
         detail = raw.raw_payload
@@ -142,7 +151,8 @@ class SmartRecruitersAdapter:
             total_found = payload.get("totalFound")
             if total_found is not None:
                 try:
-                    if offset >= int(total_found):
+                    self._expected_total = max(int(total_found), 0)
+                    if offset >= self._expected_total:
                         self._last_health = "ok"
                         return posting_ids
                 except (TypeError, ValueError):
