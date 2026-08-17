@@ -1,7 +1,8 @@
 "use client";
 
-import { Eye, EyeOff, Loader2, MailCheck, UserCheck } from "lucide-react";
+import { Loader2, MailCheck, UserCheck } from "lucide-react";
 import { useState } from "react";
+import { PasswordInput } from "@/components/PasswordInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -62,7 +63,6 @@ export default function AuthWidget() {
   const session = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [touched, setTouched] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -310,25 +310,13 @@ export default function AuthWidget() {
             </button>
           )}
         </div>
-        <div className="relative">
-          <Input
-            id="auth-password"
-            type={showPassword ? "text" : "password"}
-            autoComplete={mode === "signin" ? "current-password" : "new-password"}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            aria-invalid={passwordInvalid || undefined}
-            className="pr-9"
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword((v) => !v)}
-            aria-label={showPassword ? "Hide password" : "Show password"}
-            className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-          >
-            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          </button>
-        </div>
+        <PasswordInput
+          id="auth-password"
+          autoComplete={mode === "signin" ? "current-password" : "new-password"}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          aria-invalid={passwordInvalid || undefined}
+        />
         {signInPasswordMissing && (
           <p className="text-sm text-destructive">Enter your password.</p>
         )}

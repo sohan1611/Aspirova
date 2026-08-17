@@ -4,6 +4,7 @@ import { AlertCircle, CheckCircle2, KeyRound, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import HeaderAuth from "@/components/HeaderAuth";
+import { PasswordInput } from "@/components/PasswordInput";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,7 +14,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MIN_PASSWORD_LENGTH } from "@/lib/password";
 import { createClient } from "@/lib/supabase/client";
@@ -139,9 +139,8 @@ export default function ResetPasswordPage() {
         <form onSubmit={handleSubmit} noValidate className="grid gap-4">
           <div className="grid gap-1.5">
             <Label htmlFor="reset-password">New password</Label>
-            <Input
+            <PasswordInput
               id="reset-password"
-              type="password"
               minLength={MIN_PASSWORD_LENGTH}
               autoComplete="new-password"
               value={password}
@@ -154,9 +153,8 @@ export default function ResetPasswordPage() {
 
           <div className="grid gap-1.5">
             <Label htmlFor="reset-password-confirm">Confirm new password</Label>
-            <Input
+            <PasswordInput
               id="reset-password-confirm"
-              type="password"
               minLength={MIN_PASSWORD_LENGTH}
               autoComplete="new-password"
               value={confirmPassword}
