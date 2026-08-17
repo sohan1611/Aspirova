@@ -33,7 +33,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from html import escape
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, aliased
 
 from api.filters import exclude_stale_opportunities, student_rank_expression
@@ -54,6 +54,7 @@ logger = logging.getLogger(__name__)
 DIGEST_FREQUENCY_CAP = timedelta(hours=20)
 INSTANT_ALERT_LOOKBACK = timedelta(hours=3)
 DIGEST_GENERIC_SAMPLE_SIZE = 5
+DIGEST_RANKED_COMPANY_RESERVE_SIZE = 2
 
 
 def _record_notification(
@@ -141,6 +142,9 @@ def _dream_company_opportunities(
 def _generic_recent_opportunities(
     session: Session, since: datetime, limit: int, now: datetime
 ) -> list[models.Opportunity]:
+    if limit <= 0:
+        return []
+
     student_rank = student_rank_expression()
     ranking_order = [
         student_rank.asc(),
@@ -172,10 +176,66 @@ def _generic_recent_opportunities(
     )
     opportunity = aliased(models.Opportunity, ranked_opportunities)
 
+    ranked_company_opportunities = list(
+        session.scalars(
+            select(opportunity)
+            .where(
+                ranked_opportunities.c.company_row_number == 1,
+                ranked_opportunities.c.prestige_rank.is_not(None),
+            )
+            .order_by(
+                ranked_opportunities.c.prestige_rank.asc(),
+                ranked_opportunities.c.student_rank.asc(),
+                ranked_opportunities.c.first_seen_at.desc(),
+                ranked_opportunities.c.id.desc(),
+            )
+            .limit(min(DIGEST_RANKED_COMPANY_RESERVE_SIZE, limit))
+        ).all()
+    )
+
+    reserved_company_ids = [
+        opportunity.company_id
+        for opportunity in ranked_company_opportunities
+        if opportunity.company_id is not None
+    ]
+    remaining_limit = limit - len(ranked_company_opportunities)
+    fill_opportunities: list[models.Opportunity] = []
+    if remaining_limit > 0:
+        fill_filters = [ranked_opportunities.c.company_row_number == 1]
+        if reserved_company_ids:
+            fill_filters.append(
+                or_(
+                    ranked_opportunities.c.company_id.is_(None),
+                    ranked_opportunities.c.company_id.not_in(reserved_company_ids),
+                )
+            )
+        fill_opportunities = list(
+            session.scalars(
+                select(opportunity)
+                .where(*fill_filters)
+                .order_by(
+                    ranked_opportunities.c.student_rank.asc(),
+                    ranked_opportunities.c.prestige_rank.asc().nullslast(),
+                    ranked_opportunities.c.first_seen_at.desc(),
+                    ranked_opportunities.c.id.desc(),
+                )
+                .limit(remaining_limit)
+            ).all()
+        )
+
+    selected_ids = [
+        opportunity.id for opportunity in [*ranked_company_opportunities, *fill_opportunities]
+    ]
+    if not selected_ids:
+        return []
+
     return list(
         session.scalars(
             select(opportunity)
-            .where(ranked_opportunities.c.company_row_number == 1)
+            .where(
+                ranked_opportunities.c.company_row_number == 1,
+                ranked_opportunities.c.id.in_(selected_ids),
+            )
             .order_by(
                 ranked_opportunities.c.student_rank.asc(),
                 ranked_opportunities.c.prestige_rank.asc().nullslast(),

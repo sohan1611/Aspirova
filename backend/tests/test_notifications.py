@@ -437,6 +437,91 @@ def test_generic_digest_prioritizes_student_quality_and_keeps_unranked_companies
     assert competition.slug not in {opportunity.slug for opportunity in opportunities}
 
 
+def test_generic_digest_reserves_ranked_company_jobs_over_unranked_internships(
+    db_session: Session,
+) -> None:
+    suffix = uuid.uuid4().hex
+    now = datetime(2030, 1, 1, 12, tzinfo=timezone.utc)
+    since = now - timedelta(hours=1)
+    ranked_one = models.Company(
+        slug=f"notif-reserve-ranked-one-{suffix}",
+        name=f"Digest Reserve Ranked One {suffix}",
+        prestige_rank=10,
+    )
+    ranked_two = models.Company(
+        slug=f"notif-reserve-ranked-two-{suffix}",
+        name=f"Digest Reserve Ranked Two {suffix}",
+        prestige_rank=20,
+    )
+    ranked_job_one = models.Opportunity(
+        slug=f"notif-reserve-ranked-job-one-{suffix}",
+        title="Software Engineer",
+        title_normalized="software engineer",
+        company=ranked_one,
+        category="job",
+        apply_url=f"https://example.com/notif-reserve/ranked-job-one/{suffix}",
+        posted_at=now - timedelta(days=5),
+        first_seen_at=now - timedelta(minutes=20),
+        last_seen_at=now,
+        status="active",
+    )
+    ranked_job_two = models.Opportunity(
+        slug=f"notif-reserve-ranked-job-two-{suffix}",
+        title="Backend Engineer",
+        title_normalized="backend engineer",
+        company=ranked_two,
+        category="job",
+        apply_url=f"https://example.com/notif-reserve/ranked-job-two/{suffix}",
+        posted_at=now - timedelta(days=5),
+        first_seen_at=now - timedelta(minutes=19),
+        last_seen_at=now,
+        status="active",
+    )
+    unranked_internships = []
+    for index in range(5):
+        company = models.Company(
+            slug=f"notif-reserve-unranked-{index}-{suffix}",
+            name=f"Digest Reserve Unranked {index} {suffix}",
+        )
+        unranked_internships.append(
+            models.Opportunity(
+                slug=f"notif-reserve-unranked-internship-{index}-{suffix}",
+                title="Software Engineering Intern",
+                title_normalized="software engineering intern",
+                company=company,
+                category="internship",
+                apply_url=f"https://example.com/notif-reserve/unranked-{index}/{suffix}",
+                posted_at=now - timedelta(days=5),
+                first_seen_at=now - timedelta(minutes=index + 1),
+                last_seen_at=now,
+                status="active",
+            )
+        )
+    db_session.add_all([ranked_one, ranked_two, ranked_job_one, ranked_job_two])
+    db_session.add_all(unranked_internships)
+    db_session.flush()
+
+    opportunities = notifications_module._generic_recent_opportunities(
+        db_session,
+        since,
+        limit=5,
+        now=now,
+    )
+
+    slugs = [opportunity.slug for opportunity in opportunities]
+    assert ranked_job_one.slug in slugs
+    assert ranked_job_two.slug in slugs
+    assert len([slug for slug in slugs if "unranked-internship" in slug]) == 3
+    assert len({opportunity.company_id for opportunity in opportunities}) == len(opportunities)
+    assert slugs == [
+        unranked_internships[0].slug,
+        unranked_internships[1].slug,
+        unranked_internships[2].slug,
+        ranked_job_one.slug,
+        ranked_job_two.slug,
+    ]
+
+
 def test_digest_skipped_when_plan_does_not_grant_it(
     db_session, sent_emails, source_and_company
 ) -> None:
