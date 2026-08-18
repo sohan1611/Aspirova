@@ -1,6 +1,7 @@
 """Jobicy aggregator adapter using its public remote-jobs API."""
 
 from datetime import UTC, datetime
+from time import sleep
 from typing import Any, Literal
 
 import httpx
@@ -12,11 +13,13 @@ from crawlers.common import (
     build_listings,
     content_hash,
     extract_text,
+    request_with_retries,
 )
 from crawlers.student_relevance import classify_student_role, is_student_relevant_role
 
 _API_URL = "https://jobicy.com/api/v2/remote-jobs"
 _REQUEST_COUNT = 100
+_MAX_RETRIES = 2
 
 HealthStatus = Literal["ok", "degraded", "broken"]
 
@@ -36,38 +39,61 @@ class JobicyAdapter:
         self._expected_total: int | None = None
         self._raw_count = 0
         self._kept_count = 0
+        self._request_count = 0
+        self._retry_count = 0
+        self._retry_reasons: list[str] = []
+        self._terminal_reason: str | None = None
 
     def fetch(self) -> list[RawListing]:
         self._expected_total = None
         self._raw_count = 0
         self._kept_count = 0
+        self._request_count = 0
+        self._retry_count = 0
+        self._retry_reasons = []
+        self._terminal_reason = None
 
-        try:
-            response = self._client.get(_API_URL, params={"count": _REQUEST_COUNT})
-        except httpx.RequestError:
+        result = request_with_retries(
+            lambda: self._client.get(_API_URL, params={"count": _REQUEST_COUNT}),
+            max_retries=_MAX_RETRIES,
+            sleeper=sleep,
+        )
+        self._request_count = result.attempts_made
+        self._retry_count = max(result.attempts_made - 1, 0)
+        self._retry_reasons = list(result.retry_reasons)
+        response = result.response
+        if response is None:
+            self._terminal_reason = result.terminal_reason or "request_error"
             self._last_health = "degraded"
             return []
 
         if response.status_code == 404:
+            self._terminal_reason = "http_404"
             self._last_health = "broken"
             return []
         if response.status_code != 200:
+            self._terminal_reason = result.terminal_reason or f"http_{response.status_code}"
             self._last_health = "degraded"
             return []
 
         try:
             payload = response.json()
         except ValueError:
+            self._terminal_reason = (
+                "empty_response" if not response.text.strip() else "invalid_json"
+            )
             self._last_health = "degraded"
             return []
 
         if not isinstance(payload, dict):
+            self._terminal_reason = "non_object_payload"
             self._last_health = "degraded"
             return []
 
         self._expected_total = _declared_total(payload)
         jobs = payload.get("jobs")
         if not isinstance(jobs, list):
+            self._terminal_reason = "missing_jobs"
             self._last_health = "degraded"
             return []
 
@@ -124,12 +150,31 @@ class JobicyAdapter:
         return self._last_health
 
     def coverage(self) -> dict[str, Any]:
-        return {
+        note = None if self._expected_total is not None else "source declares no total"
+        if self._last_health in {"broken", "degraded"} and self._terminal_reason:
+            terminal_note = f"fetch ended with {self._terminal_reason}"
+            if self._retry_reasons:
+                terminal_note = f"{terminal_note} after {self._retry_reasons[-1]}"
+            note = f"{note}; {terminal_note}" if note else terminal_note
+
+        details: dict[str, Any] = self.filter_counts() | {
+            "requested_count": _REQUEST_COUNT,
+            "requests_made": self._request_count,
+            "terminal_reason": self._terminal_reason,
+        }
+        if self._retry_count:
+            details["retry_attempts"] = self._retry_count
+            details["retry_reasons"] = self._retry_reasons
+
+        coverage: dict[str, Any] = {
             "mode": "declared_total" if self._expected_total is not None else "unknown",
             "expected_total": self._expected_total,
-            "note": None if self._expected_total is not None else "source declares no total",
-            "details": self.filter_counts() | {"requested_count": _REQUEST_COUNT},
+            "note": note,
+            "details": details,
         }
+        if self._last_health in {"broken", "degraded"} and self._terminal_reason:
+            coverage["status"] = "partial"
+        return coverage
 
     def filter_counts(self) -> dict[str, int]:
         return {

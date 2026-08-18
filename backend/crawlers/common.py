@@ -9,9 +9,12 @@ import hashlib
 import html
 import json
 import logging
+import random
 import re
 from collections.abc import Callable, Iterable
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from email.utils import parsedate_to_datetime
 from typing import TypeVar
 
 import httpx
@@ -22,12 +25,24 @@ USER_AGENT = (
 )
 MAX_DEADLINE_HORIZON = timedelta(days=550)
 DEFAULT_HTTP_TIMEOUT_SECONDS = 15.0
+DEFAULT_RETRY_BASE_DELAY_SECONDS = 2.0
+DEFAULT_RETRY_MAX_DELAY_SECONDS = 60.0
+DEFAULT_RETRY_JITTER_SECONDS = 0.5
+RETRYABLE_HTTP_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
 LIST_ITEM_START = "\ue000"
 LIST_ITEM_END = "\ue001"
 logger = logging.getLogger(__name__)
 
 ItemT = TypeVar("ItemT")
 ListingT = TypeVar("ListingT")
+
+
+@dataclass(frozen=True)
+class RetriedResponse:
+    response: httpx.Response | None
+    attempts_made: int
+    terminal_reason: str | None = None
+    retry_reasons: tuple[str, ...] = ()
 
 
 def build_http_timeout(timeout: float = DEFAULT_HTTP_TIMEOUT_SECONDS) -> httpx.Timeout:
@@ -37,6 +52,138 @@ def build_http_timeout(timeout: float = DEFAULT_HTTP_TIMEOUT_SECONDS) -> httpx.T
         write=timeout,
         pool=timeout,
     )
+
+
+def request_with_retries(
+    request_once: Callable[[], httpx.Response],
+    *,
+    max_retries: int,
+    sleeper: Callable[[float], None],
+    base_delay_seconds: float = DEFAULT_RETRY_BASE_DELAY_SECONDS,
+    max_delay_seconds: float = DEFAULT_RETRY_MAX_DELAY_SECONDS,
+    jitter_seconds: float = DEFAULT_RETRY_JITTER_SECONDS,
+    now: Callable[[], datetime] | None = None,
+) -> RetriedResponse:
+    """Run one HTTP request with bounded transient retry handling.
+
+    Retry-After is source policy, so it wins over local backoff. Without it,
+    retries use exponential delay plus small additive jitter to avoid a fixed
+    retry cadence from shared CI runner IPs.
+    """
+    attempts_made = 0
+    retry_reasons: list[str] = []
+    max_attempts = max(max_retries, 0) + 1
+
+    while attempts_made < max_attempts:
+        attempts_made += 1
+        try:
+            response = request_once()
+        except httpx.RequestError:
+            terminal_reason = "request_error"
+            if attempts_made >= max_attempts:
+                return RetriedResponse(
+                    response=None,
+                    attempts_made=attempts_made,
+                    terminal_reason=terminal_reason,
+                    retry_reasons=tuple(retry_reasons),
+                )
+            retry_reasons.append(terminal_reason)
+            sleeper(
+                _retry_delay_seconds(
+                    None,
+                    retry_number=attempts_made,
+                    base_delay_seconds=base_delay_seconds,
+                    max_delay_seconds=max_delay_seconds,
+                    jitter_seconds=jitter_seconds,
+                    now=now,
+                )
+            )
+            continue
+
+        if response.status_code not in RETRYABLE_HTTP_STATUS_CODES:
+            return RetriedResponse(
+                response=response,
+                attempts_made=attempts_made,
+                retry_reasons=tuple(retry_reasons),
+            )
+
+        terminal_reason = f"http_{response.status_code}"
+        if attempts_made >= max_attempts:
+            return RetriedResponse(
+                response=response,
+                attempts_made=attempts_made,
+                terminal_reason=terminal_reason,
+                retry_reasons=tuple(retry_reasons),
+            )
+
+        retry_reasons.append(terminal_reason)
+        sleeper(
+            _retry_delay_seconds(
+                response,
+                retry_number=attempts_made,
+                base_delay_seconds=base_delay_seconds,
+                max_delay_seconds=max_delay_seconds,
+                jitter_seconds=jitter_seconds,
+                now=now,
+            )
+        )
+
+    return RetriedResponse(
+        response=None,
+        attempts_made=attempts_made,
+        terminal_reason="request_error",
+        retry_reasons=tuple(retry_reasons),
+    )
+
+
+def _retry_delay_seconds(
+    response: httpx.Response | None,
+    *,
+    retry_number: int,
+    base_delay_seconds: float,
+    max_delay_seconds: float,
+    jitter_seconds: float,
+    now: Callable[[], datetime] | None,
+) -> float:
+    retry_after_seconds = _retry_after_seconds(response, now=now)
+    if retry_after_seconds is not None:
+        return retry_after_seconds
+
+    exponential_delay = min(
+        max_delay_seconds,
+        base_delay_seconds * (2 ** max(retry_number - 1, 0)),
+    )
+    jitter = random.uniform(0.0, max(jitter_seconds, 0.0)) if jitter_seconds > 0 else 0.0
+    return exponential_delay + jitter
+
+
+def _retry_after_seconds(
+    response: httpx.Response | None,
+    *,
+    now: Callable[[], datetime] | None,
+) -> float | None:
+    if response is None:
+        return None
+
+    retry_after = response.headers.get("Retry-After")
+    if not retry_after:
+        return None
+
+    try:
+        return max(float(retry_after), 0.0)
+    except ValueError:
+        pass
+
+    try:
+        retry_at = parsedate_to_datetime(retry_after)
+    except (TypeError, ValueError, IndexError, OverflowError):
+        return None
+    if retry_at.tzinfo is None:
+        retry_at = retry_at.replace(tzinfo=UTC)
+    current_time = now() if now is not None else datetime.now(UTC)
+    if current_time.tzinfo is None:
+        current_time = current_time.replace(tzinfo=UTC)
+    return max((retry_at - current_time).total_seconds(), 0.0)
 
 
 def content_hash(payload: dict) -> str:

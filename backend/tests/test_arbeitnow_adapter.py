@@ -107,6 +107,11 @@ def test_fetch_retries_transient_rate_limit_before_marking_degraded(
         {"page": 2, "per_page": 175},
         {"page": 2, "per_page": 175},
     ]
+    coverage = adapter.coverage()
+    assert coverage["details"]["requests_made"] == 3
+    assert coverage["details"]["retry_attempts"] == 1
+    assert coverage["details"]["retry_reasons"] == ["http_429"]
+    assert coverage["details"]["terminal_reason"] is None
     assert adapter.health() == "ok"
 
 

@@ -8,11 +8,13 @@ import httpx
 
 from core.adapters import NormalizedListing, RawListing
 from crawlers.common import (
+    RetriedResponse,
     USER_AGENT,
     build_http_timeout,
     build_listings,
     content_hash,
     extract_text,
+    request_with_retries,
 )
 from crawlers.student_relevance import classify_student_role, is_student_relevant_role
 
@@ -20,7 +22,7 @@ _API_URL = "https://www.arbeitnow.com/api/job-board-api"
 _PAGE_SIZE = 175
 _MAX_PAGES = 12
 _REQUEST_DELAY_SECONDS = 0.5
-_RATE_LIMIT_RETRY_DELAY_SECONDS = 5.0
+_MAX_RETRIES = 2
 
 HealthStatus = Literal["ok", "degraded", "broken"]
 
@@ -40,7 +42,12 @@ class ArbeitnowAdapter:
         self._raw_count = 0
         self._kept_count = 0
         self._page_count = 0
+        self._request_count = 0
+        self._retry_count = 0
+        self._retry_reasons: list[str] = []
         self._hit_page_cap = False
+        self._terminal_reason: str | None = None
+        self._terminal_page: int | None = None
 
     def fetch(self) -> list[RawListing]:
         listings: list[RawListing] = []
@@ -48,41 +55,65 @@ class ArbeitnowAdapter:
         self._raw_count = 0
         self._kept_count = 0
         self._page_count = 0
+        self._request_count = 0
+        self._retry_count = 0
+        self._retry_reasons = []
         self._hit_page_cap = False
+        self._terminal_reason = None
+        self._terminal_page = None
 
         page = 1
         while page <= _MAX_PAGES:
             if self._page_count:
                 sleep(_REQUEST_DELAY_SECONDS)
 
-            try:
-                response = self._get_page(page)
-            except httpx.RequestError:
+            result = self._get_page(page)
+            self._request_count += result.attempts_made
+            self._retry_count += max(result.attempts_made - 1, 0)
+            self._retry_reasons.extend(result.retry_reasons)
+            response = result.response
+            if response is None:
+                self._terminal_reason = result.terminal_reason or "request_error"
+                self._terminal_page = page
                 self._last_health = "degraded"
                 return listings
 
             if response.status_code == 404:
+                self._terminal_reason = "http_404"
+                self._terminal_page = page
                 self._last_health = "broken"
                 return listings
             if response.status_code != 200:
+                self._terminal_reason = result.terminal_reason or f"http_{response.status_code}"
+                self._terminal_page = page
                 self._last_health = "degraded"
                 return listings
 
             try:
                 payload = response.json()
             except ValueError:
+                self._terminal_reason = (
+                    "empty_response" if not response.text.strip() else "invalid_json"
+                )
+                self._terminal_page = page
                 self._last_health = "degraded"
                 return listings
 
             if not isinstance(payload, dict):
+                self._terminal_reason = "non_object_payload"
+                self._terminal_page = page
                 self._last_health = "degraded"
                 return listings
 
             jobs = payload.get("data")
             if not isinstance(jobs, list):
+                self._terminal_reason = "missing_jobs"
+                self._terminal_page = page
                 self._last_health = "degraded"
                 return listings
             if not jobs:
+                self._terminal_reason = "empty_page"
+                self._terminal_page = page
                 break
 
             self._raw_count += len(jobs)
@@ -150,18 +181,31 @@ class ArbeitnowAdapter:
         note = "source declares no total"
         if self._hit_page_cap:
             note = f"{note}; fetch capped at {_MAX_PAGES} pages"
+        if self._last_health in {"broken", "degraded"} and self._terminal_reason:
+            note = f"{note}; fetch ended with {self._terminal_reason}"
 
-        return {
+        details: dict[str, Any] = self.filter_counts() | {
+            "page_size": _PAGE_SIZE,
+            "page_cap": _MAX_PAGES,
+            "pages_fetched": self._page_count,
+            "requests_made": self._request_count,
+            "terminal_reason": self._terminal_reason,
+            "terminal_page": self._terminal_page,
+        }
+        if self._retry_count:
+            details["retry_attempts"] = self._retry_count
+            details["retry_reasons"] = self._retry_reasons
+
+        coverage: dict[str, Any] = {
             "mode": "unknown",
             "expected_total": None,
             "note": note,
-            "details": self.filter_counts()
-            | {
-                "page_size": _PAGE_SIZE,
-                "page_cap": _MAX_PAGES,
-                "pages_fetched": self._page_count,
-            },
+            "details": details,
         }
+        if self._last_health in {"broken", "degraded"} and self._terminal_reason:
+            coverage["status"] = "partial"
+
+        return coverage
 
     def filter_counts(self) -> dict[str, int]:
         return {
@@ -182,18 +226,14 @@ class ArbeitnowAdapter:
             raw_payload=job,
         )
 
-    def _get_page(self, page: int) -> httpx.Response:
-        response = self._client.get(
-            _API_URL,
-            params={"page": page, "per_page": _PAGE_SIZE},
-        )
-        if response.status_code != 429:
-            return response
-
-        sleep(_RATE_LIMIT_RETRY_DELAY_SECONDS)
-        return self._client.get(
-            _API_URL,
-            params={"page": page, "per_page": _PAGE_SIZE},
+    def _get_page(self, page: int) -> RetriedResponse:
+        return request_with_retries(
+            lambda: self._client.get(
+                _API_URL,
+                params={"page": page, "per_page": _PAGE_SIZE},
+            ),
+            max_retries=_MAX_RETRIES,
+            sleeper=sleep,
         )
 
 
