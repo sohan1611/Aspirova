@@ -2,11 +2,14 @@
 
 from types import SimpleNamespace
 
+import httpx
 import pytest
 
 from core.adapters import RawListing
+from crawlers.hackerearth import HackerEarthAdapter
 from crawlers import runner
 from crawlers.runner import _board_fingerprint
+from crawlers.student_relevance import is_student_relevant_role
 from scripts.crawl_retry import retry_decision
 
 
@@ -98,6 +101,99 @@ def test_fingerprint_empty_list_is_deterministic() -> None:
     assert _board_fingerprint([]) == _board_fingerprint([])
 
 
+def test_new_aggregator_sources_are_registered() -> None:
+    assert {
+        "arbeitnow",
+        "hackerearth",
+        "himalayas",
+        "jobicy",
+    }.issubset(runner.AGGREGATOR_ADAPTERS)
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "Software Engineer Intern",
+        "Graduate Data Analyst",
+        "Junior Developer",
+        "New Grad Software Engineer",
+        "Trainee Consultant",
+    ],
+)
+def test_new_job_aggregator_filter_keeps_positive_student_titles(title: str) -> None:
+    assert is_student_relevant_role(title)
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "Procurement Coordinator",
+        "Managed Services Field Engineer",
+        "MÜNCHEN - Campervan Reinigung (m/w/d)",
+    ],
+)
+def test_new_job_aggregator_filter_rejects_titles_without_student_signal(title: str) -> None:
+    assert not is_student_relevant_role(title)
+
+
+@pytest.mark.parametrize(
+    ("title", "expected"),
+    [
+        # "campus" alone described a recruiter who VISITS campuses. Seen live on
+        # Himalayas as "Campus Recruiter - Dental Hygiene".
+        ("Campus Recruiter - Dental Hygiene", False),
+        ("Campus Talent Acquisition Specialist", False),
+        # Genuine campus programmes must still qualify.
+        ("Campus Ambassador", True),
+        ("Campus Hiring Program 2027", True),
+        ("Campus Internship - Analytics", True),
+    ],
+)
+def test_campus_only_counts_when_it_names_a_student_programme(title: str, expected: bool) -> None:
+    assert is_student_relevant_role(title) is expected
+
+
+@pytest.mark.parametrize("level_field", ["Entry", "Entry-level", ["Junior"]])
+def test_new_job_aggregator_filter_keeps_source_entry_level_fields(
+    level_field: object,
+) -> None:
+    assert is_student_relevant_role("Product Analyst", level_field)
+
+
+def test_hackerearth_keeps_competition_without_entry_level_title(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert not is_student_relevant_role("August Circuits")
+
+    adapter = HackerEarthAdapter()
+    payload = {
+        "response": [
+            {
+                "challenge_type": "Monthly Challenges",
+                "title": "August Circuits",
+                "url": "/challenges/competitive/august-circuits-26/",
+                "start_timestamp": 1786934400,
+                "end_timestamp": 1789526400,
+                "status": "ONGOING",
+            }
+        ]
+    }
+
+    def fake_get(url: str) -> httpx.Response:
+        request = httpx.Request("GET", url)
+        return httpx.Response(200, json=payload, request=request)
+
+    monkeypatch.setattr(adapter._client, "get", fake_get)
+
+    raw_listings = adapter.fetch()
+
+    assert len(raw_listings) == 1
+    assert raw_listings[0].source_url == (
+        "https://www.hackerearth.com/challenges/competitive/august-circuits-26/"
+    )
+    assert adapter.health() == "ok"
+
+
 def test_order_ats_jobs_interleaves_sources_to_prevent_source_starvation() -> None:
     from datetime import datetime, timezone
 
@@ -140,6 +236,53 @@ def test_order_ats_jobs_interleaves_sources_to_prevent_source_starvation() -> No
         "source-two-only",
         "source-one-second",
     ]
+
+
+def test_full_list_coverage_merge_reports_partial_boards_not_unknown() -> None:
+    records = [
+        runner._coverage_record(
+            fetched=2,
+            mode="full_list",
+            status="complete",
+            details={
+                "boards_total": 1,
+                "boards_complete": 1,
+                "incomplete_boards": [],
+            },
+        ),
+        runner._coverage_record(
+            fetched=0,
+            mode="full_list",
+            status="partial",
+            note="full-list board did not complete cleanly",
+            details={
+                "boards_total": 1,
+                "boards_complete": 0,
+                "incomplete_boards": ["flexport"],
+            },
+        ),
+        runner._coverage_record(
+            fetched=4,
+            mode="full_list",
+            status="complete",
+            details={
+                "boards_total": 1,
+                "boards_complete": 1,
+                "incomplete_boards": [],
+            },
+        ),
+    ]
+
+    merged = runner._merge_coverage(records)
+
+    assert merged["status"] == "partial"
+    assert merged["status"] != "unknown"
+    assert merged["details"]["boards_total"] == 3
+    assert merged["details"]["boards_complete"] == 2
+    assert merged["details"]["incomplete_boards"] == ["flexport"]
+    assert runner._coverage_line("greenhouse", merged) == (
+        "COVERAGE: greenhouse 6 (full-list, 2/3 boards complete; incomplete: flexport)"
+    )
 
 
 @pytest.mark.parametrize(
@@ -332,6 +475,60 @@ def test_run_tier_never_lets_one_aggregator_consume_the_group_budget(monkeypatch
 
     # First source is capped at its share of the group, not the nominal budget.
     assert calls[0][1] == pytest.approx(300.0)
+
+
+def test_run_tier_gives_a_slow_aggregator_the_time_the_others_do_not_need(
+    monkeypatch,
+) -> None:
+    """Reserving a floor beats dividing the group evenly.
+
+    Measured on the 2026-08-17 crawl: an even split gave all three aggregators
+    2900s of an 8700s ceiling, so unstop truncated at 95.4% coverage after 2904s
+    while devpost finished in 130s and remoteok in 240s. The slow source was
+    starved so surplus could be handed to two that did not need it.
+
+    The first source should now receive nearly the whole group budget, with only
+    a floor held back for each source behind it.
+    """
+    sources = [
+        SimpleNamespace(id=1, adapter_key="unstop"),
+        SimpleNamespace(id=2, adapter_key="devpost"),
+        SimpleNamespace(id=3, adapter_key="remoteok"),
+    ]
+    session_factory = _SessionFactory(sources, [])
+    calls: list[tuple[str, float]] = []
+    monotonic_values = iter([0.0, 0.0, 3_100.0, 3_230.0])
+
+    def fake_crawl_aggregator(_session, source, _adapter_class, *, max_seconds, **_kwargs):
+        calls.append((source.adapter_key, max_seconds))
+        return {}
+
+    monkeypatch.setattr(runner, "make_engine", lambda: object())
+    monkeypatch.setattr(runner, "verify_connection_guards", lambda _engine: None)
+    monkeypatch.setattr(runner, "Session", session_factory)
+    monkeypatch.setattr(runner, "crawl_aggregator", fake_crawl_aggregator)
+    monkeypatch.setattr(runner.time, "monotonic", lambda: next(monotonic_values))
+    monkeypatch.setattr(runner, "_refresh_prestige_matches", lambda _engine: None)
+
+    runner.run_tier(
+        1,
+        group="aggregator",
+        aggregator_max_seconds=7_200.0,
+        aggregator_group_max_seconds=8_700.0,
+    )
+
+    assert len(calls) == 3
+    first_budget = calls[0][1]
+    # Far more than an even split (8700/3 = 2900), which is what truncated unstop.
+    assert first_budget > 5_000.0, (
+        f"first aggregator got {first_budget}s; an even split would starve the one "
+        "source that actually needs the time"
+    )
+    # Every source behind it still gets a workable slice.
+    for adapter_key, budget in calls[1:]:
+        assert (
+            budget >= runner.AGGREGATOR_MIN_RESERVE_SECONDS
+        ), f"{adapter_key} got {budget}s, below the reserved floor"
 
 
 def test_run_tier_summarizes_truncated_aggregators(monkeypatch, capsys) -> None:

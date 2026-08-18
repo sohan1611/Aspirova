@@ -219,6 +219,81 @@ def test_ats_prefetch_stops_queued_work_after_a_stop_signal(monkeypatch) -> None
     assert len(started_boards) <= runner.ATS_FETCH_MAX_WORKERS
 
 
+def test_zero_listing_board_with_previous_listings_is_retried_once(monkeypatch) -> None:
+    fetch_calls = 0
+
+    class _ZeroAfterPreviousAdapter:
+        source_slug = "greenhouse"
+
+        def __init__(self, board_token: str, company_name: str) -> None:
+            self.board_token = board_token
+            self.company_name = company_name
+
+        def fetch(self) -> list[RawListing]:
+            nonlocal fetch_calls
+            fetch_calls += 1
+            return []
+
+        def health(self) -> str:
+            return "ok"
+
+    monkeypatch.setitem(runner.ATS_ADAPTERS, "zero-retry-test", _ZeroAfterPreviousAdapter)
+    job = runner._AtsJob(
+        company_id=1,
+        source_id=1,
+        company_slug="flexport",
+        adapter_key="zero-retry-test",
+        board_token="flexport",
+        company_name="Flexport",
+        previously_had_listings=True,
+    )
+
+    board = runner._fetch_company_board(job)
+
+    assert fetch_calls == 2
+    assert board is not None
+    assert board.listings == []
+    assert board.coverage["status"] == "partial"
+    assert board.coverage["details"]["incomplete_boards"] == ["flexport"]
+
+
+def test_zero_listing_board_that_has_always_been_empty_is_not_retried(monkeypatch) -> None:
+    fetch_calls = 0
+
+    class _AlwaysEmptyAdapter:
+        source_slug = "greenhouse"
+
+        def __init__(self, board_token: str, company_name: str) -> None:
+            self.board_token = board_token
+            self.company_name = company_name
+
+        def fetch(self) -> list[RawListing]:
+            nonlocal fetch_calls
+            fetch_calls += 1
+            return []
+
+        def health(self) -> str:
+            return "ok"
+
+    monkeypatch.setitem(runner.ATS_ADAPTERS, "always-empty-test", _AlwaysEmptyAdapter)
+    job = runner._AtsJob(
+        company_id=1,
+        source_id=1,
+        company_slug="empty-board",
+        adapter_key="always-empty-test",
+        board_token="empty-board",
+        company_name="Empty Board",
+    )
+
+    board = runner._fetch_company_board(job)
+
+    assert fetch_calls == 1
+    assert board is not None
+    assert board.listings == []
+    assert board.coverage["status"] == "complete"
+    assert board.coverage["details"]["boards_complete"] == 1
+
+
 def test_run_tier_ingests_other_boards_when_one_prefetch_fails(monkeypatch) -> None:
     source = SimpleNamespace(id=1, adapter_key="runner-prefetch-test")
     # Descending ids: these boards are all never-crawled, so they tie on the

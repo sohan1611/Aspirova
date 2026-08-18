@@ -86,6 +86,46 @@ def test_fetch_returns_fixture_jobs_without_network(
     assert adapter.health() == "ok"
 
 
+def test_coverage_reports_capped_query_as_partial_without_summed_denominator(
+    adapter: AmazonAdapter,
+) -> None:
+    adapter._declared_hits_by_query = {
+        "intern": 192,
+        "new grad": 0,
+        "graduate": 301,
+    }
+
+    coverage = adapter.coverage()
+
+    assert coverage["status"] == "partial"
+    assert coverage["expected_total"] is None
+    assert coverage["details"]["declared_hits_by_query"]["graduate"] == 301
+    assert coverage["details"]["capped_queries"] == ["graduate"]
+    assert "overlap" in coverage["note"]
+    assert "not a valid distinct-listing denominator" in coverage["note"]
+
+
+def test_coverage_reports_uncapped_queries_complete_without_summed_denominator(
+    adapter: AmazonAdapter,
+) -> None:
+    adapter._declared_hits_by_query = {
+        "intern": 192,
+        "new grad": 0,
+        "graduate": 293,
+    }
+
+    coverage = adapter.coverage()
+
+    assert coverage["status"] == "complete"
+    assert coverage["expected_total"] is None
+    assert coverage["details"]["declared_hits_by_query"] == {
+        "intern": 192,
+        "new grad": 0,
+        "graduate": 293,
+    }
+    assert "capped_queries" not in coverage["details"]
+
+
 def test_parse_internship_job(adapter: AmazonAdapter, fixture_payload: dict) -> None:
     job = next(job for job in fixture_payload["jobs"] if "Intern" in job["title"])
     raw = _raw_listing_for(job)

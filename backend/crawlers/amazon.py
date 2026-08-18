@@ -106,7 +106,7 @@ class AmazonAdapter:
                 except (TypeError, ValueError):
                     self._last_health = "degraded"
                     return listings
-                self._declared_hits_by_query.setdefault(query, min(hits, _PER_QUERY_CAP))
+                self._declared_hits_by_query.setdefault(query, hits)
 
                 remaining = _PER_QUERY_CAP - offset
 
@@ -202,17 +202,30 @@ class AmazonAdapter:
         return self._last_health
 
     def coverage(self) -> dict[str, Any]:
-        expected_total = None
-        note = "source total was not fully declared"
-        if len(self._declared_hits_by_query) == len(_SEARCH_TERMS):
-            expected_total = sum(self._declared_hits_by_query.values())
-            note = "source declares per-query hits; denominator is capped before dedupe"
+        declared_hits_by_query = dict(self._declared_hits_by_query)
+        capped_queries = [
+            query for query, hits in declared_hits_by_query.items() if hits > _PER_QUERY_CAP
+        ]
+        missing_queries = [query for query in _SEARCH_TERMS if query not in declared_hits_by_query]
+        details: dict[str, Any] = {"declared_hits_by_query": declared_hits_by_query}
+        if capped_queries:
+            details["capped_queries"] = capped_queries
+        if missing_queries:
+            details["missing_queries"] = missing_queries
+
+        status = "partial" if capped_queries else "complete"
+        if missing_queries:
+            status = "unknown"
 
         return {
-            "mode": "declared_total" if expected_total is not None else "unknown",
-            "expected_total": expected_total,
-            "note": note,
-            "details": {"declared_hits_by_query": dict(self._declared_hits_by_query)},
+            "mode": "declared_query_totals",
+            "expected_total": None,
+            "status": status,
+            "note": (
+                "Amazon search terms overlap, so summed per-query hits are not "
+                "a valid distinct-listing denominator."
+            ),
+            "details": details,
         }
 
 

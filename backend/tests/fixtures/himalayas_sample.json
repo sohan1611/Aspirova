@@ -1,0 +1,63 @@
+{
+  "totalCount": 102211,
+  "jobs": [
+    {
+      "id": "hm-101",
+      "url": "https://himalayas.app/companies/nimbus/jobs/junior-frontend-engineer",
+      "applicationLink": "https://himalayas.app/companies/nimbus/jobs/junior-frontend-engineer/apply",
+      "title": "Junior Frontend Engineer",
+      "company": {
+        "name": "Nimbus",
+        "website": "https://nimbus.example"
+      },
+      "description": "<p>Build accessible frontend flows.</p>",
+      "publishedDate": "2026-08-16T09:00:00Z",
+      "seniority": "Entry",
+      "jobType": "Full-time",
+      "categories": ["Frontend"],
+      "locations": ["Worldwide"]
+    },
+    {
+      "id": "hm-102",
+      "url": "https://himalayas.app/companies/nimbus/jobs/director-engineering",
+      "applicationLink": "https://himalayas.app/companies/nimbus/jobs/director-engineering/apply",
+      "title": "Director of Engineering",
+      "company": {
+        "name": "Nimbus",
+        "website": "https://nimbus.example"
+      },
+      "description": "<p>Director level role.</p>",
+      "publishedDate": "2026-08-16T09:00:00Z",
+      "seniority": "Director",
+      "jobType": "Full-time",
+      "categories": ["Engineering"],
+      "locations": ["Worldwide"]
+    },
+    {
+      "id": "hm-103",
+      "url": "https://himalayas.app/companies/atlas/jobs/product-analyst",
+      "applicationLink": "https://himalayas.app/companies/atlas/jobs/product-analyst/apply",
+      "title": "Product Analyst",
+      "companyName": "Atlas Remote",
+      "description": "<p>Analyze product usage.</p>",
+      "publishedDate": "2026-08-16T09:00:00Z",
+      "seniority": "Senior",
+      "jobType": "Full-time",
+      "categories": ["Data"],
+      "locationRestrictions": ["India"]
+    },
+    {
+      "id": "hm-104",
+      "url": "https://himalayas.app/companies/atlas/jobs/graduate-support-trainee",
+      "applicationLink": "https://himalayas.app/companies/atlas/jobs/graduate-support-trainee/apply",
+      "title": "Graduate Support Trainee",
+      "companyName": "Atlas Remote",
+      "description": "<p>Support customers during a graduate rotation.</p>",
+      "publishedDate": "2026-08-16T09:00:00Z",
+      "seniority": "Entry-level",
+      "jobType": "Full-time",
+      "categories": ["Support"],
+      "locations": ["Remote"]
+    }
+  ]
+}

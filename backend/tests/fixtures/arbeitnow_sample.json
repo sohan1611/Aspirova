@@ -1,0 +1,56 @@
+{
+  "data": [
+    {
+      "slug": "junior-software-engineer-alpha",
+      "company_name": "Alpha GmbH",
+      "title": "Junior Software Engineer",
+      "description": "<p>Build student-friendly tools.</p>",
+      "remote": true,
+      "url": "https://www.arbeitnow.com/jobs/companies/alpha/junior-software-engineer-alpha",
+      "tags": ["Python", "Backend"],
+      "job_types": ["Full-time"],
+      "location": "Berlin, Germany",
+      "created_at": 1786934400
+    },
+    {
+      "slug": "senior-backend-engineer-beta",
+      "company_name": "Beta GmbH",
+      "title": "Senior Backend Engineer",
+      "description": "<p>Own the platform.</p>",
+      "remote": true,
+      "url": "https://www.arbeitnow.com/jobs/companies/beta/senior-backend-engineer-beta",
+      "tags": ["Python"],
+      "job_types": ["Full-time"],
+      "location": "Remote",
+      "created_at": 1786934400
+    },
+    {
+      "slug": "graduate-trainee-developer-gamma",
+      "company_name": "Gamma GmbH",
+      "title": "Graduate Trainee Developer",
+      "description": "<p>Rotational graduate programme.</p>",
+      "remote": false,
+      "url": "https://www.arbeitnow.com/jobs/companies/gamma/graduate-trainee-developer-gamma",
+      "tags": ["Graduate"],
+      "job_types": ["Trainee"],
+      "location": "Munich, Germany",
+      "created_at": 1786934400
+    },
+    {
+      "slug": "head-of-engineering-delta",
+      "company_name": "Delta GmbH",
+      "title": "Head of Engineering",
+      "description": "<p>Lead engineering.</p>",
+      "remote": false,
+      "url": "https://www.arbeitnow.com/jobs/companies/delta/head-of-engineering-delta",
+      "tags": ["Leadership"],
+      "job_types": ["Full-time"],
+      "location": "Hamburg, Germany",
+      "created_at": 1786934400
+    }
+  ],
+  "links": {
+    "next": null,
+    "last": null
+  }
+}

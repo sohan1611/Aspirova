@@ -23,7 +23,7 @@ import threading
 import time
 from collections.abc import Callable
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import Any
 
@@ -35,9 +35,13 @@ from core.adapters import RawListing
 from core.db import make_engine, verify_connection_guards
 from crawlers import watchdog
 from crawlers.amazon import AmazonAdapter
+from crawlers.arbeitnow import ArbeitnowAdapter
 from crawlers.ashby import AshbyAdapter
 from crawlers.devpost import DevpostAdapter
 from crawlers.greenhouse import GreenhouseAdapter
+from crawlers.hackerearth import HackerEarthAdapter
+from crawlers.himalayas import HimalayasAdapter
+from crawlers.jobicy import JobicyAdapter
 from crawlers.recruitee import RecruiteeAdapter
 from crawlers.workable import WorkableAdapter
 from crawlers.keka import KekaAdapter
@@ -70,7 +74,11 @@ ATS_ADAPTERS: dict[str, type] = {
 # source, one fetch spans many different companies (crawl_aggregator
 # below), so these are dispatched separately from ATS_ADAPTERS.
 AGGREGATOR_ADAPTERS: dict[str, type] = {
+    "arbeitnow": ArbeitnowAdapter,
     "devpost": DevpostAdapter,
+    "hackerearth": HackerEarthAdapter,
+    "himalayas": HimalayasAdapter,
+    "jobicy": JobicyAdapter,
     "remoteok": RemoteOkAdapter,
     "unstop": UnstopAdapter,
 }
@@ -81,6 +89,11 @@ DEFAULT_AGGREGATOR_MAX_SECONDS = 7200.0
 # backstop; it must not turn back into the shared pool that let Unstop consume
 # every aggregator minute and starve Devpost/RemoteOK.
 DEFAULT_AGGREGATOR_GROUP_MAX_SECONDS = 8700.0
+# Time held back for each aggregator still waiting its turn, so a slow source
+# cannot skip them. Measured against real runs: devpost completes in ~130s and
+# remoteok in ~240s, so 600s is several times what either has ever needed while
+# leaving the bulk of the group budget to whichever source actually needs it.
+AGGREGATOR_MIN_RESERVE_SECONDS = 600.0
 # Soft wall-clock budget for the WHOLE ATS phase (prefetch + ingest), armed
 # before the prefetch below. This is no longer an Actions-minute rationing
 # guard; the public repo gets standard runners without the old private-repo
@@ -182,6 +195,9 @@ def _coverage_from_adapter(
     *,
     health: str,
     stopped_early: bool = False,
+    board_name: str | None = None,
+    force_incomplete: bool = False,
+    incomplete_note: str | None = None,
 ) -> dict[str, Any]:
     coverage_method = getattr(adapter, "coverage", None)
     if callable(coverage_method):
@@ -222,18 +238,30 @@ def _coverage_from_adapter(
             )
 
     if source_key in _FULL_LIST_SOURCE_KEYS:
-        if health == "ok" and not stopped_early:
+        complete = health == "ok" and not stopped_early and not force_incomplete
+        board_label = board_name or source_key
+        details: dict[str, Any] = {
+            "boards_total": 1,
+            "boards_complete": 1 if complete else 0,
+            "incomplete_boards": [] if complete else [board_label],
+        }
+        if incomplete_note and not complete:
+            details["incomplete_reasons"] = {board_label: incomplete_note}
+
+        if complete:
             return _coverage_record(
                 fetched=fetched,
                 mode="full_list",
                 status="complete",
-                note="full-list source returned its complete set",
+                note="full-list board returned its complete set",
+                details=details,
             )
         return _coverage_record(
             fetched=fetched,
             mode="full_list",
-            status="unknown",
-            note="full-list fetch did not complete cleanly",
+            status="partial",
+            note=incomplete_note or "full-list board did not complete cleanly",
+            details=details,
         )
 
     return _coverage_record(
@@ -285,15 +313,41 @@ def _record_crawl_run(
 
 def _merge_coverage(records: list[dict[str, Any]]) -> dict[str, Any]:
     fetched = sum(int(record.get("fetched") or 0) for record in records)
-    if records and all(
-        record.get("mode") == "full_list" and record.get("status") == "complete"
-        for record in records
-    ):
+    if records and all(record.get("mode") == "full_list" for record in records):
+        boards_total = 0
+        boards_complete = 0
+        incomplete_boards: list[str] = []
+        for record in records:
+            details = record.get("details") if isinstance(record.get("details"), dict) else {}
+            record_boards_total = _coerce_non_negative_int(details.get("boards_total")) or 1
+            record_boards_complete = _coerce_non_negative_int(details.get("boards_complete"))
+            if record_boards_complete is None:
+                record_boards_complete = (
+                    record_boards_total if record.get("status") == "complete" else 0
+                )
+            boards_total += record_boards_total
+            boards_complete += min(record_boards_complete, record_boards_total)
+
+            record_incomplete = details.get("incomplete_boards")
+            if isinstance(record_incomplete, list):
+                incomplete_boards.extend(str(board) for board in record_incomplete)
+
+        incomplete_boards = list(dict.fromkeys(incomplete_boards))
+        status = "complete" if boards_total > 0 and boards_complete == boards_total else "partial"
         return _coverage_record(
             fetched=fetched,
             mode="full_list",
-            status="complete",
-            note="full-list source returned its complete set",
+            status=status,
+            note=(
+                "full-list source returned its complete set"
+                if status == "complete"
+                else "full-list source did not complete every board"
+            ),
+            details={
+                "boards_total": boards_total,
+                "boards_complete": boards_complete,
+                "incomplete_boards": incomplete_boards,
+            },
         )
 
     expected_totals = [_coerce_non_negative_int(record.get("expected_total")) for record in records]
@@ -309,6 +363,26 @@ def _merge_coverage(records: list[dict[str, Any]]) -> dict[str, Any]:
                 (str(record["note"]) for record in records if record.get("note")),
                 None,
             ),
+        )
+
+    known_statuses = {"complete", "partial"}
+    if records and all(record.get("status") in known_statuses for record in records):
+        status = (
+            "partial"
+            if any(record.get("status") == "partial" for record in records)
+            else "complete"
+        )
+        modes = {str(record.get("mode") or "unknown") for record in records}
+        details = records[0].get("details") if len(records) == 1 else None
+        return _coverage_record(
+            fetched=fetched,
+            mode=modes.pop() if len(modes) == 1 else "unknown",
+            status=status,
+            note=next(
+                (str(record["note"]) for record in records if record.get("note")),
+                None,
+            ),
+            details=details if isinstance(details, dict) else None,
         )
 
     note = next(
@@ -334,13 +408,33 @@ def _coverage_line(source_key: str, coverage: dict[str, Any]) -> str:
     status = coverage.get("status")
     note = str(coverage.get("note") or "source declares no total")
 
-    if mode == "full_list" and status == "complete":
-        return f"COVERAGE: {source_key} {fetched} (full-list, complete)"
+    if mode == "full_list":
+        details = coverage.get("details") if isinstance(coverage.get("details"), dict) else {}
+        boards_total = _coerce_non_negative_int(details.get("boards_total"))
+        boards_complete = _coerce_non_negative_int(details.get("boards_complete"))
+        incomplete_boards = details.get("incomplete_boards")
+        if boards_total is not None and boards_complete is not None:
+            line = (
+                f"COVERAGE: {source_key} {fetched} "
+                f"(full-list, {boards_complete}/{boards_total} boards complete"
+            )
+            if status == "partial" and isinstance(incomplete_boards, list):
+                incomplete_text = ", ".join(str(board) for board in incomplete_boards)
+                if incomplete_text:
+                    line += f"; incomplete: {incomplete_text}"
+            return f"{line})"
+        if status == "complete":
+            return f"COVERAGE: {source_key} {fetched} (full-list, complete)"
+        if status == "partial":
+            return f"COVERAGE: {source_key} {fetched} (full-list, partial - {note})"
 
     if expected_total is not None:
         percentage = 100.0 if expected_total == 0 else (fetched / expected_total) * 100.0
         percentage_text = f"{percentage:.0f}%" if percentage.is_integer() else f"{percentage:.1f}%"
         return f"COVERAGE: {source_key} {fetched}/{expected_total} ({percentage_text})"
+
+    if status in {"complete", "partial"}:
+        return f"COVERAGE: {source_key} {fetched} ({status} - {note})"
 
     return f"COVERAGE: {source_key} {fetched}/? (UNKNOWN - {note})"
 
@@ -429,6 +523,7 @@ class _AtsJob:
     adapter_key: str
     board_token: str
     company_name: str
+    previously_had_listings: bool = False
 
 
 @dataclass(frozen=True)
@@ -436,6 +531,28 @@ class _PrefetchedBoard:
     listings: list[RawListing]
     health: str
     coverage: dict[str, Any] | None = None
+
+
+def _state_has_previous_listings(state: object | None) -> bool:
+    return bool(getattr(state, "last_content_hash", None))
+
+
+def _fetch_with_zero_retry(
+    adapter: Any,
+    *,
+    activity: str,
+    retry_empty_once: bool,
+) -> tuple[list[RawListing], str, bool]:
+    raw_listings = list(adapter.fetch())
+    health = adapter.health()
+    retried_empty = False
+    if retry_empty_once and not raw_listings and health == "ok":
+        retried_empty = True
+        watchdog.beat(f"{activity}:zero-retry-start")
+        raw_listings = list(adapter.fetch())
+        health = adapter.health()
+        watchdog.beat(f"{activity}:zero-retry-fetched")
+    return raw_listings, health, retried_empty and not raw_listings and health == "ok"
 
 
 def _board_fingerprint(raw_listings: list) -> str:
@@ -524,9 +641,12 @@ def _fetch_company_board(
     if _is_stop_requested(should_stop):
         return None
 
-    listings = list(adapter.fetch())
+    listings, health, empty_after_retry = _fetch_with_zero_retry(
+        adapter,
+        activity=activity,
+        retry_empty_once=job.previously_had_listings,
+    )
     watchdog.beat(f"{activity}:fetched")
-    health = adapter.health()
     return _PrefetchedBoard(
         listings=listings,
         health=health,
@@ -535,6 +655,13 @@ def _fetch_company_board(
             getattr(adapter, "source_slug", job.adapter_key),
             len(listings),
             health=health,
+            board_name=job.board_token,
+            force_incomplete=empty_after_retry,
+            incomplete_note=(
+                "previously populated board returned zero listings after one retry"
+                if empty_after_retry
+                else None
+            ),
         ),
     )
 
@@ -657,19 +784,26 @@ def crawl_company_board(
 
     try:
         adapter = adapter_class(board_token=board_token, company_name=company_name)
+        state = session.scalar(
+            select(models.SourceState).where(
+                models.SourceState.source_id == source_id,
+                models.SourceState.page_key == board_token,
+            )
+        )
+        empty_after_retry = False
         if prefetched is None:
             watchdog.beat(f"{activity}:fetch-start")
-            raw_listings = list(adapter.fetch())
+            raw_listings, health, empty_after_retry = _fetch_with_zero_retry(
+                adapter,
+                activity=activity,
+                retry_empty_once=_state_has_previous_listings(state),
+            )
             watchdog.beat(f"{activity}:fetched")
         else:
             raw_listings = prefetched
+            health = prefetched_health if prefetched_health is not None else adapter.health()
         result["listings_found"] = len(raw_listings)
 
-        health = (
-            adapter.health()
-            if prefetched is None or prefetched_health is None
-            else prefetched_health
-        )
         if health == "broken":
             result["status"] = "failed"
         elif health == "degraded":
@@ -685,14 +819,17 @@ def crawl_company_board(
             result["listings_found"],
             health=health,
             stopped_early=stopped_early,
+            board_name=board_token,
+            force_incomplete=empty_after_retry,
+            incomplete_note=(
+                "previously populated board returned zero listings after one retry"
+                if empty_after_retry
+                else None
+            ),
         )
         result["coverage"] = coverage
-        state = session.scalar(
-            select(models.SourceState).where(
-                models.SourceState.source_id == source_id,
-                models.SourceState.page_key == board_token,
-            )
-        )
+        if coverage.get("status") == "partial" and result["status"] == "success":
+            result["status"] = "partial"
 
         if (
             not stopped_early
@@ -994,6 +1131,7 @@ def crawl_aggregator(
             result["listings_found"],
             health=health,
             stopped_early=stopped_early,
+            board_name=str(source_label),
         )
 
         fingerprint = _board_fingerprint(raw_listings) if raw_listings else None
@@ -1274,13 +1412,28 @@ def run_tier(
         # the _order_ats_jobs call below raise UnboundLocalError and kill that
         # whole step. Caught by CI on e75202d.
         last_crawled_by_board: dict[tuple[int, str], datetime] = {}
+        boards_with_previous_listings: set[tuple[int, str]] = set()
         if ats_jobs:
             source_ids = {job.source_id for job in ats_jobs}
             for state in session.scalars(
                 select(models.SourceState).where(models.SourceState.source_id.in_(source_ids))
             ).all():
+                state_key = (state.source_id, state.page_key)
                 if state.last_crawled_at is not None:
-                    last_crawled_by_board[(state.source_id, state.page_key)] = state.last_crawled_at
+                    last_crawled_by_board[state_key] = state.last_crawled_at
+                if _state_has_previous_listings(state):
+                    boards_with_previous_listings.add(state_key)
+            ats_jobs = [
+                replace(
+                    job,
+                    previously_had_listings=(
+                        job.source_id,
+                        job.board_token,
+                    )
+                    in boards_with_previous_listings,
+                )
+                for job in ats_jobs
+            ]
         # Among equal staleness timestamps, prefer the newest-seeded company
         # so an arbitrary tie cannot leave new boards unreached for days.
         ats_jobs = _order_ats_jobs(ats_jobs, last_crawled_by_board)
@@ -1349,6 +1502,16 @@ def run_tier(
         prefetched = prefetched_boards.get(job.company_slug)
         if prefetched is None:
             # _prefetch_ats_boards already logged the isolated fetch error.
+            coverage_by_source.setdefault(job.adapter_key, []).append(
+                _coverage_from_adapter(
+                    object(),
+                    job.adapter_key,
+                    0,
+                    health="degraded",
+                    board_name=job.board_token,
+                    incomplete_note="board fetch failed before ingestion",
+                )
+            )
             continue
 
         # expire_on_commit=False: board_state (loaded once per company in
@@ -1426,14 +1589,28 @@ def run_tier(
         # skipped by the `break` above - the exact starvation that left devpost
         # and remoteok 11 days stale while unstop ate the shared budget.
         #
-        # So each source may take at most its FAIR SHARE of the time still
-        # remaining, computed fresh each iteration. A source that finishes early
-        # hands its unused time to the ones behind it, and no source can spend
-        # time that a later source still needs.
+        # So the current source may use everything still remaining EXCEPT a
+        # reserve held back for each source behind it. That guarantees no source
+        # is skipped, without the waste of dividing the group evenly.
+        #
+        # Even division was measured and found wanting: with 3 aggregators and an
+        # 8700s ceiling each got 2900s, so unstop truncated at 95.4% coverage
+        # after 2904s while devpost finished in 130s and remoteok in 240s. The
+        # slow source was starved to hand surplus to two that did not need it.
+        # Reserving a floor instead gives unstop ~7500s and still leaves devpost
+        # and remoteok far more than they have ever used.
         sources_remaining = len(aggregator_jobs) - job_index
+        sources_behind = sources_remaining - 1
         group_time_remaining = aggregator_group_deadline_monotonic - now_monotonic
-        fair_share_seconds = group_time_remaining / sources_remaining
-        source_budget_seconds = min(aggregator_max_seconds, fair_share_seconds)
+        available_seconds = group_time_remaining - (AGGREGATOR_MIN_RESERVE_SECONDS * sources_behind)
+        # The floor is itself capped at an even split of what is left. Without
+        # that cap, a group ceiling smaller than reserve x sources would hand out
+        # deadlines PAST the group deadline, and the `break` above would skip the
+        # sources behind - reintroducing the starvation this exists to prevent.
+        floor_seconds = min(
+            AGGREGATOR_MIN_RESERVE_SECONDS, group_time_remaining / sources_remaining
+        )
+        source_budget_seconds = min(aggregator_max_seconds, max(available_seconds, floor_seconds))
         source_deadline_monotonic = now_monotonic + source_budget_seconds
         with Session(engine, expire_on_commit=False) as session:
             source = session.get(models.Source, source_id)
