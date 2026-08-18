@@ -21,6 +21,7 @@ import os
 import signal
 import threading
 import time
+import traceback
 from collections.abc import Callable
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import dataclass, replace
@@ -277,7 +278,11 @@ def _coverage_from_adapter(
     )
 
 
-def _log_with_coverage(base_log: dict[str, Any], coverage: dict[str, Any]) -> dict[str, Any]:
+def _log_with_coverage(
+    base_log: dict[str, Any],
+    coverage: dict[str, Any],
+    failure_reason: str | None = None,
+) -> dict[str, Any]:
     log = dict(base_log)
     log["coverage"] = coverage
     log["coverage_fetched"] = coverage["fetched"]
@@ -286,6 +291,10 @@ def _log_with_coverage(base_log: dict[str, Any], coverage: dict[str, Any]) -> di
     log["coverage_status"] = coverage["status"]
     if coverage.get("note"):
         log["coverage_note"] = coverage["note"]
+    # Persisted so a failure is still diagnosable after the workflow log
+    # ages out - crawl_runs is the durable record, CI logs are not.
+    if failure_reason:
+        log["failure_reason"] = failure_reason
     return log
 
 
@@ -1032,13 +1041,27 @@ def crawl_company_board(
         session.commit()
         watchdog.beat(f"{activity}:finished")
 
-    except Exception:
+    except Exception as exc:
         try:
             session.rollback()
         except Exception:
             pass
         result["status"] = "failed"
         result["errors"] += 1
+        # A bare `except Exception:` here used to discard the exception
+        # entirely, so a source could report "failed, 1 error" with no cause
+        # anywhere - not in the workflow log, not in crawl_runs. Crawl
+        # 32183933552 hit this on himalayas, mongodb and vercel at once, all
+        # with COMPLETE coverage, and there was nothing to debug from. The
+        # per-listing handler already prints its cause; the handler that
+        # fails a WHOLE source must not be quieter than the one that skips a
+        # single row.
+        result["failure_reason"] = f"{type(exc).__name__}: {exc}"
+        print(
+            f"    {activity} FAILED: {type(exc).__name__}: {exc}",
+            flush=True,
+        )
+        traceback.print_exc()
 
     try:
         _record_crawl_run(
@@ -1053,6 +1076,7 @@ def crawl_company_board(
             log=_log_with_coverage(
                 {"company_slug": company_slug, "board_token": board_token},
                 result["coverage"],
+                result.get("failure_reason"),
             ),
         )
         session.commit()
@@ -1310,13 +1334,27 @@ def crawl_aggregator(
         session.commit()
         watchdog.beat(f"{activity}:finished")
 
-    except Exception:
+    except Exception as exc:
         try:
             session.rollback()
         except Exception:
             pass
         result["status"] = "failed"
         result["errors"] += 1
+        # A bare `except Exception:` here used to discard the exception
+        # entirely, so a source could report "failed, 1 error" with no cause
+        # anywhere - not in the workflow log, not in crawl_runs. Crawl
+        # 32183933552 hit this on himalayas, mongodb and vercel at once, all
+        # with COMPLETE coverage, and there was nothing to debug from. The
+        # per-listing handler already prints its cause; the handler that
+        # fails a WHOLE source must not be quieter than the one that skips a
+        # single row.
+        result["failure_reason"] = f"{type(exc).__name__}: {exc}"
+        print(
+            f"    {activity} FAILED: {type(exc).__name__}: {exc}",
+            flush=True,
+        )
+        traceback.print_exc()
 
     try:
         _record_crawl_run(
@@ -1328,7 +1366,11 @@ def crawl_aggregator(
             listings_found=result["listings_found"],
             new_opps=result["new_opps"],
             errors=result["errors"],
-            log=_log_with_coverage({"aggregator": True}, result["coverage"]),
+            log=_log_with_coverage(
+                {"aggregator": True},
+                result["coverage"],
+                result.get("failure_reason"),
+            ),
         )
         session.commit()
     except Exception as exc:
