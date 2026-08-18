@@ -238,6 +238,53 @@ def test_order_ats_jobs_interleaves_sources_to_prevent_source_starvation() -> No
     ]
 
 
+def test_full_list_coverage_merge_reports_partial_boards_not_unknown() -> None:
+    records = [
+        runner._coverage_record(
+            fetched=2,
+            mode="full_list",
+            status="complete",
+            details={
+                "boards_total": 1,
+                "boards_complete": 1,
+                "incomplete_boards": [],
+            },
+        ),
+        runner._coverage_record(
+            fetched=0,
+            mode="full_list",
+            status="partial",
+            note="full-list board did not complete cleanly",
+            details={
+                "boards_total": 1,
+                "boards_complete": 0,
+                "incomplete_boards": ["flexport"],
+            },
+        ),
+        runner._coverage_record(
+            fetched=4,
+            mode="full_list",
+            status="complete",
+            details={
+                "boards_total": 1,
+                "boards_complete": 1,
+                "incomplete_boards": [],
+            },
+        ),
+    ]
+
+    merged = runner._merge_coverage(records)
+
+    assert merged["status"] == "partial"
+    assert merged["status"] != "unknown"
+    assert merged["details"]["boards_total"] == 3
+    assert merged["details"]["boards_complete"] == 2
+    assert merged["details"]["incomplete_boards"] == ["flexport"]
+    assert runner._coverage_line("greenhouse", merged) == (
+        "COVERAGE: greenhouse 6 (full-list, 2/3 boards complete; incomplete: flexport)"
+    )
+
+
 @pytest.mark.parametrize(
     ("group", "expected_call", "expected_gather_queries"),
     [("ats", "ats", 2), ("aggregator", "aggregator", 1)],
