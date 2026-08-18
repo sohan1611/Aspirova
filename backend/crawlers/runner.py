@@ -428,6 +428,28 @@ def _coverage_line(source_key: str, coverage: dict[str, Any]) -> str:
         if status == "partial":
             return f"COVERAGE: {source_key} {fetched} (full-list, partial - {note})"
 
+    if mode == "bounded_window":
+        details = coverage.get("details") if isinstance(coverage.get("details"), dict) else {}
+        raw_fetched = _coerce_non_negative_int(
+            details.get("window_raw_fetched") or details.get("raw_count")
+        )
+        raw_expected = _coerce_non_negative_int(details.get("window_raw_expected"))
+        catalogue_total = _coerce_non_negative_int(details.get("catalogue_total"))
+        status_text = str(status or "unknown")
+        if status == "partial":
+            status_text = f"partial - {note}"
+
+        if raw_fetched is not None and raw_expected is not None:
+            line = (
+                f"COVERAGE: {source_key} {fetched} kept from "
+                f"{raw_fetched}/{raw_expected} raw window ({status_text}"
+            )
+        else:
+            line = f"COVERAGE: {source_key} {fetched} (bounded-window, {status_text}"
+        if catalogue_total is not None:
+            line += f"; catalogue total {catalogue_total}"
+        return f"{line})"
+
     if expected_total is not None:
         percentage = 100.0 if expected_total == 0 else (fetched / expected_total) * 100.0
         percentage_text = f"{percentage:.0f}%" if percentage.is_integer() else f"{percentage:.1f}%"
@@ -804,9 +826,7 @@ def crawl_company_board(
             health = prefetched_health if prefetched_health is not None else adapter.health()
         result["listings_found"] = len(raw_listings)
 
-        if health == "broken":
-            result["status"] = "failed"
-        elif health == "degraded":
+        if health in {"broken", "degraded"}:
             result["status"] = "partial"
 
         fingerprint = _board_fingerprint(raw_listings) if raw_listings else None
@@ -828,11 +848,15 @@ def crawl_company_board(
             ),
         )
         result["coverage"] = coverage
-        if coverage.get("status") == "partial" and result["status"] == "success":
+        if (
+            coverage.get("mode") == "full_list"
+            and coverage.get("status") == "partial"
+            and result["status"] == "success"
+        ):
             result["status"] = "partial"
 
         if (
-            not stopped_early
+            result["status"] == "success"
             and fingerprint is not None
             and state is not None
             and state.last_content_hash == fingerprint
@@ -990,7 +1014,10 @@ def crawl_company_board(
             stopped_early = True
             result["status"] = "partial"
 
-        if fingerprint is not None and not stopped_early:
+        if result["errors"] > 0 and result["status"] == "success":
+            result["status"] = "partial"
+
+        if fingerprint is not None and result["status"] == "success":
             if state is None:
                 state = models.SourceState(source_id=source_id, page_key=board_token)
                 session.add(state)
@@ -1119,9 +1146,7 @@ def crawl_aggregator(
         result["listings_found"] = len(raw_listings)
 
         health = adapter.health()
-        if health == "broken":
-            result["status"] = "failed"
-        elif health == "degraded":
+        if health in {"broken", "degraded"}:
             result["status"] = "partial"
         if stopped_early:
             result["status"] = "partial"
@@ -1145,7 +1170,7 @@ def crawl_aggregator(
             )
 
         if (
-            not stopped_early
+            result["status"] == "success"
             and fingerprint is not None
             and state is not None
             and state.last_content_hash == fingerprint
@@ -1253,6 +1278,8 @@ def crawl_aggregator(
             stopped_early = True
             result["status"] = "partial"
         result["stopped_early"] = stopped_early
+        if result["errors"] > 0 and result["status"] == "success":
+            result["status"] = "partial"
         if stopped_early:
             truncation_elapsed_seconds = time.monotonic() - crawl_started_monotonic
             result["truncation_elapsed_seconds"] = truncation_elapsed_seconds
@@ -1268,7 +1295,7 @@ def crawl_aggregator(
         # An incomplete page set must never become the change-detection
         # fingerprint. Otherwise a later run with the same truncated prefix
         # could skip ingestion forever and leave the remaining pages unseen.
-        if fingerprint is not None and not stopped_early:
+        if fingerprint is not None and result["status"] == "success":
             if state is None:
                 state = models.SourceState(source_id=source_id, page_key="aggregator")
                 session.add(state)

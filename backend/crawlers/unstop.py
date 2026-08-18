@@ -38,6 +38,8 @@ class UnstopAdapter:
         self._last_health: HealthStatus = "ok"
         self._stopped_early = False
         self._declared_totals: dict[str, int] = {}
+        self._fully_paged_types: set[str] = set()
+        self._incomplete_type_reasons: dict[str, str] = {}
 
     @property
     def stopped_early(self) -> bool:
@@ -57,11 +59,14 @@ class UnstopAdapter:
         expiry_cutoff = datetime.now(UTC) - timedelta(days=14)
         self._stopped_early = False
         self._declared_totals = {}
+        self._fully_paged_types = set()
+        self._incomplete_type_reasons = {}
 
         for opportunity_type in _OPPORTUNITY_TYPES:
             for page in range(1, _MAX_PAGES + 1):
                 if _should_stop(deadline_monotonic, should_stop):
                     self._stopped_early = True
+                    self._mark_type_incomplete(opportunity_type, "stopped_early")
                     return listings
 
                 try:
@@ -75,34 +80,41 @@ class UnstopAdapter:
                         },
                     )
                 except httpx.RequestError:
+                    self._mark_type_incomplete(opportunity_type, "request_error")
                     self._last_health = "degraded"
                     return listings
 
                 if _should_stop(deadline_monotonic, should_stop):
                     self._stopped_early = True
+                    self._mark_type_incomplete(opportunity_type, "stopped_early")
                     return listings
 
                 if response.status_code == 404:
+                    self._mark_type_incomplete(opportunity_type, "http_404")
                     self._last_health = "broken"
                     return listings
                 if response.status_code != 200:
+                    self._mark_type_incomplete(opportunity_type, f"http_{response.status_code}")
                     self._last_health = "degraded"
                     return listings
 
                 try:
                     payload = response.json()
                 except ValueError:
+                    self._mark_type_incomplete(opportunity_type, "invalid_json")
                     self._last_health = "degraded"
                     return listings
 
                 items = _opportunity_items(payload)
                 if items is None:
+                    self._mark_type_incomplete(opportunity_type, "missing_items")
                     self._last_health = "degraded"
                     return listings
                 declared_total = _declared_total(payload)
                 if declared_total is not None:
                     self._declared_totals[opportunity_type] = declared_total
                 if not items:
+                    self._fully_paged_types.add(opportunity_type)
                     break
 
                 for item in items:
@@ -145,8 +157,13 @@ class UnstopAdapter:
                         continue
                     listings.extend(item_listings)
 
-                if len(items) < _PAGE_SIZE:
+                if len(items) < _PAGE_SIZE or (
+                    declared_total is not None and page * _PAGE_SIZE >= declared_total
+                ):
+                    self._fully_paged_types.add(opportunity_type)
                     break
+            else:
+                self._mark_type_incomplete(opportunity_type, "page_cap")
 
         self._last_health = "degraded" if degraded else "ok"
         return listings
@@ -240,20 +257,48 @@ class UnstopAdapter:
         return self._last_health
 
     def coverage(self) -> dict[str, Any]:
-        expected_total = None
-        note = None
-        if len(self._declared_totals) == len(_OPPORTUNITY_TYPES):
-            expected_total = sum(self._declared_totals.values())
-        else:
-            note = "source total was not fully declared"
+        declared_totals = getattr(self, "_declared_totals", {})
+        fully_paged_type_set = getattr(self, "_fully_paged_types", set())
+        incomplete_reasons = getattr(self, "_incomplete_type_reasons", {})
+        fully_paged_types = [
+            opportunity_type
+            for opportunity_type in _OPPORTUNITY_TYPES
+            if opportunity_type in fully_paged_type_set
+        ]
+        incomplete_type_reasons = {
+            opportunity_type: incomplete_reasons.get(opportunity_type, "not_reached")
+            for opportunity_type in _OPPORTUNITY_TYPES
+            if opportunity_type not in fully_paged_type_set
+        }
+        missing_declared_totals = [
+            opportunity_type
+            for opportunity_type in _OPPORTUNITY_TYPES
+            if opportunity_type not in declared_totals
+        ]
+        details: dict[str, Any] = {
+            "declared_totals_by_type": dict(declared_totals),
+            "fully_paged_types": fully_paged_types,
+        }
+        if incomplete_type_reasons:
+            details["incomplete_type_reasons"] = incomplete_type_reasons
+        if missing_declared_totals:
+            details["missing_declared_totals"] = missing_declared_totals
 
         return {
-            "mode": "declared_total" if expected_total is not None else "unknown",
-            "expected_total": expected_total,
-            "status": "partial" if self._stopped_early else None,
-            "note": note,
-            "details": {"declared_totals_by_type": dict(self._declared_totals)},
+            "mode": "declared_type_totals",
+            "expected_total": None,
+            "status": (
+                "complete" if len(fully_paged_types) == len(_OPPORTUNITY_TYPES) else "partial"
+            ),
+            "note": (
+                "Unstop opportunity types overlap, so summed per-type totals "
+                "are not a valid distinct-listing denominator."
+            ),
+            "details": details,
         }
+
+    def _mark_type_incomplete(self, opportunity_type: str, reason: str) -> None:
+        self._incomplete_type_reasons.setdefault(opportunity_type, reason)
 
 
 def _should_stop(deadline_monotonic: float | None, should_stop: Callable[[], bool] | None) -> bool:
