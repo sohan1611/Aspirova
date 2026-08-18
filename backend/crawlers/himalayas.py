@@ -16,6 +16,7 @@ from crawlers.common import (
     request_with_retries,
 )
 from crawlers.student_relevance import classify_student_role, is_student_relevant_role
+from crawlers.watchdog import beat as watchdog_beat
 
 _API_URL = "https://himalayas.app/jobs/api"
 _PAGE_SIZE = 20
@@ -101,6 +102,21 @@ class HimalayasAdapter:
                 self._terminal_offset = request_offset
                 self._last_health = "degraded"
                 return listings
+
+            # The runner beats only around the whole fetch() call, so a
+            # deliberately paced source looks frozen from outside: this window
+            # is up to ~250 requests 3s apart (~13 min) and keeps only a few
+            # dozen rows, so it runs far past the watchdog's 600s no-progress
+            # threshold without ever reaching an ingest batch. That is what
+            # killed crawl 32170763256 - "HUNG: hard exit after 722s without
+            # progress; last activity was himalayas:fetch-start" - taking
+            # devpost, remoteok, arbeitnow and jobicy with it, none of which
+            # ever got to run.
+            #
+            # Beat only on a page that actually came back 200. Pacing sleeps,
+            # backoff waits and failed requests deliberately do NOT beat, so a
+            # source that stops fetching is still caught by the watchdog.
+            watchdog_beat(f"himalayas:page-{self._page_count}")
 
             try:
                 payload = response.json()
