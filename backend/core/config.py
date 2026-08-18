@@ -68,6 +68,16 @@ class Settings(BaseSettings):
     stats_cache_ttl_seconds: int = 900
     copilot_cache_ttl_seconds: int = 3600
 
+    # In-process (L1) read cache. Render runs ONE instance with no
+    # autoscaling, so a process-local entry is as visible as a shared Redis
+    # one and costs no Upstash command - the same reasoning that makes the
+    # in-process rate limiter the default. Bounded by BOTH total bytes and
+    # per-entry bytes: the sitemap response is ~1.7MB and the Starter
+    # instance has 512MB, so an unbounded map would be a memory leak.
+    l1_cache_enabled: bool = True
+    l1_cache_max_bytes: int = 33_554_432  # 32 MiB
+    l1_cache_max_entry_bytes: int = 2_097_152  # 2 MiB
+
     # Independent nightly backup (Doc 03 sec 8/9) - S3-compatible object
     # storage, so this works unchanged against either Cloudflare R2 or
     # Backblaze B2 (the user's choice, Doc handoffs/PHASE-2-HANDOFF.md sec

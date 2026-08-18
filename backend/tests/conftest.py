@@ -16,6 +16,7 @@ instead of calling make_engine() themselves.
 import pytest
 from sqlalchemy import text
 
+from core.cache import reset_l1_cache
 from core.db import make_engine
 from core.ratelimit import _reset_memory_rate_limit_state
 
@@ -26,6 +27,18 @@ def _reset_in_memory_rate_limiter():
     _reset_memory_rate_limit_state()
     yield
     _reset_memory_rate_limit_state()
+
+
+@pytest.fixture(autouse=True)
+def _reset_in_process_read_cache():
+    """Keep the L1 read cache isolated between tests.
+
+    Without this a cached /feed body would leak across tests and mask a
+    real query change behind a stale hit.
+    """
+    reset_l1_cache()
+    yield
+    reset_l1_cache()
 
 
 @pytest.fixture(scope="session")
