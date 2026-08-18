@@ -309,6 +309,9 @@ class OpportunityDetail(OpportunityListItem):
     skills: list[str] = []
     reopen_estimate: ReopenEstimateSchema | None = None
     is_stale: bool = False
+    # Used by the frontend to explain staleness honestly when posted_at is
+    # missing - never presented as a posted date, only as "first found".
+    first_seen_at: datetime
 
     @classmethod
     def from_model(
@@ -340,6 +343,7 @@ class OpportunityDetail(OpportunityListItem):
             skills=list(o.skills or []),
             reopen_estimate=reopen_estimate,
             is_stale=is_stale,
+            first_seen_at=o.first_seen_at,
         )
 
 

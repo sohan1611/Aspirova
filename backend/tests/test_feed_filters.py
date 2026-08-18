@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from api import middleware
 from api.deps import get_db
+from api.filters import is_stale_opportunity
 from api.main import app
 from core import models
 
@@ -980,3 +981,129 @@ def test_feed_keeps_grace_period_and_undated_rows_but_excludes_expired_categorie
         past_deadline_role.slug,
         recently_detected_closed_job.slug,
     }
+
+
+def test_feed_excludes_undated_rows_older_than_the_stale_window(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    """A missing posted_at must not bypass the 10-month rule.
+
+    Before the first_seen_at fallback, `posted_at IS NULL` made the stale
+    predicate NULL, so `stale.is_not(True)` kept the row: an undated listing
+    could sit in the feed forever.
+    """
+    suffix = uuid.uuid4().hex
+    now = datetime.now(UTC)
+    location_token = f"UndatedStaleville-{suffix}"
+    company = models.Company(
+        slug=f"undated-stale-company-{suffix}",
+        name=f"Undated Stale Company {suffix}",
+    )
+    undated_old = models.Opportunity(
+        slug=f"undated-stale-old-{suffix}",
+        title="Undated old listing",
+        company=company,
+        category="job",
+        location=location_token,
+        apply_url=f"https://example.com/undated-stale/old/{suffix}",
+        posted_at=None,
+        first_seen_at=now - timedelta(days=400),
+        status="active",
+        last_seen_at=now,
+    )
+    undated_recent = models.Opportunity(
+        slug=f"undated-stale-recent-{suffix}",
+        title="Undated recent listing",
+        company=company,
+        category="job",
+        location=location_token,
+        apply_url=f"https://example.com/undated-stale/recent/{suffix}",
+        posted_at=None,
+        first_seen_at=now - timedelta(days=10),
+        status="active",
+        last_seen_at=now,
+    )
+    # An old first_seen_at must NOT override a future deadline that still
+    # keeps the listing current.
+    undated_old_with_future_deadline = models.Opportunity(
+        slug=f"undated-stale-old-future-deadline-{suffix}",
+        title="Undated old listing with a future deadline",
+        company=company,
+        category="job",
+        location=location_token,
+        apply_url=f"https://example.com/undated-stale/old-future/{suffix}",
+        posted_at=None,
+        first_seen_at=now - timedelta(days=400),
+        deadline=now + timedelta(days=30),
+        status="active",
+        last_seen_at=now,
+    )
+    dated_recent = models.Opportunity(
+        slug=f"undated-stale-dated-recent-{suffix}",
+        title="Dated recent listing",
+        company=company,
+        category="job",
+        location=location_token,
+        apply_url=f"https://example.com/undated-stale/dated-recent/{suffix}",
+        posted_at=now - timedelta(days=5),
+        first_seen_at=now - timedelta(days=400),
+        status="active",
+        last_seen_at=now,
+    )
+    db_session.add_all(
+        [
+            company,
+            undated_old,
+            undated_recent,
+            undated_old_with_future_deadline,
+            dated_recent,
+        ]
+    )
+    db_session.flush()
+
+    body = client.get("/feed", params={"location": location_token, "limit": 10}).json()
+    slugs = {item["slug"] for item in body["items"]}
+
+    assert undated_old.slug not in slugs
+    assert undated_recent.slug in slugs
+    assert undated_old_with_future_deadline.slug in slugs
+    # posted_at still wins over first_seen_at when it is present.
+    assert dated_recent.slug in slugs
+
+
+def test_is_stale_opportunity_falls_back_to_first_seen_at() -> None:
+    """The Python detail-metadata check must agree with the SQL filter."""
+    now = datetime.now(UTC)
+
+    undated_old = models.Opportunity(
+        posted_at=None,
+        first_seen_at=now - timedelta(days=400),
+        deadline=None,
+    )
+    undated_recent = models.Opportunity(
+        posted_at=None,
+        first_seen_at=now - timedelta(days=10),
+        deadline=None,
+    )
+    undated_old_with_future_deadline = models.Opportunity(
+        posted_at=None,
+        first_seen_at=now - timedelta(days=400),
+        deadline=now + timedelta(days=30),
+    )
+    dated_recent_seen_long_ago = models.Opportunity(
+        posted_at=now - timedelta(days=5),
+        first_seen_at=now - timedelta(days=400),
+        deadline=None,
+    )
+    dated_old = models.Opportunity(
+        posted_at=now - timedelta(days=400),
+        first_seen_at=now - timedelta(days=400),
+        deadline=None,
+    )
+
+    assert is_stale_opportunity(undated_old, now) is True
+    assert is_stale_opportunity(undated_recent, now) is False
+    assert is_stale_opportunity(undated_old_with_future_deadline, now) is False
+    assert is_stale_opportunity(dated_recent_seen_long_ago, now) is False
+    assert is_stale_opportunity(dated_old, now) is True

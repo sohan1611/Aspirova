@@ -40,15 +40,22 @@ def student_rank_expression():
 
 
 def exclude_stale_opportunities(now: datetime | None = None):
-    """Exclude old promoted listings unless a future deadline keeps them current."""
+    """Exclude old promoted listings unless a future deadline keeps them current.
+
+    A listing with no ``posted_at`` falls back to ``first_seen_at`` (never
+    null) so a missing source date can't bypass the age check entirely.
+    """
     current = now or func.now()
     stale_cutoff = (
         now - timedelta(days=STALE_AFTER_DAYS)
         if now
         else current - text(f"interval '{STALE_AFTER_DAYS} days'")
     )
+    effective_posted_at = func.coalesce(
+        models.Opportunity.posted_at, models.Opportunity.first_seen_at
+    )
     stale = and_(
-        models.Opportunity.posted_at < stale_cutoff,
+        effective_posted_at < stale_cutoff,
         or_(
             models.Opportunity.deadline.is_(None),
             models.Opportunity.deadline <= current,
@@ -65,12 +72,13 @@ def _as_utc(value: datetime) -> datetime:
 
 def is_stale_opportunity(opportunity: models.Opportunity, now: datetime | None = None) -> bool:
     """Return the Python equivalent of exclude_stale_opportunities for detail metadata."""
-    if opportunity.posted_at is None:
+    effective_posted_at = opportunity.posted_at or opportunity.first_seen_at
+    if effective_posted_at is None:
         return False
 
     current = _as_utc(now or datetime.now(UTC))
-    posted_at = _as_utc(opportunity.posted_at)
-    if posted_at >= current - timedelta(days=STALE_AFTER_DAYS):
+    effective_posted_at = _as_utc(effective_posted_at)
+    if effective_posted_at >= current - timedelta(days=STALE_AFTER_DAYS):
         return False
 
     if opportunity.deadline is None:
