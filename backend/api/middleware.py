@@ -230,7 +230,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 class ReadCacheMiddleware(BaseHTTPMiddleware):
     """Tiered-TTL cache for public feed/search/opportunity responses (sec 11.1).
     TTL-only for now - see core/cache.py for why version-bump invalidation
-    is deferred."""
+    is deferred.
+
+    Reads L1 (in-process) before L2 (Upstash) and writes both, so the cache
+    keeps serving when Upstash is out of quota or unreachable - the failure
+    mode that silently sent every public request to Postgres on 2026-08-18."""
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         if request.method != "GET" or not _is_cacheable(request.url.path):
@@ -243,8 +247,11 @@ class ReadCacheMiddleware(BaseHTTPMiddleware):
             request.query_params.multi_items(),
             allowed_params,
         )
+        # Resolved before the read so the in-process tier can be populated
+        # from an L2 hit with the same TTL the route would have written.
+        ttl_seconds = _cache_ttl_seconds(request.url.path)
 
-        cached = await cache_get(redis, key)
+        cached = await cache_get(redis, key, l1_ttl_seconds=ttl_seconds)
         if cached is not None:
             return Response(
                 content=cached,
@@ -260,8 +267,7 @@ class ReadCacheMiddleware(BaseHTTPMiddleware):
             return response
 
         body = b"".join([chunk async for chunk in response.body_iterator])
-        ttl_seconds = _cache_ttl_seconds(request.url.path)
-        await cache_set(redis, key, body.decode(), ttl_seconds)
+        await cache_set(redis, key, body.decode(), ttl_seconds, write_l1=True)
 
         headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
         headers["X-Cache"] = "MISS"

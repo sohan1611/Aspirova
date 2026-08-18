@@ -573,3 +573,148 @@ def test_trending_and_for_you_are_rate_limited(monkeypatch) -> None:
     assert trending_first.status_code == 200
     assert trending_second.status_code == 429
     assert int(trending_second.headers["Retry-After"]) >= 0
+
+
+class QuotaExceededAsyncRedis:
+    """Reproduces the 2026-08-18 production failure exactly.
+
+    Upstash's free tier hit its ceiling and BOTH get and set began raising
+    `UpstashError: max requests limit exceeded`. Because cache.py fails open
+    on each path, nothing 500'd - the cache silently became a no-op and every
+    request fell through to Postgres.
+    """
+
+    def __init__(self) -> None:
+        self.get_calls = 0
+        self.set_calls = 0
+
+    async def get(self, *args, **kwargs):
+        self.get_calls += 1
+        raise RuntimeError("ERR max requests limit exceeded. Limit: 500000, Usage: 500000")
+
+    async def set(self, *args, **kwargs):
+        self.set_calls += 1
+        raise RuntimeError("ERR max requests limit exceeded. Limit: 500000, Usage: 500000")
+
+
+def test_cache_still_serves_hits_when_upstash_is_out_of_quota(monkeypatch) -> None:
+    """The regression test for the real outage: an exhausted Upstash quota
+    must NOT silently send every public request to Postgres."""
+    broken = QuotaExceededAsyncRedis()
+    monkeypatch.setattr(middleware, "get_redis", lambda: broken)
+
+    query_count = {"n": 0}
+
+    def _count(*_args, **_kwargs) -> None:
+        query_count["n"] += 1
+
+    event.listen(_engine, "before_cursor_execute", _count)
+    try:
+        headers = {"X-Forwarded-For": "203.0.113.90"}
+        first = client.get("/feed", params={"limit": 3}, headers=headers)
+        assert first.status_code == 200
+        assert first.headers["X-Cache"] == "MISS"
+        queries_after_first = query_count["n"]
+        assert queries_after_first > 0
+
+        second = client.get("/feed", params={"limit": 3}, headers=headers)
+        assert second.status_code == 200
+        # Before L1 this was a MISS and a second full DB round-trip.
+        assert second.headers["X-Cache"] == "HIT"
+        assert second.json() == first.json()
+        assert query_count["n"] == queries_after_first
+    finally:
+        event.remove(_engine, "before_cursor_execute", _count)
+
+
+def test_l1_entry_expires_after_its_ttl(monkeypatch) -> None:
+    from core import cache as cache_module
+
+    clock = {"now": 1_000.0}
+    monkeypatch.setattr(cache_module, "_now", lambda: clock["now"])
+
+    cache_module.l1_set("k1", "value-1", 60)
+    assert cache_module.l1_get("k1") == "value-1"
+
+    clock["now"] = 1_059.0
+    assert cache_module.l1_get("k1") == "value-1"
+
+    clock["now"] = 1_061.0
+    assert cache_module.l1_get("k1") is None
+    # The expired entry is dropped, not merely hidden.
+    assert cache_module.l1_stats()[0] == 0
+
+
+def test_l1_evicts_least_recently_used_to_stay_within_its_byte_budget(monkeypatch) -> None:
+    from core import cache as cache_module
+
+    # 250 so a third 100-byte entry overflows and forces one eviction;
+    # at exactly 300 all three fit and nothing should be evicted.
+    monkeypatch.setattr(get_settings(), "l1_cache_max_bytes", 250)
+    monkeypatch.setattr(get_settings(), "l1_cache_max_entry_bytes", 200)
+
+    cache_module.l1_set("a", "x" * 100, 60)
+    cache_module.l1_set("b", "y" * 100, 60)
+    # Touch "a" so "b" becomes the least recently used.
+    assert cache_module.l1_get("a") is not None
+    cache_module.l1_set("c", "z" * 100, 60)
+
+    assert cache_module.l1_get("a") is not None
+    assert cache_module.l1_get("c") is not None
+    assert cache_module.l1_get("b") is None
+
+    entries, total_bytes = cache_module.l1_stats()
+    assert entries == 2
+    assert total_bytes <= 250
+
+
+def test_l1_skips_a_single_response_larger_than_the_entry_cap(monkeypatch) -> None:
+    """A ~1.7MB sitemap must not evict the whole cache to store itself."""
+    from core import cache as cache_module
+
+    monkeypatch.setattr(get_settings(), "l1_cache_max_bytes", 10_000)
+    monkeypatch.setattr(get_settings(), "l1_cache_max_entry_bytes", 500)
+
+    cache_module.l1_set("small", "s" * 100, 60)
+    cache_module.l1_set("huge", "h" * 5_000, 60)
+
+    assert cache_module.l1_get("huge") is None
+    assert cache_module.l1_get("small") is not None
+
+
+def test_l1_can_be_disabled_by_settings(monkeypatch) -> None:
+    from core import cache as cache_module
+
+    monkeypatch.setattr(get_settings(), "l1_cache_enabled", False)
+    cache_module.l1_set("k", "v", 60)
+    assert cache_module.l1_get("k") is None
+
+
+def test_cache_get_without_l1_ttl_does_not_populate_the_in_process_tier() -> None:
+    """pipeline/copilot.py opts out; its answers must not sit in L1."""
+    from core import cache as cache_module
+
+    fake = FakeAsyncRedis()
+
+    async def run() -> str | None:
+        await cache_module.cache_set(fake, "copilot:k", "answer", 3600)
+        return await cache_module.cache_get(fake, "copilot:k")
+
+    assert asyncio.run(run()) == "answer"
+    assert cache_module.l1_get("copilot:k") is None
+
+
+def test_l2_hit_warms_l1_so_a_restarted_process_stops_paying_for_l2() -> None:
+    from core import cache as cache_module
+
+    fake = FakeAsyncRedis()
+
+    async def run() -> tuple[str | None, str | None]:
+        await cache_module.cache_set(fake, "warm:k", "from-l2", 600)
+        cache_module.reset_l1_cache()  # simulate a fresh process with a warm L2
+        first = await cache_module.cache_get(fake, "warm:k", l1_ttl_seconds=600)
+        return first, cache_module.l1_get("warm:k")
+
+    from_l2, from_l1 = asyncio.run(run())
+    assert from_l2 == "from-l2"
+    assert from_l1 == "from-l2"
