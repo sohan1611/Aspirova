@@ -155,6 +155,10 @@ export default async function OpportunityPage({ params }: PageProps) {
     opportunity.deadline,
     opportunity.category,
   );
+  // is_stale is a separate, older-than-10-months signal from the backend and
+  // can be true even when closed is false (no closed_at, no expiring
+  // deadline) - a job with no deadline never trips `closed` on its own.
+  const stale = opportunity.is_stale && !closed;
   const estimated =
     !opportunity.closed_at &&
     closedByDeadline &&
@@ -162,6 +166,7 @@ export default async function OpportunityPage({ params }: PageProps) {
   const closedStatusLabel = estimated
     ? estimatedClosedDeadlineLabel(opportunity.category)
     : closedDeadlineLabel(opportunity.category);
+  const staleStatusLabel = estimatedClosedDeadlineLabel(opportunity.category);
   const verifyLabel = opportunity.company?.name
     ? `Verify on ${opportunity.company.name} →`
     : "Verify at the source →";
@@ -171,6 +176,11 @@ export default async function OpportunityPage({ params }: PageProps) {
     : estimated
       ? "This estimated deadline may be wrong. Open the company's listing to confirm — the source may still be accepting entries."
       : "This deadline has passed. Open the company's listing to confirm — the source may still be accepting entries.";
+  // Never invents a posted date: when posted_at is missing, this says only
+  // when we first found the listing, not when it went up.
+  const staleCaption = opportunity.posted_at
+    ? `This was posted ${formatDate(opportunity.posted_at, "long")} — over 10 months ago — and Aspirova can't confirm it's still open. Open the company's listing to check its current status.`
+    : `Aspirova first found this listing on ${formatDate(opportunity.first_seen_at, "long")}, over 10 months ago; its original posting date isn't available. We can't confirm it's still open — open the company's listing to check its current status.`;
   let similarOpportunities: OpportunityListItem[] = [];
 
   try {
@@ -255,7 +265,23 @@ export default async function OpportunityPage({ params }: PageProps) {
               </Badge>
             )}
           </div>
+
+          {opportunity.posted_at && (
+            <p className="mt-3 text-sm text-muted-foreground">
+              Posted {formatDate(opportunity.posted_at, "long")}
+            </p>
+          )}
         </header>
+
+        {stale && (
+          <div
+            role="status"
+            className="mt-8 max-w-3xl rounded-md border border-warning/25 bg-warning/15 px-4 py-3 text-sm leading-6 text-warning-foreground dark:text-warning"
+          >
+            <p className="font-medium">This listing is old and likely closed.</p>
+            <p className="mt-1 text-xs leading-5 opacity-90">{staleCaption}</p>
+          </div>
+        )}
 
         <section
           aria-label="Application actions"
@@ -280,6 +306,27 @@ export default async function OpportunityPage({ params }: PageProps) {
                 </div>
                 <p className="mt-2 max-w-lg text-xs leading-5 text-muted-foreground">
                   {closedCaption}
+                </p>
+              </>
+            ) : stale ? (
+              <>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="inline-flex h-10 items-center justify-center rounded-md border border-border bg-secondary/50 px-6 text-sm font-medium text-muted-foreground">
+                    {staleStatusLabel}
+                  </span>
+                  <Button size="lg" variant="outline" asChild>
+                    <a
+                      href={opportunity.apply_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {verifyLabel}
+                    </a>
+                  </Button>
+                </div>
+                <p className="mt-2 max-w-lg text-xs leading-5 text-muted-foreground">
+                  Opens the company&apos;s own listing so you can check whether it is
+                  still open — Aspirova never mirrors applications.
                 </p>
               </>
             ) : (
