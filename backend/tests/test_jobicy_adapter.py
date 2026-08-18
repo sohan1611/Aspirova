@@ -8,6 +8,7 @@ import pytest
 
 from core.adapters import RawListing
 from crawlers.common import content_hash
+from crawlers import jobicy
 from crawlers.jobicy import JobicyAdapter
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "jobicy_sample.json"
@@ -67,6 +68,44 @@ def test_fetch_filters_title_and_level_seniority_before_returning_raw_listings(
     }
     assert adapter.coverage()["expected_total"] == 4
     assert request_params == [{"count": 100}]
+
+
+def test_fetch_retries_transient_429_before_succeeding(
+    adapter: JobicyAdapter,
+    fixture_payload: dict,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    responses = [429, 200]
+    request_params: list[dict] = []
+    sleep_calls: list[float] = []
+
+    def fake_get(url: str, *, params: dict) -> httpx.Response:
+        request_params.append(params)
+        request = httpx.Request("GET", url, params=params)
+        status_code = responses.pop(0)
+        if status_code == 429:
+            return httpx.Response(
+                429,
+                text="Too Many Requests",
+                headers={"Retry-After": "3"},
+                request=request,
+            )
+        return httpx.Response(200, json=fixture_payload, request=request)
+
+    monkeypatch.setattr(adapter._client, "get", fake_get)
+    monkeypatch.setattr(jobicy, "sleep", lambda seconds: sleep_calls.append(seconds))
+
+    raw_listings = adapter.fetch()
+
+    assert [listing.external_id for listing in raw_listings] == ["101", "104"]
+    assert adapter.health() == "ok"
+    coverage = adapter.coverage()
+    assert coverage["details"]["requests_made"] == 2
+    assert coverage["details"]["retry_attempts"] == 1
+    assert coverage["details"]["retry_reasons"] == ["http_429"]
+    assert coverage["details"]["terminal_reason"] is None
+    assert sleep_calls == [3.0]
+    assert request_params == [{"count": 100}, {"count": 100}]
 
 
 def test_parse_keeps_jobicy_original_url_and_level_metadata(

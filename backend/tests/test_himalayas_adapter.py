@@ -80,6 +80,7 @@ def test_fetch_filters_title_only_before_returning_raw_listings(
         "request_cap": 250,
         "page_size_requested": 20,
         "requests_made": 1,
+        "pages_requested": 1,
         "bounded_by_design": True,
         "hit_request_cap": False,
         "terminal_reason": "short_page",
@@ -131,6 +132,7 @@ def test_fetch_reports_empty_terminal_page_as_complete_bounded_window(
     assert coverage["details"]["terminal_reason"] == "empty_page"
     assert coverage["details"]["terminal_offset"] == 20
     assert coverage["details"]["requests_made"] == 2
+    assert coverage["details"]["pages_requested"] == 2
     assert coverage["details"]["window_raw_fetched"] == 20
     assert coverage["details"]["window_raw_expected"] == 20
     assert request_params == [{"limit": 20, "offset": 0}, {"limit": 20, "offset": 20}]
@@ -171,7 +173,113 @@ def test_fetch_reports_degraded_terminal_reason_as_partial_window(
     assert coverage["note"].endswith("fetch ended with http_503")
     assert coverage["details"]["terminal_reason"] == "http_503"
     assert coverage["details"]["terminal_offset"] == 20
+    assert coverage["details"]["requests_made"] == 5
+    assert coverage["details"]["pages_requested"] == 2
+    assert coverage["details"]["retry_attempts"] == 3
+    assert coverage["details"]["retry_reasons"] == ["http_503", "http_503", "http_503"]
+
+
+def test_fetch_retries_429_retry_after_before_succeeding(
+    adapter: HimalayasAdapter,
+    fixture_payload: dict,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request_params: list[dict] = []
+    sleep_calls: list[float] = []
+    responses = [429, 200]
+
+    def fake_get(url: str, *, params: dict) -> httpx.Response:
+        request_params.append(params)
+        request = httpx.Request("GET", url, params=params)
+        status_code = responses.pop(0)
+        if status_code == 429:
+            return httpx.Response(
+                429,
+                text="Too Many Requests",
+                headers={"Retry-After": "7"},
+                request=request,
+            )
+        return httpx.Response(200, json=fixture_payload, request=request)
+
+    monkeypatch.setattr(adapter._client, "get", fake_get)
+    monkeypatch.setattr(himalayas, "sleep", lambda seconds: sleep_calls.append(seconds))
+
+    raw_listings = adapter.fetch()
+
+    assert [listing.external_id for listing in raw_listings] == ["hm-101", "hm-104"]
+    assert adapter.health() == "ok"
+    coverage = adapter.coverage()
+    assert coverage["status"] == "complete"
     assert coverage["details"]["requests_made"] == 2
+    assert coverage["details"]["pages_requested"] == 1
+    assert coverage["details"]["retry_attempts"] == 1
+    assert coverage["details"]["retry_reasons"] == ["http_429"]
+    assert sleep_calls == [7.0]
+    assert request_params == [
+        {"limit": 20, "offset": 0},
+        {"limit": 20, "offset": 0},
+    ]
+
+
+def test_fetch_reports_persistent_429_after_retry_bound_as_partial_window(
+    adapter: HimalayasAdapter,
+    fixture_payload: dict,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    full_page_jobs = [
+        {
+            **fixture_payload["jobs"][0],
+            "id": f"hm-rate-limit-{index}",
+            "url": f"https://himalayas.app/companies/nimbus/jobs/rate-limit-{index}",
+            "applicationLink": (
+                f"https://himalayas.app/companies/nimbus/jobs/rate-limit-{index}/apply"
+            ),
+        }
+        for index in range(20)
+    ]
+    request_params: list[dict] = []
+    sleep_calls: list[float] = []
+
+    def fake_get(url: str, *, params: dict) -> httpx.Response:
+        request_params.append(params)
+        request = httpx.Request("GET", url, params=params)
+        if params["offset"] == 0:
+            return httpx.Response(
+                200, json={"totalCount": 101767, "jobs": full_page_jobs}, request=request
+            )
+        return httpx.Response(
+            429,
+            text="Too Many Requests",
+            headers={"Retry-After": "1"},
+            request=request,
+        )
+
+    monkeypatch.setattr(adapter._client, "get", fake_get)
+    monkeypatch.setattr(himalayas, "sleep", lambda seconds: sleep_calls.append(seconds))
+
+    raw_listings = adapter.fetch()
+
+    assert len(raw_listings) == 20
+    assert adapter.health() == "degraded"
+    coverage = adapter.coverage()
+    assert coverage["status"] == "partial"
+    assert coverage["note"].endswith("fetch ended with http_429")
+    assert coverage["details"]["terminal_reason"] == "http_429"
+    assert coverage["details"]["terminal_offset"] == 20
+    assert coverage["details"]["requests_made"] == 5
+    assert coverage["details"]["pages_requested"] == 2
+    assert coverage["details"]["retry_attempts"] == 3
+    assert coverage["details"]["retry_reasons"] == ["http_429", "http_429", "http_429"]
+    assert coverage["details"]["window_raw_fetched"] == 20
+    assert coverage["details"]["window_raw_expected"] == 5000
+    assert sleep_calls == [3.0, 1.0, 1.0, 1.0]
+    assert request_params == [
+        {"limit": 20, "offset": 0},
+        {"limit": 20, "offset": 20},
+        {"limit": 20, "offset": 20},
+        {"limit": 20, "offset": 20},
+        {"limit": 20, "offset": 20},
+    ]
 
 
 def test_fetch_rejects_source_entry_level_without_himalayas_title_signal(

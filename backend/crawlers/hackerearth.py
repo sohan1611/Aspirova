@@ -1,6 +1,7 @@
 """HackerEarth aggregator adapter using its public events endpoint."""
 
 from datetime import UTC, datetime
+from time import sleep
 from typing import Any, Literal
 from urllib.parse import urljoin
 
@@ -14,10 +15,12 @@ from crawlers.common import (
     content_hash,
     extract_text,
     is_plausible_deadline,
+    request_with_retries,
 )
 
 _BASE_URL = "https://www.hackerearth.com"
 _API_URL = f"{_BASE_URL}/chrome-extension/events/"
+_MAX_RETRIES = 1
 
 HealthStatus = Literal["ok", "degraded", "broken"]
 
@@ -35,39 +38,74 @@ class HackerEarthAdapter:
         )
         self._last_health: HealthStatus = "ok"
         self._raw_count = 0
+        self._request_count = 0
+        self._retry_count = 0
+        self._retry_reasons: list[str] = []
+        self._terminal_reason: str | None = None
 
     def fetch(self) -> list[RawListing]:
         self._raw_count = 0
-        try:
-            response = self._client.get(_API_URL)
-        except httpx.RequestError:
+        self._request_count = 0
+        self._retry_count = 0
+        self._retry_reasons = []
+        self._terminal_reason = None
+
+        result = request_with_retries(
+            lambda: self._client.get(_API_URL),
+            max_retries=_MAX_RETRIES,
+            sleeper=sleep,
+        )
+        self._request_count = result.attempts_made
+        self._retry_count = max(result.attempts_made - 1, 0)
+        self._retry_reasons = list(result.retry_reasons)
+        response = result.response
+        if response is None:
+            self._terminal_reason = result.terminal_reason or "request_error"
             self._last_health = "degraded"
             return []
 
         if response.status_code == 404:
+            self._terminal_reason = "http_404"
             self._last_health = "broken"
             return []
         if response.status_code != 200:
+            self._terminal_reason = result.terminal_reason or f"http_{response.status_code}"
             self._last_health = "degraded"
             return []
 
         try:
             payload = response.json()
         except ValueError:
+            self._terminal_reason = (
+                "empty_response" if not response.text.strip() else "invalid_json"
+            )
             self._last_health = "degraded"
             return []
 
         if not isinstance(payload, dict):
+            self._terminal_reason = "non_object_payload"
             self._last_health = "degraded"
             return []
         events = payload.get("response")
         if not isinstance(events, list):
+            self._terminal_reason = "missing_events"
             self._last_health = "degraded"
             return []
 
         self._raw_count = len(events)
+        if not events:
+            self._terminal_reason = (
+                "empty_feed_after_retry" if self._retry_reasons else "empty_feed"
+            )
+            self._last_health = "degraded"
+            return []
+
         listings = build_listings(events, self._build_raw_listing, source_slug=self.source_slug)
-        self._last_health = "ok" if len(listings) == len(events) else "degraded"
+        if len(listings) == len(events):
+            self._last_health = "ok"
+        else:
+            self._terminal_reason = "malformed_events"
+            self._last_health = "degraded"
         return listings
 
     def parse(self, raw: RawListing) -> NormalizedListing:
@@ -106,12 +144,34 @@ class HackerEarthAdapter:
         return self._last_health
 
     def coverage(self) -> dict[str, Any]:
-        return {
+        note = "source declares no total"
+        if self._terminal_reason:
+            if self._terminal_reason == "empty_feed":
+                terminal_note = "feed returned zero events"
+            else:
+                terminal_note = f"fetch ended with {self._terminal_reason}"
+            if self._retry_reasons:
+                terminal_note = f"{terminal_note} after {self._retry_reasons[-1]}"
+            note = f"{note}; {terminal_note}"
+
+        details: dict[str, Any] = {
+            "raw_count": self._raw_count,
+            "requests_made": self._request_count,
+            "terminal_reason": self._terminal_reason,
+        }
+        if self._retry_count:
+            details["retry_attempts"] = self._retry_count
+            details["retry_reasons"] = self._retry_reasons
+
+        coverage: dict[str, Any] = {
             "mode": "unknown",
             "expected_total": None,
-            "note": "source declares no total",
-            "details": {"raw_count": self._raw_count},
+            "note": note,
+            "details": details,
         }
+        if self._terminal_reason:
+            coverage["status"] = "partial"
+        return coverage
 
     def _build_raw_listing(self, event: dict[str, Any]) -> RawListing:
         source_url = urljoin(_BASE_URL, _as_text(event.get("url")))

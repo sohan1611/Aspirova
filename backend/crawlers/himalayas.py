@@ -13,6 +13,7 @@ from crawlers.common import (
     build_listings,
     content_hash,
     extract_text,
+    request_with_retries,
 )
 from crawlers.student_relevance import classify_student_role, is_student_relevant_role
 
@@ -22,7 +23,8 @@ _PAGE_SIZE = 20
 # seniority filter did not narrow totals when probed. Crawl only the most-recent
 # window so this source cannot consume an entire aggregator run.
 _MAX_REQUESTS = 250
-_REQUEST_DELAY_SECONDS = 0.5
+_REQUEST_DELAY_SECONDS = 3.0
+_MAX_RETRIES = 3
 
 HealthStatus = Literal["ok", "degraded", "broken"]
 
@@ -43,6 +45,9 @@ class HimalayasAdapter:
         self._raw_count = 0
         self._kept_count = 0
         self._request_count = 0
+        self._page_count = 0
+        self._retry_count = 0
+        self._retry_reasons: list[str] = []
         self._hit_request_cap = False
         self._terminal_reason: str | None = None
         self._terminal_offset: int | None = None
@@ -55,23 +60,33 @@ class HimalayasAdapter:
         self._raw_count = 0
         self._kept_count = 0
         self._request_count = 0
+        self._page_count = 0
+        self._retry_count = 0
+        self._retry_reasons = []
         self._hit_request_cap = False
         self._terminal_reason = None
         self._terminal_offset = None
 
-        while self._request_count < _MAX_REQUESTS:
-            if self._request_count:
+        while self._page_count < _MAX_REQUESTS:
+            if self._page_count:
                 sleep(_REQUEST_DELAY_SECONDS)
 
             request_offset = offset
-            self._request_count += 1
-            try:
-                response = self._client.get(
+            self._page_count += 1
+            result = request_with_retries(
+                lambda: self._client.get(
                     _API_URL,
                     params={"limit": _PAGE_SIZE, "offset": request_offset},
-                )
-            except httpx.RequestError:
-                self._terminal_reason = "request_error"
+                ),
+                max_retries=_MAX_RETRIES,
+                sleeper=sleep,
+            )
+            self._request_count += result.attempts_made
+            self._retry_count += max(result.attempts_made - 1, 0)
+            self._retry_reasons.extend(result.retry_reasons)
+            response = result.response
+            if response is None:
+                self._terminal_reason = result.terminal_reason or "request_error"
                 self._terminal_offset = request_offset
                 self._last_health = "degraded"
                 return listings
@@ -82,7 +97,7 @@ class HimalayasAdapter:
                 self._last_health = "broken"
                 return listings
             if response.status_code != 200:
-                self._terminal_reason = f"http_{response.status_code}"
+                self._terminal_reason = result.terminal_reason or f"http_{response.status_code}"
                 self._terminal_offset = request_offset
                 self._last_health = "degraded"
                 return listings
@@ -143,7 +158,7 @@ class HimalayasAdapter:
                 break
             offset += len(jobs)
 
-        if self._request_count >= _MAX_REQUESTS and (
+        if self._page_count >= _MAX_REQUESTS and (
             self._expected_total is None or self._raw_count < self._expected_total
         ):
             self._hit_request_cap = True
@@ -210,24 +225,29 @@ class HimalayasAdapter:
         if status == "partial" and self._terminal_reason:
             note = f"{note}; fetch ended with {self._terminal_reason}"
 
+        details: dict[str, Any] = self.filter_counts() | {
+            "catalogue_total": self._expected_total,
+            "request_cap": _MAX_REQUESTS,
+            "page_size_requested": _PAGE_SIZE,
+            "requests_made": self._request_count,
+            "pages_requested": self._page_count,
+            "bounded_by_design": True,
+            "hit_request_cap": self._hit_request_cap,
+            "terminal_reason": self._terminal_reason,
+            "terminal_offset": self._terminal_offset,
+            "window_raw_fetched": self._raw_count,
+            "window_raw_expected": window_raw_expected,
+        }
+        if self._retry_count:
+            details["retry_attempts"] = self._retry_count
+            details["retry_reasons"] = self._retry_reasons
+
         return {
             "mode": "bounded_window",
             "expected_total": None,
             "status": status,
             "note": note,
-            "details": self.filter_counts()
-            | {
-                "catalogue_total": self._expected_total,
-                "request_cap": _MAX_REQUESTS,
-                "page_size_requested": _PAGE_SIZE,
-                "requests_made": self._request_count,
-                "bounded_by_design": True,
-                "hit_request_cap": self._hit_request_cap,
-                "terminal_reason": self._terminal_reason,
-                "terminal_offset": self._terminal_offset,
-                "window_raw_fetched": self._raw_count,
-                "window_raw_expected": window_raw_expected,
-            },
+            "details": details,
         }
 
     def filter_counts(self) -> dict[str, int]:
