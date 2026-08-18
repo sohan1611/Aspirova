@@ -90,10 +90,15 @@ DEFAULT_AGGREGATOR_MAX_SECONDS = 7200.0
 # every aggregator minute and starve Devpost/RemoteOK.
 DEFAULT_AGGREGATOR_GROUP_MAX_SECONDS = 8700.0
 # Time held back for each aggregator still waiting its turn, so a slow source
-# cannot skip them. Measured against real runs: devpost completes in ~130s and
-# remoteok in ~240s, so 600s is several times what either has ever needed while
-# leaving the bulk of the group budget to whichever source actually needs it.
-AGGREGATOR_MIN_RESERVE_SECONDS = 600.0
+# cannot skip them. Sized against what the SLOWEST waiting source actually needs,
+# not the cheapest: devpost finishes in ~130s and remoteok in ~240s, but himalayas
+# needs ~791s because it paces requests 3s apart to stop provoking the HTTP 429
+# that truncated it at 2780/5000. At the previous 600s floor himalayas was handed
+# 599s and truncated, while 2641s of the group ceiling went unused - the reserve
+# has to cover the slowest waiter or it starves the source it exists to protect.
+# 900s leaves unstop 3300s, which is ample now it is at 2173/2186 and each run
+# only handles the remainder.
+AGGREGATOR_MIN_RESERVE_SECONDS = 900.0
 # Soft wall-clock budget for the WHOLE ATS phase (prefetch + ingest), armed
 # before the prefetch below. This is no longer an Actions-minute rationing
 # guard; the public repo gets standard runners without the old private-repo
