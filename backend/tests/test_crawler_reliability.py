@@ -928,3 +928,55 @@ def test_run_tier_ats_crawls_stalest_boards_first(monkeypatch) -> None:
 
     # never-crawled first, then oldest, then freshest.
     assert crawl_order == ["never", "old", "fresh"]
+
+
+def test_a_failed_source_records_why_it_failed(monkeypatch) -> None:
+    """Regression for crawl 32183933552.
+
+    himalayas, mongodb and vercel all reported `errors: 1, status: failed`
+    with COMPLETE coverage and no cause recorded anywhere - the outer handler
+    was a bare `except Exception:` that discarded the exception. A failure you
+    cannot diagnose is the same blindness the coverage work exists to remove.
+    """
+
+    class _ExplodingAggregator:
+        source_slug = "exploder"
+
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        def fetch(self) -> list:
+            raise RuntimeError("boom: simulated source failure")
+
+        def health(self) -> str:
+            return "ok"
+
+        def coverage(self) -> dict[str, object]:
+            return {
+                "fetched": 0,
+                "expected_total": None,
+                "mode": "unknown",
+                "status": "unknown",
+            }
+
+    session = _MemorySession()
+    source = SimpleNamespace(id=1, crawl_tier=1, adapter_key="himalayas")
+
+    recorded: dict = {}
+
+    def fake_record(_session, **kwargs):
+        recorded.update(kwargs)
+
+    monkeypatch.setattr(runner, "load_board_state", lambda *_args: object())
+    monkeypatch.setattr(runner, "resolve_company", lambda *_args: SimpleNamespace(id=2))
+    monkeypatch.setattr(runner, "_record_crawl_run", fake_record)
+
+    result = runner.crawl_aggregator(session, source, _ExplodingAggregator)
+
+    assert result["status"] == "failed"
+    assert result["errors"] >= 1
+    # The cause must survive in the result AND in the durable crawl_runs log,
+    # because CI workflow logs age out and crawl_runs does not.
+    assert "RuntimeError" in result["failure_reason"]
+    assert "boom: simulated source failure" in result["failure_reason"]
+    assert "boom: simulated source failure" in recorded["log"]["failure_reason"]
