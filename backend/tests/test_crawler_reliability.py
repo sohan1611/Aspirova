@@ -5,6 +5,8 @@ import threading
 import time
 from types import SimpleNamespace
 
+import pytest
+
 from core import models
 from core.adapters import NormalizedListing, RawListing
 from crawlers.common import build_http_timeout
@@ -435,6 +437,52 @@ class _AggregatorAdapter:
         return "ok"
 
 
+def test_bounded_by_design_aggregator_records_success_outcome(monkeypatch) -> None:
+    class _BoundedWindowAggregator(_AggregatorAdapter):
+        def coverage(self) -> dict[str, object]:
+            return {
+                "mode": "bounded_window",
+                "expected_total": None,
+                "status": "complete",
+                "note": "bounded by design to the most recent Himalayas jobs window",
+                "details": {
+                    "raw_count": 3,
+                    "student_relevant_count": 3,
+                    "filtered_out": 0,
+                    "catalogue_total": 101767,
+                    "request_cap": 250,
+                    "page_size_requested": 20,
+                    "requests_made": 1,
+                    "bounded_by_design": True,
+                    "hit_request_cap": False,
+                    "terminal_reason": "short_page",
+                    "terminal_offset": 0,
+                    "window_raw_fetched": 3,
+                    "window_raw_expected": 3,
+                },
+            }
+
+    session = _MemorySession()
+    source = SimpleNamespace(id=1, crawl_tier=1, adapter_key="himalayas")
+
+    monkeypatch.setattr(runner, "load_board_state", lambda *_args: object())
+    monkeypatch.setattr(runner, "resolve_company", lambda *_args: SimpleNamespace(id=2))
+    monkeypatch.setattr(
+        runner,
+        "ingest_one",
+        lambda *_args, seen_opportunity_ids=None, changed_slugs=None: (object(), True),
+    )
+
+    result = runner.crawl_aggregator(session, source, _BoundedWindowAggregator)
+
+    assert result["status"] == "success"
+    assert result["coverage"]["mode"] == "bounded_window"
+    assert result["coverage"]["status"] == "complete"
+    crawl_runs = [value for value in session.added if isinstance(value, models.CrawlRun)]
+    assert crawl_runs[-1].status == "success"
+    assert crawl_runs[-1].log["coverage_status"] == "complete"
+
+
 def test_aggregator_deadline_commits_completed_work_and_returns_partial(monkeypatch) -> None:
     session = _MemorySession()
     source = SimpleNamespace(id=1, crawl_tier=1)
@@ -498,6 +546,53 @@ def test_aggregator_deadline_commits_completed_work_and_returns_partial(monkeypa
     assert not any(isinstance(value, models.SourceState) for value in session.added)
     assert previous_state.last_content_hash == "full-feed-fingerprint"
     assert previous_state.last_crawled_at == "before-partial-run"
+
+
+@pytest.mark.parametrize("health", ["degraded", "broken"])
+def test_errored_aggregator_fetch_records_partial_outcome(monkeypatch, health: str) -> None:
+    class _DegradedFetchAggregator:
+        def fetch(self) -> list[RawListing]:
+            return []
+
+        def parse(self, raw: RawListing) -> NormalizedListing:
+            raise AssertionError(f"parse should not be called for {raw.external_id}")
+
+        def health(self) -> str:
+            return health
+
+        def coverage(self) -> dict[str, object]:
+            return {
+                "mode": "bounded_window",
+                "expected_total": None,
+                "status": "partial",
+                "note": "bounded by design; fetch ended with http_503",
+                "details": {
+                    "raw_count": 0,
+                    "student_relevant_count": 0,
+                    "filtered_out": 0,
+                    "request_cap": 250,
+                    "page_size_requested": 20,
+                    "requests_made": 1,
+                    "bounded_by_design": True,
+                    "hit_request_cap": False,
+                    "terminal_reason": "http_503",
+                    "terminal_offset": 0,
+                    "window_raw_fetched": 0,
+                    "window_raw_expected": 5000,
+                },
+            }
+
+    session = _MemorySession()
+    source = SimpleNamespace(id=1, crawl_tier=1, adapter_key="himalayas")
+
+    result = runner.crawl_aggregator(session, source, _DegradedFetchAggregator)
+
+    assert result["status"] == "partial"
+    assert result["stopped_early"] is False
+    assert result["coverage"]["status"] == "partial"
+    crawl_runs = [value for value in session.added if isinstance(value, models.CrawlRun)]
+    assert crawl_runs[-1].status == "partial"
+    assert not any(isinstance(value, models.SourceState) for value in session.added)
 
 
 def test_coverage_unknown_for_source_without_declared_total(monkeypatch, capsys) -> None:

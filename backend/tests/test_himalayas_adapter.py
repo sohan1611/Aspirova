@@ -7,7 +7,9 @@ import httpx
 import pytest
 
 from core.adapters import RawListing
+from crawlers import runner
 from crawlers.common import content_hash
+from crawlers import himalayas
 from crawlers.himalayas import HimalayasAdapter
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "himalayas_sample.json"
@@ -65,8 +67,111 @@ def test_fetch_filters_title_only_before_returning_raw_listings(
         "student_relevant_count": 2,
         "filtered_out": 2,
     }
-    assert adapter.coverage()["expected_total"] == 102211
+    coverage = adapter.coverage()
+    assert coverage["mode"] == "bounded_window"
+    assert coverage["expected_total"] is None
+    assert coverage["status"] == "complete"
+    assert coverage["note"] == "bounded by design to the most recent Himalayas jobs window"
+    assert coverage["details"] == {
+        "raw_count": 4,
+        "student_relevant_count": 2,
+        "filtered_out": 2,
+        "catalogue_total": 102211,
+        "request_cap": 250,
+        "page_size_requested": 20,
+        "requests_made": 1,
+        "bounded_by_design": True,
+        "hit_request_cap": False,
+        "terminal_reason": "short_page",
+        "terminal_offset": 0,
+        "window_raw_fetched": 4,
+        "window_raw_expected": 4,
+    }
+    assert (
+        runner._coverage_line(
+            "himalayas",
+            runner._coverage_from_adapter(adapter, "himalayas", len(raw_listings), health="ok"),
+        )
+        == "COVERAGE: himalayas 2 kept from 4/4 raw window (complete; catalogue total 102211)"
+    )
     assert request_params == [{"limit": 20, "offset": 0}]
+
+
+def test_fetch_reports_empty_terminal_page_as_complete_bounded_window(
+    adapter: HimalayasAdapter,
+    fixture_payload: dict,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    full_page_jobs = [
+        {
+            **fixture_payload["jobs"][0],
+            "id": f"hm-page-{index}",
+            "url": f"https://himalayas.app/companies/nimbus/jobs/page-{index}",
+            "applicationLink": (f"https://himalayas.app/companies/nimbus/jobs/page-{index}/apply"),
+        }
+        for index in range(20)
+    ]
+    request_params: list[dict] = []
+
+    def fake_get(url: str, *, params: dict) -> httpx.Response:
+        request_params.append(params)
+        jobs = full_page_jobs if params["offset"] == 0 else []
+        request = httpx.Request("GET", url, params=params)
+        return httpx.Response(200, json={"totalCount": 101767, "jobs": jobs}, request=request)
+
+    monkeypatch.setattr(adapter._client, "get", fake_get)
+    monkeypatch.setattr(himalayas, "sleep", lambda _seconds: None)
+
+    raw_listings = adapter.fetch()
+
+    assert len(raw_listings) == 20
+    coverage = adapter.coverage()
+    assert coverage["status"] == "complete"
+    assert coverage["details"]["bounded_by_design"] is True
+    assert coverage["details"]["terminal_reason"] == "empty_page"
+    assert coverage["details"]["terminal_offset"] == 20
+    assert coverage["details"]["requests_made"] == 2
+    assert coverage["details"]["window_raw_fetched"] == 20
+    assert coverage["details"]["window_raw_expected"] == 20
+    assert request_params == [{"limit": 20, "offset": 0}, {"limit": 20, "offset": 20}]
+
+
+def test_fetch_reports_degraded_terminal_reason_as_partial_window(
+    adapter: HimalayasAdapter,
+    fixture_payload: dict,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    full_page_jobs = [
+        {
+            **fixture_payload["jobs"][0],
+            "id": f"hm-error-{index}",
+            "url": f"https://himalayas.app/companies/nimbus/jobs/error-{index}",
+            "applicationLink": (f"https://himalayas.app/companies/nimbus/jobs/error-{index}/apply"),
+        }
+        for index in range(20)
+    ]
+
+    def fake_get(url: str, *, params: dict) -> httpx.Response:
+        request = httpx.Request("GET", url, params=params)
+        if params["offset"] == 0:
+            return httpx.Response(
+                200, json={"totalCount": 101767, "jobs": full_page_jobs}, request=request
+            )
+        return httpx.Response(503, json={"error": "try later"}, request=request)
+
+    monkeypatch.setattr(adapter._client, "get", fake_get)
+    monkeypatch.setattr(himalayas, "sleep", lambda _seconds: None)
+
+    raw_listings = adapter.fetch()
+
+    assert len(raw_listings) == 20
+    assert adapter.health() == "degraded"
+    coverage = adapter.coverage()
+    assert coverage["status"] == "partial"
+    assert coverage["note"].endswith("fetch ended with http_503")
+    assert coverage["details"]["terminal_reason"] == "http_503"
+    assert coverage["details"]["terminal_offset"] == 20
+    assert coverage["details"]["requests_made"] == 2
 
 
 def test_fetch_rejects_source_entry_level_without_himalayas_title_signal(

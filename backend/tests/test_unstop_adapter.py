@@ -9,6 +9,7 @@ import pytest
 
 from core.adapters import RawListing
 from crawlers import unstop
+from crawlers import runner
 from crawlers.common import content_hash
 from crawlers.unstop import UnstopAdapter
 from pipeline.location_country import derive_country
@@ -126,6 +127,60 @@ def test_fetch_returns_fixture_opportunities_and_deduplicates_across_types(
         {"opportunity": "jobs", "oppstatus": "open", "per_page": 300, "page": 1},
     ]
     assert adapter.health() == "ok"
+
+
+def test_coverage_reports_overlapping_type_totals_without_summed_denominator(
+    adapter: UnstopAdapter,
+) -> None:
+    adapter._declared_totals = {
+        "internships": 786,
+        "competitions": 305,
+        "hackathons": 104,
+        "jobs": 1097,
+    }
+    adapter._fully_paged_types = set(unstop._OPPORTUNITY_TYPES)
+
+    coverage = adapter.coverage()
+
+    assert coverage["mode"] == "declared_type_totals"
+    assert coverage["expected_total"] is None
+    assert coverage["status"] == "complete"
+    assert coverage["details"]["declared_totals_by_type"] == {
+        "internships": 786,
+        "competitions": 305,
+        "hackathons": 104,
+        "jobs": 1097,
+    }
+    assert "types overlap" in coverage["note"]
+    assert "not a valid distinct-listing denominator" in coverage["note"]
+
+    record = runner._coverage_from_adapter(adapter, "unstop", 2186, health="ok")
+    line = runner._coverage_line("unstop", record)
+    assert record["expected_total"] is None
+    assert "2186/2292" not in line
+    assert line == (
+        "COVERAGE: unstop 2186 (complete - Unstop opportunity types overlap, "
+        "so summed per-type totals are not a valid distinct-listing denominator.)"
+    )
+
+
+def test_coverage_reports_unpaged_unstop_type_as_partial_without_ratio(
+    adapter: UnstopAdapter,
+) -> None:
+    adapter._declared_totals = {
+        "internships": 786,
+        "competitions": 305,
+        "hackathons": 104,
+        "jobs": 1097,
+    }
+    adapter._fully_paged_types = {"internships", "competitions", "hackathons"}
+    adapter._incomplete_type_reasons = {"jobs": "stopped_early"}
+
+    coverage = adapter.coverage()
+
+    assert coverage["expected_total"] is None
+    assert coverage["status"] == "partial"
+    assert coverage["details"]["incomplete_type_reasons"] == {"jobs": "stopped_early"}
 
 
 def test_fetch_skips_internship_deadlines_older_than_grace_period(

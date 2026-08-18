@@ -44,6 +44,8 @@ class HimalayasAdapter:
         self._kept_count = 0
         self._request_count = 0
         self._hit_request_cap = False
+        self._terminal_reason: str | None = None
+        self._terminal_offset: int | None = None
 
     def fetch(self) -> list[RawListing]:
         listings: list[RawListing] = []
@@ -54,34 +56,48 @@ class HimalayasAdapter:
         self._kept_count = 0
         self._request_count = 0
         self._hit_request_cap = False
+        self._terminal_reason = None
+        self._terminal_offset = None
 
         while self._request_count < _MAX_REQUESTS:
             if self._request_count:
                 sleep(_REQUEST_DELAY_SECONDS)
 
+            request_offset = offset
+            self._request_count += 1
             try:
                 response = self._client.get(
                     _API_URL,
-                    params={"limit": _PAGE_SIZE, "offset": offset},
+                    params={"limit": _PAGE_SIZE, "offset": request_offset},
                 )
             except httpx.RequestError:
+                self._terminal_reason = "request_error"
+                self._terminal_offset = request_offset
                 self._last_health = "degraded"
                 return listings
 
             if response.status_code == 404:
+                self._terminal_reason = "http_404"
+                self._terminal_offset = request_offset
                 self._last_health = "broken"
                 return listings
             if response.status_code != 200:
+                self._terminal_reason = f"http_{response.status_code}"
+                self._terminal_offset = request_offset
                 self._last_health = "degraded"
                 return listings
 
             try:
                 payload = response.json()
             except ValueError:
+                self._terminal_reason = "invalid_json"
+                self._terminal_offset = request_offset
                 self._last_health = "degraded"
                 return listings
 
             if not isinstance(payload, dict):
+                self._terminal_reason = "non_object_payload"
+                self._terminal_offset = request_offset
                 self._last_health = "degraded"
                 return listings
 
@@ -91,9 +107,13 @@ class HimalayasAdapter:
 
             jobs = _job_items(payload)
             if jobs is None:
+                self._terminal_reason = "missing_jobs"
+                self._terminal_offset = request_offset
                 self._last_health = "degraded"
                 return listings
             if not jobs:
+                self._terminal_reason = "empty_page"
+                self._terminal_offset = request_offset
                 break
 
             self._raw_count += len(jobs)
@@ -116,9 +136,10 @@ class HimalayasAdapter:
                 degraded = True
             listings.extend(page_listings)
             self._kept_count += len(page_listings)
-            self._request_count += 1
 
             if len(jobs) < _PAGE_SIZE:
+                self._terminal_reason = "short_page"
+                self._terminal_offset = request_offset
                 break
             offset += len(jobs)
 
@@ -126,6 +147,8 @@ class HimalayasAdapter:
             self._expected_total is None or self._raw_count < self._expected_total
         ):
             self._hit_request_cap = True
+            self._terminal_reason = self._terminal_reason or "request_cap"
+            self._terminal_offset = self._terminal_offset or offset
         self._last_health = "degraded" if degraded else "ok"
         return listings
 
@@ -177,18 +200,33 @@ class HimalayasAdapter:
         return self._last_health
 
     def coverage(self) -> dict[str, Any]:
-        note = "bounded by design" if self._hit_request_cap else None
+        status = "complete" if self._last_health == "ok" else "partial"
+        window_raw_expected = (
+            self._raw_count
+            if self._terminal_reason in {"empty_page", "short_page"}
+            else _MAX_REQUESTS * _PAGE_SIZE
+        )
+        note = "bounded by design to the most recent Himalayas jobs window"
+        if status == "partial" and self._terminal_reason:
+            note = f"{note}; fetch ended with {self._terminal_reason}"
+
         return {
-            "mode": "declared_total" if self._expected_total is not None else "unknown",
-            "expected_total": self._expected_total,
-            "status": "partial" if self._hit_request_cap else None,
-            "note": note if self._expected_total is not None else "source total was not declared",
+            "mode": "bounded_window",
+            "expected_total": None,
+            "status": status,
+            "note": note,
             "details": self.filter_counts()
             | {
+                "catalogue_total": self._expected_total,
                 "request_cap": _MAX_REQUESTS,
                 "page_size_requested": _PAGE_SIZE,
                 "requests_made": self._request_count,
-                "bounded_by_design": self._hit_request_cap,
+                "bounded_by_design": True,
+                "hit_request_cap": self._hit_request_cap,
+                "terminal_reason": self._terminal_reason,
+                "terminal_offset": self._terminal_offset,
+                "window_raw_fetched": self._raw_count,
+                "window_raw_expected": window_raw_expected,
             },
         }
 
