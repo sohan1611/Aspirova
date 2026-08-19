@@ -1156,6 +1156,26 @@ def crawl_aggregator(
 
     try:
         adapter = adapter_class()
+        # Nothing may hold a database transaction open across the fetch.
+        # The caller opens a Session and reads `Source` before getting here,
+        # which starts a read-only transaction; the fetch that follows is pure
+        # network I/O and can run for many minutes (himalayas paces 250 pages
+        # 3s apart, ~750s), so that transaction sits IDLE far past the 120s
+        # idle_in_transaction_session_timeout set in core/db.py. Postgres then
+        # terminates the connection, and the first query AFTER the fetch dies:
+        #
+        #   InternalError: (psycopg.errors.IdleInTransactionSessionTimeout)
+        #   terminating connection due to idle-in-transaction timeout
+        #   [SQL: SELECT source_state ... page_key = 'aggregator']
+        #
+        # Crawl 32193971487 lost all 71 student-relevant himalayas listings
+        # that way - fetched cleanly, coverage complete, ingested zero, and
+        # last_success stayed `never`. Committing here ends the read-only
+        # transaction so the fetch holds no connection state; the next query
+        # opens a fresh transaction with its timeouts freshly applied. The
+        # caller's Session uses expire_on_commit=False, so `source` stays
+        # usable afterwards.
+        session.commit()
         watchdog.beat(f"{activity}:fetch-start")
         stopped_early = stop_now()
         if stopped_early:

@@ -980,3 +980,56 @@ def test_a_failed_source_records_why_it_failed(monkeypatch) -> None:
     assert "RuntimeError" in result["failure_reason"]
     assert "boom: simulated source failure" in result["failure_reason"]
     assert "boom: simulated source failure" in recorded["log"]["failure_reason"]
+
+
+def test_no_transaction_is_held_open_across_the_aggregator_fetch(monkeypatch) -> None:
+    """Regression for crawl 32193971487.
+
+    The caller opens a Session and reads `Source`, starting a read-only
+    transaction. A paced aggregator then fetches for many minutes (himalayas
+    is ~750s) with that transaction IDLE, far past the 120s
+    idle_in_transaction_session_timeout in core/db.py. Postgres terminated the
+    connection and the first query after the fetch died:
+
+        IdleInTransactionSessionTimeout: terminating connection due to
+        idle-in-transaction timeout
+        [SQL: SELECT source_state ... page_key = 'aggregator']
+
+    All 71 student-relevant himalayas listings were lost that way - fetched
+    cleanly, coverage complete, ingested zero.
+    """
+
+    class _SlowFetchAggregator:
+        source_slug = "slowpoke"
+
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        def fetch(self) -> list:
+            # The transaction must already be closed by the time a slow fetch
+            # starts - that is the whole point.
+            assert session.commits >= 1, "a transaction was still open across the fetch"
+            return []
+
+        def health(self) -> str:
+            return "ok"
+
+        def coverage(self) -> dict[str, object]:
+            return {
+                "fetched": 0,
+                "expected_total": None,
+                "mode": "unknown",
+                "status": "unknown",
+            }
+
+    session = _MemorySession()
+    source = SimpleNamespace(id=1, crawl_tier=1, adapter_key="himalayas")
+
+    monkeypatch.setattr(runner, "load_board_state", lambda *_args: object())
+    monkeypatch.setattr(runner, "resolve_company", lambda *_args: SimpleNamespace(id=2))
+    monkeypatch.setattr(runner, "_record_crawl_run", lambda _session, **_kwargs: None)
+
+    result = runner.crawl_aggregator(session, source, _SlowFetchAggregator)
+
+    # The assert inside fetch() would have surfaced as a failed run.
+    assert result["status"] != "failed", result.get("failure_reason")
