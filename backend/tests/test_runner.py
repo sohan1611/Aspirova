@@ -591,6 +591,16 @@ def test_run_tier_gives_a_slow_aggregator_the_time_the_others_do_not_need(
     first_budget = calls[0][1]
     assert first_budget == pytest.approx(6_780.0)
     assert first_budget > 3_300.0
+    # Every source behind it still gets at least its own measured reserve.
+    # This is the anti-starvation guarantee the whole allocation exists to
+    # provide - without it, giving the slow source more time is exactly how
+    # devpost and remoteok ended up 11 days stale. Asserting only that unstop
+    # got more would not catch that regression.
+    for adapter_key, budget in calls[1:]:
+        assert budget >= runner._aggregator_reserve_seconds(adapter_key), (
+            f"{adapter_key} got {budget}s, below its own "
+            f"{runner._aggregator_reserve_seconds(adapter_key)}s reserve"
+        )
 
 
 def test_run_tier_summarizes_truncated_aggregators(monkeypatch, capsys) -> None:
