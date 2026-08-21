@@ -48,6 +48,44 @@ class _MemorySession:
         self.rollbacks += 1
 
 
+class _ScalarRows:
+    def __init__(self, values: list[object]) -> None:
+        self.values = values
+
+    def all(self) -> list[object]:
+        return self.values
+
+
+def _query_entity_name(query) -> str | None:
+    try:
+        entity = query.column_descriptions[0]["entity"]
+    except (AttributeError, IndexError, KeyError, TypeError):
+        return None
+    return getattr(entity, "__name__", None)
+
+
+class _CountingRawListingSession(_MemorySession):
+    def __init__(self, raw_rows: list[object] | None = None) -> None:
+        super().__init__()
+        self.raw_rows = raw_rows or []
+        self.raw_listing_queries = 0
+        self.opportunity_queries = 0
+        self.provenance_queries = 0
+
+    def scalars(self, query) -> _ScalarRows:
+        entity_name = _query_entity_name(query)
+        if entity_name == "RawListing":
+            self.raw_listing_queries += 1
+            return _ScalarRows(list(self.raw_rows))
+        if entity_name == "Opportunity":
+            self.opportunity_queries += 1
+            return _ScalarRows([])
+        if entity_name == "OpportunitySource":
+            self.provenance_queries += 1
+            return _ScalarRows([])
+        raise AssertionError(f"unexpected scalar query for {entity_name}")
+
+
 class _BoardAdapter:
     listings: list[RawListing] = []
     fetch_calls = 0
@@ -437,6 +475,192 @@ class _AggregatorAdapter:
         return "ok"
 
 
+class _MultiCompanyAggregator:
+    companies_by_listing = ["Company A", "Company B", "Company C", "Company A"]
+
+    def fetch(self) -> list[RawListing]:
+        return [
+            RawListing(
+                source_slug="aggregator-test",
+                external_id=f"listing-{index}",
+                source_url=f"https://example.test/listing-{index}",
+                content_hash=f"hash-{index}",
+                raw_payload={"company_name": company_name},
+            )
+            for index, company_name in enumerate(self.companies_by_listing, start=1)
+        ]
+
+    def parse(self, raw: RawListing) -> NormalizedListing:
+        return NormalizedListing(
+            source_slug=raw.source_slug,
+            external_id=raw.external_id,
+            source_url=raw.source_url,
+            title=f"Role {raw.external_id}",
+            company_name=raw.raw_payload["company_name"],
+            description_raw="description",
+            apply_url=raw.source_url,
+        )
+
+    def health(self) -> str:
+        return "ok"
+
+
+def _company_for_name(company_name: str) -> SimpleNamespace:
+    company_ids = {"Company A": 101, "Company B": 202, "Company C": 303}
+    return SimpleNamespace(id=company_ids[company_name])
+
+
+def test_aggregator_loads_source_raw_listings_once_for_multi_company_batch(monkeypatch) -> None:
+    session = _CountingRawListingSession()
+    source = SimpleNamespace(id=1, crawl_tier=1, adapter_key="aggregator-test")
+
+    monkeypatch.setattr(
+        runner, "resolve_company", lambda _session, name, _domain: _company_for_name(name)
+    )
+    monkeypatch.setattr(
+        runner,
+        "ingest_one",
+        lambda *_args, seen_opportunity_ids=None, changed_slugs=None: (object(), True),
+    )
+
+    result = runner.crawl_aggregator(session, source, _MultiCompanyAggregator)
+
+    assert result["status"] == "success"
+    assert result["listings_found"] == 4
+    assert session.raw_listing_queries == 1
+    assert session.opportunity_queries == 3
+
+
+def test_aggregator_new_raw_listing_is_visible_across_company_states(monkeypatch) -> None:
+    class _TwoCompanyAggregator(_MultiCompanyAggregator):
+        companies_by_listing = ["Company A", "Company B"]
+
+    session = _CountingRawListingSession()
+    source = SimpleNamespace(id=1, crawl_tier=1, adapter_key="aggregator-test")
+    seen_shared_raw = []
+
+    def fake_ingest(
+        _session,
+        board_state,
+        _source_id,
+        _company_id,
+        raw,
+        _normalized,
+        seen_opportunity_ids=None,
+        changed_slugs=None,
+    ):
+        if raw.external_id == "listing-1":
+            board_state.raw_by_external_id[raw.external_id] = SimpleNamespace(
+                external_id=raw.external_id
+            )
+        else:
+            seen_shared_raw.append(board_state.raw_by_external_id.get("listing-1"))
+        return object(), True
+
+    monkeypatch.setattr(
+        runner, "resolve_company", lambda _session, name, _domain: _company_for_name(name)
+    )
+    monkeypatch.setattr(runner, "ingest_one", fake_ingest)
+
+    result = runner.crawl_aggregator(session, source, _TwoCompanyAggregator)
+
+    assert result["status"] == "success"
+    assert session.raw_listing_queries == 1
+    assert seen_shared_raw and seen_shared_raw[0].external_id == "listing-1"
+
+
+def test_aggregator_reloads_shared_raw_listing_map_after_rollback(monkeypatch) -> None:
+    class _TwoListingAggregator(_MultiCompanyAggregator):
+        companies_by_listing = ["Company A", "Company A"]
+
+    session = _CountingRawListingSession()
+    source = SimpleNamespace(id=1, crawl_tier=1, adapter_key="aggregator-test")
+    raw_maps = []
+
+    def fake_ingest(
+        _session,
+        board_state,
+        _source_id,
+        _company_id,
+        raw,
+        _normalized,
+        seen_opportunity_ids=None,
+        changed_slugs=None,
+    ):
+        raw_maps.append(board_state.raw_by_external_id)
+        if raw.external_id == "listing-1":
+            board_state.raw_by_external_id["rolled-back"] = SimpleNamespace()
+            raise RuntimeError("forced rollback")
+        assert "rolled-back" not in board_state.raw_by_external_id
+        return object(), True
+
+    monkeypatch.setattr(
+        runner, "resolve_company", lambda _session, name, _domain: _company_for_name(name)
+    )
+    monkeypatch.setattr(runner, "ingest_one", fake_ingest)
+
+    result = runner.crawl_aggregator(session, source, _TwoListingAggregator)
+
+    assert result["status"] == "partial"
+    assert result["errors"] == 1
+    assert session.rollbacks == 1
+    assert session.raw_listing_queries == 2
+    assert raw_maps[0] is not raw_maps[1]
+
+
+def test_ats_path_still_loads_board_state_per_board(monkeypatch) -> None:
+    source = SimpleNamespace(id=1, crawl_tier=1, adapter_key="greenhouse")
+    companies = [
+        SimpleNamespace(
+            id=101,
+            slug="company-a",
+            name="Company A",
+            ats_board_id="board-a",
+        ),
+        SimpleNamespace(
+            id=202,
+            slug="company-b",
+            name="Company B",
+            ats_board_id="board-b",
+        ),
+    ]
+    load_calls: list[tuple[int, int, int]] = []
+
+    def fail_source_raw_loader(*_args):
+        raise AssertionError("ATS path must not use aggregator shared raw loader")
+
+    def fake_load_board_state(session, source_id, company_id, *extra_args):
+        assert not extra_args
+        load_calls.append((id(session), source_id, company_id))
+        return object()
+
+    def fake_ingest(
+        _session,
+        _board_state,
+        _source_id,
+        _company_id,
+        _raw,
+        _normalized,
+        seen_opportunity_ids=None,
+        changed_slugs=None,
+    ):
+        return object(), True
+
+    monkeypatch.setattr(runner, "load_source_raw_listings", fail_source_raw_loader)
+    monkeypatch.setattr(runner, "load_board_state", fake_load_board_state)
+    monkeypatch.setattr(runner, "ingest_one", fake_ingest)
+    _BoardAdapter.listings = [_raw_listing("one")]
+
+    for company in companies:
+        runner.crawl_company_board(_MemorySession(), source, company, _BoardAdapter)
+
+    assert [(source_id, company_id) for _, source_id, company_id in load_calls] == [
+        (1, 101),
+        (1, 202),
+    ]
+    assert load_calls[0][0] != load_calls[1][0]
+
+
 def test_bounded_by_design_aggregator_records_success_outcome(monkeypatch) -> None:
     class _BoundedWindowAggregator(_AggregatorAdapter):
         def coverage(self) -> dict[str, object]:
@@ -465,6 +689,7 @@ def test_bounded_by_design_aggregator_records_success_outcome(monkeypatch) -> No
     session = _MemorySession()
     source = SimpleNamespace(id=1, crawl_tier=1, adapter_key="himalayas")
 
+    monkeypatch.setattr(runner, "load_source_raw_listings", lambda *_args: {})
     monkeypatch.setattr(runner, "load_board_state", lambda *_args: object())
     monkeypatch.setattr(runner, "resolve_company", lambda *_args: SimpleNamespace(id=2))
     monkeypatch.setattr(
@@ -510,6 +735,7 @@ def test_aggregator_deadline_commits_completed_work_and_returns_partial(monkeypa
         # ingested, the next loop check crosses it and triggers a clean stop.
         return 11.0 if session.ingested else 0.0
 
+    monkeypatch.setattr(runner, "load_source_raw_listings", lambda *_args: {})
     monkeypatch.setattr(runner, "load_board_state", lambda *_args: object())
     monkeypatch.setattr(runner, "resolve_company", lambda *_args: SimpleNamespace(id=2))
     monkeypatch.setattr(runner, "ingest_one", fake_ingest)
@@ -617,6 +843,7 @@ def test_coverage_unknown_for_source_without_declared_total(monkeypatch, capsys)
     session = _MemorySession()
     source = SimpleNamespace(id=1, crawl_tier=1, adapter_key="no-total")
 
+    monkeypatch.setattr(runner, "load_source_raw_listings", lambda *_args: {})
     monkeypatch.setattr(runner, "load_board_state", lambda *_args: object())
     monkeypatch.setattr(runner, "resolve_company", lambda *_args: SimpleNamespace(id=2))
     monkeypatch.setattr(
@@ -674,6 +901,7 @@ def test_aggregator_forwards_deadline_controls_to_unstop(monkeypatch, capsys) ->
     source = SimpleNamespace(id=1, crawl_tier=1)
     deadline = 160.0
 
+    monkeypatch.setattr(runner, "load_source_raw_listings", lambda *_args: {})
     monkeypatch.setattr(runner, "load_board_state", lambda *_args: object())
     monkeypatch.setattr(runner, "resolve_company", lambda *_args: SimpleNamespace(id=2))
     monkeypatch.setattr(

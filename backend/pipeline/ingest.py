@@ -82,11 +82,21 @@ class BoardState:
     )
 
 
-def load_board_state(session: Session, source_id: int, company_id: int | None) -> BoardState:
+def load_source_raw_listings(session: Session, source_id: int) -> dict[str, models.RawListing]:
     raw_rows = session.scalars(
         select(models.RawListing).where(models.RawListing.source_id == source_id)
     ).all()
-    raw_by_external_id = {r.external_id: r for r in raw_rows}
+    return {raw.external_id: raw for raw in raw_rows}
+
+
+def load_board_state(
+    session: Session,
+    source_id: int,
+    company_id: int | None,
+    raw_by_external_id: dict[str, models.RawListing] | None = None,
+) -> BoardState:
+    if raw_by_external_id is None:
+        raw_by_external_id = load_source_raw_listings(session, source_id)
 
     opportunities_by_id: dict[int, models.Opportunity] = {}
     opportunities_by_slug: dict[str, models.Opportunity] = {}
