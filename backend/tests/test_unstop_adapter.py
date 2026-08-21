@@ -35,6 +35,24 @@ def _raw_listing_for(opportunity: dict) -> RawListing:
     )
 
 
+def _payload_for(items: list[dict], *, total: int | None = None) -> dict:
+    data: dict[str, object] = {"data": items}
+    if total is not None:
+        data["total"] = total
+    return {"data": data}
+
+
+def _open_fixture_item(fixture_payload: dict, opportunity_type: str, item_id: object) -> dict:
+    deadline = datetime.now(UTC) + timedelta(days=30)
+    return {
+        **_fixture_items(fixture_payload)[0],
+        "id": item_id,
+        "seo_url": f"https://unstop.com/{opportunity_type}/fixture-{item_id}",
+        "end_date": deadline.isoformat(),
+        "regnRequirements": {"end_regn_dt": deadline.isoformat()},
+    }
+
+
 @pytest.fixture
 def adapter() -> UnstopAdapter:
     return UnstopAdapter()
@@ -127,6 +145,128 @@ def test_fetch_returns_fixture_opportunities_and_deduplicates_across_types(
         {"opportunity": "jobs", "oppstatus": "open", "per_page": 300, "page": 1},
     ]
     assert adapter.health() == "ok"
+
+
+def test_fetch_retries_transient_request_error_and_completes_type(
+    adapter: UnstopAdapter,
+    fixture_payload: dict,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    internship = _open_fixture_item(fixture_payload, "internships", "internship-1")
+    request_params: list[dict] = []
+    sleep_calls: list[float] = []
+    failed_once = False
+
+    def fake_get(url: str, *, params: dict) -> httpx.Response:
+        nonlocal failed_once
+        request_params.append(params)
+        request = httpx.Request("GET", url, params=params)
+        if params["opportunity"] == "internships" and not failed_once:
+            failed_once = True
+            raise httpx.RequestError("temporary network blip", request=request)
+
+        payload = (
+            _payload_for([internship], total=1)
+            if params["opportunity"] == "internships"
+            else _payload_for([], total=0)
+        )
+        return httpx.Response(200, json=payload, request=request)
+
+    monkeypatch.setattr(adapter._client, "get", fake_get)
+    monkeypatch.setattr(unstop, "sleep", lambda seconds: sleep_calls.append(seconds))
+    monkeypatch.setattr("crawlers.common.random.uniform", lambda _start, _end: 0.0)
+
+    raw_listings = adapter.fetch()
+
+    assert [listing.external_id for listing in raw_listings] == ["internship-1"]
+    assert adapter.health() == "ok"
+    coverage = adapter.coverage()
+    assert coverage["status"] == "complete"
+    assert coverage["details"]["fully_paged_types"] == list(unstop._OPPORTUNITY_TYPES)
+    assert coverage["details"]["retry_attempts"] == 1
+    assert coverage["details"]["retry_reasons"] == ["request_error"]
+    assert coverage["details"]["requests_made"] == 5
+    assert sleep_calls == [2.0]
+    assert [params["opportunity"] for params in request_params] == [
+        "internships",
+        "internships",
+        "competitions",
+        "hackathons",
+        "jobs",
+    ]
+
+
+def test_fetch_persistent_request_error_marks_one_type_incomplete_and_continues(
+    adapter: UnstopAdapter,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request_params: list[dict] = []
+    sleep_calls: list[float] = []
+
+    def fake_get(url: str, *, params: dict) -> httpx.Response:
+        request_params.append(params)
+        request = httpx.Request("GET", url, params=params)
+        if params["opportunity"] == "internships":
+            raise httpx.RequestError("network unavailable", request=request)
+        return httpx.Response(200, json=_payload_for([], total=0), request=request)
+
+    monkeypatch.setattr(adapter._client, "get", fake_get)
+    monkeypatch.setattr(unstop, "sleep", lambda seconds: sleep_calls.append(seconds))
+    monkeypatch.setattr("crawlers.common.random.uniform", lambda _start, _end: 0.0)
+
+    raw_listings = adapter.fetch()
+
+    assert raw_listings == []
+    assert adapter.health() == "degraded"
+    coverage = adapter.coverage()
+    assert coverage["status"] == "partial"
+    assert coverage["details"]["fully_paged_types"] == [
+        "competitions",
+        "hackathons",
+        "jobs",
+    ]
+    assert coverage["details"]["incomplete_type_reasons"] == {"internships": "request_error"}
+    assert coverage["details"]["retry_attempts"] == 2
+    assert coverage["details"]["retry_reasons"] == ["request_error", "request_error"]
+    assert coverage["details"]["requests_made"] == 6
+    assert sleep_calls == [2.0, 4.0]
+    assert [params["opportunity"] for params in request_params] == [
+        "internships",
+        "internships",
+        "internships",
+        "competitions",
+        "hackathons",
+        "jobs",
+    ]
+
+
+def test_fetch_http_404_marks_source_broken_and_stops(
+    adapter: UnstopAdapter,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request_params: list[dict] = []
+
+    def fake_get(url: str, *, params: dict) -> httpx.Response:
+        request_params.append(params)
+        request = httpx.Request("GET", url, params=params)
+        return httpx.Response(404, text="Not Found", request=request)
+
+    monkeypatch.setattr(adapter._client, "get", fake_get)
+
+    assert adapter.fetch() == []
+    assert adapter.health() == "broken"
+    coverage = adapter.coverage()
+    assert coverage["status"] == "partial"
+    assert coverage["details"]["fully_paged_types"] == []
+    assert coverage["details"]["incomplete_type_reasons"] == {
+        "internships": "http_404",
+        "competitions": "not_reached",
+        "hackathons": "not_reached",
+        "jobs": "not_reached",
+    }
+    assert coverage["details"]["requests_made"] == 1
+    assert "retry_attempts" not in coverage["details"]
+    assert [params["opportunity"] for params in request_params] == ["internships"]
 
 
 def test_coverage_reports_overlapping_type_totals_without_summed_denominator(

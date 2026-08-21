@@ -1,25 +1,28 @@
 """Unstop aggregator adapter using its public opportunity search API."""
 
 from datetime import UTC, datetime, timedelta
-from time import monotonic
+from time import monotonic, sleep
 from typing import Any, Callable, Literal
 
 import httpx
 
 from core.adapters import NormalizedListing, RawListing
 from crawlers.common import (
+    RetriedResponse,
     USER_AGENT,
     build_http_timeout,
     build_listings,
     content_hash,
     extract_text,
     is_plausible_deadline,
+    request_with_retries,
 )
 
 _API_URL = "https://unstop.com/api/public/opportunity/search-result"
 _OPPORTUNITY_TYPES = ("internships", "competitions", "hackathons", "jobs")
 _PAGE_SIZE = 300
 _MAX_PAGES = 8
+_MAX_RETRIES = 2
 
 HealthStatus = Literal["ok", "degraded", "broken"]
 
@@ -40,6 +43,9 @@ class UnstopAdapter:
         self._declared_totals: dict[str, int] = {}
         self._fully_paged_types: set[str] = set()
         self._incomplete_type_reasons: dict[str, str] = {}
+        self._request_count = 0
+        self._retry_count = 0
+        self._retry_reasons: list[str] = []
 
     @property
     def stopped_early(self) -> bool:
@@ -61,6 +67,9 @@ class UnstopAdapter:
         self._declared_totals = {}
         self._fully_paged_types = set()
         self._incomplete_type_reasons = {}
+        self._request_count = 0
+        self._retry_count = 0
+        self._retry_reasons = []
 
         for opportunity_type in _OPPORTUNITY_TYPES:
             for page in range(1, _MAX_PAGES + 1):
@@ -69,20 +78,18 @@ class UnstopAdapter:
                     self._mark_type_incomplete(opportunity_type, "stopped_early")
                     return listings
 
-                try:
-                    response = self._client.get(
-                        _API_URL,
-                        params={
-                            "opportunity": opportunity_type,
-                            "oppstatus": "open",
-                            "per_page": _PAGE_SIZE,
-                            "page": page,
-                        },
+                result = self._get_page(opportunity_type, page)
+                self._request_count += result.attempts_made
+                self._retry_count += max(result.attempts_made - 1, 0)
+                self._retry_reasons.extend(result.retry_reasons)
+                response = result.response
+                if response is None:
+                    self._mark_type_incomplete(
+                        opportunity_type,
+                        result.terminal_reason or "request_error",
                     )
-                except httpx.RequestError:
-                    self._mark_type_incomplete(opportunity_type, "request_error")
-                    self._last_health = "degraded"
-                    return listings
+                    degraded = True
+                    break
 
                 if _should_stop(deadline_monotonic, should_stop):
                     self._stopped_early = True
@@ -94,22 +101,25 @@ class UnstopAdapter:
                     self._last_health = "broken"
                     return listings
                 if response.status_code != 200:
-                    self._mark_type_incomplete(opportunity_type, f"http_{response.status_code}")
-                    self._last_health = "degraded"
-                    return listings
+                    self._mark_type_incomplete(
+                        opportunity_type,
+                        result.terminal_reason or f"http_{response.status_code}",
+                    )
+                    degraded = True
+                    break
 
                 try:
                     payload = response.json()
                 except ValueError:
                     self._mark_type_incomplete(opportunity_type, "invalid_json")
-                    self._last_health = "degraded"
-                    return listings
+                    degraded = True
+                    break
 
                 items = _opportunity_items(payload)
                 if items is None:
                     self._mark_type_incomplete(opportunity_type, "missing_items")
-                    self._last_health = "degraded"
-                    return listings
+                    degraded = True
+                    break
                 declared_total = _declared_total(payload)
                 if declared_total is not None:
                     self._declared_totals[opportunity_type] = declared_total
@@ -283,6 +293,10 @@ class UnstopAdapter:
             details["incomplete_type_reasons"] = incomplete_type_reasons
         if missing_declared_totals:
             details["missing_declared_totals"] = missing_declared_totals
+        details["requests_made"] = getattr(self, "_request_count", 0)
+        if getattr(self, "_retry_count", 0):
+            details["retry_attempts"] = self._retry_count
+            details["retry_reasons"] = self._retry_reasons
 
         return {
             "mode": "declared_type_totals",
@@ -299,6 +313,21 @@ class UnstopAdapter:
 
     def _mark_type_incomplete(self, opportunity_type: str, reason: str) -> None:
         self._incomplete_type_reasons.setdefault(opportunity_type, reason)
+
+    def _get_page(self, opportunity_type: str, page: int) -> RetriedResponse:
+        return request_with_retries(
+            lambda: self._client.get(
+                _API_URL,
+                params={
+                    "opportunity": opportunity_type,
+                    "oppstatus": "open",
+                    "per_page": _PAGE_SIZE,
+                    "page": page,
+                },
+            ),
+            max_retries=_MAX_RETRIES,
+            sleeper=sleep,
+        )
 
 
 def _should_stop(deadline_monotonic: float | None, should_stop: Callable[[], bool] | None) -> bool:
