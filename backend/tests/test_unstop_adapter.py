@@ -691,3 +691,49 @@ def test_parse_assumes_utc_for_plausible_naive_date(
 
     assert normalized.deadline == deadline.replace(tzinfo=UTC)
     assert normalized.deadline_confidence == "explicit"
+
+
+def test_failed_type_still_reports_degraded_when_a_later_type_runs_out_of_budget(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A type that already failed must not be reported healthy.
+
+    Health is applied after the type loop, but the stopped_early path returns
+    early and skips it. unstop hits stopped_early on most runs (it is budget
+    bound), so without applying health on that path a real failure in an
+    earlier type is silently reported as 'ok'.
+    """
+    adapter = UnstopAdapter()
+
+    calls: list[str] = []
+
+    def fake_get(url: str, *, params: dict) -> httpx.Response:
+        opportunity_type = params["opportunity"]
+        calls.append(opportunity_type)
+        request = httpx.Request("GET", url, params=params)
+        # The FIRST type fails outright; a later type is cut short by budget.
+        if opportunity_type == "internships":
+            raise httpx.ConnectError("simulated transient failure")
+        return httpx.Response(
+            200,
+            json={"data": {"data": [], "total": 0}},
+            request=request,
+        )
+
+    # Trip the deadline once the first type has been abandoned, so the run
+    # exits through the stopped_early return rather than the loop end.
+    stop_after = {"n": 0}
+
+    def fake_should_stop() -> bool:
+        stop_after["n"] += 1
+        return stop_after["n"] > 3
+
+    monkeypatch.setattr(adapter._client, "get", fake_get)
+    monkeypatch.setattr(unstop, "sleep", lambda _seconds: None)
+
+    adapter.fetch(should_stop=fake_should_stop)
+
+    assert adapter._incomplete_type_reasons.get("internships") == "request_error"
+    assert adapter.stopped_early is True
+    # The regression: this reported "ok" while internships had genuinely failed.
+    assert adapter.health() == "degraded"

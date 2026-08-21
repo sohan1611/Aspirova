@@ -76,6 +76,12 @@ class UnstopAdapter:
                 if _should_stop(deadline_monotonic, should_stop):
                     self._stopped_early = True
                     self._mark_type_incomplete(opportunity_type, "stopped_early")
+                    # Health is normally applied after the type loop, which this
+                    # early return skips. A type that already failed must not be
+                    # reported healthy just because a LATER type then ran out of
+                    # budget - unstop hits stopped_early on most runs, so that
+                    # would quietly hide real degradation.
+                    self._last_health = "degraded" if degraded else "ok"
                     return listings
 
                 result = self._get_page(opportunity_type, page)
@@ -94,6 +100,12 @@ class UnstopAdapter:
                 if _should_stop(deadline_monotonic, should_stop):
                     self._stopped_early = True
                     self._mark_type_incomplete(opportunity_type, "stopped_early")
+                    # Health is normally applied after the type loop, which this
+                    # early return skips. A type that already failed must not be
+                    # reported healthy just because a LATER type then ran out of
+                    # budget - unstop hits stopped_early on most runs, so that
+                    # would quietly hide real degradation.
+                    self._last_health = "degraded" if degraded else "ok"
                     return listings
 
                 if response.status_code == 404:
