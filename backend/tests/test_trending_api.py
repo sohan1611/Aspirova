@@ -127,6 +127,39 @@ def test_trending_returns_qualified_roles_in_descending_view_order(
     assert slugs.index(higher.slug) < slugs.index(lower.slug)
 
 
+def test_trending_excludes_senior_title_with_enough_views(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    suffix = uuid.uuid4().hex
+    company = models.Company(
+        slug=f"trending-early-career-company-{suffix}",
+        name=f"Trending Early Career Company {suffix}",
+    )
+    senior = _opportunity(suffix, "senior", company)
+    senior.title = "Senior Software Engineer"
+    senior.title_normalized = "senior software engineer"
+    non_senior = _opportunity(suffix, "non-senior", company)
+    non_senior.title = "Software Engineer"
+    non_senior.title_normalized = "software engineer"
+    db_session.add_all([company, senior, non_senior])
+    db_session.flush()
+    db_session.add_all(
+        [
+            models.OpportunityViewCount(opportunity_id=senior.id, views=10_000),
+            models.OpportunityViewCount(opportunity_id=non_senior.id, views=10_000),
+        ]
+    )
+    db_session.flush()
+
+    response = client.get("/trending", params={"limit": 24})
+
+    assert response.status_code == 200
+    slugs = {item["slug"] for item in response.json()["items"]}
+    assert senior.slug not in slugs
+    assert non_senior.slug in slugs
+
+
 def test_opportunity_view_endpoint_returns_404_for_unknown_slug(
     client: TestClient,
 ) -> None:
