@@ -1,5 +1,6 @@
 """Unit tests for crawler runner helpers and dispatch (no DB/network)."""
 
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import httpx
@@ -29,9 +30,15 @@ def _is_source_state_query(query) -> bool:
 
 
 class _FakeSession:
-    def __init__(self, sources: list[object], companies: list[object]) -> None:
+    def __init__(
+        self,
+        sources: list[object],
+        companies: list[object],
+        source_states: list[object] | None = None,
+    ) -> None:
         self.sources = sources
         self.companies = companies
+        self.source_states = source_states or []
         self.scalars_calls = 0
 
     def __enter__(self):
@@ -41,11 +48,10 @@ class _FakeSession:
         pass
 
     def scalars(self, query) -> _ScalarResult:
-        # The stalest-first ordering reads SourceState; no prior crawls exist
-        # in these unit tests, so return empty and leave the sources/companies
-        # positional sequence undisturbed.
+        # Most tests have no prior crawls; those that exercise stale-first
+        # ordering pass source_states explicitly.
         if _is_source_state_query(query):
-            return _ScalarResult([])
+            return _ScalarResult(self.source_states)
         self.scalars_calls += 1
         values = self.sources if self.scalars_calls == 1 else self.companies
         return _ScalarResult(values)
@@ -58,13 +64,19 @@ class _FakeSession:
 
 
 class _SessionFactory:
-    def __init__(self, sources: list[object], companies: list[object]) -> None:
+    def __init__(
+        self,
+        sources: list[object],
+        companies: list[object],
+        source_states: list[object] | None = None,
+    ) -> None:
         self.sources = sources
         self.companies = companies
+        self.source_states = source_states or []
         self.sessions: list[_FakeSession] = []
 
     def __call__(self, _engine, **_kwargs) -> _FakeSession:
-        session = _FakeSession(self.sources, self.companies)
+        session = _FakeSession(self.sources, self.companies, self.source_states)
         self.sessions.append(session)
         return session
 
@@ -374,6 +386,16 @@ def test_run_tier_processes_remoteok_after_competition_aggregators(monkeypatch) 
     assert calls[-1] == "remoteok"
 
 
+def test_aggregator_waiting_reserve_sums_per_source_values_and_default() -> None:
+    jobs = [(1, "himalayas"), (2, "jobicy"), (3, "future-adapter")]
+
+    assert runner._aggregator_waiting_reserve_seconds(jobs) == pytest.approx(
+        runner.AGGREGATOR_SOURCE_RESERVE_SECONDS["himalayas"]
+        + runner.AGGREGATOR_SOURCE_RESERVE_SECONDS["jobicy"]
+        + runner.DEFAULT_AGGREGATOR_SOURCE_RESERVE_SECONDS
+    )
+
+
 def test_run_tier_gives_each_aggregator_its_own_time_budget(monkeypatch) -> None:
     sources = [
         SimpleNamespace(id=1, adapter_key="devpost"),
@@ -432,10 +454,24 @@ def test_run_tier_never_lets_one_aggregator_consume_the_group_budget(monkeypatch
     """
     sources = [
         SimpleNamespace(id=1, adapter_key="unstop"),
-        SimpleNamespace(id=2, adapter_key="devpost"),
+        SimpleNamespace(id=2, adapter_key="himalayas"),
         SimpleNamespace(id=3, adapter_key="remoteok"),
     ]
-    session_factory = _SessionFactory(sources, [])
+    source_states = [
+        SimpleNamespace(
+            source_id=1,
+            last_crawled_at=datetime(2026, 7, 1, tzinfo=timezone.utc),
+        ),
+        SimpleNamespace(
+            source_id=2,
+            last_crawled_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
+        ),
+        SimpleNamespace(
+            source_id=3,
+            last_crawled_at=datetime(2026, 8, 2, tzinfo=timezone.utc),
+        ),
+    ]
+    session_factory = _SessionFactory(sources, [], source_states)
     calls: list[tuple[str, float, float]] = []
     # started, then one reading per iteration; source 1 is slow (0 -> 400s).
     monotonic_values = iter([0.0, 0.0, 400.0, 500.0])
@@ -462,7 +498,7 @@ def test_run_tier_never_lets_one_aggregator_consume_the_group_budget(monkeypatch
 
     # Every source ran - none was starved by the one before it. Order is set by
     # _order_aggregator_jobs (stalest-first), so compare as a set, not a sequence.
-    assert {call[0] for call in calls} == {"unstop", "devpost", "remoteok"}
+    assert {call[0] for call in calls} == {"unstop", "himalayas", "remoteok"}
     assert len(calls) == 3
 
     group_deadline = 900.0
@@ -473,7 +509,7 @@ def test_run_tier_never_lets_one_aggregator_consume_the_group_budget(monkeypatch
         )
         assert budget < 7_200.0, f"{adapter_key} got the nominal budget, not its fair share"
 
-    # First source is capped at its share of the group, not the nominal budget.
+    # First source is capped at its even share, not its 1200s source reserve.
     assert calls[0][1] == pytest.approx(300.0)
 
 
@@ -482,22 +518,55 @@ def test_run_tier_gives_a_slow_aggregator_the_time_the_others_do_not_need(
 ) -> None:
     """Reserving a floor beats dividing the group evenly.
 
-    Measured on the 2026-08-17 crawl: an even split gave all three aggregators
-    2900s of an 8700s ceiling, so unstop truncated at 95.4% coverage after 2904s
-    while devpost finished in 130s and remoteok in 240s. The slow source was
-    starved so surplus could be handed to two that did not need it.
+    Measured on production in August 2026: the flat 900s reserve charged the six
+    waiters 5400s even though they needed about 1920s with headroom, so unstop
+    received 3300s and truncated every run.
 
     The first source should now receive nearly the whole group budget, with only
-    a floor held back for each source behind it.
+    the measured per-source reserves held back for each source behind it.
     """
     sources = [
         SimpleNamespace(id=1, adapter_key="unstop"),
-        SimpleNamespace(id=2, adapter_key="devpost"),
+        SimpleNamespace(id=2, adapter_key="himalayas"),
         SimpleNamespace(id=3, adapter_key="remoteok"),
+        SimpleNamespace(id=4, adapter_key="devpost"),
+        SimpleNamespace(id=5, adapter_key="arbeitnow"),
+        SimpleNamespace(id=6, adapter_key="jobicy"),
+        SimpleNamespace(id=7, adapter_key="hackerearth"),
     ]
-    session_factory = _SessionFactory(sources, [])
+    source_states = [
+        SimpleNamespace(
+            source_id=1,
+            last_crawled_at=datetime(2026, 7, 11, tzinfo=timezone.utc),
+        ),
+        SimpleNamespace(
+            source_id=2,
+            last_crawled_at=datetime(2026, 8, 18, tzinfo=timezone.utc),
+        ),
+        SimpleNamespace(
+            source_id=3,
+            last_crawled_at=datetime(2026, 8, 19, tzinfo=timezone.utc),
+        ),
+        SimpleNamespace(
+            source_id=4,
+            last_crawled_at=datetime(2026, 8, 20, tzinfo=timezone.utc),
+        ),
+        SimpleNamespace(
+            source_id=5,
+            last_crawled_at=datetime(2026, 8, 20, 1, tzinfo=timezone.utc),
+        ),
+        SimpleNamespace(
+            source_id=6,
+            last_crawled_at=datetime(2026, 8, 20, 2, tzinfo=timezone.utc),
+        ),
+        SimpleNamespace(
+            source_id=7,
+            last_crawled_at=datetime(2026, 8, 20, 3, tzinfo=timezone.utc),
+        ),
+    ]
+    session_factory = _SessionFactory(sources, [], source_states)
     calls: list[tuple[str, float]] = []
-    monotonic_values = iter([0.0, 0.0, 3_100.0, 3_230.0])
+    monotonic_values = iter([0.0, 0.0, 3_305.0, 4_190.0, 4_387.0, 4_501.0, 4_595.0, 4_604.0])
 
     def fake_crawl_aggregator(_session, source, _adapter_class, *, max_seconds, **_kwargs):
         calls.append((source.adapter_key, max_seconds))
@@ -517,18 +586,11 @@ def test_run_tier_gives_a_slow_aggregator_the_time_the_others_do_not_need(
         aggregator_group_max_seconds=8_700.0,
     )
 
-    assert len(calls) == 3
+    assert len(calls) == 7
+    assert calls[0][0] == "unstop"
     first_budget = calls[0][1]
-    # Far more than an even split (8700/3 = 2900), which is what truncated unstop.
-    assert first_budget > 5_000.0, (
-        f"first aggregator got {first_budget}s; an even split would starve the one "
-        "source that actually needs the time"
-    )
-    # Every source behind it still gets a workable slice.
-    for adapter_key, budget in calls[1:]:
-        assert (
-            budget >= runner.AGGREGATOR_MIN_RESERVE_SECONDS
-        ), f"{adapter_key} got {budget}s, below the reserved floor"
+    assert first_budget == pytest.approx(6_780.0)
+    assert first_budget > 3_300.0
 
 
 def test_run_tier_summarizes_truncated_aggregators(monkeypatch, capsys) -> None:
