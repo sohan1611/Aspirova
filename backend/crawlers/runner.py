@@ -51,7 +51,7 @@ from crawlers.remoteok import RemoteOkAdapter
 from crawlers.smartrecruiters import SmartRecruitersAdapter
 from crawlers.unstop import UnstopAdapter
 from pipeline.company_resolution import resolve_company
-from pipeline.ingest import ingest_one, load_board_state
+from pipeline.ingest import ingest_one, load_board_state, load_source_raw_listings
 from pipeline.revalidate import notify_changed
 from scripts.match_prestige import match_prestige
 
@@ -1264,6 +1264,7 @@ def crawl_aggregator(
                 print(f"WARNING: failed to record crawl_runs for aggregator: {exc}", flush=True)
             return result  # change-detection skip: nothing changed since last crawl
 
+        shared_raw_by_external_id: dict[str, models.RawListing] | None = None
         board_states: dict[int, object] = {}
         BATCH_SIZE = 25
         since_last_commit = 0
@@ -1280,8 +1281,15 @@ def crawl_aggregator(
                 company = resolve_company(
                     session, normalized.company_name, normalized.company_domain
                 )
+                if shared_raw_by_external_id is None:
+                    shared_raw_by_external_id = load_source_raw_listings(session, source_id)
                 if company.id not in board_states:
-                    board_states[company.id] = load_board_state(session, source_id, company.id)
+                    board_states[company.id] = load_board_state(
+                        session,
+                        source_id,
+                        company.id,
+                        shared_raw_by_external_id,
+                    )
                 board_state = board_states[company.id]
 
                 _opportunity, is_new = ingest_one(
@@ -1318,6 +1326,7 @@ def crawl_aggregator(
                 # the whole cache rather than risk a later listing
                 # touching one.
                 board_states = {}
+                shared_raw_by_external_id = None
                 since_last_commit = 0
                 pending_new_opps = 0
                 pending_changed_slugs.clear()
