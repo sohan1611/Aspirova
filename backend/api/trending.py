@@ -7,7 +7,11 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from api.deps import get_db
-from api.filters import exclude_closed_competitions, exclude_stale_opportunities
+from api.filters import (
+    exclude_closed_competitions,
+    exclude_stale_opportunities,
+    experience_filters,
+)
 from api.middleware import client_ip
 from api.opportunity_loading import opportunity_list_load_options
 from api.schemas import OpportunityListItem, TrendingResponse
@@ -98,6 +102,7 @@ def get_trending(
             exclude_stale_opportunities(),
             exclude_closed_competitions(),
             roles_filter,
+            *experience_filters("early"),
             models.OpportunityViewCount.views >= TRENDING_MIN_VIEWS,
         )
         .order_by(models.OpportunityViewCount.views.desc(), models.Opportunity.id.desc())
