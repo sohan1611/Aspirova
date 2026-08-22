@@ -405,7 +405,7 @@ export default function OnboardingDialog() {
                       aria-pressed={isSelected}
                       onClick={() => handleStreamSelect(stream.key)}
                       className={cn(
-                        "flex min-h-10 items-center justify-between gap-3 rounded-md border px-3 py-2 text-left text-sm font-medium transition-[background-color,border-color,color,box-shadow] duration-200 ease-[var(--ease-premium)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        "flex min-h-11 items-center justify-between gap-3 rounded-md border px-3 py-2 text-left text-sm font-medium transition-[background-color,border-color,color,box-shadow] duration-200 ease-[var(--ease-premium)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-10",
                         isSelected
                           ? "border-primary bg-primary/10 text-foreground"
                           : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground",
@@ -463,7 +463,7 @@ export default function OnboardingDialog() {
                         aria-pressed={isSelected}
                         onClick={() => handleDivisionSelect(division.key)}
                         className={cn(
-                          "flex min-h-10 items-center justify-between gap-3 rounded-md border px-3 py-2 text-left text-sm font-medium transition-[background-color,border-color,color,box-shadow] duration-200 ease-[var(--ease-premium)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          "flex min-h-11 items-center justify-between gap-3 rounded-md border px-3 py-2 text-left text-sm font-medium transition-[background-color,border-color,color,box-shadow] duration-200 ease-[var(--ease-premium)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-10",
                           isSelected
                             ? "border-primary bg-primary/10 text-foreground"
                             : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground",
@@ -521,7 +521,7 @@ export default function OnboardingDialog() {
                           aria-pressed={isSelected}
                           onClick={() => toggleInterest(interest.key)}
                           className={cn(
-                            "flex min-h-10 items-center justify-between gap-3 rounded-md border px-3 py-2 text-left text-sm font-medium transition-[background-color,border-color,color,box-shadow] duration-200 ease-[var(--ease-premium)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            "flex min-h-11 items-center justify-between gap-3 rounded-md border px-3 py-2 text-left text-sm font-medium transition-[background-color,border-color,color,box-shadow] duration-200 ease-[var(--ease-premium)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-10",
                             isSelected
                               ? "border-primary bg-primary/10 text-foreground"
                               : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground",
