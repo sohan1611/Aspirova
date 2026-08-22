@@ -852,6 +852,7 @@ def crawl_company_board(
             raw_listings = prefetched
             health = prefetched_health if prefetched_health is not None else adapter.health()
         result["listings_found"] = len(raw_listings)
+        board_external_ids = [raw.external_id for raw in raw_listings]
 
         if health in {"broken", "degraded"}:
             result["status"] = "partial"
@@ -938,7 +939,17 @@ def crawl_company_board(
         # a rollback can leave it referencing pending objects (new
         # opportunities/raw_listings from earlier in the same uncommitted
         # batch) that just became invalid/detached.
-        board_state = load_board_state(session, source_id, company.id)
+        board_raw_by_external_id = load_source_raw_listings(
+            session,
+            source_id,
+            external_ids=board_external_ids,
+        )
+        board_state = load_board_state(
+            session,
+            source_id,
+            company.id,
+            board_raw_by_external_id,
+        )
 
         # Commit every BATCH_SIZE listings, not once per company (the
         # original bug) and not once per listing (the first fix). Per-
@@ -1007,7 +1018,17 @@ def crawl_company_board(
                 # broke, this raises too and is caught the same way,
                 # exactly like every other per-listing failure here.
                 try:
-                    board_state = load_board_state(session, source_id, company.id)
+                    board_raw_by_external_id = load_source_raw_listings(
+                        session,
+                        source_id,
+                        external_ids=board_external_ids,
+                    )
+                    board_state = load_board_state(
+                        session,
+                        source_id,
+                        company.id,
+                        board_raw_by_external_id,
+                    )
                 except Exception:
                     pass
                 since_last_commit = 0

@@ -13,6 +13,7 @@ from crawlers.common import build_http_timeout
 from crawlers import runner
 from crawlers.unstop import UnstopAdapter
 from crawlers.watchdog import CrawlWatchdog
+from pipeline.ingest import RAW_LISTING_EXTERNAL_ID_CHUNK_SIZE, load_source_raw_listings
 
 
 def _raw_listing(external_id: str) -> RawListing:
@@ -25,6 +26,30 @@ def _raw_listing(external_id: str) -> RawListing:
     )
 
 
+def _db_raw_listing(source_id: int, external_id: str) -> SimpleNamespace:
+    return SimpleNamespace(
+        id=f"{source_id}:{external_id}",
+        source_id=source_id,
+        external_id=external_id,
+    )
+
+
+class _ScalarResult:
+    """The `.all()` surface of a SQLAlchemy ScalarResult, nothing more."""
+
+    def __init__(self, rows: list[object]) -> None:
+        self._rows = rows
+
+    def all(self) -> list[object]:
+        return list(self._rows)
+
+    def unique(self) -> "_ScalarResult":
+        return self
+
+    def __iter__(self):
+        return iter(self._rows)
+
+
 class _MemorySession:
     """Only the Session surface exercised by the runner unit tests."""
 
@@ -34,9 +59,16 @@ class _MemorySession:
         self.rollbacks = 0
         self.ingested: list[str] = []
         self.scalar_result = None
+        self.scalars_result: list[object] = []
 
     def scalar(self, _query):
         return self.scalar_result
+
+    def scalars(self, _query):
+        # crawl_company_board now loads board-scoped raw listings itself, so the
+        # fake needs this surface. These tests seed no raw_listings rows, so an
+        # empty result is the honest answer - it is not a stub for a real query.
+        return _ScalarResult(self.scalars_result)
 
     def add(self, value: object) -> None:
         self.added.append(value)
@@ -64,6 +96,27 @@ def _query_entity_name(query) -> str | None:
     return getattr(entity, "__name__", None)
 
 
+def _query_source_id(query) -> int | None:
+    for key, value in query.compile().params.items():
+        if key.startswith("source_id"):
+            return value
+    return None
+
+
+def _query_external_ids(query) -> tuple[str, ...] | None:
+    batches = [
+        tuple(value)
+        for key, value in query.compile().params.items()
+        if key.startswith("external_id") and isinstance(value, (list, tuple, set))
+    ]
+    assert len(batches) <= 1
+    return batches[0] if batches else None
+
+
+def _query_sql(query) -> str:
+    return str(query.compile(compile_kwargs={"render_postcompile": True}))
+
+
 class _CountingRawListingSession(_MemorySession):
     def __init__(self, raw_rows: list[object] | None = None) -> None:
         super().__init__()
@@ -71,12 +124,25 @@ class _CountingRawListingSession(_MemorySession):
         self.raw_listing_queries = 0
         self.opportunity_queries = 0
         self.provenance_queries = 0
+        self.raw_listing_external_id_filters: list[tuple[str, ...] | None] = []
+        self.raw_listing_sql: list[str] = []
+        self.raw_listing_rows_loaded = 0
 
     def scalars(self, query) -> _ScalarRows:
         entity_name = _query_entity_name(query)
         if entity_name == "RawListing":
+            source_id = _query_source_id(query)
+            external_ids = _query_external_ids(query)
+            sql = _query_sql(query)
             self.raw_listing_queries += 1
-            return _ScalarRows(list(self.raw_rows))
+            self.raw_listing_external_id_filters.append(external_ids)
+            self.raw_listing_sql.append(sql)
+            rows = [raw for raw in self.raw_rows if source_id is None or raw.source_id == source_id]
+            if external_ids is not None:
+                allowed_external_ids = set(external_ids)
+                rows = [raw for raw in rows if raw.external_id in allowed_external_ids]
+            self.raw_listing_rows_loaded += len(rows)
+            return _ScalarRows(rows)
         if entity_name == "Opportunity":
             self.opportunity_queries += 1
             return _ScalarRows([])
@@ -139,6 +205,7 @@ def test_prefetched_board_skips_fetch_and_ingests_identically(monkeypatch) -> No
         return object(), True
 
     monkeypatch.setattr(runner, "load_board_state", lambda *_args: object())
+    monkeypatch.setattr(runner, "load_source_raw_listings", lambda *_args, **_kwargs: {})
     monkeypatch.setattr(runner, "ingest_one", fake_ingest)
 
     sequential_session = _MemorySession()
@@ -162,6 +229,164 @@ def test_prefetched_board_skips_fetch_and_ingests_identically(monkeypatch) -> No
     assert sequential_result == prefetched_result
     assert sequential_session.ingested == prefetched_session.ingested == ["one", "two"]
     assert _BoardAdapter.fetch_calls == 1
+
+
+def test_load_source_raw_listings_without_external_ids_keeps_full_source_scan() -> None:
+    session = _CountingRawListingSession(
+        [
+            _db_raw_listing(1, "board-a"),
+            _db_raw_listing(1, "off-board"),
+            _db_raw_listing(2, "other-source"),
+        ]
+    )
+
+    raw_by_external_id = load_source_raw_listings(session, 1)
+
+    assert set(raw_by_external_id) == {"board-a", "off-board"}
+    assert session.raw_listing_external_id_filters == [None]
+    assert "raw_listings.source_id" in session.raw_listing_sql[0]
+    assert "raw_listings.external_id IN" not in session.raw_listing_sql[0]
+
+
+def test_load_source_raw_listings_chunks_scoped_external_ids() -> None:
+    board_external_ids = [
+        f"board-{index}" for index in range(RAW_LISTING_EXTERNAL_ID_CHUNK_SIZE + 7)
+    ]
+    session = _CountingRawListingSession(
+        [_db_raw_listing(1, external_id) for external_id in board_external_ids]
+        + [
+            _db_raw_listing(1, "off-board"),
+            _db_raw_listing(2, board_external_ids[0]),
+        ]
+    )
+
+    raw_by_external_id = load_source_raw_listings(
+        session,
+        1,
+        external_ids=board_external_ids,
+    )
+
+    assert set(raw_by_external_id) == set(board_external_ids)
+    assert "off-board" not in raw_by_external_id
+    assert session.raw_listing_rows_loaded == len(board_external_ids)
+    assert [len(batch or ()) for batch in session.raw_listing_external_id_filters] == [
+        RAW_LISTING_EXTERNAL_ID_CHUNK_SIZE,
+        7,
+    ]
+    loaded_filter_ids: set[str] = set()
+    for batch in session.raw_listing_external_id_filters:
+        assert batch is not None
+        loaded_filter_ids.update(batch)
+    assert loaded_filter_ids == set(board_external_ids)
+    assert all("raw_listings.external_id IN" in sql for sql in session.raw_listing_sql)
+
+
+def test_crawl_company_board_scopes_raw_listing_query_to_board_external_ids(
+    monkeypatch,
+) -> None:
+    board_listings = [_raw_listing("board-a"), _raw_listing("board-b")]
+    session = _CountingRawListingSession(
+        [
+            _db_raw_listing(1, "board-a"),
+            _db_raw_listing(1, "board-b"),
+            _db_raw_listing(1, "off-board"),
+            _db_raw_listing(2, "board-a"),
+        ]
+    )
+    source = SimpleNamespace(id=1, crawl_tier=1, adapter_key="greenhouse")
+    company = SimpleNamespace(
+        id=2,
+        slug="example-company",
+        name="Example Company",
+        ats_board_id="example-board",
+    )
+
+    def fake_ingest(
+        _session,
+        board_state,
+        _source_id,
+        _company_id,
+        _raw,
+        _normalized,
+        seen_opportunity_ids=None,
+        changed_slugs=None,
+    ):
+        assert set(board_state.raw_by_external_id) == {"board-a", "board-b"}
+        assert "off-board" not in board_state.raw_by_external_id
+        return object(), True
+
+    monkeypatch.setattr(runner, "ingest_one", fake_ingest)
+
+    result = runner.crawl_company_board(
+        session,
+        source,
+        company,
+        _BoardAdapter,
+        prefetched=board_listings,
+        prefetched_health="ok",
+    )
+
+    assert result["status"] == "success"
+    assert session.raw_listing_external_id_filters == [("board-a", "board-b")]
+    assert "raw_listings.external_id IN" in session.raw_listing_sql[0]
+    assert session.raw_listing_rows_loaded == 2
+
+
+def test_crawl_company_board_rollback_reloads_scoped_raw_listing_query(
+    monkeypatch,
+) -> None:
+    board_listings = [_raw_listing("first"), _raw_listing("second")]
+    session = _CountingRawListingSession(
+        [
+            _db_raw_listing(1, "first"),
+            _db_raw_listing(1, "second"),
+            _db_raw_listing(1, "off-board"),
+        ]
+    )
+    source = SimpleNamespace(id=1, crawl_tier=1, adapter_key="greenhouse")
+    company = SimpleNamespace(
+        id=2,
+        slug="example-company",
+        name="Example Company",
+        ats_board_id="example-board",
+    )
+
+    def fake_ingest(
+        _session,
+        board_state,
+        _source_id,
+        _company_id,
+        raw,
+        _normalized,
+        seen_opportunity_ids=None,
+        changed_slugs=None,
+    ):
+        assert set(board_state.raw_by_external_id) == {"first", "second"}
+        assert "off-board" not in board_state.raw_by_external_id
+        if raw.external_id == "first":
+            raise RuntimeError("forced rollback")
+        return object(), True
+
+    monkeypatch.setattr(runner, "ingest_one", fake_ingest)
+
+    result = runner.crawl_company_board(
+        session,
+        source,
+        company,
+        _BoardAdapter,
+        prefetched=board_listings,
+        prefetched_health="ok",
+    )
+
+    assert result["status"] == "partial"
+    assert result["errors"] == 1
+    assert session.rollbacks == 1
+    assert session.raw_listing_external_id_filters == [
+        ("first", "second"),
+        ("first", "second"),
+    ]
+    assert all("raw_listings.external_id IN" in sql for sql in session.raw_listing_sql)
+    assert session.raw_listing_rows_loaded == 4
 
 
 def test_ats_prefetch_is_bounded_and_isolates_failed_boards(monkeypatch) -> None:
@@ -624,14 +849,39 @@ def test_ats_path_still_loads_board_state_per_board(monkeypatch) -> None:
             ats_board_id="board-b",
         ),
     ]
-    load_calls: list[tuple[int, int, int]] = []
+    raw_load_calls: list[tuple[int, int, tuple[str, ...], int]] = []
+    board_state_calls: list[tuple[int, int, int, tuple[str, ...], int]] = []
 
-    def fail_source_raw_loader(*_args):
-        raise AssertionError("ATS path must not use aggregator shared raw loader")
+    def fake_source_raw_loader(session, source_id, *, external_ids=None):
+        raw_map = {
+            external_id: SimpleNamespace(external_id=external_id)
+            for external_id in external_ids or []
+        }
+        raw_load_calls.append(
+            (
+                id(session),
+                source_id,
+                tuple(external_ids or ()),
+                id(raw_map),
+            )
+        )
+        return raw_map
 
-    def fake_load_board_state(session, source_id, company_id, *extra_args):
-        assert not extra_args
-        load_calls.append((id(session), source_id, company_id))
+    def fake_load_board_state(session, source_id, company_id, raw_by_external_id):
+        # Hold the objects, not id(). id() is a memory address that CPython
+        # reuses once an object becomes unreachable, and each loop iteration
+        # drops its session before the next is created - so two genuinely
+        # distinct sessions can report the same id and the assertion below
+        # would fail against correct code.
+        board_state_calls.append(
+            (
+                session,
+                source_id,
+                company_id,
+                tuple(raw_by_external_id),
+                raw_by_external_id,
+            )
+        )
         return object()
 
     def fake_ingest(
@@ -646,19 +896,31 @@ def test_ats_path_still_loads_board_state_per_board(monkeypatch) -> None:
     ):
         return object(), True
 
-    monkeypatch.setattr(runner, "load_source_raw_listings", fail_source_raw_loader)
+    monkeypatch.setattr(runner, "load_source_raw_listings", fake_source_raw_loader)
     monkeypatch.setattr(runner, "load_board_state", fake_load_board_state)
     monkeypatch.setattr(runner, "ingest_one", fake_ingest)
     _BoardAdapter.listings = [_raw_listing("one")]
 
+    sessions: list[_MemorySession] = []
     for company in companies:
-        runner.crawl_company_board(_MemorySession(), source, company, _BoardAdapter)
+        session = _MemorySession()
+        sessions.append(session)
+        runner.crawl_company_board(session, source, company, _BoardAdapter)
 
-    assert [(source_id, company_id) for _, source_id, company_id in load_calls] == [
+    assert [(source_id, company_id) for _, source_id, company_id, _, _ in board_state_calls] == [
         (1, 101),
         (1, 202),
     ]
-    assert load_calls[0][0] != load_calls[1][0]
+    assert [external_ids for _, _, external_ids, _ in raw_load_calls] == [
+        ("one",),
+        ("one",),
+    ]
+    assert [external_ids for _, _, _, external_ids, _ in board_state_calls] == [
+        ("one",),
+        ("one",),
+    ]
+    assert board_state_calls[0][0] is not board_state_calls[1][0]
+    assert board_state_calls[0][4] is not board_state_calls[1][4]
 
 
 def test_bounded_by_design_aggregator_records_success_outcome(monkeypatch) -> None:
