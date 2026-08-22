@@ -40,6 +40,7 @@ the round-trip-per-listing problem this refactor exists to fix.
 
 import hashlib
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 from sqlalchemy import delete, func, select
@@ -52,6 +53,8 @@ from pipeline.dedup import find_matching_opportunity
 from pipeline.location_country import derive_country
 from pipeline.normalize import normalize_title
 from pipeline.skills import extract_opportunity_skills
+
+RAW_LISTING_EXTERNAL_ID_CHUNK_SIZE = 500
 
 
 def _slugify(text: str) -> str:
@@ -82,11 +85,23 @@ class BoardState:
     )
 
 
-def load_source_raw_listings(session: Session, source_id: int) -> dict[str, models.RawListing]:
-    raw_rows = session.scalars(
-        select(models.RawListing).where(models.RawListing.source_id == source_id)
-    ).all()
-    return {raw.external_id: raw for raw in raw_rows}
+def load_source_raw_listings(
+    session: Session,
+    source_id: int,
+    external_ids: Iterable[str] | None = None,
+) -> dict[str, models.RawListing]:
+    query = select(models.RawListing).where(models.RawListing.source_id == source_id)
+    if external_ids is None:
+        raw_rows = session.scalars(query).all()
+        return {raw.external_id: raw for raw in raw_rows}
+
+    raw_by_external_id: dict[str, models.RawListing] = {}
+    unique_external_ids = list(dict.fromkeys(external_ids))
+    for start in range(0, len(unique_external_ids), RAW_LISTING_EXTERNAL_ID_CHUNK_SIZE):
+        chunk = unique_external_ids[start : start + RAW_LISTING_EXTERNAL_ID_CHUNK_SIZE]
+        raw_rows = session.scalars(query.where(models.RawListing.external_id.in_(chunk))).all()
+        raw_by_external_id.update({raw.external_id: raw for raw in raw_rows})
+    return raw_by_external_id
 
 
 def load_board_state(
