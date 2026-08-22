@@ -1,6 +1,9 @@
 import Link from "next/link";
 import Wordmark from "@/components/Wordmark";
 
+const FOOTER_LINK_CLASSES =
+  "inline-flex min-h-11 min-w-11 items-center text-muted-foreground hover:text-foreground sm:inline sm:min-h-0 sm:min-w-0";
+
 export default function AppFooter() {
   return (
     <footer className="border-t border-border">
@@ -16,39 +19,39 @@ export default function AppFooter() {
 
           <nav aria-label="Browse opportunities">
             <p className="eyebrow">Browse</p>
-            <ul className="mt-4 space-y-3 text-sm">
+            <ul className="mt-4 space-y-0 text-sm sm:space-y-3">
               <li>
-                <Link className="text-muted-foreground hover:text-foreground" href="/internships">
+                <Link className={FOOTER_LINK_CLASSES} href="/internships">
                   Internships
                 </Link>
               </li>
               <li>
-                <Link className="text-muted-foreground hover:text-foreground" href="/jobs">
+                <Link className={FOOTER_LINK_CLASSES} href="/jobs">
                   Jobs
                 </Link>
               </li>
               <li>
-                <Link className="text-muted-foreground hover:text-foreground" href="/remote">
+                <Link className={FOOTER_LINK_CLASSES} href="/remote">
                   Remote
                 </Link>
               </li>
               <li>
-                <Link className="text-muted-foreground hover:text-foreground" href="/competitions">
+                <Link className={FOOTER_LINK_CLASSES} href="/competitions">
                   Competitions
                 </Link>
               </li>
               <li>
-                <Link className="text-muted-foreground hover:text-foreground" href="/research">
+                <Link className={FOOTER_LINK_CLASSES} href="/research">
                   Research
                 </Link>
               </li>
               <li>
-                <Link className="text-muted-foreground hover:text-foreground" href="/programmes">
+                <Link className={FOOTER_LINK_CLASSES} href="/programmes">
                   Programmes
                 </Link>
               </li>
               <li>
-                <Link className="text-muted-foreground hover:text-foreground" href="/companies">
+                <Link className={FOOTER_LINK_CLASSES} href="/companies">
                   Companies
                 </Link>
               </li>
@@ -57,29 +60,29 @@ export default function AppFooter() {
 
           <nav aria-label="Aspirova">
             <p className="eyebrow">Aspirova</p>
-            <ul className="mt-4 space-y-3 text-sm">
+            <ul className="mt-4 space-y-0 text-sm sm:space-y-3">
               <li>
-                <Link className="text-muted-foreground hover:text-foreground" href="/pricing">
+                <Link className={FOOTER_LINK_CLASSES} href="/pricing">
                   Pricing
                 </Link>
               </li>
               <li>
-                <Link className="text-muted-foreground hover:text-foreground" href="/referral">
+                <Link className={FOOTER_LINK_CLASSES} href="/referral">
                   Invite
                 </Link>
               </li>
               <li>
-                <Link className="text-muted-foreground hover:text-foreground" href="/copilot">
+                <Link className={FOOTER_LINK_CLASSES} href="/copilot">
                   Copilot
                 </Link>
               </li>
               <li>
-                <Link className="text-muted-foreground hover:text-foreground" href="/resume">
+                <Link className={FOOTER_LINK_CLASSES} href="/resume">
                   Matches
                 </Link>
               </li>
               <li>
-                <Link className="text-muted-foreground hover:text-foreground" href="/report">
+                <Link className={FOOTER_LINK_CLASSES} href="/report">
                   Report a problem
                 </Link>
               </li>
@@ -88,24 +91,24 @@ export default function AppFooter() {
 
           <nav aria-label="Legal">
             <p className="eyebrow">Legal</p>
-            <ul className="mt-4 space-y-3 text-sm">
+            <ul className="mt-4 space-y-0 text-sm sm:space-y-3">
               <li>
-                <Link className="text-muted-foreground hover:text-foreground" href="/terms">
+                <Link className={FOOTER_LINK_CLASSES} href="/terms">
                   Terms
                 </Link>
               </li>
               <li>
-                <Link className="text-muted-foreground hover:text-foreground" href="/privacy">
+                <Link className={FOOTER_LINK_CLASSES} href="/privacy">
                   Privacy
                 </Link>
               </li>
               <li>
-                <Link className="text-muted-foreground hover:text-foreground" href="/refunds">
+                <Link className={FOOTER_LINK_CLASSES} href="/refunds">
                   Refunds
                 </Link>
               </li>
               <li>
-                <Link className="text-muted-foreground hover:text-foreground" href="/contact">
+                <Link className={FOOTER_LINK_CLASSES} href="/contact">
                   Contact
                 </Link>
               </li>
