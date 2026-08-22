@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from api.deps import get_db
-from api.filters import exclude_stale_opportunities
+from api.filters import exclude_experienced_only_opportunities, exclude_stale_opportunities
 from api.schemas import FacetsResponse
 from core import models
 
@@ -23,6 +23,7 @@ def get_facets(db: Session = Depends(get_db)) -> FacetsResponse:
         .where(
             models.Opportunity.status == "active",
             exclude_stale_opportunities(),
+            exclude_experienced_only_opportunities(),
         )
         .group_by(models.Company.name)
         .order_by(func.lower(models.Company.name).asc(), models.Company.name.asc())
@@ -33,6 +34,7 @@ def get_facets(db: Session = Depends(get_db)) -> FacetsResponse:
         .where(
             models.Opportunity.status == "active",
             exclude_stale_opportunities(),
+            exclude_experienced_only_opportunities(),
             models.Opportunity.location.is_not(None),
             models.Opportunity.location != "",
         )

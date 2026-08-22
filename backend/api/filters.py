@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import and_, case, func, not_, or_, text
 
 from core import models
+from core.eligibility import ELIGIBLE_EXPERIENCED_ONLY_META_KEY
 
 SOURCE_GROUPS = {
     "direct": ["greenhouse", "lever", "ashby", "smartrecruiters", "amazon"],
@@ -62,6 +63,11 @@ def exclude_stale_opportunities(now: datetime | None = None):
         ),
     )
     return stale.is_not(True)
+
+
+def exclude_experienced_only_opportunities():
+    experienced_only = models.Opportunity.meta[ELIGIBLE_EXPERIENCED_ONLY_META_KEY].as_boolean()
+    return experienced_only.is_not(True)
 
 
 def _as_utc(value: datetime) -> datetime:
@@ -233,6 +239,7 @@ def saved_search_base_filters(params: dict) -> list:
     base_filters = [
         models.Opportunity.status == "active",
         exclude_stale_opportunities(),
+        exclude_experienced_only_opportunities(),
         exclude_closed_competitions(),
         *opportunity_filters(category, remote, None, None, None),
         *experience_filters(experience),

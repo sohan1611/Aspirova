@@ -7,6 +7,7 @@ from typing import Any, Callable, Literal
 import httpx
 
 from core.adapters import NormalizedListing, RawListing
+from core.eligibility import ELIGIBLE_EXPERIENCED_ONLY_META_KEY, is_eligible_experienced_only
 from crawlers.common import (
     RetriedResponse,
     USER_AGENT,
@@ -246,6 +247,23 @@ class UnstopAdapter:
                     _seen_skills.add(name.lower())
                     skills.append(name)
 
+        meta: dict[str, Any] = {
+            "platform": "unstop",
+            "organizer": organizer,
+            "type": item_type or search_opportunity,
+            "subtype": opportunity.get("subtype"),
+            "mode": region,
+            "prizes": trimmed_prizes,
+            "offers_ppi": offers_ppi,
+            "offers_ppo": offers_ppo,
+            "register_count": opportunity.get("registerCount"),
+            "skills": skills,
+            "is_paid": opportunity.get("isPaid"),
+        }
+        filters_meta = _filters_meta(opportunity.get("filters"))
+        if filters_meta:
+            meta.update(filters_meta)
+
         return NormalizedListing(
             source_slug=self.source_slug,
             external_id=raw.external_id,
@@ -259,19 +277,7 @@ class UnstopAdapter:
             description_raw=extract_text(_as_text(opportunity.get("details"))),
             apply_url=apply_url,
             deadline=deadline,
-            meta={
-                "platform": "unstop",
-                "organizer": organizer,
-                "type": item_type or search_opportunity,
-                "subtype": opportunity.get("subtype"),
-                "mode": region,
-                "prizes": trimmed_prizes,
-                "offers_ppi": offers_ppi,
-                "offers_ppo": offers_ppo,
-                "register_count": opportunity.get("registerCount"),
-                "skills": skills,
-                "is_paid": opportunity.get("isPaid"),
-            },
+            meta=meta,
             deadline_confidence="explicit" if deadline is not None else "unknown",
         )
 
@@ -438,6 +444,30 @@ def _registration_deadline(item: Any) -> datetime | None:
     if candidate is None:
         candidate = _parse_iso_datetime(item.get("end_date"))
     return candidate if is_plausible_deadline(candidate) else None
+
+
+def _filters_meta(filters: Any) -> dict[str, Any]:
+    if not isinstance(filters, list) or not filters:
+        return {}
+
+    eligibility = _filter_names(filters, "eligible")
+    categories = _filter_names(filters, "category")
+    return {
+        "eligibility": eligibility,
+        ELIGIBLE_EXPERIENCED_ONLY_META_KEY: is_eligible_experienced_only(eligibility),
+        "categories": categories,
+    }
+
+
+def _filter_names(filters: list[Any], filter_type: str) -> list[str]:
+    names: list[str] = []
+    for filter_item in filters:
+        if not isinstance(filter_item, dict) or filter_item.get("type") != filter_type:
+            continue
+        name = filter_item.get("name")
+        if isinstance(name, str) and name:
+            names.append(name)
+    return names
 
 
 def _as_text(value: Any) -> str:

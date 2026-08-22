@@ -8,6 +8,7 @@ import httpx
 import pytest
 
 from core.adapters import RawListing
+from core.eligibility import ELIGIBLE_EXPERIENCED_ONLY_META_KEY
 from crawlers import unstop
 from crawlers import runner
 from crawlers.common import content_hash
@@ -612,6 +613,82 @@ def test_parse_maps_pre_placement_prizes_to_offer_flags(
 
     assert normalized.meta["offers_ppi"] is True
     assert normalized.meta["offers_ppo"] is True
+
+
+def test_parse_records_unstop_eligibility_and_categories_verbatim(
+    adapter: UnstopAdapter,
+    fixture_payload: dict,
+) -> None:
+    opportunity = {
+        **_fixture_items(fixture_payload)[0],
+        "filters": [
+            {"id": 426, "name": "Undergraduate", "type": "eligible"},
+            {"id": 424, "name": "Postgraduate", "type": "eligible"},
+            {"id": 701, "name": "Hackathon", "type": "category"},
+            {"id": 999, "name": "Ignore Me", "type": "industry"},
+        ],
+    }
+
+    normalized = adapter.parse(_raw_listing_for(opportunity))
+
+    assert normalized.meta["eligibility"] == ["Undergraduate", "Postgraduate"]
+    assert normalized.meta["categories"] == ["Hackathon"]
+    assert normalized.meta[ELIGIBLE_EXPERIENCED_ONLY_META_KEY] is False
+
+
+def test_parse_marks_experienced_professionals_only_eligibility(
+    adapter: UnstopAdapter,
+    fixture_payload: dict,
+) -> None:
+    opportunity = {
+        **_fixture_items(fixture_payload)[0],
+        "filters": [
+            {"id": 430, "name": "Experienced Professionals", "type": "eligible"},
+            {"id": 702, "name": "Case Study", "type": "category"},
+        ],
+    }
+
+    normalized = adapter.parse(_raw_listing_for(opportunity))
+
+    assert normalized.meta["eligibility"] == ["Experienced Professionals"]
+    assert normalized.meta["categories"] == ["Case Study"]
+    assert normalized.meta[ELIGIBLE_EXPERIENCED_ONLY_META_KEY] is True
+
+
+def test_parse_keeps_experienced_professionals_when_student_eligible(
+    adapter: UnstopAdapter,
+    fixture_payload: dict,
+) -> None:
+    opportunity = {
+        **_fixture_items(fixture_payload)[0],
+        "filters": [
+            {"id": 430, "name": "Experienced Professionals", "type": "eligible"},
+            {"id": 426, "name": "Undergraduate", "type": "eligible"},
+        ],
+    }
+
+    normalized = adapter.parse(_raw_listing_for(opportunity))
+
+    assert normalized.meta["eligibility"] == [
+        "Experienced Professionals",
+        "Undergraduate",
+    ]
+    assert normalized.meta[ELIGIBLE_EXPERIENCED_ONLY_META_KEY] is False
+
+
+def test_parse_absent_or_empty_filters_set_no_eligibility_flag(
+    adapter: UnstopAdapter,
+    fixture_payload: dict,
+) -> None:
+    without_filters = {**_fixture_items(fixture_payload)[0]}
+    without_filters.pop("filters", None)
+
+    for opportunity in [without_filters, {**_fixture_items(fixture_payload)[0], "filters": []}]:
+        normalized = adapter.parse(_raw_listing_for(opportunity))
+
+        assert "eligibility" not in normalized.meta
+        assert "categories" not in normalized.meta
+        assert ELIGIBLE_EXPERIENCED_ONLY_META_KEY not in normalized.meta
 
 
 def test_parse_keeps_near_future_registration_deadline_explicit(
