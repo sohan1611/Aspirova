@@ -10,6 +10,7 @@ from api.deps import get_db
 from api.filters import is_stale_opportunity
 from api.main import app
 from core import models
+from core.eligibility import ELIGIBLE_EXPERIENCED_ONLY_META_KEY
 
 
 @pytest.fixture
@@ -1070,6 +1071,86 @@ def test_feed_excludes_undated_rows_older_than_the_stale_window(
     assert undated_old_with_future_deadline.slug in slugs
     # posted_at still wins over first_seen_at when it is present.
     assert dated_recent.slug in slugs
+
+
+def test_feed_experienced_only_filter_is_null_safe_and_detail_still_serves(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    suffix = uuid.uuid4().hex
+    seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    location_token = f"ExperiencedOnlyFilterville-{suffix}"
+    company = models.Company(
+        slug=f"experienced-only-filter-company-{suffix}",
+        name=f"Experienced Only Filter Company {suffix}",
+    )
+    no_meta = models.Opportunity(
+        slug=f"experienced-only-filter-no-meta-{suffix}",
+        title="No meta student listing",
+        company=company,
+        category="job",
+        location=location_token,
+        apply_url=f"https://example.com/experienced-only-filter/no-meta/{suffix}",
+        meta=None,
+        status="active",
+        last_seen_at=seen_at,
+    )
+    absent_flag = models.Opportunity(
+        slug=f"experienced-only-filter-absent-flag-{suffix}",
+        title="Absent flag student listing",
+        company=company,
+        category="job",
+        location=location_token,
+        apply_url=f"https://example.com/experienced-only-filter/absent-flag/{suffix}",
+        meta={"platform": "greenhouse"},
+        status="active",
+        last_seen_at=seen_at,
+    )
+    null_flag = models.Opportunity(
+        slug=f"experienced-only-filter-null-flag-{suffix}",
+        title="Null flag student listing",
+        company=company,
+        category="job",
+        location=location_token,
+        apply_url=f"https://example.com/experienced-only-filter/null-flag/{suffix}",
+        meta={ELIGIBLE_EXPERIENCED_ONLY_META_KEY: None},
+        status="active",
+        last_seen_at=seen_at,
+    )
+    false_flag = models.Opportunity(
+        slug=f"experienced-only-filter-false-flag-{suffix}",
+        title="False flag student listing",
+        company=company,
+        category="job",
+        location=location_token,
+        apply_url=f"https://example.com/experienced-only-filter/false-flag/{suffix}",
+        meta={ELIGIBLE_EXPERIENCED_ONLY_META_KEY: False},
+        status="active",
+        last_seen_at=seen_at,
+    )
+    true_flag = models.Opportunity(
+        slug=f"experienced-only-filter-true-flag-{suffix}",
+        title="Experienced-only listing",
+        company=company,
+        category="job",
+        location=location_token,
+        apply_url=f"https://example.com/experienced-only-filter/true-flag/{suffix}",
+        meta={ELIGIBLE_EXPERIENCED_ONLY_META_KEY: True},
+        status="active",
+        last_seen_at=seen_at,
+    )
+    db_session.add_all([company, no_meta, absent_flag, null_flag, false_flag, true_flag])
+    db_session.flush()
+
+    body = client.get("/feed", params={"location": location_token, "limit": 10}).json()
+    slugs = {item["slug"] for item in body["items"]}
+
+    assert {no_meta.slug, absent_flag.slug, null_flag.slug, false_flag.slug} <= slugs
+    assert true_flag.slug not in slugs
+
+    detail_response = client.get(f"/opportunity/{true_flag.slug}")
+    assert detail_response.status_code == 200
+    assert detail_response.json()["slug"] == true_flag.slug
 
 
 def test_is_stale_opportunity_falls_back_to_first_seen_at() -> None:
