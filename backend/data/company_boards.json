@@ -1,0 +1,1412 @@
+[
+  {
+    "company_name": "Stripe",
+    "ats_type": "greenhouse",
+    "board_token": "stripe",
+    "domain": "stripe.com"
+  },
+  {
+    "company_name": "Airbnb",
+    "ats_type": "greenhouse",
+    "board_token": "airbnb",
+    "domain": "airbnb.com"
+  },
+  {
+    "company_name": "Coinbase",
+    "ats_type": "greenhouse",
+    "board_token": "coinbase",
+    "domain": "coinbase.com"
+  },
+  {
+    "company_name": "Databricks",
+    "ats_type": "greenhouse",
+    "board_token": "databricks",
+    "domain": "databricks.com"
+  },
+  {
+    "company_name": "Figma",
+    "ats_type": "greenhouse",
+    "board_token": "figma",
+    "domain": "figma.com"
+  },
+  {
+    "company_name": "Notion",
+    "ats_type": "greenhouse",
+    "board_token": "notion",
+    "domain": "notion.com"
+  },
+  {
+    "company_name": "Robinhood",
+    "ats_type": "greenhouse",
+    "board_token": "robinhood",
+    "domain": "robinhood.com"
+  },
+  {
+    "company_name": "Reddit",
+    "ats_type": "greenhouse",
+    "board_token": "reddit",
+    "domain": "reddit.com"
+  },
+  {
+    "company_name": "Discord",
+    "ats_type": "greenhouse",
+    "board_token": "discord",
+    "domain": "discord.com"
+  },
+  {
+    "company_name": "Dropbox",
+    "ats_type": "greenhouse",
+    "board_token": "dropbox",
+    "domain": "dropbox.com"
+  },
+  {
+    "company_name": "Asana",
+    "ats_type": "greenhouse",
+    "board_token": "asana",
+    "domain": "asana.com"
+  },
+  {
+    "company_name": "Gitlab",
+    "ats_type": "greenhouse",
+    "board_token": "gitlab",
+    "domain": "gitlab.com"
+  },
+  {
+    "company_name": "Hashicorp",
+    "ats_type": "greenhouse",
+    "board_token": "hashicorp",
+    "domain": "hashicorp.com"
+  },
+  {
+    "company_name": "Cloudflare",
+    "ats_type": "greenhouse",
+    "board_token": "cloudflare",
+    "domain": "cloudflare.com"
+  },
+  {
+    "company_name": "Twilio",
+    "ats_type": "greenhouse",
+    "board_token": "twilio",
+    "domain": "twilio.com"
+  },
+  {
+    "company_name": "Doordash",
+    "ats_type": "greenhouse",
+    "board_token": "doordash",
+    "domain": "doordash.com"
+  },
+  {
+    "company_name": "Instacart",
+    "ats_type": "greenhouse",
+    "board_token": "instacart",
+    "domain": "instacart.com"
+  },
+  {
+    "company_name": "Pinterest",
+    "ats_type": "greenhouse",
+    "board_token": "pinterest",
+    "domain": "pinterest.com"
+  },
+  {
+    "company_name": "Snap",
+    "ats_type": "greenhouse",
+    "board_token": "snap",
+    "domain": "snap.com"
+  },
+  {
+    "company_name": "Squarespace",
+    "ats_type": "greenhouse",
+    "board_token": "squarespace",
+    "domain": "squarespace.com"
+  },
+  {
+    "company_name": "Wayfair",
+    "ats_type": "greenhouse",
+    "board_token": "wayfair",
+    "domain": "wayfair.com"
+  },
+  {
+    "company_name": "Zillow",
+    "ats_type": "greenhouse",
+    "board_token": "zillow",
+    "domain": "zillow.com"
+  },
+  {
+    "company_name": "Benchling",
+    "ats_type": "greenhouse",
+    "board_token": "benchling",
+    "domain": "benchling.com"
+  },
+  {
+    "company_name": "Samsara",
+    "ats_type": "greenhouse",
+    "board_token": "samsara",
+    "domain": "samsara.com"
+  },
+  {
+    "company_name": "Brex",
+    "ats_type": "greenhouse",
+    "board_token": "brex",
+    "domain": "brex.com"
+  },
+  {
+    "company_name": "Chime",
+    "ats_type": "greenhouse",
+    "board_token": "chime",
+    "domain": "chime.com"
+  },
+  {
+    "company_name": "Gusto",
+    "ats_type": "greenhouse",
+    "board_token": "gusto",
+    "domain": "gusto.com"
+  },
+  {
+    "company_name": "Plaid",
+    "ats_type": "greenhouse",
+    "board_token": "plaid",
+    "domain": "plaid.com"
+  },
+  {
+    "company_name": "Rippling",
+    "ats_type": "greenhouse",
+    "board_token": "rippling",
+    "domain": "rippling.com"
+  },
+  {
+    "company_name": "Sofi",
+    "ats_type": "greenhouse",
+    "board_token": "sofi",
+    "domain": "sofi.com"
+  },
+  {
+    "company_name": "Unity",
+    "ats_type": "greenhouse",
+    "board_token": "unity",
+    "domain": "unity.com"
+  },
+  {
+    "company_name": "Vimeo",
+    "ats_type": "greenhouse",
+    "board_token": "vimeo",
+    "domain": "vimeo.com"
+  },
+  {
+    "company_name": "Wealthfront",
+    "ats_type": "greenhouse",
+    "board_token": "wealthfront",
+    "domain": "wealthfront.com"
+  },
+  {
+    "company_name": "Betterment",
+    "ats_type": "greenhouse",
+    "board_token": "betterment",
+    "domain": "betterment.com"
+  },
+  {
+    "company_name": "Flexport",
+    "ats_type": "greenhouse",
+    "board_token": "flexport",
+    "domain": "flexport.com"
+  },
+  {
+    "company_name": "Faire",
+    "ats_type": "greenhouse",
+    "board_token": "faire",
+    "domain": "faire.com"
+  },
+  {
+    "company_name": "Whatnot",
+    "ats_type": "greenhouse",
+    "board_token": "whatnot",
+    "domain": "whatnot.com"
+  },
+  {
+    "company_name": "Datadog",
+    "ats_type": "greenhouse",
+    "board_token": "datadog",
+    "domain": "datadog.com"
+  },
+  {
+    "company_name": "Snowflake",
+    "ats_type": "greenhouse",
+    "board_token": "snowflake",
+    "domain": "snowflake.com"
+  },
+  {
+    "company_name": "Mongodb",
+    "ats_type": "greenhouse",
+    "board_token": "mongodb",
+    "domain": "mongodb.com"
+  },
+  {
+    "company_name": "Elastic",
+    "ats_type": "greenhouse",
+    "board_token": "elastic",
+    "domain": "elastic.com"
+  },
+  {
+    "company_name": "Confluent",
+    "ats_type": "greenhouse",
+    "board_token": "confluent",
+    "domain": "confluent.com"
+  },
+  {
+    "company_name": "Grafana",
+    "ats_type": "greenhouse",
+    "board_token": "grafanalabs",
+    "domain": "grafana.com"
+  },
+  {
+    "company_name": "Sentry",
+    "ats_type": "greenhouse",
+    "board_token": "sentry",
+    "domain": "sentry.com"
+  },
+  {
+    "company_name": "Airtable",
+    "ats_type": "greenhouse",
+    "board_token": "airtable",
+    "domain": "airtable.com"
+  },
+  {
+    "company_name": "Miro",
+    "ats_type": "greenhouse",
+    "board_token": "miro",
+    "domain": "miro.com"
+  },
+  {
+    "company_name": "Loom",
+    "ats_type": "greenhouse",
+    "board_token": "loom",
+    "domain": "loom.com"
+  },
+  {
+    "company_name": "Calendly",
+    "ats_type": "greenhouse",
+    "board_token": "calendly",
+    "domain": "calendly.com"
+  },
+  {
+    "company_name": "Zapier",
+    "ats_type": "greenhouse",
+    "board_token": "zapier",
+    "domain": "zapier.com"
+  },
+  {
+    "company_name": "Atlassian",
+    "ats_type": "greenhouse",
+    "board_token": "atlassian",
+    "domain": "atlassian.com"
+  },
+  {
+    "company_name": "Canva",
+    "ats_type": "greenhouse",
+    "board_token": "canva",
+    "domain": "canva.com"
+  },
+  {
+    "company_name": "Shopify",
+    "ats_type": "greenhouse",
+    "board_token": "shopify",
+    "domain": "shopify.com"
+  },
+  {
+    "company_name": "Duolingo",
+    "ats_type": "greenhouse",
+    "board_token": "duolingo",
+    "domain": "duolingo.com"
+  },
+  {
+    "company_name": "Strava",
+    "ats_type": "greenhouse",
+    "board_token": "strava",
+    "domain": "strava.com"
+  },
+  {
+    "company_name": "Eventbrite",
+    "ats_type": "greenhouse",
+    "board_token": "eventbrite",
+    "domain": "eventbrite.com"
+  },
+  {
+    "company_name": "Peloton",
+    "ats_type": "greenhouse",
+    "board_token": "peloton",
+    "domain": "peloton.com"
+  },
+  {
+    "company_name": "Warbyparker",
+    "ats_type": "greenhouse",
+    "board_token": "warbyparker",
+    "domain": "warbyparker.com"
+  },
+  {
+    "company_name": "Allbirds",
+    "ats_type": "greenhouse",
+    "board_token": "allbirds",
+    "domain": "allbirds.com"
+  },
+  {
+    "company_name": "Opendoor",
+    "ats_type": "greenhouse",
+    "board_token": "opendoor",
+    "domain": "opendoor.com"
+  },
+  {
+    "company_name": "Carta",
+    "ats_type": "greenhouse",
+    "board_token": "carta",
+    "domain": "carta.com"
+  },
+  {
+    "company_name": "Angellist",
+    "ats_type": "greenhouse",
+    "board_token": "angellist",
+    "domain": "angellist.com"
+  },
+  {
+    "company_name": "Mercury",
+    "ats_type": "greenhouse",
+    "board_token": "mercury",
+    "domain": "mercury.com"
+  },
+  {
+    "company_name": "Deel",
+    "ats_type": "greenhouse",
+    "board_token": "deel",
+    "domain": "deel.com"
+  },
+  {
+    "company_name": "Remote",
+    "ats_type": "greenhouse",
+    "board_token": "remote",
+    "domain": "remote.com"
+  },
+  {
+    "company_name": "Gohighlevel",
+    "ats_type": "greenhouse",
+    "board_token": "gohighlevel",
+    "domain": "gohighlevel.com"
+  },
+  {
+    "company_name": "Amplitude",
+    "ats_type": "greenhouse",
+    "board_token": "amplitude",
+    "domain": "amplitude.com"
+  },
+  {
+    "company_name": "Mixpanel",
+    "ats_type": "greenhouse",
+    "board_token": "mixpanel",
+    "domain": "mixpanel.com"
+  },
+  {
+    "company_name": "Segment",
+    "ats_type": "greenhouse",
+    "board_token": "segment",
+    "domain": "segment.com"
+  },
+  {
+    "company_name": "Optimizely",
+    "ats_type": "greenhouse",
+    "board_token": "optimizely",
+    "domain": "optimizely.com"
+  },
+  {
+    "company_name": "Contentful",
+    "ats_type": "greenhouse",
+    "board_token": "contentful",
+    "domain": "contentful.com"
+  },
+  {
+    "company_name": "Sanity",
+    "ats_type": "greenhouse",
+    "board_token": "sanity",
+    "domain": "sanity.com"
+  },
+  {
+    "company_name": "Algolia",
+    "ats_type": "greenhouse",
+    "board_token": "algolia",
+    "domain": "algolia.com"
+  },
+  {
+    "company_name": "Quora",
+    "ats_type": "lever",
+    "board_token": "quora",
+    "domain": "quora.com"
+  },
+  {
+    "company_name": "Nubank",
+    "ats_type": "lever",
+    "board_token": "nubank",
+    "domain": "nubank.com"
+  },
+  {
+    "company_name": "Rappi",
+    "ats_type": "lever",
+    "board_token": "rappi",
+    "domain": "rappi.com"
+  },
+  {
+    "company_name": "Konghq",
+    "ats_type": "lever",
+    "board_token": "konghq",
+    "domain": "konghq.com"
+  },
+  {
+    "company_name": "Netlify",
+    "ats_type": "lever",
+    "board_token": "netlify",
+    "domain": "netlify.com"
+  },
+  {
+    "company_name": "Circleci",
+    "ats_type": "lever",
+    "board_token": "circleci",
+    "domain": "circleci.com"
+  },
+  {
+    "company_name": "Sourcegraph",
+    "ats_type": "lever",
+    "board_token": "sourcegraph",
+    "domain": "sourcegraph.com"
+  },
+  {
+    "company_name": "Render",
+    "ats_type": "lever",
+    "board_token": "render",
+    "domain": "render.com"
+  },
+  {
+    "company_name": "Fly",
+    "ats_type": "lever",
+    "board_token": "fly",
+    "domain": "fly.com"
+  },
+  {
+    "company_name": "Zapier",
+    "ats_type": "lever",
+    "board_token": "zapier2",
+    "domain": "zapier.com"
+  },
+  {
+    "company_name": "Clearbit",
+    "ats_type": "lever",
+    "board_token": "clearbit",
+    "domain": "clearbit.com"
+  },
+  {
+    "company_name": "Customer",
+    "ats_type": "lever",
+    "board_token": "customerio",
+    "domain": "customer.io"
+  },
+  {
+    "company_name": "Close",
+    "ats_type": "lever",
+    "board_token": "close",
+    "domain": "close.com"
+  },
+  {
+    "company_name": "Intercom",
+    "ats_type": "lever",
+    "board_token": "intercom",
+    "domain": "intercom.com"
+  },
+  {
+    "company_name": "Typeform",
+    "ats_type": "lever",
+    "board_token": "typeform",
+    "domain": "typeform.com"
+  },
+  {
+    "company_name": "Pipedrive",
+    "ats_type": "lever",
+    "board_token": "pipedrive",
+    "domain": "pipedrive.com"
+  },
+  {
+    "company_name": "Anthropic",
+    "ats_type": "ashby",
+    "board_token": "anthropic",
+    "domain": "anthropic.com"
+  },
+  {
+    "company_name": "Perplexity",
+    "ats_type": "ashby",
+    "board_token": "perplexity",
+    "domain": "perplexity.com"
+  },
+  {
+    "company_name": "Mistral",
+    "ats_type": "ashby",
+    "board_token": "mistral",
+    "domain": "mistral.com"
+  },
+  {
+    "company_name": "Cohere",
+    "ats_type": "ashby",
+    "board_token": "cohere",
+    "domain": "cohere.com"
+  },
+  {
+    "company_name": "Runway",
+    "ats_type": "ashby",
+    "board_token": "runway",
+    "domain": "runway.com"
+  },
+  {
+    "company_name": "Elevenlabs",
+    "ats_type": "ashby",
+    "board_token": "elevenlabs",
+    "domain": "elevenlabs.com"
+  },
+  {
+    "company_name": "Suno",
+    "ats_type": "ashby",
+    "board_token": "suno",
+    "domain": "suno.com"
+  },
+  {
+    "company_name": "Replit",
+    "ats_type": "ashby",
+    "board_token": "replit",
+    "domain": "replit.com"
+  },
+  {
+    "company_name": "Cursor",
+    "ats_type": "ashby",
+    "board_token": "cursor",
+    "domain": "cursor.com"
+  },
+  {
+    "company_name": "Supabase",
+    "ats_type": "ashby",
+    "board_token": "supabase",
+    "domain": "supabase.com"
+  },
+  {
+    "company_name": "Neon",
+    "ats_type": "ashby",
+    "board_token": "neon",
+    "domain": "neon.com"
+  },
+  {
+    "company_name": "Planetscale",
+    "ats_type": "ashby",
+    "board_token": "planetscale",
+    "domain": "planetscale.com"
+  },
+  {
+    "company_name": "Railway",
+    "ats_type": "ashby",
+    "board_token": "railway",
+    "domain": "railway.com"
+  },
+  {
+    "company_name": "Resend",
+    "ats_type": "ashby",
+    "board_token": "resend",
+    "domain": "resend.com"
+  },
+  {
+    "company_name": "Clerk",
+    "ats_type": "ashby",
+    "board_token": "clerk",
+    "domain": "clerk.com"
+  },
+  {
+    "company_name": "Workos",
+    "ats_type": "ashby",
+    "board_token": "workos",
+    "domain": "workos.com"
+  },
+  {
+    "company_name": "Knock",
+    "ats_type": "ashby",
+    "board_token": "knock",
+    "domain": "knock.com"
+  },
+  {
+    "company_name": "Inngest",
+    "ats_type": "ashby",
+    "board_token": "inngest",
+    "domain": "inngest.com"
+  },
+  {
+    "company_name": "Browserbase",
+    "ats_type": "ashby",
+    "board_token": "browserbase",
+    "domain": "browserbase.com"
+  },
+  {
+    "company_name": "Langchain",
+    "ats_type": "ashby",
+    "board_token": "langchain",
+    "domain": "langchain.com"
+  },
+  {
+    "company_name": "Llamaindex",
+    "ats_type": "ashby",
+    "board_token": "llamaindex",
+    "domain": "llamaindex.com"
+  },
+  {
+    "company_name": "Wandb",
+    "ats_type": "ashby",
+    "board_token": "weightsandbiases",
+    "domain": "wandb.ai"
+  },
+  {
+    "company_name": "Huggingface",
+    "ats_type": "ashby",
+    "board_token": "huggingface",
+    "domain": "huggingface.com"
+  },
+  {
+    "company_name": "Together",
+    "ats_type": "ashby",
+    "board_token": "together",
+    "domain": "together.com"
+  },
+  {
+    "company_name": "Swiggy",
+    "ats_type": "lever",
+    "board_token": "swiggy",
+    "domain": "swiggy.com"
+  },
+  {
+    "company_name": "Swiggy",
+    "ats_type": "greenhouse",
+    "board_token": "swiggy",
+    "domain": "swiggy.com"
+  },
+  {
+    "company_name": "Swiggy",
+    "ats_type": "keka",
+    "board_token": "swiggy",
+    "domain": "swiggy.com"
+  },
+  {
+    "company_name": "Zomato",
+    "ats_type": "lever",
+    "board_token": "zomato",
+    "domain": "zomato.com"
+  },
+  {
+    "company_name": "Zomato",
+    "ats_type": "greenhouse",
+    "board_token": "zomato",
+    "domain": "zomato.com"
+  },
+  {
+    "company_name": "Zomato",
+    "ats_type": "keka",
+    "board_token": "zomato",
+    "domain": "zomato.com"
+  },
+  {
+    "company_name": "Flipkart",
+    "ats_type": "lever",
+    "board_token": "flipkart",
+    "domain": "flipkart.com"
+  },
+  {
+    "company_name": "Flipkart",
+    "ats_type": "greenhouse",
+    "board_token": "flipkart",
+    "domain": "flipkart.com"
+  },
+  {
+    "company_name": "Flipkart",
+    "ats_type": "keka",
+    "board_token": "flipkart",
+    "domain": "flipkart.com"
+  },
+  {
+    "company_name": "Meesho",
+    "ats_type": "lever",
+    "board_token": "meesho",
+    "domain": "meesho.com"
+  },
+  {
+    "company_name": "Meesho",
+    "ats_type": "greenhouse",
+    "board_token": "meesho",
+    "domain": "meesho.com"
+  },
+  {
+    "company_name": "Meesho",
+    "ats_type": "keka",
+    "board_token": "meesho",
+    "domain": "meesho.com"
+  },
+  {
+    "company_name": "Cred",
+    "ats_type": "lever",
+    "board_token": "cred",
+    "domain": "cred.com"
+  },
+  {
+    "company_name": "Cred",
+    "ats_type": "greenhouse",
+    "board_token": "cred",
+    "domain": "cred.com"
+  },
+  {
+    "company_name": "Cred",
+    "ats_type": "keka",
+    "board_token": "cred",
+    "domain": "cred.com"
+  },
+  {
+    "company_name": "Groww",
+    "ats_type": "lever",
+    "board_token": "groww",
+    "domain": "groww.com"
+  },
+  {
+    "company_name": "Groww",
+    "ats_type": "greenhouse",
+    "board_token": "groww",
+    "domain": "groww.com"
+  },
+  {
+    "company_name": "Groww",
+    "ats_type": "keka",
+    "board_token": "groww",
+    "domain": "groww.com"
+  },
+  {
+    "company_name": "Phonepe",
+    "ats_type": "lever",
+    "board_token": "phonepe",
+    "domain": "phonepe.com"
+  },
+  {
+    "company_name": "Phonepe",
+    "ats_type": "greenhouse",
+    "board_token": "phonepe",
+    "domain": "phonepe.com"
+  },
+  {
+    "company_name": "Phonepe",
+    "ats_type": "keka",
+    "board_token": "phonepe",
+    "domain": "phonepe.com"
+  },
+  {
+    "company_name": "Oyo",
+    "ats_type": "lever",
+    "board_token": "oyo",
+    "domain": "oyo.com"
+  },
+  {
+    "company_name": "Oyo",
+    "ats_type": "greenhouse",
+    "board_token": "oyo",
+    "domain": "oyo.com"
+  },
+  {
+    "company_name": "Oyo",
+    "ats_type": "keka",
+    "board_token": "oyo",
+    "domain": "oyo.com"
+  },
+  {
+    "company_name": "Dream11",
+    "ats_type": "lever",
+    "board_token": "dream11",
+    "domain": "dream11.com"
+  },
+  {
+    "company_name": "Dream11",
+    "ats_type": "greenhouse",
+    "board_token": "dream11",
+    "domain": "dream11.com"
+  },
+  {
+    "company_name": "Dream11",
+    "ats_type": "keka",
+    "board_token": "dream11",
+    "domain": "dream11.com"
+  },
+  {
+    "company_name": "Unacademy",
+    "ats_type": "lever",
+    "board_token": "unacademy",
+    "domain": "unacademy.com"
+  },
+  {
+    "company_name": "Unacademy",
+    "ats_type": "greenhouse",
+    "board_token": "unacademy",
+    "domain": "unacademy.com"
+  },
+  {
+    "company_name": "Unacademy",
+    "ats_type": "keka",
+    "board_token": "unacademy",
+    "domain": "unacademy.com"
+  },
+  {
+    "company_name": "Upstox",
+    "ats_type": "lever",
+    "board_token": "upstox",
+    "domain": "upstox.com"
+  },
+  {
+    "company_name": "Upstox",
+    "ats_type": "greenhouse",
+    "board_token": "upstox",
+    "domain": "upstox.com"
+  },
+  {
+    "company_name": "Upstox",
+    "ats_type": "keka",
+    "board_token": "upstox",
+    "domain": "upstox.com"
+  },
+  {
+    "company_name": "Slice",
+    "ats_type": "lever",
+    "board_token": "slice",
+    "domain": "slice.com"
+  },
+  {
+    "company_name": "Slice",
+    "ats_type": "greenhouse",
+    "board_token": "slice",
+    "domain": "slice.com"
+  },
+  {
+    "company_name": "Slice",
+    "ats_type": "keka",
+    "board_token": "slice",
+    "domain": "slice.com"
+  },
+  {
+    "company_name": "Sharechat",
+    "ats_type": "lever",
+    "board_token": "sharechat",
+    "domain": "sharechat.com"
+  },
+  {
+    "company_name": "Sharechat",
+    "ats_type": "greenhouse",
+    "board_token": "sharechat",
+    "domain": "sharechat.com"
+  },
+  {
+    "company_name": "Sharechat",
+    "ats_type": "keka",
+    "board_token": "sharechat",
+    "domain": "sharechat.com"
+  },
+  {
+    "company_name": "Licious",
+    "ats_type": "lever",
+    "board_token": "licious",
+    "domain": "licious.com"
+  },
+  {
+    "company_name": "Licious",
+    "ats_type": "greenhouse",
+    "board_token": "licious",
+    "domain": "licious.com"
+  },
+  {
+    "company_name": "Licious",
+    "ats_type": "keka",
+    "board_token": "licious",
+    "domain": "licious.com"
+  },
+  {
+    "company_name": "Urbancompany",
+    "ats_type": "lever",
+    "board_token": "urbancompany",
+    "domain": "urbancompany.com"
+  },
+  {
+    "company_name": "Urbancompany",
+    "ats_type": "greenhouse",
+    "board_token": "urbancompany",
+    "domain": "urbancompany.com"
+  },
+  {
+    "company_name": "Urbancompany",
+    "ats_type": "keka",
+    "board_token": "urbancompany",
+    "domain": "urbancompany.com"
+  },
+  {
+    "company_name": "Zepto",
+    "ats_type": "lever",
+    "board_token": "zepto",
+    "domain": "zepto.com"
+  },
+  {
+    "company_name": "Zepto",
+    "ats_type": "greenhouse",
+    "board_token": "zepto",
+    "domain": "zepto.com"
+  },
+  {
+    "company_name": "Zepto",
+    "ats_type": "keka",
+    "board_token": "zepto",
+    "domain": "zepto.com"
+  },
+  {
+    "company_name": "Blinkit",
+    "ats_type": "lever",
+    "board_token": "blinkit",
+    "domain": "blinkit.com"
+  },
+  {
+    "company_name": "Blinkit",
+    "ats_type": "greenhouse",
+    "board_token": "blinkit",
+    "domain": "blinkit.com"
+  },
+  {
+    "company_name": "Blinkit",
+    "ats_type": "keka",
+    "board_token": "blinkit",
+    "domain": "blinkit.com"
+  },
+  {
+    "company_name": "Lenskart",
+    "ats_type": "lever",
+    "board_token": "lenskart",
+    "domain": "lenskart.com"
+  },
+  {
+    "company_name": "Lenskart",
+    "ats_type": "greenhouse",
+    "board_token": "lenskart",
+    "domain": "lenskart.com"
+  },
+  {
+    "company_name": "Lenskart",
+    "ats_type": "keka",
+    "board_token": "lenskart",
+    "domain": "lenskart.com"
+  },
+  {
+    "company_name": "Nykaa",
+    "ats_type": "lever",
+    "board_token": "nykaa",
+    "domain": "nykaa.com"
+  },
+  {
+    "company_name": "Nykaa",
+    "ats_type": "greenhouse",
+    "board_token": "nykaa",
+    "domain": "nykaa.com"
+  },
+  {
+    "company_name": "Nykaa",
+    "ats_type": "keka",
+    "board_token": "nykaa",
+    "domain": "nykaa.com"
+  },
+  {
+    "company_name": "Policybazaar",
+    "ats_type": "lever",
+    "board_token": "policybazaar",
+    "domain": "policybazaar.com"
+  },
+  {
+    "company_name": "Policybazaar",
+    "ats_type": "greenhouse",
+    "board_token": "policybazaar",
+    "domain": "policybazaar.com"
+  },
+  {
+    "company_name": "Policybazaar",
+    "ats_type": "keka",
+    "board_token": "policybazaar",
+    "domain": "policybazaar.com"
+  },
+  {
+    "company_name": "Delhivery",
+    "ats_type": "lever",
+    "board_token": "delhivery",
+    "domain": "delhivery.com"
+  },
+  {
+    "company_name": "Delhivery",
+    "ats_type": "greenhouse",
+    "board_token": "delhivery",
+    "domain": "delhivery.com"
+  },
+  {
+    "company_name": "Delhivery",
+    "ats_type": "keka",
+    "board_token": "delhivery",
+    "domain": "delhivery.com"
+  },
+  {
+    "company_name": "Zetwerk",
+    "ats_type": "lever",
+    "board_token": "zetwerk",
+    "domain": "zetwerk.com"
+  },
+  {
+    "company_name": "Zetwerk",
+    "ats_type": "greenhouse",
+    "board_token": "zetwerk",
+    "domain": "zetwerk.com"
+  },
+  {
+    "company_name": "Zetwerk",
+    "ats_type": "keka",
+    "board_token": "zetwerk",
+    "domain": "zetwerk.com"
+  },
+  {
+    "company_name": "Browserstack",
+    "ats_type": "lever",
+    "board_token": "browserstack",
+    "domain": "browserstack.com"
+  },
+  {
+    "company_name": "Browserstack",
+    "ats_type": "greenhouse",
+    "board_token": "browserstack",
+    "domain": "browserstack.com"
+  },
+  {
+    "company_name": "Browserstack",
+    "ats_type": "keka",
+    "board_token": "browserstack",
+    "domain": "browserstack.com"
+  },
+  {
+    "company_name": "Freshworks",
+    "ats_type": "lever",
+    "board_token": "freshworks",
+    "domain": "freshworks.com"
+  },
+  {
+    "company_name": "Freshworks",
+    "ats_type": "greenhouse",
+    "board_token": "freshworks",
+    "domain": "freshworks.com"
+  },
+  {
+    "company_name": "Freshworks",
+    "ats_type": "keka",
+    "board_token": "freshworks",
+    "domain": "freshworks.com"
+  },
+  {
+    "company_name": "Chargebee",
+    "ats_type": "lever",
+    "board_token": "chargebee",
+    "domain": "chargebee.com"
+  },
+  {
+    "company_name": "Chargebee",
+    "ats_type": "greenhouse",
+    "board_token": "chargebee",
+    "domain": "chargebee.com"
+  },
+  {
+    "company_name": "Chargebee",
+    "ats_type": "keka",
+    "board_token": "chargebee",
+    "domain": "chargebee.com"
+  },
+  {
+    "company_name": "Hasura",
+    "ats_type": "lever",
+    "board_token": "hasura",
+    "domain": "hasura.com"
+  },
+  {
+    "company_name": "Hasura",
+    "ats_type": "greenhouse",
+    "board_token": "hasura",
+    "domain": "hasura.com"
+  },
+  {
+    "company_name": "Hasura",
+    "ats_type": "keka",
+    "board_token": "hasura",
+    "domain": "hasura.com"
+  },
+  {
+    "company_name": "Innovaccer",
+    "ats_type": "lever",
+    "board_token": "innovaccer",
+    "domain": "innovaccer.com"
+  },
+  {
+    "company_name": "Innovaccer",
+    "ats_type": "greenhouse",
+    "board_token": "innovaccer",
+    "domain": "innovaccer.com"
+  },
+  {
+    "company_name": "Innovaccer",
+    "ats_type": "keka",
+    "board_token": "innovaccer",
+    "domain": "innovaccer.com"
+  },
+  {
+    "company_name": "Darwinbox",
+    "ats_type": "lever",
+    "board_token": "darwinbox",
+    "domain": "darwinbox.com"
+  },
+  {
+    "company_name": "Darwinbox",
+    "ats_type": "greenhouse",
+    "board_token": "darwinbox",
+    "domain": "darwinbox.com"
+  },
+  {
+    "company_name": "Darwinbox",
+    "ats_type": "keka",
+    "board_token": "darwinbox",
+    "domain": "darwinbox.com"
+  },
+  {
+    "company_name": "Whatfix",
+    "ats_type": "lever",
+    "board_token": "whatfix",
+    "domain": "whatfix.com"
+  },
+  {
+    "company_name": "Whatfix",
+    "ats_type": "greenhouse",
+    "board_token": "whatfix",
+    "domain": "whatfix.com"
+  },
+  {
+    "company_name": "Whatfix",
+    "ats_type": "keka",
+    "board_token": "whatfix",
+    "domain": "whatfix.com"
+  },
+  {
+    "company_name": "Leadsquared",
+    "ats_type": "lever",
+    "board_token": "leadsquared",
+    "domain": "leadsquared.com"
+  },
+  {
+    "company_name": "Leadsquared",
+    "ats_type": "greenhouse",
+    "board_token": "leadsquared",
+    "domain": "leadsquared.com"
+  },
+  {
+    "company_name": "Leadsquared",
+    "ats_type": "keka",
+    "board_token": "leadsquared",
+    "domain": "leadsquared.com"
+  },
+  {
+    "company_name": "Capillarytech",
+    "ats_type": "lever",
+    "board_token": "capillarytech",
+    "domain": "capillarytech.com"
+  },
+  {
+    "company_name": "Capillarytech",
+    "ats_type": "greenhouse",
+    "board_token": "capillarytech",
+    "domain": "capillarytech.com"
+  },
+  {
+    "company_name": "Capillarytech",
+    "ats_type": "keka",
+    "board_token": "capillarytech",
+    "domain": "capillarytech.com"
+  },
+  {
+    "company_name": "Netcore",
+    "ats_type": "lever",
+    "board_token": "netcore",
+    "domain": "netcore.com"
+  },
+  {
+    "company_name": "Netcore",
+    "ats_type": "greenhouse",
+    "board_token": "netcore",
+    "domain": "netcore.com"
+  },
+  {
+    "company_name": "Netcore",
+    "ats_type": "keka",
+    "board_token": "netcore",
+    "domain": "netcore.com"
+  },
+  {
+    "company_name": "Exotel",
+    "ats_type": "lever",
+    "board_token": "exotel",
+    "domain": "exotel.com"
+  },
+  {
+    "company_name": "Exotel",
+    "ats_type": "greenhouse",
+    "board_token": "exotel",
+    "domain": "exotel.com"
+  },
+  {
+    "company_name": "Exotel",
+    "ats_type": "keka",
+    "board_token": "exotel",
+    "domain": "exotel.com"
+  },
+  {
+    "company_name": "Gupshup",
+    "ats_type": "lever",
+    "board_token": "gupshup",
+    "domain": "gupshup.com"
+  },
+  {
+    "company_name": "Gupshup",
+    "ats_type": "greenhouse",
+    "board_token": "gupshup",
+    "domain": "gupshup.com"
+  },
+  {
+    "company_name": "Gupshup",
+    "ats_type": "keka",
+    "board_token": "gupshup",
+    "domain": "gupshup.com"
+  },
+  {
+    "company_name": "Haptik",
+    "ats_type": "lever",
+    "board_token": "haptik",
+    "domain": "haptik.com"
+  },
+  {
+    "company_name": "Haptik",
+    "ats_type": "greenhouse",
+    "board_token": "haptik",
+    "domain": "haptik.com"
+  },
+  {
+    "company_name": "Haptik",
+    "ats_type": "keka",
+    "board_token": "haptik",
+    "domain": "haptik.com"
+  },
+  {
+    "company_name": "Razorpay",
+    "ats_type": "lever",
+    "board_token": "razorpay",
+    "domain": "razorpay.com"
+  },
+  {
+    "company_name": "Razorpay",
+    "ats_type": "greenhouse",
+    "board_token": "razorpay",
+    "domain": "razorpay.com"
+  },
+  {
+    "company_name": "Razorpay",
+    "ats_type": "keka",
+    "board_token": "razorpay",
+    "domain": "razorpay.com"
+  },
+  {
+    "company_name": "Zerodha",
+    "ats_type": "lever",
+    "board_token": "zerodha",
+    "domain": "zerodha.com"
+  },
+  {
+    "company_name": "Zerodha",
+    "ats_type": "greenhouse",
+    "board_token": "zerodha",
+    "domain": "zerodha.com"
+  },
+  {
+    "company_name": "Zerodha",
+    "ats_type": "keka",
+    "board_token": "zerodha",
+    "domain": "zerodha.com"
+  },
+  {
+    "company_name": "Pw",
+    "ats_type": "lever",
+    "board_token": "physicswallah",
+    "domain": "pw.live"
+  },
+  {
+    "company_name": "Pw",
+    "ats_type": "greenhouse",
+    "board_token": "physicswallah",
+    "domain": "pw.live"
+  },
+  {
+    "company_name": "Pw",
+    "ats_type": "keka",
+    "board_token": "physicswallah",
+    "domain": "pw.live"
+  },
+  {
+    "company_name": "Cuemath",
+    "ats_type": "lever",
+    "board_token": "cuemath",
+    "domain": "cuemath.com"
+  },
+  {
+    "company_name": "Cuemath",
+    "ats_type": "greenhouse",
+    "board_token": "cuemath",
+    "domain": "cuemath.com"
+  },
+  {
+    "company_name": "Cuemath",
+    "ats_type": "keka",
+    "board_token": "cuemath",
+    "domain": "cuemath.com"
+  },
+  {
+    "company_name": "Scaler",
+    "ats_type": "lever",
+    "board_token": "scaler",
+    "domain": "scaler.com"
+  },
+  {
+    "company_name": "Scaler",
+    "ats_type": "greenhouse",
+    "board_token": "scaler",
+    "domain": "scaler.com"
+  },
+  {
+    "company_name": "Scaler",
+    "ats_type": "keka",
+    "board_token": "scaler",
+    "domain": "scaler.com"
+  },
+  {
+    "company_name": "Newtonschool",
+    "ats_type": "lever",
+    "board_token": "newtonschool",
+    "domain": "newtonschool.co"
+  },
+  {
+    "company_name": "Newtonschool",
+    "ats_type": "greenhouse",
+    "board_token": "newtonschool",
+    "domain": "newtonschool.co"
+  },
+  {
+    "company_name": "Newtonschool",
+    "ats_type": "keka",
+    "board_token": "newtonschool",
+    "domain": "newtonschool.co"
+  }
+]
