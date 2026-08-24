@@ -43,6 +43,20 @@ export function isProFeatureRequiredError(
   return error instanceof ProFeatureRequiredError;
 }
 
+export class SessionExpiredError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super("Your session has expired. Sign in again to continue.");
+    this.name = "SessionExpiredError";
+    this.status = status;
+  }
+}
+
+export function isSessionExpiredError(error: unknown): error is SessionExpiredError {
+  return error instanceof SessionExpiredError;
+}
+
 export class RateLimitedError extends Error {
   readonly status = 429;
 
@@ -412,6 +426,7 @@ export async function getNotifications(accessToken: string): Promise<Notificatio
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: "no-store",
   });
+  if (res.status === 401 || res.status === 403) throw new SessionExpiredError(res.status);
   if (!res.ok) throw new Error(`Failed to load notifications: ${res.status}`);
   return res.json();
 }
@@ -421,6 +436,7 @@ export async function getUnreadCount(accessToken: string): Promise<{ unread: num
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: "no-store",
   });
+  if (res.status === 401 || res.status === 403) throw new SessionExpiredError(res.status);
   if (!res.ok) throw new Error(`Failed to load unread notifications: ${res.status}`);
   return res.json();
 }

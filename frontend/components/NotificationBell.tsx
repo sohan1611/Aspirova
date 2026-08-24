@@ -13,6 +13,7 @@ import {
 import {
   getNotifications,
   getUnreadCount,
+  isSessionExpiredError,
   markNotificationsRead,
 } from "@/lib/api";
 import { formatDate } from "@/lib/date";
@@ -107,6 +108,14 @@ function SignedInNotificationBell({ accessToken }: { accessToken: string }) {
 
   useEffect(() => {
     let cancelled = false;
+    let interval: number | undefined;
+
+    const stopPolling = () => {
+      if (interval !== undefined) {
+        window.clearInterval(interval);
+        interval = undefined;
+      }
+    };
 
     const refreshUnreadCount = async () => {
       try {
@@ -114,19 +123,31 @@ function SignedInNotificationBell({ accessToken }: { accessToken: string }) {
         if (!cancelled && !markingReadRef.current) {
           setUnreadCount(unread);
         }
-      } catch {
-        // A transient badge refresh failure should not interrupt the header.
+      } catch (error) {
+        if (isSessionExpiredError(error)) {
+          // A rejected token is NOT transient - it stays rejected until the
+          // session refreshes. Polling on regardless is how one stale tab sent
+          // a dead request every minute for seven hours (386 of them, every
+          // one forwarded to Supabase and answered 403).
+          //
+          // Stopping is safe: this effect is keyed on `accessToken`, so it
+          // re-runs and resumes polling the moment a refreshed token arrives.
+          stopPolling();
+          return;
+        }
+        // Genuinely transient (network blip, 5xx): stay quiet and retry on the
+        // next tick, which is what the original catch was written for.
       }
     };
 
     void refreshUnreadCount();
-    const interval = window.setInterval(() => {
+    interval = window.setInterval(() => {
       void refreshUnreadCount();
     }, UNREAD_POLL_INTERVAL_MS);
 
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      stopPolling();
     };
   }, [accessToken]);
 
