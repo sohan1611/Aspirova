@@ -13,14 +13,14 @@ verifiable.*
 
 ## Status — Parts A and B BUILT and verified (2026-08-24)
 
-`/jobs`, `/internships`, `/remote` are now ISR; the revalidation push covers list paths.
-`/competitions` and the homepage remain `ƒ` and are **out of scope** — see the corrected
-scope table in §3.
+`/jobs`, `/internships`, `/remote` **and the homepage** are now ISR; the revalidation push
+covers list paths. Only `/competitions` remains `ƒ`.
 
 Build output, against the production API:
 
 | Route | Before | After |
 |---|---|---|
+| `/` (homepage) | `ƒ` | `○` — **Revalidate 6h** |
 | `/jobs`, `/internships`, `/remote` | `ƒ` | `○` — **Revalidate 6h** |
 | `/jobs/page/[n]`, `/internships/page/[n]`, `/remote/page/[n]` | — | `●` (SSG) |
 
@@ -129,14 +129,27 @@ first place — with `?page=N` in the query string, there was no cacheable shape
 | Page | `searchParams` | Verdict |
 |---|---|---|
 | `/jobs`, `/internships`, `/remote` | only `page` | **fixed** — route segment + ISR |
-| `/competitions` | `sort`, `scope`, `country`, `remote`, `page` | filters are intrinsic |
-| `(feed)` homepage | 12+ (`q`, `category`, `kind`, `source`, `location`, `company`, …) | it is a search UI |
+| `(feed)` homepage | 20 params (`q`, `category`, `kind`, `source`, `location`, `company`, …) | **fixed** — static + client takeover |
+| `/competitions` | `sort`, `scope`, `country`, `remote`, `page` | filters are intrinsic; still `ƒ` |
 
 The three clean pages are exactly the long-tail SEO landing pages the 2026-07-07 Binding row
-protects, so they are also the ones where caching matters most for crawl budget. The other
-two are genuinely filter-driven surfaces; making them cacheable is a separate UX question
-(what the canonical unfiltered view is, and whether filtering becomes client-side), **not**
-something to force through under this phase. They remain `ƒ` and are out of scope here.
+protects, so they are also where caching matters most for crawl budget.
+
+**The homepage was then done separately**, because it is the highest-traffic page and the
+landing pages alone left most of the CPU burn in place. It could not use route-segment
+pagination — its filters are intrinsic — so it is static with a **client takeover**:
+`FeedResults` handles filtered and search URLs after hydration, while the clean default view
+is served from the prerender with no fetch. The SEO trap there is that `useSearchParams` in a
+static route pushes its whole subtree to the client, which would strip the listings from the
+crawled HTML; the listings are therefore prerendered as the **Suspense fallback**, since
+`MostViewed`/`FeedGrid`/`TopCompanies` do not call `useSearchParams`. Verified: 273KB of HTML
+with 38 real `/opportunity/` links.
+
+**The tradeoff, recorded:** filtered and search views are now client-rendered rather than
+SSR'd. Their canonical is `/`, so they were never the SEO surface, but a filtered URL shows
+the default feed briefly before swapping and the filter controls arrive on hydration.
+
+`/competitions` remains `ƒ` and is still out of scope.
 
 ### The pattern — already proven in this repo
 
