@@ -280,3 +280,35 @@ def test_dedupe_same_uuid_across_filters_yields_one_listing(
         "application_open": 1,
         "upcoming": 1,
     }
+
+
+def test_location_does_not_repeat_city_state_country_from_the_venue_address() -> None:
+    """Devfolio's `location` is a full venue address that already ends in
+    city/state/country. Appending those again produced a doubled string on the
+    live API:
+
+        "Mar Athanasius College of Engineering Kothamangalam, Road,
+         Kothamangalam, Kerala, India, Kothamangalam, Kerala, India"
+
+    Exact-match de-duplication cannot catch it, because "Kothamangalam" is
+    embedded inside the longer address rather than being an equal part.
+    """
+    from crawlers.devfolio import _display_location
+
+    location = _display_location(
+        {
+            "is_online": False,
+            "location": (
+                "Mar Athanasius College of Engineering Kothamangalam, Road, "
+                "Kothamangalam, Kerala, India"
+            ),
+            "city": "Kothamangalam",
+            "state": "Kerala",
+            "country": "India",
+        }
+    )
+
+    assert location == "Kothamangalam, Kerala, India"
+    assert location.lower().count("kerala") == 1
+    assert location.lower().count("india") == 1
+    assert "Road" not in location

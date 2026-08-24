@@ -287,6 +287,19 @@ class DevfolioAdapter:
 
 
 def _display_location(hackathon: dict[str, Any]) -> str | None:
+    """Build a short, card-sized place string.
+
+    Devfolio's `location` is the full venue address and ALREADY ends in
+    city/state/country, so appending those again produced strings like
+
+        "Mar Athanasius College of Engineering Kothamangalam, Road,
+         Kothamangalam, Kerala, India, Kothamangalam, Kerala, India"
+
+    - the tail repeated twice, because exact-match de-duplication cannot see
+    that "Kothamangalam" is already inside the longer address. Prefer the
+    concise city/state/country form and leave the full venue in meta, where
+    the detail page can use it without wrecking a card.
+    """
     if hackathon.get("is_online") is True:
         return "Online"
 
@@ -296,7 +309,6 @@ def _display_location(hackathon: dict[str, Any]) -> str | None:
 
     return _join_location_parts(
         [
-            _as_optional_text(hackathon.get("location")),
             _as_optional_text(hackathon.get("city")),
             _as_optional_text(hackathon.get("state")),
             country,
