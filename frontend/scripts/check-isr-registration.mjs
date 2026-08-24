@@ -44,6 +44,7 @@ try {
 // the ISR window instead. The value must match `export const revalidate` in each
 // page and LANDING_REVALIDATE in lib/landing.ts.
 const REQUIRED_STATIC_ISR_ROUTES = {
+  "/": 21600,
   "/internships": 21600,
   "/jobs": 21600,
   "/remote": 21600,

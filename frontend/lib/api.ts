@@ -196,10 +196,16 @@ export async function pingOpportunityView(slug: string): Promise<void> {
   }
 }
 
-export async function getTrending(limit?: number): Promise<TrendingResponse> {
+// revalidateSeconds caps the calling route's ISR window - see getFeed above.
+export async function getTrending(
+  limit?: number,
+  revalidateSeconds = 600,
+): Promise<TrendingResponse> {
   try {
     const search = limit === undefined ? "" : `?limit=${encodeURIComponent(String(limit))}`;
-    const res = await fetch(`${API_URL}/trending${search}`, { next: { revalidate: 600 } });
+    const res = await fetch(`${API_URL}/trending${search}`, {
+      next: { revalidate: revalidateSeconds },
+    });
     if (!res.ok) return { items: [] };
     return res.json();
   } catch {
@@ -230,8 +236,9 @@ export async function getForYou(params: ForYouParams = {}): Promise<FeedResponse
   return res.json();
 }
 
-export async function getStats(): Promise<StatsResponse> {
-  const res = await fetch(`${API_URL}/stats`, { next: { revalidate: 300 } });
+// revalidateSeconds caps the calling route's ISR window - see getFeed above.
+export async function getStats(revalidateSeconds = 300): Promise<StatsResponse> {
+  const res = await fetch(`${API_URL}/stats`, { next: { revalidate: revalidateSeconds } });
   if (!res.ok) throw new Error(`Failed to load stats: ${res.status}`);
   return res.json();
 }
