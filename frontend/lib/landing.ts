@@ -56,13 +56,23 @@ export const REMOTE_LANDING: LandingConfig = {
   query: { remote: true },
 };
 
-// Every landing path that ISR serves. The revalidation route allowlist and the
-// crawler's push both derive from this, so a new landing page cannot be added
-// without its cache also being invalidated on the next crawl.
-export const LANDING_PATHS = [
+// Landing paths that also have a /page/[n] segment. Revalidating "/jobs" does not
+// touch "/jobs/page/2", so these need their route pattern invalidated as well.
+export const PAGINATED_LANDING_PATHS = [
   JOBS_LANDING.basePath,
   INTERNSHIPS_LANDING.basePath,
   REMOTE_LANDING.basePath,
+] as const;
+
+// Every ISR-cached list path the crawler may invalidate. The revalidation route
+// validates against exactly this set, so a new cached list page cannot be added
+// without its cache also being invalidated on the next crawl. "/" and
+// "/competitions" are cached too but have no paginated segment - their filtered
+// views are client-rendered rather than separate routes.
+export const REVALIDATABLE_LIST_PATHS = [
+  "/",
+  ...PAGINATED_LANDING_PATHS,
+  "/competitions",
 ] as const;
 
 export function totalPagesFor(total: number): number {

@@ -12,11 +12,11 @@ REVALIDATION_BATCH_SIZE = 500
 MAX_CHANGED_SLUGS = 5_000
 REQUEST_TIMEOUT_SECONDS = 10.0
 
-# The ISR landing pages. Kept in sync with LANDING_PATHS in frontend/lib/landing.ts,
-# which is also what the frontend validates against - anything not in that
-# allowlist is ignored there, so a drift here fails closed rather than
-# invalidating something unintended.
-LANDING_PATHS = ("/jobs", "/internships", "/remote")
+# Every ISR-cached list page. Kept in sync with REVALIDATABLE_LIST_PATHS in
+# frontend/lib/landing.ts, which is also what the frontend validates against -
+# anything not in that allowlist is ignored there, so a drift here fails closed
+# rather than invalidating something unintended.
+LANDING_PATHS = ("/", "/jobs", "/internships", "/remote", "/competitions")
 
 
 def _notify_landing_paths(url: str, secret: str) -> int:
