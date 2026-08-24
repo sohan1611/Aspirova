@@ -1,42 +1,33 @@
 import type { Metadata } from "next";
 import OpportunityLandingPage from "@/components/OpportunityLandingPage";
-import { getFeed } from "@/lib/api";
+import {
+  JOBS_LANDING,
+  LANDING_LIMIT,
+  landingMetadata,
+  loadLandingPage,
+} from "@/lib/landing";
 
-const LIMIT = 20;
-const DESCRIPTION =
-  "Student-friendly jobs auto-discovered from public company career pages, " +
-  "with each listing linking back to the original source.";
-const INTRO =
-  "Jobs, auto-discovered from public company career pages; " +
-  "Aspirova links out to the original source.";
+// ISR. This page no longer reads `searchParams` - that is what previously forced
+// it to render per request, and why `dynamic = "force-dynamic"` was a no-op fix.
+// Pagination now lives at /jobs/page/[n]. Literal, not the imported
+// LANDING_REVALIDATE, because Next only honours a statically analysable value
+// here; keep the two in sync.
+export const revalidate = 21600;
 
-export const dynamic = "force-dynamic";
+export const metadata: Metadata = landingMetadata(JOBS_LANDING, 1);
 
-export const metadata: Metadata = {
-  title: "Jobs",
-  description: DESCRIPTION,
-  alternates: { canonical: "/jobs" },
-};
-
-interface PageProps {
-  searchParams: Promise<{ page?: string }>;
-}
-
-export default async function JobsPage({ searchParams }: PageProps) {
-  const params = await searchParams;
-  const page = Math.max(1, Number(params.page ?? "1") || 1);
-  const data = await getFeed({ category: "job", page, limit: LIMIT });
+export default async function JobsPage() {
+  const data = await loadLandingPage(JOBS_LANDING, 1);
 
   return (
     <OpportunityLandingPage
-      title="Jobs"
-      intro={INTRO}
+      title={JOBS_LANDING.title}
+      intro={JOBS_LANDING.intro}
       items={data.items}
       total={data.total}
-      page={page}
-      limit={LIMIT}
-      basePath="/jobs"
-      currentParams={{ page: params.page }}
+      page={1}
+      limit={LANDING_LIMIT}
+      basePath={JOBS_LANDING.basePath}
     />
   );
 }

@@ -2,7 +2,7 @@ import { SearchX } from "lucide-react";
 import Link from "next/link";
 import OpportunityCard from "@/components/OpportunityCard";
 import { Button } from "@/components/ui/button";
-import { buildPageHref } from "@/lib/pagination";
+import { buildPagePath } from "@/lib/pagination";
 import type { OpportunityListItem } from "@/lib/types";
 
 const EMPTY_STATE_CLASS_NAME = [
@@ -18,7 +18,6 @@ interface OpportunityLandingPageProps {
   page: number;
   limit: number;
   basePath: string;
-  currentParams?: Record<string, string | undefined>;
 }
 
 export default function OpportunityLandingPage({
@@ -29,7 +28,6 @@ export default function OpportunityLandingPage({
   page,
   limit,
   basePath,
-  currentParams = {},
 }: OpportunityLandingPageProps) {
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
@@ -66,7 +64,9 @@ export default function OpportunityLandingPage({
         <div className="mt-8 flex items-center justify-center gap-4">
           <Button variant="outline" size="sm" disabled={page <= 1} asChild={page > 1}>
             {page > 1 ? (
-              <Link href={buildPageHref(currentParams, page - 1, basePath)}>Previous</Link>
+              <Link href={buildPagePath(basePath, page - 1)} rel="prev">
+                Previous
+              </Link>
             ) : (
               "Previous"
             )}
@@ -81,7 +81,9 @@ export default function OpportunityLandingPage({
             asChild={page < totalPages}
           >
             {page < totalPages ? (
-              <Link href={buildPageHref(currentParams, page + 1, basePath)}>Next</Link>
+              <Link href={buildPagePath(basePath, page + 1)} rel="next">
+                Next
+              </Link>
             ) : (
               "Next"
             )}

@@ -153,7 +153,14 @@ function appendRepeatedParam(
   }
 }
 
-export async function getFeed(params: FeedParams = {}): Promise<FeedResponse> {
+// `revalidateSeconds` caps the calling route's ISR window, exactly as noted on
+// getOpportunity below: a route that declares `revalidate = 21600` still
+// regenerates every 300s if its fetch says 300. The ISR landing pages pass their
+// own window so the page-level setting is not silently overridden.
+export async function getFeed(
+  params: FeedParams = {},
+  revalidateSeconds = 300,
+): Promise<FeedResponse> {
   const search = new URLSearchParams();
   if (params.category) search.set("category", params.category);
   if (params.kind) search.set("kind", params.kind);
@@ -172,7 +179,9 @@ export async function getFeed(params: FeedParams = {}): Promise<FeedResponse> {
   if (params.page) search.set("page", String(params.page));
   if (params.limit) search.set("limit", String(params.limit));
 
-  const res = await fetch(`${API_URL}/feed?${search.toString()}`, { next: { revalidate: 300 } });
+  const res = await fetch(`${API_URL}/feed?${search.toString()}`, {
+    next: { revalidate: revalidateSeconds },
+  });
   if (!res.ok) throw new Error(`Failed to load feed: ${res.status}`);
   return res.json();
 }
@@ -187,10 +196,16 @@ export async function pingOpportunityView(slug: string): Promise<void> {
   }
 }
 
-export async function getTrending(limit?: number): Promise<TrendingResponse> {
+// revalidateSeconds caps the calling route's ISR window - see getFeed above.
+export async function getTrending(
+  limit?: number,
+  revalidateSeconds = 600,
+): Promise<TrendingResponse> {
   try {
     const search = limit === undefined ? "" : `?limit=${encodeURIComponent(String(limit))}`;
-    const res = await fetch(`${API_URL}/trending${search}`, { next: { revalidate: 600 } });
+    const res = await fetch(`${API_URL}/trending${search}`, {
+      next: { revalidate: revalidateSeconds },
+    });
     if (!res.ok) return { items: [] };
     return res.json();
   } catch {
@@ -221,8 +236,9 @@ export async function getForYou(params: ForYouParams = {}): Promise<FeedResponse
   return res.json();
 }
 
-export async function getStats(): Promise<StatsResponse> {
-  const res = await fetch(`${API_URL}/stats`, { next: { revalidate: 300 } });
+// revalidateSeconds caps the calling route's ISR window - see getFeed above.
+export async function getStats(revalidateSeconds = 300): Promise<StatsResponse> {
+  const res = await fetch(`${API_URL}/stats`, { next: { revalidate: revalidateSeconds } });
   if (!res.ok) throw new Error(`Failed to load stats: ${res.status}`);
   return res.json();
 }
