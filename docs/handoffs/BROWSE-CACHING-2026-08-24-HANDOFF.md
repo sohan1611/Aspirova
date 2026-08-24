@@ -13,8 +13,8 @@ verifiable.*
 
 ## Status — Parts A and B BUILT and verified (2026-08-24)
 
-`/jobs`, `/internships`, `/remote` **and the homepage** are now ISR; the revalidation push
-covers list paths. Only `/competitions` remains `ƒ`.
+**All five browse pages are now ISR**, and the crawl's revalidation push covers every cached
+list path. No `force-dynamic` remains on a browse surface.
 
 Build output, against the production API:
 
@@ -22,6 +22,7 @@ Build output, against the production API:
 |---|---|---|
 | `/` (homepage) | `ƒ` | `○` — **Revalidate 6h** |
 | `/jobs`, `/internships`, `/remote` | `ƒ` | `○` — **Revalidate 6h** |
+| `/competitions` | `ƒ` | `○` — **Revalidate 6h** |
 | `/jobs/page/[n]`, `/internships/page/[n]`, `/remote/page/[n]` | — | `●` (SSG) |
 
 Corroborated in `.next/prerender-manifest.json`: all three `[n]` routes appear under
@@ -130,7 +131,7 @@ first place — with `?page=N` in the query string, there was no cacheable shape
 |---|---|---|
 | `/jobs`, `/internships`, `/remote` | only `page` | **fixed** — route segment + ISR |
 | `(feed)` homepage | 20 params (`q`, `category`, `kind`, `source`, `location`, `company`, …) | **fixed** — static + client takeover |
-| `/competitions` | `sort`, `scope`, `country`, `remote`, `page` | filters are intrinsic; still `ƒ` |
+| `/competitions` | `sort`, `scope`, `country`, `remote`, `page` | **fixed** — static + client takeover |
 
 The three clean pages are exactly the long-tail SEO landing pages the 2026-07-07 Binding row
 protects, so they are also where caching matters most for crawl budget.
@@ -149,7 +150,19 @@ with 38 real `/opportunity/` links.
 SSR'd. Their canonical is `/`, so they were never the SEO surface, but a filtered URL shows
 the default feed briefly before swapping and the filter controls arrive on hydration.
 
-`/competitions` remains `ƒ` and is still out of scope.
+`/competitions` was then done the same way (PR #95), its five filter params being intrinsic
+for the same reason. That PR also closed a gap: the crawl push covered only the three
+paginated landing paths, so the homepage — ISR since PR #93 — was never invalidated on a
+crawl and would have waited out its full 6h window.
+
+**Two production findings that the build could not have surfaced** (PR #94):
+1. The in-component `redirect()` for `page <= 1` **does not fire** once these routes are
+   ISR-prerendered. `/companies/:slug/page/1` only worked because `next.config.ts` already
+   carried a redirect rule; the component call is not what enforces it. Adding a paginated
+   landing page means adding its `next.config.ts` rule too.
+2. `notFound()` in an ISR-prerendered segment returns **200** while rendering the not-found
+   page — a soft 404. Pre-existing (`/companies/:slug/page/99999` behaves identically), so
+   not a regression, but worth fixing on its own.
 
 ### The pattern — already proven in this repo
 
