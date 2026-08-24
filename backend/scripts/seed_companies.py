@@ -335,6 +335,7 @@ _ADAPTER_SOURCES: dict[str, tuple[str, str, str, list[tuple[str, str, str | None
 # seeded as a bare Source row only, separately from _ADAPTER_SOURCES.
 _AGGREGATOR_SOURCES: dict[str, tuple[str, str, str]] = {
     "arbeitnow": ("arbeitnow", "Arbeitnow", "https://www.arbeitnow.com"),
+    "devfolio": ("devfolio", "Devfolio", "https://devfolio.co"),
     "devpost": ("devpost", "Devpost", "https://devpost.com"),
     "hackerearth": ("hackerearth", "HackerEarth", "https://www.hackerearth.com"),
     "himalayas": ("himalayas", "Himalayas", "https://himalayas.app"),
