@@ -1,0 +1,70 @@
+{
+  "result": [
+    {
+      "uuid": "devfolio-ethkochi-2026",
+      "slug": "ethkochi",
+      "uri": null,
+      "name": "ETHKochi",
+      "tagline": "Build for Ethereum in Kochi",
+      "desc": "<p>A student-focused hackathon for builders.</p>",
+      "starts_at": "2026-09-12T04:30:00Z",
+      "ends_at": "2026-09-14T12:30:00Z",
+      "timezone": "Asia/Kolkata",
+      "status": "publish",
+      "state": "Kerala",
+      "apply_mode": "both",
+      "team_min": 1,
+      "team_size": 4,
+      "is_online": false,
+      "city": "Kochi",
+      "country": null,
+      "location": "Kochi Startup Village",
+      "is_university_hackathon": false,
+      "participants_count": 3269,
+      "prizes": null,
+      "themes": [
+        {
+          "uuid": "theme-web3",
+          "name": "Web3"
+        },
+        {
+          "uuid": "theme-ethereum",
+          "name": "Ethereum"
+        }
+      ]
+    },
+    {
+      "uuid": "devfolio-codestorm-2026",
+      "slug": "codestorm",
+      "uri": null,
+      "name": "CodeStorm",
+      "tagline": "Prototype useful software",
+      "desc": "Ship a working demo.",
+      "starts_at": "2026-10-01T05:00:00Z",
+      "ends_at": "2026-10-03T13:00:00Z",
+      "timezone": "Asia/Kolkata",
+      "status": "publish",
+      "state": "Karnataka",
+      "apply_mode": "both",
+      "team_min": 1,
+      "team_size": 3,
+      "is_online": true,
+      "city": "Bengaluru",
+      "country": "India",
+      "location": null,
+      "is_university_hackathon": false,
+      "participants_count": 427,
+      "prizes": {
+        "amount": "100000"
+      },
+      "themes": [
+        {
+          "uuid": "theme-ai",
+          "name": "AI"
+        }
+      ]
+    }
+  ],
+  "count": 2,
+  "pages": 1
+}

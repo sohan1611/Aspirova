@@ -38,6 +38,7 @@ from crawlers import watchdog
 from crawlers.amazon import AmazonAdapter
 from crawlers.arbeitnow import ArbeitnowAdapter
 from crawlers.ashby import AshbyAdapter
+from crawlers.devfolio import DevfolioAdapter
 from crawlers.devpost import DevpostAdapter
 from crawlers.greenhouse import GreenhouseAdapter
 from crawlers.hackerearth import HackerEarthAdapter
@@ -76,6 +77,7 @@ ATS_ADAPTERS: dict[str, type] = {
 # below), so these are dispatched separately from ATS_ADAPTERS.
 AGGREGATOR_ADAPTERS: dict[str, type] = {
     "arbeitnow": ArbeitnowAdapter,
+    "devfolio": DevfolioAdapter,
     "devpost": DevpostAdapter,
     "hackerearth": HackerEarthAdapter,
     "himalayas": HimalayasAdapter,

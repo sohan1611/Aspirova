@@ -11,6 +11,7 @@ from crawlers.hackerearth import HackerEarthAdapter
 from crawlers import runner
 from crawlers.runner import _board_fingerprint
 from crawlers.student_relevance import is_student_relevant_role
+from scripts import seed_companies
 from scripts.crawl_retry import retry_decision
 
 
@@ -116,10 +117,16 @@ def test_fingerprint_empty_list_is_deterministic() -> None:
 def test_new_aggregator_sources_are_registered() -> None:
     assert {
         "arbeitnow",
+        "devfolio",
         "hackerearth",
         "himalayas",
         "jobicy",
     }.issubset(runner.AGGREGATOR_ADAPTERS)
+    assert seed_companies._AGGREGATOR_SOURCES["devfolio"] == (
+        "devfolio",
+        "Devfolio",
+        "https://devfolio.co",
+    )
 
 
 @pytest.mark.parametrize(
