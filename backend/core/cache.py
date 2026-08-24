@@ -141,6 +141,109 @@ def l1_set(key: str, value: str, ttl_seconds: int) -> None:
             _l1_drop_locked(oldest_key)
 
 
+# --- L2 circuit breaker ------------------------------------------------
+#
+# L2 is best-effort, but "best-effort" was still costing a full network
+# round trip per call even when the call could not possibly succeed. The
+# Upstash free tier has been answering every command with
+# `UpstashError: max requests limit exceeded` since 2026-08-18, and the
+# uncached request path makes TWO calls (a read, then a write), so every
+# L1 miss paid two guaranteed failures - plus two logged tracebacks -
+# before doing the real work.
+#
+# The latency ceiling is the sharper reason. _CALL_TIMEOUT_SECONDS caps a
+# single call at 1.5s, so an Upstash that HANGS rather than failing fast
+# would add up to 3s to every request, forever, with no way to shed it.
+# Tripping a breaker converts that unbounded per-request tax into one
+# probe per cooldown.
+#
+# Failing open is preserved exactly: an open circuit is reported as a
+# cache miss, which is the same thing a failed call already produced.
+
+_L2_FAILURE_THRESHOLD = 3
+_L2_COOLDOWN_SECONDS = 300.0
+
+_L2_LOCK = Lock()
+_L2_CONSECUTIVE_FAILURES = 0
+_L2_OPEN_UNTIL = 0.0
+
+
+def reset_l2_circuit() -> None:
+    """Close the circuit and clear failure history. Used by tests."""
+    global _L2_CONSECUTIVE_FAILURES, _L2_OPEN_UNTIL
+
+    with _L2_LOCK:
+        _L2_CONSECUTIVE_FAILURES = 0
+        _L2_OPEN_UNTIL = 0.0
+
+
+def l2_circuit_open() -> bool:
+    """True while L2 calls are being skipped. For observability and tests."""
+    with _L2_LOCK:
+        return _L2_OPEN_UNTIL > _now()
+
+
+def _l2_should_call() -> bool:
+    """True when a call may proceed: circuit closed, or cooldown elapsed.
+
+    Once the cooldown passes, exactly one call is let through as a probe.
+    It closes the circuit on success and re-opens it on failure, so a
+    still-broken L2 costs one round trip per cooldown instead of one per
+    request.
+    """
+    with _L2_LOCK:
+        return _L2_OPEN_UNTIL <= _now()
+
+
+def _l2_note_success() -> None:
+    global _L2_CONSECUTIVE_FAILURES, _L2_OPEN_UNTIL
+
+    with _L2_LOCK:
+        recovered = _L2_CONSECUTIVE_FAILURES > 0 or _L2_OPEN_UNTIL > 0.0
+        _L2_CONSECUTIVE_FAILURES = 0
+        _L2_OPEN_UNTIL = 0.0
+
+    if recovered:
+        logger.info("cache L2 recovered - circuit closed")
+
+
+def _l2_note_failure(operation: str, key: str) -> None:
+    """Record a failure and open the circuit once the threshold is hit.
+
+    The traceback is logged only while the circuit is closed. Repeating it
+    for every request during a multi-day outage is what made a best-effort
+    dependency expensive to have broken.
+    """
+    global _L2_CONSECUTIVE_FAILURES, _L2_OPEN_UNTIL
+
+    with _L2_LOCK:
+        _L2_CONSECUTIVE_FAILURES += 1
+        failures = _L2_CONSECUTIVE_FAILURES
+        just_opened = failures == _L2_FAILURE_THRESHOLD
+        if failures >= _L2_FAILURE_THRESHOLD:
+            _L2_OPEN_UNTIL = _now() + _L2_COOLDOWN_SECONDS
+
+    if failures < _L2_FAILURE_THRESHOLD:
+        logger.warning("cache %s failed for key=%s - treating as miss", operation, key)
+    elif just_opened:
+        logger.warning(
+            "cache L2 failed %d times consecutively - skipping L2 for %.0fs",
+            failures,
+            _L2_COOLDOWN_SECONDS,
+            exc_info=True,
+        )
+    else:
+        # A post-cooldown probe failed, so the circuit re-opens. Logging it
+        # keeps a multi-day outage visible at one line per cooldown, which
+        # is the point: silence here would trade per-request spam for no
+        # signal at all that a dependency is still down.
+        logger.warning(
+            "cache L2 still failing after %d attempts - skipping L2 for another %.0fs",
+            failures,
+            _L2_COOLDOWN_SECONDS,
+        )
+
+
 def build_cache_key(
     path: str,
     query_items: list[tuple[str, str]],
@@ -169,14 +272,16 @@ async def cache_get(
         if hit is not None:
             return hit
 
-    if redis is None:
+    if redis is None or not _l2_should_call():
         return None
 
     try:
         value = await asyncio.wait_for(redis.get(key), timeout=_CALL_TIMEOUT_SECONDS)
     except Exception:
-        logger.warning("cache read failed for key=%s - treating as miss", key, exc_info=True)
+        _l2_note_failure("read", key)
         return None
+
+    _l2_note_success()
 
     # Warm L1 from L2 so a restarted process stops paying for L2 immediately.
     if value is not None and l1_ttl_seconds is not None:
@@ -200,9 +305,12 @@ async def cache_set(
     if write_l1:
         l1_set(key, value, ttl_seconds)
 
-    if redis is None:
+    if redis is None or not _l2_should_call():
         return
     try:
         await asyncio.wait_for(redis.set(key, value, ex=ttl_seconds), timeout=_CALL_TIMEOUT_SECONDS)
     except Exception:
-        logger.warning("cache write failed for key=%s - ignored", key, exc_info=True)
+        _l2_note_failure("write", key)
+        return
+
+    _l2_note_success()
