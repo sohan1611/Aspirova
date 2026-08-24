@@ -162,7 +162,14 @@ crawl and would have waited out its full 6h window.
    landing page means adding its `next.config.ts` rule too.
 2. `notFound()` in an ISR-prerendered segment returns **200** while rendering the not-found
    page — a soft 404. Pre-existing (`/companies/:slug/page/99999` behaves identically), so
-   not a regression, but worth fixing on its own.
+   not a regression. **Mitigated in PR #96, not eliminated.** The 200 could not be fixed
+   from the route: moving `notFound()` into `generateMetadata` changed nothing, and a probe
+   route with a non-reserved literal segment (`/jobs/pgtest/[n]`) behaved identically,
+   ruling out the reserved-`page`-segment theory. `generateStaticParams` is `[]` on the
+   routes that *do* return 404, so that is not the difference either. Since what a soft 404
+   actually costs is being indexed, these pages are now `noindex, nofollow` — the mitigation
+   `/companies/:slug/page/[n]` already carried. A true 404 would need a Next upgrade or a
+   middleware that knows the page count, at one API call per request.
 
 ### The pattern — already proven in this repo
 
