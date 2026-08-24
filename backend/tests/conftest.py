@@ -16,7 +16,7 @@ instead of calling make_engine() themselves.
 import pytest
 from sqlalchemy import text
 
-from core.cache import reset_l1_cache
+from core.cache import reset_l1_cache, reset_l2_circuit
 from core.db import make_engine
 from core.ratelimit import _reset_memory_rate_limit_state
 
@@ -35,10 +35,16 @@ def _reset_in_process_read_cache():
 
     Without this a cached /feed body would leak across tests and mask a
     real query change behind a stale hit.
+
+    The L2 circuit breaker is reset for the same reason: it is module-level
+    state, so a test that trips it would otherwise leave L2 skipped for
+    every test that ran afterwards.
     """
     reset_l1_cache()
+    reset_l2_circuit()
     yield
     reset_l1_cache()
+    reset_l2_circuit()
 
 
 @pytest.fixture(scope="session")

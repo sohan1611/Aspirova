@@ -718,3 +718,129 @@ def test_l2_hit_warms_l1_so_a_restarted_process_stops_paying_for_l2() -> None:
     from_l2, from_l1 = asyncio.run(run())
     assert from_l2 == "from-l2"
     assert from_l1 == "from-l2"
+
+
+def test_l2_circuit_stops_calling_upstash_after_repeated_failures() -> None:
+    """A broken L2 must cost a bounded number of round trips, not one per call.
+
+    Upstash has been answering every command with `max requests limit
+    exceeded` since 2026-08-18. Failing open kept the site correct, but the
+    uncached path still made two calls per request - a read and a write -
+    and both were guaranteed to fail before any real work happened.
+    """
+    from core import cache as cache_module
+
+    broken = QuotaExceededAsyncRedis()
+
+    async def run() -> None:
+        for i in range(10):
+            await cache_module.cache_get(broken, f"trip:{i}", l1_ttl_seconds=60)
+
+    asyncio.run(run())
+
+    assert cache_module.l2_circuit_open() is True
+    # Threshold is 3: the calls after it are skipped, not attempted.
+    assert broken.get_calls == cache_module._L2_FAILURE_THRESHOLD
+
+
+def test_l2_circuit_skips_writes_too_while_open() -> None:
+    """cache_set is the second of the two calls a cached route makes."""
+    from core import cache as cache_module
+
+    broken = QuotaExceededAsyncRedis()
+
+    async def run() -> None:
+        for i in range(cache_module._L2_FAILURE_THRESHOLD):
+            await cache_module.cache_get(broken, f"w:{i}", l1_ttl_seconds=60)
+        # Circuit is open now; a write must not reach Upstash.
+        await cache_module.cache_set(broken, "w:x", "body", 60, write_l1=True)
+
+    asyncio.run(run())
+
+    assert broken.set_calls == 0
+    # Failing open is preserved: L1 was still written.
+    assert cache_module.l1_get("w:x") == "body"
+
+
+def test_l2_circuit_allows_one_probe_per_cooldown_and_closes_on_recovery(
+    monkeypatch,
+) -> None:
+    """After the cooldown exactly one call is let through, and a success closes."""
+    from core import cache as cache_module
+
+    clock = {"now": 1_000.0}
+    monkeypatch.setattr(cache_module, "_now", lambda: clock["now"])
+
+    broken = QuotaExceededAsyncRedis()
+    healthy = FakeAsyncRedis()
+
+    async def trip() -> None:
+        for i in range(cache_module._L2_FAILURE_THRESHOLD):
+            await cache_module.cache_get(broken, f"p:{i}", l1_ttl_seconds=60)
+
+    asyncio.run(trip())
+    calls_when_open = broken.get_calls
+    assert cache_module.l2_circuit_open() is True
+
+    # Still inside the cooldown: no further calls.
+    clock["now"] += cache_module._L2_COOLDOWN_SECONDS - 1
+    asyncio.run(cache_module.cache_get(broken, "p:during", l1_ttl_seconds=60))
+    assert broken.get_calls == calls_when_open
+
+    # Cooldown elapsed: one probe is allowed, and it fails, re-opening.
+    clock["now"] += 2
+    asyncio.run(cache_module.cache_get(broken, "p:probe", l1_ttl_seconds=60))
+    assert broken.get_calls == calls_when_open + 1
+    assert cache_module.l2_circuit_open() is True
+
+    # A later probe against a recovered L2 closes the circuit.
+    clock["now"] += cache_module._L2_COOLDOWN_SECONDS + 1
+    asyncio.run(cache_module.cache_set(healthy, "p:ok", "v", 60))
+    assert cache_module.l2_circuit_open() is False
+
+
+def test_l2_circuit_does_not_open_on_scattered_single_failures() -> None:
+    """One blip between successes must not disable L2 for five minutes."""
+    from core import cache as cache_module
+
+    broken = QuotaExceededAsyncRedis()
+    healthy = FakeAsyncRedis()
+
+    async def run() -> None:
+        for i in range(6):
+            await cache_module.cache_get(broken, f"blip:{i}", l1_ttl_seconds=60)
+            await cache_module.cache_set(healthy, f"blip:{i}", "v", 60)
+
+    asyncio.run(run())
+
+    assert cache_module.l2_circuit_open() is False
+    assert broken.get_calls == 6
+
+
+def test_l2_circuit_keeps_a_long_outage_visible_once_per_cooldown(monkeypatch, caplog) -> None:
+    """Suppressing per-request spam must not mean logging nothing at all.
+
+    Upstash's quota outage lasted days. A breaker that goes silent after the
+    first trip would leave no signal that L2 was still down.
+    """
+    import logging
+
+    from core import cache as cache_module
+
+    clock = {"now": 5_000.0}
+    monkeypatch.setattr(cache_module, "_now", lambda: clock["now"])
+    broken = QuotaExceededAsyncRedis()
+
+    async def trip() -> None:
+        for i in range(cache_module._L2_FAILURE_THRESHOLD):
+            await cache_module.cache_get(broken, f"o:{i}", l1_ttl_seconds=60)
+
+    asyncio.run(trip())
+
+    with caplog.at_level(logging.WARNING, logger="core.cache"):
+        for probe in range(3):
+            clock["now"] += cache_module._L2_COOLDOWN_SECONDS + 1
+            asyncio.run(cache_module.cache_get(broken, f"o:probe{probe}", l1_ttl_seconds=60))
+
+    still_failing = [r for r in caplog.records if "still failing" in r.getMessage()]
+    assert len(still_failing) == 3
