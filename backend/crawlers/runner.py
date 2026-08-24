@@ -1289,6 +1289,15 @@ def crawl_aggregator(
 
         shared_raw_by_external_id: dict[str, models.RawListing] | None = None
         board_states: dict[int, object] = {}
+        # Collect ids and stamp last_seen_at in bulk after the loop, exactly as
+        # crawl_company_board already does. Without this, ingest_one falls back
+        # to `opportunity.last_seen_at = func.now()` per listing, which is one
+        # UPDATE round trip to Mumbai per row: pg_stat_statements recorded
+        # 147,937 single-row `UPDATE opportunities SET last_seen_at=now()
+        # WHERE id = $1` calls over 60 days - about one per aggregator listing
+        # per crawl. The ATS path was given this treatment ("Lever 1") and the
+        # aggregator path was missed.
+        seen_opportunity_ids: set[int] = set()
         BATCH_SIZE = 25
         since_last_commit = 0
         pending_new_opps = 0
@@ -1322,6 +1331,7 @@ def crawl_aggregator(
                     company.id,
                     raw,
                     normalized,
+                    seen_opportunity_ids=seen_opportunity_ids,
                     changed_slugs=pending_changed_slugs,
                 )
                 since_last_commit += 1
@@ -1367,6 +1377,20 @@ def crawl_aggregator(
             pending_changed_slugs.clear()
             result["changed_slugs"] = len(committed_changed_slugs)
             result["new_opps"] += pending_new_opps
+
+        # Bulk last_seen_at stamp, mirroring crawl_company_board. Ids from a
+        # rolled-back batch are harmless here: the row simply does not exist,
+        # so the UPDATE matches nothing - which is why the ATS path does not
+        # clear this set on rollback either.
+        if seen_opportunity_ids:
+            seen_ids = list(seen_opportunity_ids)
+            for start in range(0, len(seen_ids), 5000):
+                session.execute(
+                    update(models.Opportunity)
+                    .where(models.Opportunity.id.in_(seen_ids[start : start + 5000]))
+                    .values(last_seen_at=func.now())
+                )
+            session.commit()
 
         if stop_now():
             stopped_early = True

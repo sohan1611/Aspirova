@@ -1523,3 +1523,56 @@ def test_no_transaction_is_held_open_across_the_aggregator_fetch(monkeypatch) ->
 
     # The assert inside fetch() would have surfaced as a failed run.
     assert result["status"] != "failed", result.get("failure_reason")
+
+
+def test_aggregator_stamps_last_seen_at_in_bulk_not_once_per_listing(monkeypatch) -> None:
+    """Regression for a live N+1 write.
+
+    ingest_one falls back to `opportunity.last_seen_at = func.now()` per
+    listing whenever `seen_opportunity_ids` is not supplied. crawl_company_board
+    supplied it ("Lever 1"); crawl_aggregator did not, so every aggregator
+    listing cost its own UPDATE round trip to Mumbai. pg_stat_statements
+    recorded 147,937 single-row `UPDATE opportunities SET last_seen_at=now()
+    WHERE id = $1` calls over 60 days - roughly one per aggregator listing per
+    crawl.
+    """
+
+    class _ThreeListingAggregator(_AggregatorAdapter):
+        listings = [_raw_listing("a"), _raw_listing("b"), _raw_listing("c")]
+
+    session = _MemorySession()
+    source = SimpleNamespace(id=1, crawl_tier=1, adapter_key="devpost")
+
+    passed_sets: list[object] = []
+
+    def fake_ingest(
+        _session,
+        _board_state,
+        _source_id,
+        _company_id,
+        raw,
+        _normalized,
+        seen_opportunity_ids=None,
+        changed_slugs=None,
+    ):
+        passed_sets.append(seen_opportunity_ids)
+        # Mirror ingest_one's batched branch.
+        if seen_opportunity_ids is not None:
+            seen_opportunity_ids.add(hash(raw.external_id) % 10_000)
+        return object(), True
+
+    monkeypatch.setattr(runner, "load_source_raw_listings", lambda *_a, **_k: {})
+    monkeypatch.setattr(runner, "load_board_state", lambda *_a, **_k: object())
+    monkeypatch.setattr(runner, "resolve_company", lambda *_a: SimpleNamespace(id=2))
+    monkeypatch.setattr(runner, "ingest_one", fake_ingest)
+    monkeypatch.setattr(runner, "_record_crawl_run", lambda _s, **_k: None)
+
+    runner.crawl_aggregator(session, source, _ThreeListingAggregator)
+
+    # Every listing must receive the shared set - never None, which is the
+    # per-row fallback this test exists to prevent.
+    assert len(passed_sets) == 3
+    assert all(
+        s is not None for s in passed_sets
+    ), "an aggregator listing fell back to a per-row UPDATE"
+    assert len({id(s) for s in passed_sets}) == 1, "listings must share ONE set, not one each"
