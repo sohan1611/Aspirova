@@ -4,7 +4,7 @@ import OpportunityLandingPage from "@/components/OpportunityLandingPage";
 import {
   JOBS_LANDING,
   LANDING_LIMIT,
-  landingMetadata,
+  landingPageMetadata,
   loadLandingPage,
   parsePageSegment,
   totalPagesFor,
@@ -30,7 +30,7 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { n } = await params;
-  return landingMetadata(JOBS_LANDING, parsePageSegment(n));
+  return landingPageMetadata(JOBS_LANDING, parsePageSegment(n));
 }
 
 export default async function JobsPaginatedPage({ params }: PageProps) {
