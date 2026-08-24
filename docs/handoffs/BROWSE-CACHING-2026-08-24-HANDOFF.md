@@ -11,6 +11,42 @@ verifiable.*
 
 ---
 
+## Status — Parts A and B BUILT and verified (2026-08-24)
+
+`/jobs`, `/internships`, `/remote` are now ISR; the revalidation push covers list paths.
+`/competitions` and the homepage remain `ƒ` and are **out of scope** — see the corrected
+scope table in §3.
+
+Build output, against the production API:
+
+| Route | Before | After |
+|---|---|---|
+| `/jobs`, `/internships`, `/remote` | `ƒ` | `○` — **Revalidate 6h** |
+| `/jobs/page/[n]`, `/internships/page/[n]`, `/remote/page/[n]` | — | `●` (SSG) |
+
+Corroborated in `.next/prerender-manifest.json`: all three `[n]` routes appear under
+`dynamicRoutes` (the field that stayed **empty** when this was misconfigured in 2026-08-03),
+and the three base routes carry `initialRevalidateSeconds: 21600`.
+
+**A third gotcha found while building, beyond the two in §3.** `getFeed` fetched with
+`next: { revalidate: 300 }`, and a fetch's revalidate **caps its route's ISR window** — the
+trap already documented on `getOpportunity` in `lib/api.ts`. The pages would have declared
+6 h and silently regenerated every 5 minutes anyway. `getFeed` now takes a
+`revalidateSeconds` argument that the landing pages pass. The build's Revalidate column is
+the proof: these routes read `6h` while `/pricing`, still on a 300 s fetch, reads `5m`.
+
+SEO verified on the prerendered HTML (the Binding row in §2): `/jobs` is 245 KB of real
+markup with real `/opportunity/...` links, path-based `/jobs/page/2` pagination, zero
+leftover `?page=` links, and `rel="next"`. Pagination correctness re-verified against live
+data: **zero overlap** between page 1 and page 2, with page 1 matching the prerendered HTML.
+
+**Not exercised in a browser:** the `page <= 1` redirect and the out-of-range `notFound()`.
+Both are copied verbatim from the working `companies/[slug]/page/[n]` route, but neither was
+hit against a running server — the local launcher could not start one with the production
+API reachable. Worth a click-through after deploy.
+
+---
+
 ## 0. Why this phase exists (the problem, evidence-backed)
 
 **The Vercel Fluid Active CPU budget (4 h/mo, free tier) is exhausted — `aspirova`
@@ -87,8 +123,20 @@ search params are per-request. Adding `export const revalidate` to a page that r
 `searchParams` does nothing. This is why `force-dynamic` was reachable as a "fix" in the
 first place — with `?page=N` in the query string, there was no cacheable shape available.
 
-Confirmed on 2026-08-24: `searchParams` on these pages carries **only `page`** — no filters,
-no user state. That is what makes the fix cheap.
+**Corrected during implementation (2026-08-24).** The claim "`searchParams` carries only
+`page`" holds for **three** of the five pages, not all five:
+
+| Page | `searchParams` | Verdict |
+|---|---|---|
+| `/jobs`, `/internships`, `/remote` | only `page` | **fixed** — route segment + ISR |
+| `/competitions` | `sort`, `scope`, `country`, `remote`, `page` | filters are intrinsic |
+| `(feed)` homepage | 12+ (`q`, `category`, `kind`, `source`, `location`, `company`, …) | it is a search UI |
+
+The three clean pages are exactly the long-tail SEO landing pages the 2026-07-07 Binding row
+protects, so they are also the ones where caching matters most for crawl budget. The other
+two are genuinely filter-driven surfaces; making them cacheable is a separate UX question
+(what the canonical unfiltered view is, and whether filtering becomes client-side), **not**
+something to force through under this phase. They remain `ƒ` and are out of scope here.
 
 ### The pattern — already proven in this repo
 
@@ -110,8 +158,12 @@ Apply the same shape to `/internships`, `/remote`, `/competitions`, and the home
    unless `generateStaticParams` is also exported. This has already bitten this project
    once. Returning `[]` is legal and means "prerender nothing up front, ISR on demand" —
    but the export must be present.
-2. **Prerender a bounded set.** Have `generateStaticParams` return the first ~10 pages.
-   Do **not** enumerate all ~330 pages of `/jobs` — see the bot note in §5.
+2. **Return `[]` from `generateStaticParams`, prerendering nothing.** *(Revised during
+   implementation — this supersedes the earlier "~10 pages" recommendation.)* The existing
+   `companies/[slug]/page/[n]` route already made this call deliberately: `[]` still
+   registers the route for on-demand ISR, costs no build minutes, and avoids building a
+   static mirror of the corpus for the bot in §5. Prerendering a page range buys nothing
+   that on-demand ISR does not already give on first request.
 3. **Delete `export const dynamic = "force-dynamic"`** from all four landing pages — but
    **only as part of the route-segment change above, never on its own.** Removing it alone
    was tested and disproved on 2026-08-03: the route stays `ƒ` because `await searchParams`
