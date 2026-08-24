@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PHASE_PRODUCTION_BUILD } from "next/constants";
 import { type FeedParams, getFeed } from "@/lib/api";
 import { buildPagePath } from "@/lib/pagination";
 import type { FeedResponse } from "@/lib/types";
@@ -72,14 +73,30 @@ export function parsePageSegment(value: string): number {
   return Math.max(1, Number(value) || 1);
 }
 
-export function loadLandingPage(
+export async function loadLandingPage(
   config: LandingConfig,
   page: number,
 ): Promise<FeedResponse> {
-  return getFeed(
-    { ...config.query, page, limit: LANDING_LIMIT },
-    LANDING_REVALIDATE,
-  );
+  try {
+    return await getFeed(
+      { ...config.query, page, limit: LANDING_LIMIT },
+      LANDING_REVALIDATE,
+    );
+  } catch (error) {
+    // These pages are static now, so they fetch at build time - which they never
+    // did while they were force-dynamic. CI builds against a placeholder API URL
+    // by design, so an unreachable API at build must not fail the build.
+    //
+    // Deliberately scoped to the build phase only. Unlike /pricing, which has a
+    // meaningful FALLBACK_PLANS, there is no static stand-in for a feed: the
+    // content IS the API data, so an empty render is a bad page, not a degraded
+    // one. At runtime the error must propagate instead, because Next then keeps
+    // serving the last good prerender rather than replacing it with an empty one.
+    if (process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD) {
+      return { items: [], total: 0, page, limit: LANDING_LIMIT };
+    }
+    throw error;
+  }
 }
 
 export function landingMetadata(config: LandingConfig, page: number): Metadata {

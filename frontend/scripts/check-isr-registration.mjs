@@ -6,8 +6,11 @@ import { fileURLToPath } from "node:url";
 const REQUIRED_ISR_ROUTES = [
   "/companies/[slug]",
   "/companies/[slug]/page/[n]",
+  "/internships/page/[n]",
+  "/jobs/page/[n]",
   "/opportunity/[slug]",
   "/programme/[slug]",
+  "/remote/page/[n]",
 ];
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -34,6 +37,49 @@ try {
   process.exit(1);
 }
 
+// The landing pages are static routes, not dynamic segments, so they never appear
+// in dynamicRoutes and the check above cannot see them. They regress a different
+// way: re-introducing `searchParams` makes them per-request again and silently
+// drops the cache entirely, which is exactly how they were found broken. Assert
+// the ISR window instead. The value must match `export const revalidate` in each
+// page and LANDING_REVALIDATE in lib/landing.ts.
+const REQUIRED_STATIC_ISR_ROUTES = {
+  "/internships": 21600,
+  "/jobs": 21600,
+  "/remote": 21600,
+};
+
+const staticRoutes = manifest.routes ?? {};
+const staticProblems = [];
+
+for (const [route, expected] of Object.entries(REQUIRED_STATIC_ISR_ROUTES)) {
+  const entry = staticRoutes[route];
+
+  if (!entry) {
+    staticProblems.push(`${route} is not statically prerendered (likely reads searchParams)`);
+    continue;
+  }
+
+  if (entry.initialRevalidateSeconds !== expected) {
+    staticProblems.push(
+      `${route} has initialRevalidateSeconds=${entry.initialRevalidateSeconds}, expected ${expected}`,
+    );
+  }
+}
+
+if (staticProblems.length > 0) {
+  console.error("ISR registration check failed: static landing routes:");
+
+  for (const problem of staticProblems) {
+    console.error(problem);
+  }
+
+  console.error(
+    "A route that awaits `searchParams` cannot be static, and a fetch revalidate lower than the page's caps its ISR window.",
+  );
+  process.exit(1);
+}
+
 const dynamicRoutes = manifest.dynamicRoutes ?? {};
 const missingRoutes = REQUIRED_ISR_ROUTES.filter(
   (route) => !Object.prototype.hasOwnProperty.call(dynamicRoutes, route),
@@ -52,4 +98,7 @@ if (missingRoutes.length > 0) {
   process.exit(1);
 }
 
-console.log(`ISR registration check passed: verified ${REQUIRED_ISR_ROUTES.length} routes.`);
+console.log(
+  `ISR registration check passed: verified ${REQUIRED_ISR_ROUTES.length} dynamic routes ` +
+    `and ${Object.keys(REQUIRED_STATIC_ISR_ROUTES).length} static landing routes.`,
+);
