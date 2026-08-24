@@ -1,42 +1,31 @@
 import type { Metadata } from "next";
 import OpportunityLandingPage from "@/components/OpportunityLandingPage";
-import { getFeed } from "@/lib/api";
+import {
+  INTERNSHIPS_LANDING,
+  LANDING_LIMIT,
+  landingMetadata,
+  loadLandingPage,
+} from "@/lib/landing";
 
-const LIMIT = 20;
-const DESCRIPTION =
-  "Student internships auto-discovered from public company career pages, " +
-  "with each listing linking back to the original source.";
-const INTRO =
-  "Student internships, auto-discovered from public company career pages; " +
-  "Aspirova links out to the original source.";
+// ISR - see app/jobs/page.tsx for why the `searchParams` removal is what makes
+// this cacheable. Literal, not the imported LANDING_REVALIDATE, because Next only
+// honours a statically analysable value here; keep the two in sync.
+export const revalidate = 21600;
 
-export const dynamic = "force-dynamic";
+export const metadata: Metadata = landingMetadata(INTERNSHIPS_LANDING, 1);
 
-export const metadata: Metadata = {
-  title: "Internships",
-  description: DESCRIPTION,
-  alternates: { canonical: "/internships" },
-};
-
-interface PageProps {
-  searchParams: Promise<{ page?: string }>;
-}
-
-export default async function InternshipsPage({ searchParams }: PageProps) {
-  const params = await searchParams;
-  const page = Math.max(1, Number(params.page ?? "1") || 1);
-  const data = await getFeed({ category: "internship", page, limit: LIMIT });
+export default async function InternshipsPage() {
+  const data = await loadLandingPage(INTERNSHIPS_LANDING, 1);
 
   return (
     <OpportunityLandingPage
-      title="Internships"
-      intro={INTRO}
+      title={INTERNSHIPS_LANDING.title}
+      intro={INTERNSHIPS_LANDING.intro}
       items={data.items}
       total={data.total}
-      page={page}
-      limit={LIMIT}
-      basePath="/internships"
-      currentParams={{ page: params.page }}
+      page={1}
+      limit={LANDING_LIMIT}
+      basePath={INTERNSHIPS_LANDING.basePath}
     />
   );
 }
