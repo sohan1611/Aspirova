@@ -4,7 +4,7 @@ import OpportunityLandingPage from "@/components/OpportunityLandingPage";
 import {
   LANDING_LIMIT,
   REMOTE_LANDING,
-  landingMetadata,
+  landingPageMetadata,
   loadLandingPage,
   parsePageSegment,
   totalPagesFor,
@@ -26,7 +26,7 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { n } = await params;
-  return landingMetadata(REMOTE_LANDING, parsePageSegment(n));
+  return landingPageMetadata(REMOTE_LANDING, parsePageSegment(n));
 }
 
 export default async function RemotePaginatedPage({ params }: PageProps) {

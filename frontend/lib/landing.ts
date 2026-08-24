@@ -93,6 +93,32 @@ export async function loadLandingPage(
   );
 }
 
+// Out-of-range pages return HTTP 200 while rendering the not-found page. That is
+// Next 16 behaviour for notFound() inside an ISR-prerendered segment, reproduced
+// locally and not fixable from here - moving notFound() into generateMetadata and
+// renaming the literal `page` segment were both tried and changed nothing, and
+// /companies/[slug]/page/[n] has always behaved the same way.
+//
+// What actually costs anything about a soft 404 is being indexed, so these pages
+// are marked noindex - the same mitigation the companies route already uses, and
+// verified to reach the HTML. The fetch here is deduplicated against the page's
+// own identical getFeed call, so it costs no extra request.
+export async function landingPageMetadata(
+  config: LandingConfig,
+  page: number,
+): Promise<Metadata> {
+  const data = await loadLandingPage(config, page);
+
+  if (page > totalPagesFor(data.total)) {
+    return {
+      title: "Page not found",
+      robots: { index: false, follow: false },
+    };
+  }
+
+  return landingMetadata(config, page);
+}
+
 export function landingMetadata(config: LandingConfig, page: number): Metadata {
   const path = buildPagePath(config.basePath, page);
   const title = page > 1 ? `${config.title} - page ${page}` : config.title;
