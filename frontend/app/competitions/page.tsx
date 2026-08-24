@@ -1,19 +1,30 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import CompetitionsFilterBar from "@/components/CompetitionsFilterBar";
+import { Suspense } from "react";
+import CompetitionsResults from "@/components/CompetitionsResults";
 import FeedGrid from "@/components/FeedGrid";
 import { FeedNavigationProvider } from "@/components/FeedNavigation";
-import { Button } from "@/components/ui/button";
-import { getFeed } from "@/lib/api";
-import { buildPageHref } from "@/lib/pagination";
+import { withBuildFallback } from "@/lib/buildFallback";
+import {
+  COMPETITIONS_LIMIT,
+  defaultCompetitionsRequest,
+  loadCompetitions,
+  opportunityCountLabel,
+} from "@/lib/competitionsQuery";
+import type { FeedResultData } from "@/lib/feedQuery";
 
-const LIMIT = 20;
 const DESCRIPTION =
   "Competitions and hackathons for students, auto-discovered from public sources and tracked through their registration deadlines.";
 const INTRO =
   "Find competitions and hackathons worth entering, and register before their deadlines close.";
 
-export const dynamic = "force-dynamic";
+// ISR. This page no longer reads `searchParams` - that is what forced a full
+// server render on every visit. Filtered views are handled by CompetitionsResults
+// after hydration. Literal, not the imported constant, because Next only honours
+// a statically analysable value here; keep it in sync with
+// COMPETITIONS_REVALIDATE.
+export const revalidate = 21600;
+
+const PAGE_REVALIDATE = 21600;
 
 export const metadata: Metadata = {
   title: "Competitions & hackathons",
@@ -21,63 +32,43 @@ export const metadata: Metadata = {
   alternates: { canonical: "/competitions" },
 };
 
-interface PageProps {
-  searchParams: Promise<{
-    sort?: string;
-    page?: string;
-    scope?: string;
-    country?: string;
-    remote?: string;
-  }>;
+// Prerendered into the static HTML as the Suspense fallback below.
+// CompetitionsResults calls useSearchParams, which in a static route pushes its
+// whole subtree to the client - without this the listings would be missing from
+// the HTML crawlers see. Neither FeedGrid nor the navigation provider calls
+// useSearchParams, so this renders on the server. CompetitionsFilterBar does, so
+// it is deliberately absent here and arrives on hydration.
+function DefaultCompetitions({ data }: { data: FeedResultData }) {
+  return (
+    <FeedNavigationProvider>
+      <div className="mb-5 mt-10 flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+          <p className="eyebrow">Open arena</p>
+          <p className="tnum text-sm text-muted-foreground">
+            {opportunityCountLabel(data.total)}
+          </p>
+        </div>
+      </div>
+
+      <FeedGrid
+        items={data.items}
+        cols={3}
+        skeletonCount={data.items.length || Math.min(COMPETITIONS_LIMIT, 9)}
+        emptyHref="/competitions"
+        emptyActionLabel="Clear filters"
+        emptyTitle="The next challenge is still being discovered."
+        emptyDescription="Check back soon as Aspirova indexes more competitions and hackathons."
+      />
+    </FeedNavigationProvider>
+  );
 }
 
-type CompetitionSort = "recent" | "deadline";
-type LocationScope = "abroad" | "domestic" | "both";
-
-function opportunityCountLabel(count: number): string {
-  return `${count} ${count === 1 ? "opportunity" : "opportunities"}`;
-}
-
-function parseScope(scope: string | undefined): LocationScope | undefined {
-  return scope === "abroad" || scope === "domestic" || scope === "both"
-    ? scope
-    : undefined;
-}
-
-function parseRemote(remote: string | undefined): boolean | undefined {
-  if (remote === "true") return true;
-  if (remote === "false") return false;
-  return undefined;
-}
-
-function parseCountry(country: string | undefined): string | undefined {
-  if (!country || !/^[A-Za-z]{2}$/.test(country)) return undefined;
-  return country.toUpperCase();
-}
-
-export default async function CompetitionsPage({ searchParams }: PageProps) {
-  const params = await searchParams;
-  const page = Math.max(1, Number(params.page ?? "1") || 1);
-  const sort: CompetitionSort = params.sort === "recent" ? "recent" : "deadline";
-  const scope = parseScope(params.scope);
-  const country = parseCountry(params.country);
-  const remote = parseRemote(params.remote);
-  const data = await getFeed({
-    kind: "competitions",
-    scope,
-    country,
-    remote,
-    sort,
-    page,
-    limit: LIMIT,
-  });
-  const totalPages = Math.max(1, Math.ceil(data.total / LIMIT));
-  const paginationParams = {
-    sort: sort === "recent" ? "recent" : undefined,
-    scope,
-    country,
-    remote: remote === undefined ? undefined : String(remote),
-  };
+export default async function CompetitionsPage() {
+  const request = defaultCompetitionsRequest();
+  const data = await withBuildFallback(
+    () => loadCompetitions(request, PAGE_REVALIDATE),
+    () => ({ items: [], total: 0 }),
+  );
 
   return (
     <main className="mx-auto w-full max-w-[1680px] px-4 py-10 sm:px-6 sm:py-14 lg:px-10 xl:px-12">
@@ -91,62 +82,9 @@ export default async function CompetitionsPage({ searchParams }: PageProps) {
         </p>
       </header>
 
-      <FeedNavigationProvider>
-        <div className="mb-5 mt-10 flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
-            <p className="eyebrow">Open arena</p>
-            <p className="tnum text-sm text-muted-foreground">
-              {opportunityCountLabel(data.total)}
-            </p>
-          </div>
-
-          <CompetitionsFilterBar />
-        </div>
-
-        <FeedGrid
-          items={data.items}
-          cols={3}
-          skeletonCount={data.items.length || Math.min(LIMIT, 9)}
-          emptyHref="/competitions"
-          emptyActionLabel="Clear filters"
-          emptyTitle="The next challenge is still being discovered."
-          emptyDescription="Check back soon as Aspirova indexes more competitions and hackathons."
-        />
-
-        {totalPages > 1 && (
-          <nav
-            className="mt-8 flex flex-wrap items-center justify-center gap-3 sm:gap-4"
-            aria-label="Competitions pagination"
-          >
-            <Button variant="outline" size="sm" disabled={page <= 1} asChild={page > 1}>
-              {page > 1 ? (
-                <Link href={buildPageHref(paginationParams, page - 1, "/competitions")}>
-                  Previous
-                </Link>
-              ) : (
-                "Previous"
-              )}
-            </Button>
-            <span className="tnum text-sm text-muted-foreground">
-              Page {page} of {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= totalPages}
-              asChild={page < totalPages}
-            >
-              {page < totalPages ? (
-                <Link href={buildPageHref(paginationParams, page + 1, "/competitions")}>
-                  Next
-                </Link>
-              ) : (
-                "Next"
-              )}
-            </Button>
-          </nav>
-        )}
-      </FeedNavigationProvider>
+      <Suspense fallback={<DefaultCompetitions data={data} />}>
+        <CompetitionsResults initialData={data} />
+      </Suspense>
     </main>
   );
 }

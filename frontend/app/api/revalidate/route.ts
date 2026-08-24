@@ -2,7 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 
 import { revalidatePath } from "next/cache";
 
-import { LANDING_PATHS } from "@/lib/landing";
+import { PAGINATED_LANDING_PATHS, REVALIDATABLE_LIST_PATHS } from "@/lib/landing";
 
 const MAX_BATCH_SIZE = 500;
 const MAX_SLUG_LENGTH = 120;
@@ -12,7 +12,9 @@ const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 // List paths are matched by exact membership, never interpolated. The caller only
 // ever gets to pick from this set, so a compromised or buggy crawler cannot
 // invalidate arbitrary routes - the same reasoning as SLUG_PATTERN above.
-const ALLOWED_PATHS: ReadonlySet<string> = new Set(LANDING_PATHS);
+const ALLOWED_PATHS: ReadonlySet<string> = new Set(REVALIDATABLE_LIST_PATHS);
+// Only these have a /page/[n] segment to invalidate alongside the base path.
+const PAGINATED_PATHS: ReadonlySet<string> = new Set(PAGINATED_LANDING_PATHS);
 
 function isAuthorized(request: Request, secret: string): boolean {
   const authorization = request.headers.get("authorization");
@@ -90,10 +92,15 @@ export async function POST(request: Request) {
 
   for (const path of uniquePaths) {
     revalidatePath(path);
+
     // Revalidating "/jobs" does not touch "/jobs/page/2" - a dynamic segment has
     // to be invalidated by its route pattern. Without this the paginated pages
-    // would stay stale until their own 6h window expired.
-    revalidatePath(`${path}/page/[n]`, "page");
+    // would stay stale until their own 6h window expired. "/" and "/competitions"
+    // have no such segment, so they are skipped here rather than invalidating a
+    // route pattern that does not exist.
+    if (PAGINATED_PATHS.has(path)) {
+      revalidatePath(`${path}/page/[n]`, "page");
+    }
   }
 
   return Response.json({
