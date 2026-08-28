@@ -3,9 +3,26 @@ name: Daily Digest
 # Once daily (Doc 02 sec 3.6: "one daily digest email per free user, not
 # per-opportunity") - off-peak, clear of the Tier-1 crawl's :00/:02h cron
 # and the nightly backup's 19:17 UTC slot.
+#
+# FOUR cron entries for ONE daily email. GitHub's scheduled events are
+# best-effort and degrade badly under load - measured on this repo:
+#   Aug 24  +42 min      Aug 27  +10h 54m
+#   Aug 25  +36 min      Aug 28  never fired at all
+# A single entry makes a user-facing email a single point of failure on
+# somebody else's queue. Every step in this job is idempotent - the digests
+# check _already_sent_recently() against a 20h cap, closing-soon dedupes per
+# opportunity, and saved-search advances a last_alerted_at watermark - so the
+# first firing that actually happens does the work and the rest are no-ops.
+# Nobody can receive a second email from the extra entries.
+#
+# Spread across the morning (03:30 UTC = 09:00 IST) so even a multi-hour delay
+# still lands before midday for the India-based audience.
 on:
   schedule:
     - cron: "30 3 * * *"
+    - cron: "30 4 * * *"
+    - cron: "0 6 * * *"
+    - cron: "0 8 * * *"
   workflow_dispatch: {}
 
 concurrency:
