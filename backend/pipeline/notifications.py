@@ -33,7 +33,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from html import escape
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
 from api.filters import exclude_stale_opportunities, student_rank_expression
@@ -575,6 +575,303 @@ def send_closing_soon_alerts(
         except Exception:
             session.rollback()
             logger.exception("closing-soon alert failed for user %s", user.id)
+            result["failed"] += 1
+            continue
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Hackathon digest
+#
+# A separate daily email from send_daily_digests(). It exists because the
+# generic digest ranks across the WHOLE corpus, and with ~24k jobs against ~740
+# competitions a hackathon effectively never wins a slot - verified in
+# production, where a digest of five internships went out while IIT Bhubaneswar
+# and IIT Delhi hackathons sat active and unmentioned.
+#
+# Two rules distinguish it from the generic digest:
+#   1. Only listings a reader can still ENTER. exclude_closed_competitions()
+#      keeps a 14-day grace window, which is right for browsing (a page you can
+#      still read) and wrong for an email telling you to go and apply.
+#   2. At least HACKATHON_DIGEST_REPUTED_RESERVE slots are reserved for
+#      top-tier organisers, so an inbox never fills with unknown college events
+#      while an IIT hackathon closes unmentioned.
+# ---------------------------------------------------------------------------
+
+HACKATHON_DIGEST_SIZE = 5
+HACKATHON_DIGEST_REPUTED_RESERVE = 2
+
+# Minimum runway for a listing to be worth emailing about. Sorting purely by
+# soonest deadline looked right and was not: with ~760 live competitions, dozens
+# expire every day, so every slot filled with something closing within hours -
+# measured, the first five picks all closed the same day. A digest telling you
+# about a hackathon you can no longer enter is worse than not sending one.
+HACKATHON_DIGEST_MIN_LEAD = timedelta(days=2)
+
+# Aspirova's audience is college students. Unstop carries school-level quizzes
+# ("The Pi Quiz Juniors: 6th to 8th") that are real, active and entirely wrong
+# for this list. Matches an explicit grade range or an explicit school framing -
+# deliberately narrow, because a false positive silently drops a real event.
+_SCHOOL_LEVEL_REGEX = (
+    r"[0-9]+(st|nd|rd|th)[[:space:]]+to[[:space:]]+[0-9]+(st|nd|rd|th)"
+    r"|(^|[^a-z])(class|classes|grade|grades)[[:space:]]+[0-9]"
+    r"|school[[:space:]]+students"
+)
+
+# Deterministic reputation signal - string matching, no AI, no per-user work.
+# Every acronym is word-boundary anchored on BOTH sides because the naive
+# substring test is wrong in ways that matter here, verified against real rows:
+#   "KIIT School of Management"                 must NOT match IIT
+#   "Institute of Information Technology (IITM)" must NOT match IIT
+#   "IGNITE"                                     must NOT match NIT
+#   "IIT Delhi", "Indian Institute of Technology Bhubaneswar"  MUST match
+_REPUTED_ORGANISER_REGEX = (
+    r"(^|[^A-Za-z])(IIT|IIM|IISc|IISER|IIIT|NIT|BITS)([^A-Za-z]|$)"
+    r"|indian institute of (technology|management|science)"
+    r"|birla institute of technology"
+    r"|national institute of technology"
+    r"|(^|[^a-z])national([^a-z]|$)"
+    r"|smart india hackathon"
+)
+
+
+def _reputed_organiser_expression():
+    """1 for a top-tier organiser or a national-level event, else 0.
+
+    Matches against title and organiser name together, because the signal lives
+    in either one: "Agentic AI Hackathon" carries nothing, while its company
+    "Indian Institute of Technology Bhubaneswar" does - and conversely
+    "Brand Phoenix - National Level Marketing Challenge" carries it in the title.
+    """
+    haystack = func.concat(
+        func.coalesce(models.Opportunity.title, ""),
+        " ",
+        func.coalesce(models.Company.name, ""),
+    )
+    return case((haystack.op("~*")(_REPUTED_ORGANISER_REGEX), 1), else_=0)
+
+
+def _hackathon_digest_opportunities(
+    session: Session,
+    now: datetime,
+    limit: int = HACKATHON_DIGEST_SIZE,
+) -> list[models.Opportunity]:
+    """Pick the day's hackathons: reputed organisers first, then most urgent.
+
+    Deliberately NOT ranked purely by reputation. Sorting everything by tier
+    would bury a hackathon closing tomorrow behind a well-branded one closing in
+    a month, and a digest exists to catch deadlines. Reserving slots gets both.
+    """
+    reputed = _reputed_organiser_expression()
+
+    base_filters = [
+        models.Opportunity.status == "active",
+        models.Opportunity.is_hidden.is_not(True),
+        models.Opportunity.category.in_(["hackathon", "competition"]),
+        exclude_stale_opportunities(now),
+        # Stricter than exclude_closed_competitions(): that keeps a 14-day grace
+        # so a closed page stays readable. An email must only carry things the
+        # reader can still enter today.
+        or_(
+            models.Opportunity.deadline.is_(None),
+            models.Opportunity.deadline >= now,
+        ),
+        func.coalesce(models.Opportunity.title, "").op("!~*")(_SCHOOL_LEVEL_REGEX),
+    ]
+
+    # Enough runway to actually enter. Applied as an ordering preference rather
+    # than a hard filter, so a quiet day still sends something instead of
+    # nothing - see the top-up below.
+    actionable = or_(
+        models.Opportunity.deadline.is_(None),
+        models.Opportunity.deadline >= now + HACKATHON_DIGEST_MIN_LEAD,
+    )
+
+    # One per organiser, so a single institution posting five events cannot take
+    # the whole digest - the same reasoning as the generic digest's per-company
+    # row_number, and the reason /competitions interleaves sources. Rows with no
+    # company partition on their own negated id, so each stays its own group
+    # instead of every orphan collapsing into one bucket under NULL.
+
+    ranked = (
+        select(
+            models.Opportunity.id.label("id"),
+            reputed.label("reputed"),
+            models.Opportunity.deadline.label("deadline"),
+            models.Opportunity.first_seen_at.label("first_seen_at"),
+            case((actionable, 1), else_=0).label("actionable"),
+            func.row_number()
+            .over(
+                partition_by=func.coalesce(models.Opportunity.company_id, -models.Opportunity.id),
+                order_by=[
+                    reputed.desc(),
+                    models.Opportunity.deadline.asc().nullslast(),
+                    models.Opportunity.first_seen_at.desc(),
+                    models.Opportunity.id.desc(),
+                ],
+            )
+            .label("organiser_row"),
+        )
+        .select_from(models.Opportunity)
+        .outerjoin(models.Company, models.Company.id == models.Opportunity.company_id)
+        .where(*base_filters)
+        .subquery()
+    )
+
+    def _fetch(where_extra: list, order_by: list, count: int) -> list[models.Opportunity]:
+        if count <= 0:
+            return []
+        rows = session.execute(
+            select(ranked.c.id)
+            .where(ranked.c.organiser_row == 1, *where_extra)
+            .order_by(*order_by)
+            .limit(count)
+        ).all()
+        ids = [row[0] for row in rows]
+        if not ids:
+            return []
+        found = session.scalars(
+            select(models.Opportunity).where(models.Opportunity.id.in_(ids))
+        ).all()
+        by_id = {opportunity.id: opportunity for opportunity in found}
+        return [by_id[i] for i in ids if i in by_id]
+
+    # Actionable first, then soonest within that - so the list is "closing soon
+    # enough to matter, far enough away to enter", not "already gone".
+    urgency_order = [
+        ranked.c.actionable.desc(),
+        ranked.c.deadline.asc().nullslast(),
+        ranked.c.first_seen_at.desc(),
+        ranked.c.id.desc(),
+    ]
+
+    # Reserved slots: the most urgent REPUTED events. This is the guarantee that
+    # a digest is never all unknown-college events.
+    reserved = _fetch([ranked.c.reputed == 1], urgency_order, HACKATHON_DIGEST_REPUTED_RESERVE)
+    chosen_ids = {opportunity.id for opportunity in reserved}
+
+    # Remaining slots: most urgent overall, reputed or not.
+    fill_extra = [ranked.c.id.not_in(chosen_ids)] if chosen_ids else []
+    fill = _fetch(fill_extra, urgency_order, limit - len(reserved))
+
+    return reserved + fill
+
+
+def _render_hackathon_digest(
+    opportunities: list[models.Opportunity], now: datetime
+) -> tuple[str, str]:
+    """Deadline is the headline here, unlike the generic digest.
+
+    A job listing is browsable for weeks; a hackathon is a date. Showing days
+    remaining is the single most useful thing this email can say.
+    """
+
+    def _closes_in(opportunity: models.Opportunity) -> str:
+        if opportunity.deadline is None:
+            return "no stated deadline"
+        deadline = opportunity.deadline
+        if deadline.tzinfo is None:
+            deadline = deadline.replace(tzinfo=timezone.utc)
+        days = (deadline - now).days
+        if days <= 0:
+            return "closes today"
+        if days == 1:
+            return "closes tomorrow"
+        return f"closes in {days} days"
+
+    lines = [
+        f"- {o.title} ({_company_name(o)}) - {_closes_in(o)}: {o.apply_url}" for o in opportunities
+    ]
+    text = (
+        "Hackathons and competitions open right now - entries close on the dates below.\n\n"
+        + "\n".join(lines)
+        + "\n\n"
+        + text_footer()
+    )
+
+    html_rows = "".join(
+        (
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            'style="border:1px solid #e7e0d4;border-collapse:separate;border-radius:8px;'
+            'border-spacing:0;margin:0 0 12px;width:100%">'
+            '<tr><td style="padding:16px">'
+            "<p style=\"color:#2b2620;font-family:Georgia,'Times New Roman',serif;font-size:17px;"
+            'font-weight:700;line-height:23px;margin:0 0 4px">'
+            f"{escape(opportunity.title, quote=True)}</p>"
+            '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
+            'line-height:20px;margin:0 0 6px">'
+            f"by {escape(_company_name(opportunity), quote=True)}</p>"
+            '<p style="color:#8a4b2f;font-family:Arial,Helvetica,sans-serif;font-size:13px;'
+            'font-weight:700;line-height:18px;margin:0 0 10px">'
+            f"{escape(_closes_in(opportunity), quote=True)}</p>"
+            f'<a href="{escape(opportunity.apply_url, quote=True)}" '
+            'style="color:#5e2b47;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
+            'font-weight:700;text-decoration:underline">View &amp; enter &rarr;</a>'
+            "</td></tr></table>"
+        )
+        for opportunity in opportunities
+    )
+
+    html = email_layout(
+        title="Hackathons open right now",
+        intro_html=(
+            '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:15px;'
+            'line-height:22px;margin:0 0 20px">Hackathons and competitions you can still '
+            "enter, soonest deadline first.</p>"
+        ),
+        body_html=html_rows,
+        cta_label="Browse all competitions",
+        cta_url=f"{get_settings().site_url}/competitions",
+    )
+    return html, text
+
+
+def send_hackathon_digests(session: Session, *, now: datetime | None = None) -> dict:
+    """One hackathon digest per user per ~24h.
+
+    Entitlement reuses the free-tier daily_digest feature rather than adding a
+    plan key: this is free for everyone by design, and a new key would need a
+    plans migration to say the same thing. The opt-out is its own preference,
+    so a reader can silence hackathons while keeping the daily digest.
+    """
+    now = now or datetime.now(timezone.utc)
+    cap_since = now - DIGEST_FREQUENCY_CAP
+
+    result = {"sent": 0, "failed": 0, "skipped_capped": 0, "skipped_empty": 0}
+
+    opportunities = _hackathon_digest_opportunities(session, now)
+    if not opportunities:
+        # Nothing enterable today - send nobody an empty email.
+        result["skipped_empty"] = len(list(session.scalars(select(models.User)).all()))
+        return result
+
+    html, text = _render_hackathon_digest(opportunities, now)
+    opportunity_ids = [opportunity.id for opportunity in opportunities]
+
+    for user in session.scalars(select(models.User)).all():
+        try:
+            if not can(session, user, "daily_digest"):
+                continue
+            if not wants(user, "hackathon_digest"):
+                continue
+            if _already_sent_recently(session, user.id, "hackathon_digest", cap_since):
+                result["skipped_capped"] += 1
+                continue
+
+            sent = send_email(user.email, "Hackathons open right now", html, text)
+            _record_notification(
+                session,
+                user.id,
+                "hackathon_digest",
+                opportunity_id=None,
+                status="sent" if sent else "failed",
+                meta={"opportunity_ids": opportunity_ids},
+            )
+            result["sent" if sent else "failed"] += 1
+        except Exception:
+            session.rollback()
+            logger.exception("hackathon digest failed for user %s", user.id)
             result["failed"] += 1
             continue
 

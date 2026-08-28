@@ -52,6 +52,27 @@ jobs:
           done
           exit 1
 
+      - name: Send hackathon digest
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
+          PYTHONUNBUFFERED: "1"
+        run: |
+          # Same retry shape and the same idempotency guarantee as the daily
+          # digest above: send_hackathon_digests() checks
+          # _already_sent_recently(..., "hackathon_digest", ...) against
+          # DIGEST_FREQUENCY_CAP, so a retry cannot double-send.
+          for attempt in 1 2 3; do
+            uv run python -m scripts.notification_worker --hackathon-digest && exit 0
+            if [ "$attempt" -lt 3 ]; then
+              delay=$((attempt * 30))
+              echo "attempt $attempt failed; retrying in ${delay}s" >&2
+              sleep "$delay"
+            fi
+          done
+          exit 1
+
       - name: Send closing-soon deadline alerts
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}

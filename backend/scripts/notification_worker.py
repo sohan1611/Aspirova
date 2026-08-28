@@ -4,6 +4,7 @@
 
 Usage:
   uv run python -m scripts.notification_worker --digest
+  uv run python -m scripts.notification_worker --hackathon-digest
   uv run python -m scripts.notification_worker --instant-alerts
   uv run python -m scripts.notification_worker --closing-soon
   uv run python -m scripts.notification_worker --saved-search-alerts
@@ -18,6 +19,7 @@ from core.db import make_engine
 from pipeline.notifications import (
     send_closing_soon_alerts,
     send_daily_digests,
+    send_hackathon_digests,
     send_instant_alerts,
 )
 from pipeline.saved_search_alerts import send_saved_search_alerts
@@ -39,6 +41,11 @@ def main() -> None:
         action="store_true",
         help="Send saved-search alert emails",
     )
+    group.add_argument(
+        "--hackathon-digest",
+        action="store_true",
+        help="Send the daily hackathon/competition digest",
+    )
     group.add_argument("--weekly", action="store_true", help="Send weekly career reports")
     args = parser.parse_args()
 
@@ -47,6 +54,9 @@ def main() -> None:
         if args.digest:
             result = send_daily_digests(session)
             print(f"daily digests: {result}", flush=True)
+        elif args.hackathon_digest:
+            result = send_hackathon_digests(session)
+            print(f"hackathon digests: {result}", flush=True)
         elif args.saved_search_alerts:
             result = send_saved_search_alerts(session)
             print(f"saved-search alerts: {result}", flush=True)
