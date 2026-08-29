@@ -10,7 +10,7 @@ found by hand against production rows before this was written.
 """
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 
 import pytest
 from sqlalchemy import select
@@ -349,3 +349,49 @@ def test_running_twice_sends_only_once(
 
     assert sent.count(user.email) == 1, "a retry inside the cap must not re-send"
     assert second["skipped_capped"] >= 1
+
+
+def test_a_late_send_yesterday_does_not_suppress_today(
+    db_session, monkeypatch, company_factory, competition_factory
+):
+    """The exact production failure this cap replaced.
+
+    A digest sent late at 15:12 UTC pushed the old rolling 20h window to 11:12
+    the next day, so the morning run at 10:17 skipped all 11 users and nobody
+    received that day's email. A rolling window ratchets: each late send pushes
+    the next later or kills it. A calendar-day cap cannot.
+
+    Times are pinned rather than derived from the clock: "19 hours ago" lands on
+    yesterday or today depending on when the suite runs, which would make this
+    pass or fail by time of day.
+    """
+    sent: list[str] = []
+    monkeypatch.setattr(
+        notifications_module, "send_email", lambda to, *a, **k: sent.append(to) or True
+    )
+
+    today = datetime.now(timezone.utc).date()
+    run_at = datetime.combine(today, time(10, 17), tzinfo=timezone.utc)
+    sent_yesterday_late = run_at - timedelta(hours=19, minutes=5)
+    assert sent_yesterday_late.date() != run_at.date(), "fixture must span midnight"
+
+    company = company_factory("Indian Institute of Technology (IIT), Guwahati")
+    competition_factory(company, title="Ratchet Test Event", days_to_deadline=9)
+
+    user = models.User(email=f"hd-ratchet-{uuid.uuid4()}@example.com")
+    db_session.add(user)
+    db_session.flush()
+    db_session.add(
+        models.Notification(
+            user_id=user.id,
+            type="hackathon_digest",
+            opportunity_id=None,
+            status="sent",
+            sent_at=sent_yesterday_late,
+        )
+    )
+    db_session.flush()
+
+    send_hackathon_digests(db_session, now=run_at)
+
+    assert user.email in sent, "yesterday's late send must not suppress today - this is the ratchet"

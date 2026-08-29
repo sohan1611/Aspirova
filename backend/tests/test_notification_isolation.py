@@ -45,7 +45,7 @@ def test_daily_digest_isolates_per_user_render_failure(
     )
     monkeypatch.setattr(
         notifications_module,
-        "_already_sent_recently",
+        "_already_sent_today",
         lambda *_args, **_kwargs: False,
     )
     monkeypatch.setattr(
