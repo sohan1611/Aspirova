@@ -23,6 +23,14 @@ class Settings(BaseSettings):
     # canonical SITE_URL (app/layout.tsx) exactly - the apex redirects to www,
     # so a non-www link would cost every email click an extra hop.
     site_url: str = "https://www.aspirova.org"
+    # Where the API itself is reachable. Needed for one-click unsubscribe, whose
+    # URL Gmail POSTs to directly - that endpoint is on the API, not the site.
+    api_base_url: str = "https://aspirova-api.onrender.com"
+    # Optional. Signs unsubscribe tokens; falls back to a domain-separated
+    # derivation of the Supabase service key so this works before the secret is
+    # provisioned. Setting it invalidates previously issued links, which is
+    # harmless - a reader who needs one gets it in the next email.
+    unsubscribe_secret: str = ""
 
     # AI providers (Doc 05, Doc handoffs/PHASE-3-HANDOFF.md Part 1).
     # Blank keys select the deterministic local stub: no network call, no

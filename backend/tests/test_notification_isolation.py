@@ -129,7 +129,7 @@ def test_weekly_report_isolates_per_user_render_failure(db_session, monkeypatch)
             raise RuntimeError("weekly report render failed")
         return "<p>Weekly report</p>", "Weekly report"
 
-    def send_email(to, subject, html, text):
+    def send_email(to, subject, html, text, headers=None):
         sent_emails.append({"to": to, "subject": subject, "html": html, "text": text})
         return True
 

@@ -395,3 +395,39 @@ def test_a_late_send_yesterday_does_not_suppress_today(
     send_hackathon_digests(db_session, now=run_at)
 
     assert user.email in sent, "yesterday's late send must not suppress today - this is the ratchet"
+
+
+def test_digest_carries_the_list_unsubscribe_header(
+    db_session, monkeypatch, company_factory, competition_factory
+):
+    """Gmail requires List-Unsubscribe on bulk mail and will accept-then-discard
+    without it - which is what happened here: Resend reported `delivered` for
+    every recipient while the message was in nobody's mailbox, spam included.
+
+    Asserted at the send boundary rather than in core/unsubscribe, because the
+    failure mode is the wiring coming undone, not the token being wrong.
+    """
+    monkeypatch.setattr(
+        "core.unsubscribe._signing_key", lambda: b"pinned-test-key-do-not-use-in-prod"
+    )
+    captured: list[dict | None] = []
+
+    def _fake_send(to, subject, html, text, headers=None):
+        captured.append(headers)
+        return True
+
+    monkeypatch.setattr(notifications_module, "send_email", _fake_send)
+
+    company = company_factory("Indian Institute of Technology (IIT), Roorkee")
+    competition_factory(company, title="Header Test Event", days_to_deadline=9)
+    user = models.User(email=f"hd-hdr-{uuid.uuid4()}@example.com")
+    db_session.add(user)
+    db_session.flush()
+
+    send_hackathon_digests(db_session, now=datetime.now(timezone.utc))
+
+    assert captured, "expected at least one send"
+    headers = captured[0]
+    assert headers, "bulk mail must carry List-Unsubscribe"
+    assert headers["List-Unsubscribe"].startswith("<http")
+    assert headers["List-Unsubscribe-Post"] == "List-Unsubscribe=One-Click"

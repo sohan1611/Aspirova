@@ -1,6 +1,8 @@
 """Authenticated in-app notification center endpoints."""
 
-from fastapi import APIRouter, Depends, Query
+import uuid
+
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
@@ -8,6 +10,7 @@ from api.auth import get_current_user
 from api.deps import get_db
 from api.schemas import NotificationItem, NotificationsResponse
 from core import models
+from core.unsubscribe import verify_token
 
 router = APIRouter()
 
@@ -125,3 +128,39 @@ def mark_notifications_read(
     )
     db.commit()
     return {"unread": 0}
+
+
+@router.api_route("/notifications/unsubscribe", methods=["GET", "POST"])
+def unsubscribe(token: str = Query(...), db: Session = Depends(get_db)) -> Response:
+    """One-click unsubscribe. Deliberately unauthenticated.
+
+    Gmail POSTs here itself, on the reader's behalf, with no session and no
+    chance to confirm - that is what List-Unsubscribe-Post means. The token is
+    the authorisation: it is signed, names exactly one user and one preference,
+    and can do nothing else.
+
+    GET is accepted too, because some clients and every human who pastes the
+    link will use it.
+
+    Always answers 200. A bad or expired token must not tell an anonymous caller
+    whether a user exists, and Gmail treats a non-2xx as a broken unsubscribe -
+    which is the thing being fixed here.
+    """
+    ok = "You have been unsubscribed. You can re-enable this any time in your Aspirova account settings."
+    verified = verify_token(token)
+    if verified is None:
+        return Response(content=ok, media_type="text/plain")
+
+    user_id, preference_key = verified
+    try:
+        user = db.get(models.User, uuid.UUID(user_id))
+    except (ValueError, AttributeError, TypeError):
+        return Response(content=ok, media_type="text/plain")
+    if user is None:
+        return Response(content=ok, media_type="text/plain")
+
+    # Merge rather than replace: this turns off exactly the one list the reader
+    # clicked from, and leaves every other preference untouched.
+    user.notification_prefs = {**(user.notification_prefs or {}), preference_key: False}
+    db.commit()
+    return Response(content=ok, media_type="text/plain")
