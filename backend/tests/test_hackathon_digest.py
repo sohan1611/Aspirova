@@ -312,3 +312,40 @@ def test_absent_preference_means_subscribed(db_session, company_factory, competi
     db_session.flush()
 
     assert notifications_module.wants(user, "hackathon_digest") is True
+
+
+def test_running_twice_sends_only_once(
+    db_session, monkeypatch, company_factory, competition_factory
+):
+    """The digest workflow now has FOUR cron entries, because GitHub's scheduler
+    delayed one run by 11 hours and dropped the next entirely. That is only safe
+    because a second run inside the frequency cap sends nothing.
+
+    If the cap is ever removed or the notification type renamed, this fails -
+    which is the point. Without it, four crons means four emails per user.
+
+    Uses the real clock rather than this module's far-future NOW: the cap is
+    checked against the injected `now`, but _record_notification() stamps
+    sent_at from datetime.now() and ignores it. Those agree in production and
+    only diverge under an injected clock, so testing the cap needs a realistic
+    one - the assertion below counts only this test's own user, so real rows
+    being selectable does not affect it.
+    """
+    sent: list[str] = []
+    monkeypatch.setattr(
+        notifications_module, "send_email", lambda to, *a, **k: sent.append(to) or True
+    )
+
+    real_now = datetime.now(timezone.utc)
+    company = company_factory("Indian Institute of Technology (IIT), Kanpur")
+    competition_factory(company, title="Idempotency Test Event", days_to_deadline=9)
+
+    user = models.User(email=f"hd-once-{uuid.uuid4()}@example.com")
+    db_session.add(user)
+    db_session.flush()
+
+    send_hackathon_digests(db_session, now=real_now)
+    second = send_hackathon_digests(db_session, now=real_now + timedelta(hours=1))
+
+    assert sent.count(user.email) == 1, "a retry inside the cap must not re-send"
+    assert second["skipped_capped"] >= 1
