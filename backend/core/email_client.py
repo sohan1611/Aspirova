@@ -17,7 +17,10 @@ from core.config import get_settings
 logger = logging.getLogger(__name__)
 
 
-def send_email(to: str, subject: str, html: str, text: str) -> bool:
+def send_email(
+    to: str, subject: str, html: str, text: str, headers: dict[str, str] | None = None
+) -> bool:
+    """`headers` carries List-Unsubscribe for bulk mail - see core/unsubscribe.py."""
     settings = get_settings()
     if not (settings.resend_api_key and settings.resend_from_email):
         logger.warning("RESEND_API_KEY/RESEND_FROM_EMAIL not configured - email not sent to %s", to)
@@ -32,6 +35,7 @@ def send_email(to: str, subject: str, html: str, text: str) -> bool:
                 "subject": subject,
                 "html": html,
                 "text": text,
+                **({"headers": headers} if headers else {}),
             }
         )
         return True

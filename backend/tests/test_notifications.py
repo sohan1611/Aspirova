@@ -41,8 +41,10 @@ def sent_emails(monkeypatch):
     the test explicitly makes it fail."""
     calls = []
 
-    def _fake_send(to, subject, html, text):
-        calls.append({"to": to, "subject": subject, "html": html, "text": text})
+    def _fake_send(to, subject, html, text, headers=None):
+        # `headers` carries List-Unsubscribe, which Gmail requires on bulk mail.
+        # Recorded rather than ignored so a test can assert it is present.
+        calls.append({"to": to, "subject": subject, "html": html, "text": text, "headers": headers})
         return True
 
     monkeypatch.setattr(notifications_module, "send_email", _fake_send)

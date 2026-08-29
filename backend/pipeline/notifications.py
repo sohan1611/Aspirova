@@ -42,6 +42,7 @@ from core.config import get_settings
 from core.email_client import send_email
 from core.email_templates import email_layout, text_footer
 from core.gating import can
+from core.unsubscribe import list_unsubscribe_headers
 
 
 def wants(user: models.User, key: str) -> bool:
@@ -452,7 +453,13 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
                 continue
 
             html, text = _render_digest(opportunities)
-            sent = send_email(user.email, "Your Aspirova daily digest", html, text)
+            sent = send_email(
+                user.email,
+                "Your Aspirova daily digest",
+                html,
+                text,
+                headers=list_unsubscribe_headers(user.id, "daily_digest"),
+            )
             _record_notification(
                 session,
                 user.id,
@@ -867,7 +874,13 @@ def send_hackathon_digests(session: Session, *, now: datetime | None = None) -> 
                 result["skipped_capped"] += 1
                 continue
 
-            sent = send_email(user.email, "Hackathons open right now", html, text)
+            sent = send_email(
+                user.email,
+                "Hackathons open right now",
+                html,
+                text,
+                headers=list_unsubscribe_headers(user.id, "hackathon_digest"),
+            )
             _record_notification(
                 session,
                 user.id,
