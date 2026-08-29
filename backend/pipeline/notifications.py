@@ -608,6 +608,12 @@ def send_closing_soon_alerts(
 #      while an IIT hackathon closes unmentioned.
 # ---------------------------------------------------------------------------
 
+# Subject line, kept as a constant so it cannot drift from anything that refers
+# to it later. Note the emoji is a deliberate founder choice: it slightly pushes
+# Gmail toward the Promotions tab, which is the placement DMARC was just added to
+# improve, so the two pull against each other a little.
+HACKATHON_DIGEST_SUBJECT = "Your Daily Dose of Hackathons 🚀"
+
 HACKATHON_DIGEST_SIZE = 5
 HACKATHON_DIGEST_REPUTED_RESERVE = 2
 
@@ -867,7 +873,7 @@ def send_hackathon_digests(session: Session, *, now: datetime | None = None) -> 
                 result["skipped_capped"] += 1
                 continue
 
-            sent = send_email(user.email, "Hackathons open right now", html, text)
+            sent = send_email(user.email, HACKATHON_DIGEST_SUBJECT, html, text)
             _record_notification(
                 session,
                 user.id,
