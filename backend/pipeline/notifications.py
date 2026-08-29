@@ -51,7 +51,6 @@ def wants(user: models.User, key: str) -> bool:
 
 logger = logging.getLogger(__name__)
 
-DIGEST_FREQUENCY_CAP = timedelta(hours=20)
 INSTANT_ALERT_LOOKBACK = timedelta(hours=3)
 DIGEST_GENERIC_SAMPLE_SIZE = 5
 DIGEST_RANKED_COMPANY_RESERVE_SIZE = 2
@@ -79,9 +78,20 @@ def _record_notification(
     session.commit()
 
 
-def _already_sent_recently(
-    session: Session, user_id, notification_type: str, since: datetime
-) -> bool:
+def _already_sent_today(session: Session, user_id, notification_type: str, now: datetime) -> bool:
+    """Has this user already had this notification on the same UTC calendar day?
+
+    Replaces a rolling frequency window for the daily digests, because a rolling
+    window RATCHETS. Measured: a digest sent late at 15:12 UTC pushed a 20h cap
+    to 11:12 the next day, so the morning run at 10:17 skipped all 11 users and
+    nobody got that day's email at all. Each late send pushes the next one later
+    or kills it outright.
+
+    "At most once per calendar day" is what "daily digest" actually means, and it
+    cannot ratchet: a late send today never suppresses tomorrow morning. It still
+    makes the workflow's four cron entries safe, since a second firing on the
+    same day is skipped exactly as before.
+    """
     return (
         session.scalar(
             select(models.Notification.id)
@@ -89,7 +99,7 @@ def _already_sent_recently(
                 models.Notification.user_id == user_id,
                 models.Notification.type == notification_type,
                 models.Notification.status == "sent",
-                models.Notification.sent_at >= since,
+                func.date(models.Notification.sent_at) == now.date(),
             )
             .limit(1)
         )
@@ -405,7 +415,6 @@ def _render_closing_soon_text(opportunities: list[models.Opportunity]) -> str:
 def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict:
     now = now or datetime.now(timezone.utc)
     since = now - timedelta(hours=24)
-    cap_since = now - DIGEST_FREQUENCY_CAP
 
     result = {"sent": 0, "failed": 0, "skipped_capped": 0, "skipped_empty": 0}
 
@@ -415,7 +424,7 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
                 continue
             if not wants(user, "daily_digest"):
                 continue
-            if _already_sent_recently(session, user.id, "digest", cap_since):
+            if _already_sent_today(session, user.id, "digest", now):
                 result["skipped_capped"] += 1
                 continue
 
@@ -836,7 +845,6 @@ def send_hackathon_digests(session: Session, *, now: datetime | None = None) -> 
     so a reader can silence hackathons while keeping the daily digest.
     """
     now = now or datetime.now(timezone.utc)
-    cap_since = now - DIGEST_FREQUENCY_CAP
 
     result = {"sent": 0, "failed": 0, "skipped_capped": 0, "skipped_empty": 0}
 
@@ -855,7 +863,7 @@ def send_hackathon_digests(session: Session, *, now: datetime | None = None) -> 
                 continue
             if not wants(user, "hackathon_digest"):
                 continue
-            if _already_sent_recently(session, user.id, "hackathon_digest", cap_since):
+            if _already_sent_today(session, user.id, "hackathon_digest", now):
                 result["skipped_capped"] += 1
                 continue
 
