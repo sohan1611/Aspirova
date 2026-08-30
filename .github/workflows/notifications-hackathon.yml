@@ -1,0 +1,70 @@
+name: Hackathon Digest
+
+# Split out of notifications-digest.yml on 2026-08-30.
+#
+# It used to be a step in that same workflow, immediately after the daily
+# digest, so the two emails left about 60 seconds apart - measured 06:47:24 and
+# 06:48:29 UTC. Two emails from one sender arriving together reads as a burst,
+# is what recipients unsubscribe from, and is what Gmail bundles.
+#
+# These slots sit roughly three hours after the daily digest's (03:30/04:30/
+# 06:00/08:00 UTC = 09:00-13:30 IST), putting this one in the Indian afternoon.
+#
+# Scheduling is only half of it. GitHub's cron is best-effort and drifts by
+# hours on this repo, so a late daily run can still land on top of an on-time
+# hackathon run - three of four digest slots were skipped outright on Aug 30.
+# The gap is therefore ENFORCED in code: send_hackathon_digests() skips any user
+# who received the daily digest within HACKATHON_DIGEST_MIN_GAP (2h). A skipped
+# user is not dropped - a later slot below sends to them, still bounded by the
+# once-per-calendar-day cap, so multiple firings cannot double-send.
+on:
+  schedule:
+    - cron: "0 7 * * *" # 12:30 IST
+    - cron: "0 9 * * *" # 14:30 IST
+    - cron: "0 11 * * *" # 16:30 IST
+    - cron: "30 12 * * *" # 18:00 IST
+  workflow_dispatch: {}
+
+concurrency:
+  group: notifications-hackathon
+  cancel-in-progress: false
+
+jobs:
+  hackathon-digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Send hackathon digest
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
+          PYTHONUNBUFFERED: "1"
+        run: |
+          # Retrying is safe: send_hackathon_digests() gates each user on
+          # _already_sent_today(..., "hackathon_digest", ...), so a retry after a
+          # partial failure resumes rather than re-sending.
+          for attempt in 1 2 3; do
+            uv run python -m scripts.notification_worker --hackathon-digest && exit 0
+            if [ "$attempt" -lt 3 ]; then
+              delay=$((attempt * 30))
+              echo "attempt $attempt failed; retrying in ${delay}s" >&2
+              sleep "$delay"
+            fi
+          done
+          exit 1

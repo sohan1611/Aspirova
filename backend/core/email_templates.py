@@ -28,13 +28,21 @@ def _preheader_text(intro_html: str) -> str:
     return " ".join(" ".join(parser.parts).split())
 
 
-def text_footer() -> str:
-    """Return the shared plain-text footer for multipart email alternatives."""
+def text_footer(unsubscribe_url: str | None = None) -> str:
+    """Return the shared plain-text footer for multipart email alternatives.
 
+    `unsubscribe_url` is a per-recipient signed link, separate from "Manage
+    email preferences": that one goes to /account and needs a login, which is
+    fine for a human who still wants an account and useless to someone who just
+    wants out.
+    """
+
+    extra = [f"Unsubscribe from these emails: {unsubscribe_url}"] if unsubscribe_url else []
     return "\n".join(
         [
             "You're receiving this because you use Aspirova.",
             f"Manage email preferences: {_site_url()}/account?section=notifications",
+            *extra,
             "Opportunities are gathered from public sources and can change — "
             "always confirm details on the official page.",
             "Aspirova — every opportunity, one place.",
@@ -50,6 +58,7 @@ def email_layout(
     cta_label: str | None = None,
     cta_url: str | None = None,
     footer_note: str | None = None,
+    unsubscribe_url: str | None = None,
 ) -> str:
     """Wrap trusted, already-escaped content blocks in the shared email shell."""
 
@@ -72,6 +81,20 @@ def email_layout(
             'text-align:center;text-decoration:none">'
             f"{escape(cta_label, quote=True)}</a>"
             "</td></tr></table>"
+        )
+
+    # A visible unsubscribe, separate from the List-Unsubscribe header. Gmail
+    # renders that header as its own control, but only in clients that support
+    # it; everyone else needs a link they can actually see, and the alternative
+    # to finding one is the spam button.
+    unsubscribe_html = ""
+    if unsubscribe_url:
+        unsubscribe_html = (
+            '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:12px;'
+            'line-height:18px;margin:0 0 8px">'
+            f'<a href="{escape(unsubscribe_url, quote=True)}" '
+            'style="color:#6b6259;text-decoration:underline">Unsubscribe</a>'
+            " from these emails.</p>"
         )
 
     footer_note_html = ""
@@ -115,6 +138,7 @@ def email_layout(
         "line-height:18px;margin:0 0 8px\">You're receiving this because you use Aspirova. "
         f'<a href="{preference_url}" style="color:#5e2b47;text-decoration:underline">'
         "Manage email preferences</a>.</p>"
+        f"{unsubscribe_html}"
         '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:12px;'
         'line-height:18px;margin:0 0 8px">Opportunities are gathered from public sources and '
         "can change — always confirm details on the official page.</p>"

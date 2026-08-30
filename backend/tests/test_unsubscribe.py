@@ -137,7 +137,7 @@ def test_headers_are_omitted_entirely_when_signing_is_unconfigured(monkeypatch):
 
 
 def test_unsubscribing_turns_off_only_the_named_preference(db_session):
-    from api.notifications import unsubscribe
+    from api.notifications import unsubscribe_post
 
     user = models.User(
         email=f"unsub-{uuid.uuid4()}@example.com",
@@ -146,7 +146,7 @@ def test_unsubscribing_turns_off_only_the_named_preference(db_session):
     db_session.add(user)
     db_session.flush()
 
-    unsubscribe(token=make_token(user.id, "hackathon_digest"), db=db_session)
+    unsubscribe_post(token=make_token(user.id, "hackathon_digest"), db=db_session)
     db_session.refresh(user)
 
     assert user.notification_prefs["hackathon_digest"] is False
@@ -157,7 +157,7 @@ def test_unsubscribing_turns_off_only_the_named_preference(db_session):
 def test_invalid_token_changes_nothing_and_still_answers_200(db_session):
     """Gmail treats a non-2xx as a broken unsubscribe, and an anonymous caller
     must not learn whether a user exists."""
-    from api.notifications import unsubscribe
+    from api.notifications import unsubscribe_post
 
     user = models.User(
         email=f"unsub-{uuid.uuid4()}@example.com",
@@ -166,8 +166,78 @@ def test_invalid_token_changes_nothing_and_still_answers_200(db_session):
     db_session.add(user)
     db_session.flush()
 
-    response = unsubscribe(token="forged.deadbeef", db=db_session)
+    response = unsubscribe_post(token="forged.deadbeef", db=db_session)
     db_session.refresh(user)
 
     assert response.status_code == 200
     assert user.notification_prefs == {"daily_digest": True}
+
+
+# ------------------------------------------------- GET must not mutate anything
+
+
+def test_get_only_asks_and_changes_nothing(db_session):
+    """The reason this endpoint is split by method.
+
+    List-Unsubscribe is fetched by machines. Gmail POSTs it (RFC 8058), but
+    security scanners, link previewers and corporate mail gateways issue GETs on
+    every URL they find in a message, with no human involved. While GET
+    unsubscribed, any such prefetch silently opted a reader out of mail they
+    never asked to stop - and adding a VISIBLE unsubscribe link to the email
+    body multiplies how often that happens.
+    """
+    from api.notifications import unsubscribe_get
+
+    user = models.User(
+        email=f"unsub-get-{uuid.uuid4()}@example.com",
+        notification_prefs={"daily_digest": True, "hackathon_digest": True},
+    )
+    db_session.add(user)
+    db_session.flush()
+
+    response = unsubscribe_get(token=make_token(user.id, "hackathon_digest"), db=db_session)
+    db_session.refresh(user)
+
+    assert response.status_code == 200
+    assert user.notification_prefs == {
+        "daily_digest": True,
+        "hackathon_digest": True,
+    }, "a GET must never unsubscribe - scanners issue them unprompted"
+
+
+def test_get_offers_a_form_that_posts_the_same_token(db_session):
+    """The confirmation has to actually work: it must POST, and it must carry
+    the token in the query string, because that is where the POST handler reads
+    it from and where Gmail's one-click puts it."""
+    from api.notifications import unsubscribe_get
+
+    user = models.User(email=f"unsub-form-{uuid.uuid4()}@example.com")
+    db_session.add(user)
+    db_session.flush()
+
+    token = make_token(user.id, "daily_digest")
+    body = unsubscribe_get(token=token, db=db_session).body.decode()
+
+    assert 'method="post"' in body
+    assert "/notifications/unsubscribe?token=" in body
+    assert "<button" in body
+
+
+def test_post_still_unsubscribes_in_one_shot(db_session):
+    """Gmail's one-click gets no confirmation step - that is the whole contract
+    of List-Unsubscribe-Post, and breaking it would put the digests back to
+    being accepted and discarded."""
+    from api.notifications import unsubscribe_post
+
+    user = models.User(
+        email=f"unsub-post-{uuid.uuid4()}@example.com",
+        notification_prefs={"daily_digest": True},
+    )
+    db_session.add(user)
+    db_session.flush()
+
+    response = unsubscribe_post(token=make_token(user.id, "daily_digest"), db=db_session)
+    db_session.refresh(user)
+
+    assert response.status_code == 200
+    assert user.notification_prefs["daily_digest"] is False
