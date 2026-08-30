@@ -7,22 +7,29 @@ name: Hackathon Digest
 # 06:48:29 UTC. Two emails from one sender arriving together reads as a burst,
 # is what recipients unsubscribe from, and is what Gmail bundles.
 #
-# These slots sit roughly three hours after the daily digest's (03:30/04:30/
-# 06:00/08:00 UTC = 09:00-13:30 IST), putting this one in the Indian afternoon.
+# Slots sit on ODD minutes and well after the daily digest's. The odd minutes
+# are GitHub's own documented mitigation - "schedule your workflow to run at a
+# different time of the hour" - which had never been applied in this repo; every
+# cron here sat on :00 or :30, the exact minutes their docs call out as worst.
 #
-# Scheduling is only half of it. GitHub's cron is best-effort and drifts by
-# hours on this repo, so a late daily run can still land on top of an on-time
-# hackathon run - three of four digest slots were skipped outright on Aug 30.
-# The gap is therefore ENFORCED in code: send_hackathon_digests() skips any user
-# who received the daily digest within HACKATHON_DIGEST_MIN_GAP (2h). A skipped
-# user is not dropped - a later slot below sends to them, still bounded by the
-# once-per-calendar-day cap, so multiple firings cannot double-send.
+# GitHub's docs also say a queued scheduled run "may be DROPPED" under load, and
+# on Aug 30 all four of the daily digest's entries were skipped outright. A paid
+# Render cron job is drafted in PR #105 as the fallback if 14 days under this
+# corrected configuration (to ~2026-09-13) still are not reliable enough.
+#
+# Multiple entries are safe: every recipient is gated on _already_sent_today(),
+# so whichever firing happens first does the work and the rest are no-ops.
+#
+# Scheduling is only half of the spacing guarantee anyway. A delayed daily run
+# can still land on top of an on-time hackathon run, so the gap is ENFORCED in
+# code: send_hackathon_digests() skips any user who received the daily digest
+# within HACKATHON_DIGEST_MIN_GAP (2h). A skipped user is not dropped - a later
+# slot sends to them, still bounded by the once-per-calendar-day cap.
 on:
   schedule:
-    - cron: "0 7 * * *" # 12:30 IST
-    - cron: "0 9 * * *" # 14:30 IST
-    - cron: "0 11 * * *" # 16:30 IST
-    - cron: "30 12 * * *" # 18:00 IST
+    - cron: "19 9 * * *" # 14:49 IST
+    - cron: "37 11 * * *" # 17:07 IST
+    - cron: "7 13 * * *" # 18:37 IST
   workflow_dispatch: {}
 
 concurrency:
