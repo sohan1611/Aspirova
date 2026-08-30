@@ -8,7 +8,7 @@ name: Crawl Tier 1
 # concurrency group indefinitely and block the next scheduled run.
 "on":
   schedule:
-    - cron: "0 1 * * *"
+    - cron: "19 1 * * *"
   workflow_dispatch:
     inputs:
       attempt:

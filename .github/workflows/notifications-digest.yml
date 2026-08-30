@@ -1,28 +1,40 @@
 name: Daily Digest
 
-# Once daily (Doc 02 sec 3.6: "one daily digest email per free user, not
-# per-opportunity") - off-peak, clear of the Tier-1 crawl's :00/:02h cron
-# and the nightly backup's 19:17 UTC slot.
+# Four cron entries for ONE daily email, on deliberately ODD minutes.
 #
-# FOUR cron entries for ONE daily email. GitHub's scheduled events are
-# best-effort and degrade badly under load - measured on this repo:
-#   Aug 24  +42 min      Aug 27  +10h 54m
-#   Aug 25  +36 min      Aug 28  never fired at all
-# A single entry makes a user-facing email a single point of failure on
-# somebody else's queue. Every step in this job is idempotent - the digests
-# check _already_sent_today() against the UTC calendar day, closing-soon dedupes
-# per opportunity, and saved-search advances a last_alerted_at watermark - so the
-# first firing that actually happens does the work and the rest are no-ops.
-# Nobody can receive a second email from the extra entries.
+# GitHub does not promise to run a scheduled workflow at all. From their own
+# documentation:
 #
-# Spread across the morning (03:30 UTC = 09:00 IST) so even a multi-hour delay
-# still lands before midday for the India-based audience.
+#   "The schedule event can be delayed during periods of high loads of GitHub
+#    Actions workflow runs. High load times include the start of every hour...
+#    If the load is sufficiently high enough, some queued jobs may be DROPPED."
+#
+# Measured here: +42 min (Aug 24), +36 min (Aug 25), +10h54m (Aug 27), never
+# fired (Aug 28), +7h (Aug 29), and on Aug 30 all FOUR entries were skipped.
+# Four slots missing together suggests the failures are correlated - one queue,
+# one repo tier - so extra entries may not help the way independent retries
+# would.
+#
+# The odd minutes are GitHub's OWN documented mitigation: "schedule your
+# workflow to run at a different time of the hour". These previously sat on
+# :30/:30/:00/:00 - the exact minutes the docs call out as worst - so that
+# advice had never actually been applied here. Applied 2026-08-30.
+#
+# This is now the measurement: run under GitHub's recommended configuration for
+# 14 days (to ~2026-09-13) and see whether reliability is acceptable. If it is
+# not, the fallback is a paid Render cron job, drafted in PR #105 and held
+# pending this result - $1/month per job, and Render's scheduler is a product
+# rather than spare capacity.
+#
+# Multiple entries are safe because every recipient is gated on
+# _already_sent_today() against the UTC calendar day: whichever firing happens
+# first does the work and the rest are no-ops. Nobody can receive two.
 on:
   schedule:
-    - cron: "30 3 * * *"
-    - cron: "30 4 * * *"
-    - cron: "0 6 * * *"
-    - cron: "0 8 * * *"
+    - cron: "47 4 * * *" # 10:17 IST
+    - cron: "13 6 * * *" # 11:43 IST
+    - cron: "41 8 * * *" # 14:11 IST
+    - cron: "23 10 * * *" # 15:53 IST
   workflow_dispatch: {}
 
 concurrency:
