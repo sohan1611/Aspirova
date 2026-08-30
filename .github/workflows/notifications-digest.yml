@@ -1,28 +1,34 @@
 name: Daily Digest
 
-# Once daily (Doc 02 sec 3.6: "one daily digest email per free user, not
-# per-opportunity") - off-peak, clear of the Tier-1 crawl's :00/:02h cron
-# and the nightly backup's 19:17 UTC slot.
+# BACKUP LAYER as of 2026-08-30. The primary is the `aspirova-daily-digest`
+# Render cron job (render.yaml, 03:30 UTC), because GitHub does not promise to
+# run a scheduled workflow at all. From GitHub's own documentation:
 #
-# FOUR cron entries for ONE daily email. GitHub's scheduled events are
-# best-effort and degrade badly under load - measured on this repo:
-#   Aug 24  +42 min      Aug 27  +10h 54m
-#   Aug 25  +36 min      Aug 28  never fired at all
-# A single entry makes a user-facing email a single point of failure on
-# somebody else's queue. Every step in this job is idempotent - the digests
-# check _already_sent_today() against the UTC calendar day, closing-soon dedupes
-# per opportunity, and saved-search advances a last_alerted_at watermark - so the
-# first firing that actually happens does the work and the rest are no-ops.
-# Nobody can receive a second email from the extra entries.
+#   "The schedule event can be delayed during periods of high loads of GitHub
+#    Actions workflow runs. High load times include the start of every hour...
+#    If the load is sufficiently high enough, some queued jobs may be DROPPED."
 #
-# Spread across the morning (03:30 UTC = 09:00 IST) so even a multi-hour delay
-# still lands before midday for the India-based audience.
+# Measured here: +42 min (Aug 24), +36 min (Aug 25), +10h54m (Aug 27), never
+# fired (Aug 28), +7h (Aug 29), and on Aug 30 all FOUR entries were skipped.
+# Four slots missing together means the failures are correlated - one queue, one
+# repo tier - so extra entries do not help the way independent retries would.
+#
+# This workflow is kept anyway because it is free and cannot do harm: every
+# recipient is gated on _already_sent_today() against the UTC calendar day, so
+# whichever scheduler fires first does the work and the rest are no-ops. Nobody
+# can receive two.
+#
+# The slots deliberately sit on ODD minutes and AFTER the Render job. GitHub's
+# one documented mitigation is "schedule your workflow to run at a different
+# time of the hour", and these previously sat on :30/:30/:00/:00 - the exact
+# minutes their docs call out as worst. Firing after the primary means the
+# normal path is Render sending and these no-opping.
 on:
   schedule:
-    - cron: "30 3 * * *"
-    - cron: "30 4 * * *"
-    - cron: "0 6 * * *"
-    - cron: "0 8 * * *"
+    - cron: "47 4 * * *" # 10:17 IST
+    - cron: "13 6 * * *" # 11:43 IST
+    - cron: "41 8 * * *" # 14:11 IST
+    - cron: "23 10 * * *" # 15:53 IST
   workflow_dispatch: {}
 
 concurrency:
