@@ -7,22 +7,27 @@ name: Hackathon Digest
 # 06:48:29 UTC. Two emails from one sender arriving together reads as a burst,
 # is what recipients unsubscribe from, and is what Gmail bundles.
 #
-# These slots sit roughly three hours after the daily digest's (03:30/04:30/
-# 06:00/08:00 UTC = 09:00-13:30 IST), putting this one in the Indian afternoon.
+# BACKUP LAYER. The primary is the `aspirova-hackathon-digest` Render cron job
+# (render.yaml, 06:30 UTC = 12:00 IST), three hours after the daily digest's
+# primary. GitHub's docs say a scheduled run "may be DROPPED" under load, and on
+# Aug 30 all four of the daily digest's entries were skipped outright - so a
+# user-facing email cannot depend on this scheduler alone.
 #
-# Scheduling is only half of it. GitHub's cron is best-effort and drifts by
-# hours on this repo, so a late daily run can still land on top of an on-time
-# hackathon run - three of four digest slots were skipped outright on Aug 30.
-# The gap is therefore ENFORCED in code: send_hackathon_digests() skips any user
-# who received the daily digest within HACKATHON_DIGEST_MIN_GAP (2h). A skipped
-# user is not dropped - a later slot below sends to them, still bounded by the
-# once-per-calendar-day cap, so multiple firings cannot double-send.
+# Kept because it is free and cannot double-send: every recipient is gated on
+# _already_sent_today(). These slots sit on ODD minutes (GitHub's one documented
+# mitigation is to avoid the top of the hour) and AFTER the Render job, so the
+# normal path is Render sending and these no-opping.
+#
+# Scheduling is only half of the spacing guarantee anyway. A delayed daily run
+# can still land on top of an on-time hackathon run, so the gap is ENFORCED in
+# code: send_hackathon_digests() skips any user who received the daily digest
+# within HACKATHON_DIGEST_MIN_GAP (2h). A skipped user is not dropped - a later
+# slot sends to them, still bounded by the once-per-calendar-day cap.
 on:
   schedule:
-    - cron: "0 7 * * *" # 12:30 IST
-    - cron: "0 9 * * *" # 14:30 IST
-    - cron: "0 11 * * *" # 16:30 IST
-    - cron: "30 12 * * *" # 18:00 IST
+    - cron: "19 9 * * *" # 14:49 IST
+    - cron: "37 11 * * *" # 17:07 IST
+    - cron: "7 13 * * *" # 18:37 IST
   workflow_dispatch: {}
 
 concurrency:

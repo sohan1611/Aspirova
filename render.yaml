@@ -46,3 +46,94 @@ services:
         sync: false
       - key: CORS_ORIGINS
         sync: false
+
+  # --------------------------------------------------------------- digests
+  #
+  # These moved off GitHub Actions on 2026-08-30 because GitHub does not
+  # promise to run a scheduled workflow at all. Their own docs:
+  #
+  #   "The schedule event can be delayed during periods of high loads...
+  #    If the load is sufficiently high enough, some queued jobs may be
+  #    DROPPED."
+  #
+  # Measured here, not assumed: the digest fired ~35 min late through Aug 26,
+  # then 11h late (Aug 27), 12h late (Aug 28), 7h late (Aug 29), and on Aug 30
+  # never fired at all - all FOUR cron entries skipped. Four slots missing
+  # together means the failures are correlated (one queue, one repo tier), so
+  # adding more entries buys nothing. Free-tier public repos sit lowest in that
+  # queue and priority cannot be bought.
+  #
+  # The GitHub workflows are deliberately KEPT as a free backup layer. Running
+  # both schedulers cannot double-send: every recipient is gated on
+  # _already_sent_today() (UTC calendar day), so whichever fires first does the
+  # work and the rest are no-ops.
+  #
+  # Cost: billed per second of running time with a $1/month minimum per cron
+  # service. A ~2-minute daily job is about a penny of runtime, so the floor is
+  # effectively the whole price - $1/month each.
+  #
+  # Secrets are sync: false and set in the dashboard. DATABASE_URL in
+  # particular must be IDENTICAL to the web service's: core/unsubscribe.py
+  # derives the List-Unsubscribe signing key from it, the worker signs tokens
+  # and the API verifies them. If they differ, every unsubscribe link fails
+  # verification silently - a failed verify is indistinguishable from a forged
+  # token.
+
+  - type: cron
+    name: aspirova-daily-digest
+    runtime: python
+    region: singapore
+    plan: starter
+    rootDir: backend
+    # 03:30 UTC = 09:00 IST.
+    schedule: "30 3 * * *"
+    buildCommand: pip install uv && uv sync --frozen
+    buildFilter:
+      paths:
+        - backend/**
+        - render.yaml
+      ignoredPaths:
+        - backend/tests/**
+    startCommand: uv run python -m scripts.notification_worker --digest
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
+      - key: ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
+
+  - type: cron
+    name: aspirova-hackathon-digest
+    runtime: python
+    region: singapore
+    plan: starter
+    rootDir: backend
+    # 06:30 UTC = 12:00 IST - three hours after the daily digest, comfortably
+    # past HACKATHON_DIGEST_MIN_GAP (2h). That gap is ALSO enforced per user in
+    # send_hackathon_digests(), because a schedule alone cannot guarantee it if
+    # either run is delayed.
+    schedule: "30 6 * * *"
+    buildCommand: pip install uv && uv sync --frozen
+    buildFilter:
+      paths:
+        - backend/**
+        - render.yaml
+      ignoredPaths:
+        - backend/tests/**
+    startCommand: uv run python -m scripts.notification_worker --hackathon-digest
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
+      - key: ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
