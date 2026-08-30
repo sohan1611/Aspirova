@@ -1,8 +1,11 @@
 """Authenticated in-app notification center endpoints."""
 
 import uuid
+from html import escape
+from urllib.parse import quote_plus
 
 from fastapi import APIRouter, Depends, Query, Response
+from fastapi.responses import HTMLResponse
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
@@ -130,8 +133,68 @@ def mark_notifications_read(
     return {"unread": 0}
 
 
-@router.api_route("/notifications/unsubscribe", methods=["GET", "POST"])
-def unsubscribe(token: str = Query(...), db: Session = Depends(get_db)) -> Response:
+_UNSUB_DONE = "You have been unsubscribed."
+_UNSUB_DETAIL = "You can re-enable this any time in your Aspirova account settings."
+_UNSUB_CONFIRM = "Stop receiving these emails?"
+
+
+def _unsub_page(heading: str, detail: str, confirm_token: str | None = None) -> Response:
+    """Minimal self-contained HTML. No external assets - this is read by people
+    who have just left, on unknown clients, and must render everywhere."""
+    button = ""
+    if confirm_token is not None:
+        # Token stays in the query string, not a form field: Gmail's one-click
+        # POST puts it there, so the endpoint reads it from there, and this form
+        # must post the same shape.
+        action = escape(f"/notifications/unsubscribe?token={quote_plus(confirm_token)}", quote=True)
+        button = (
+            f'<form method="post" action="{action}" style="margin:22px 0 0">'
+            '<button type="submit" style="background:#5e2b47;border:0;border-radius:8px;'
+            "color:#fff;cursor:pointer;font-family:Arial,Helvetica,sans-serif;font-size:15px;"
+            'font-weight:700;padding:12px 22px">Yes, unsubscribe</button>'
+            "</form>"
+        )
+    return HTMLResponse(
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        "<title>Aspirova</title></head>"
+        '<body style="background:#faf7f0;margin:0;padding:48px 16px">'
+        '<div style="background:#fff;border:1px solid #e7e0d4;border-radius:12px;'
+        'margin:0 auto;max-width:520px;padding:32px 28px">'
+        "<p style=\"color:#5e2b47;font-family:Georgia,'Times New Roman',serif;font-size:22px;"
+        'font-weight:700;margin:0 0 18px">Aspirova</p>'
+        "<p style=\"color:#2b2620;font-family:Georgia,'Times New Roman',serif;font-size:20px;"
+        f'line-height:28px;margin:0 0 10px">{escape(heading)}</p>'
+        '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
+        f'line-height:21px;margin:0">{escape(detail)}</p>'
+        f"{button}"
+        "</div></body></html>"
+    )
+
+
+def _apply_unsubscribe(token: str, db: Session) -> None:
+    """Turn off exactly the one preference the token names. Silent on every
+    failure path: an anonymous caller must not learn whether a user exists."""
+    verified = verify_token(token)
+    if verified is None:
+        return
+
+    user_id, preference_key = verified
+    try:
+        user = db.get(models.User, uuid.UUID(user_id))
+    except (ValueError, AttributeError, TypeError):
+        return
+    if user is None:
+        return
+
+    # Merge rather than replace: this turns off exactly the one list the reader
+    # clicked from, and leaves every other preference untouched.
+    user.notification_prefs = {**(user.notification_prefs or {}), preference_key: False}
+    db.commit()
+
+
+@router.post("/notifications/unsubscribe")
+def unsubscribe_post(token: str = Query(...), db: Session = Depends(get_db)) -> Response:
     """One-click unsubscribe. Deliberately unauthenticated.
 
     Gmail POSTs here itself, on the reader's behalf, with no session and no
@@ -139,28 +202,26 @@ def unsubscribe(token: str = Query(...), db: Session = Depends(get_db)) -> Respo
     the authorisation: it is signed, names exactly one user and one preference,
     and can do nothing else.
 
-    GET is accepted too, because some clients and every human who pastes the
-    link will use it.
-
     Always answers 200. A bad or expired token must not tell an anonymous caller
-    whether a user exists, and Gmail treats a non-2xx as a broken unsubscribe -
-    which is the thing being fixed here.
+    whether a user exists, and Gmail treats a non-2xx as a broken unsubscribe.
     """
-    ok = "You have been unsubscribed. You can re-enable this any time in your Aspirova account settings."
-    verified = verify_token(token)
-    if verified is None:
-        return Response(content=ok, media_type="text/plain")
+    _apply_unsubscribe(token, db)
+    return _unsub_page(_UNSUB_DONE, _UNSUB_DETAIL)
 
-    user_id, preference_key = verified
-    try:
-        user = db.get(models.User, uuid.UUID(user_id))
-    except (ValueError, AttributeError, TypeError):
-        return Response(content=ok, media_type="text/plain")
-    if user is None:
-        return Response(content=ok, media_type="text/plain")
 
-    # Merge rather than replace: this turns off exactly the one list the reader
-    # clicked from, and leaves every other preference untouched.
-    user.notification_prefs = {**(user.notification_prefs or {}), preference_key: False}
-    db.commit()
-    return Response(content=ok, media_type="text/plain")
+@router.get("/notifications/unsubscribe")
+def unsubscribe_get(token: str = Query(...), db: Session = Depends(get_db)) -> Response:
+    """GET only ASKS. It must never change anything.
+
+    This is the difference between the header and the visible footer link.
+    List-Unsubscribe is fetched by machines: Gmail POSTs it, but security
+    scanners, link previewers and corporate mail gateways issue GETs on every
+    URL they find in a message - including this one, without a human involved.
+    While GET unsubscribed, any such prefetch silently opted a reader out of
+    mail they never asked to stop.
+
+    So GET renders a confirmation with a button that POSTs. RFC 8058 one-click
+    is unaffected because it is defined as a POST, and a human who pastes the
+    link still gets somewhere sensible.
+    """
+    return _unsub_page(_UNSUB_CONFIRM, _UNSUB_DETAIL, confirm_token=token)

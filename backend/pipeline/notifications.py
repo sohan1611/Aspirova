@@ -42,7 +42,7 @@ from core.config import get_settings
 from core.email_client import send_email
 from core.email_templates import email_layout, text_footer
 from core.gating import can
-from core.unsubscribe import list_unsubscribe_headers
+from core.unsubscribe import list_unsubscribe_headers, unsubscribe_url
 
 
 def wants(user: models.User, key: str) -> bool:
@@ -101,6 +101,32 @@ def _already_sent_today(session: Session, user_id, notification_type: str, now: 
                 models.Notification.type == notification_type,
                 models.Notification.status == "sent",
                 func.date(models.Notification.sent_at) == now.date(),
+            )
+            .limit(1)
+        )
+        is not None
+    )
+
+
+def _sent_within(
+    session: Session, user_id, notification_type: str, now: datetime, window: timedelta
+) -> bool:
+    """Did this user get `notification_type` inside the last `window`?
+
+    Unlike _already_sent_today this IS a rolling window, deliberately: it asks
+    "was the other email just now", which is a question about elapsed time, not
+    about the calendar day. It cannot ratchet a daily send, because it only ever
+    defers within the day - the calendar-day cap is still what decides whether
+    the email happens at all.
+    """
+    return (
+        session.scalar(
+            select(models.Notification.id)
+            .where(
+                models.Notification.user_id == user_id,
+                models.Notification.type == notification_type,
+                models.Notification.status == "sent",
+                models.Notification.sent_at >= now - window,
             )
             .limit(1)
         )
@@ -262,13 +288,15 @@ def _company_name(opportunity: models.Opportunity) -> str:
     return opportunity.company.name if opportunity.company else "Unknown"
 
 
-def _render_digest(opportunities: list[models.Opportunity]) -> tuple[str, str]:
+def _render_digest(
+    opportunities: list[models.Opportunity], unsub_url: str | None = None
+) -> tuple[str, str]:
     lines = [f"- {o.title} at {_company_name(o)}: {o.apply_url}" for o in opportunities]
     text = (
         "Fresh opportunities matched to your interests — take a look while they're still open.\n\n"
         + "\n".join(lines)
         + "\n\n"
-        + text_footer()
+        + text_footer(unsub_url)
     )
     html_rows = "".join(
         (
@@ -297,6 +325,7 @@ def _render_digest(opportunities: list[models.Opportunity]) -> tuple[str, str]:
             "take a look while they're still open.</p>"
         ),
         body_html=html_rows,
+        unsubscribe_url=unsub_url,
         cta_label="Browse all opportunities",
         cta_url=get_settings().site_url,
     )
@@ -452,7 +481,7 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
                 result["skipped_empty"] += 1
                 continue
 
-            html, text = _render_digest(opportunities)
+            html, text = _render_digest(opportunities, unsubscribe_url(user.id, "daily_digest"))
             sent = send_email(
                 user.email,
                 "Your Aspirova daily digest",
@@ -631,6 +660,21 @@ HACKATHON_DIGEST_REPUTED_RESERVE = 2
 # about a hackathon you can no longer enter is worse than not sending one.
 HACKATHON_DIGEST_MIN_LEAD = timedelta(days=2)
 
+# Minimum spacing between a user's daily digest and their hackathon digest.
+#
+# These began life as two consecutive steps of one workflow, so they arrived
+# about a minute apart - two emails from the same sender landing together, which
+# reads as a burst and is the shape recipients unsubscribe from (and Gmail
+# groups). Scheduling alone cannot guarantee the gap here: GitHub's cron is
+# best-effort and drifts by hours on this repo, so a late daily run can land on
+# top of an on-time hackathon run.
+#
+# So the gap is enforced per user at send time, and the two workflows are merely
+# scheduled apart. A user inside the window is skipped, not dropped: the
+# hackathon workflow has several cron slots through the day and a later one
+# sends, still bounded by the once-per-calendar-day cap.
+HACKATHON_DIGEST_MIN_GAP = timedelta(hours=2)
+
 # Aspirova's audience is college students. Unstop carries school-level quizzes
 # ("The Pi Quiz Juniors: 6th to 8th") that are real, active and entirely wrong
 # for this list. Matches an explicit grade range or an explicit school framing -
@@ -781,7 +825,7 @@ def _hackathon_digest_opportunities(
 
 
 def _render_hackathon_digest(
-    opportunities: list[models.Opportunity], now: datetime
+    opportunities: list[models.Opportunity], now: datetime, unsub_url: str | None = None
 ) -> tuple[str, str]:
     """Deadline is the headline here, unlike the generic digest.
 
@@ -809,7 +853,7 @@ def _render_hackathon_digest(
         "Hackathons and competitions open right now - entries close on the dates below.\n\n"
         + "\n".join(lines)
         + "\n\n"
-        + text_footer()
+        + text_footer(unsub_url)
     )
 
     html_rows = "".join(
@@ -845,6 +889,7 @@ def _render_hackathon_digest(
         body_html=html_rows,
         cta_label="Browse all competitions",
         cta_url=f"{get_settings().site_url}/competitions",
+        unsubscribe_url=unsub_url,
     )
     return html, text
 
@@ -859,7 +904,13 @@ def send_hackathon_digests(session: Session, *, now: datetime | None = None) -> 
     """
     now = now or datetime.now(timezone.utc)
 
-    result = {"sent": 0, "failed": 0, "skipped_capped": 0, "skipped_empty": 0}
+    result = {
+        "sent": 0,
+        "failed": 0,
+        "skipped_capped": 0,
+        "skipped_empty": 0,
+        "skipped_too_soon": 0,
+    }
 
     opportunities = _hackathon_digest_opportunities(session, now)
     if not opportunities:
@@ -867,7 +918,9 @@ def send_hackathon_digests(session: Session, *, now: datetime | None = None) -> 
         result["skipped_empty"] = len(list(session.scalars(select(models.User)).all()))
         return result
 
-    html, text = _render_hackathon_digest(opportunities, now)
+    # Selection stays hoisted - that is the query, and it is identical for
+    # everyone. Rendering moves into the loop because the unsubscribe link is
+    # per-recipient: one shared body would hand every reader the same token.
     opportunity_ids = [opportunity.id for opportunity in opportunities]
 
     for user in session.scalars(select(models.User)).all():
@@ -879,7 +932,18 @@ def send_hackathon_digests(session: Session, *, now: datetime | None = None) -> 
             if _already_sent_today(session, user.id, "hackathon_digest", now):
                 result["skipped_capped"] += 1
                 continue
+            # "digest" is the type the worker records for the daily digest -
+            # see _notification_copy in api/notifications.py, where the legacy
+            # name is kept readable alongside daily_digest.
+            if _sent_within(
+                session, user.id, "digest", now, HACKATHON_DIGEST_MIN_GAP
+            ) or _sent_within(session, user.id, "daily_digest", now, HACKATHON_DIGEST_MIN_GAP):
+                result["skipped_too_soon"] += 1
+                continue
 
+            html, text = _render_hackathon_digest(
+                opportunities, now, unsubscribe_url(user.id, "hackathon_digest")
+            )
             sent = send_email(
                 user.email,
                 HACKATHON_DIGEST_SUBJECT,
