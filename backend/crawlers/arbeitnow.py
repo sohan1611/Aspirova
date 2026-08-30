@@ -20,9 +20,28 @@ from crawlers.student_relevance import classify_student_role, is_student_relevan
 
 _API_URL = "https://www.arbeitnow.com/api/job-board-api"
 _PAGE_SIZE = 175
-_MAX_PAGES = 12
-_REQUEST_DELAY_SECONDS = 0.5
-_MAX_RETRIES = 2
+
+# These three are a rate-limit budget, not a time budget.
+#
+# Arbeitnow was the only enabled source not reaching full coverage: it 429s us
+# around page 11-12 and the fetch ends there. Measured across 2026-08-27..29 it
+# terminated on http_429 with terminal_reason set, having kept 36-51 listings
+# from ~1250 raw. Successful runs separately reported "fetch capped at 12
+# pages", so page 12 was never the end of the data - the cap itself was also
+# truncating us.
+#
+# Wall clock was never the constraint and raising the workflow timeout would
+# have done nothing: the crawl job allows 150 minutes per step and the whole
+# run peaks at 176 minutes across both, having never once been killed by a
+# timeout. What we ran out of was the source's patience at 2 requests/second.
+#
+# So: go slower to stop provoking the limiter, retry harder when it fires
+# anyway (request_with_retries honours Retry-After and backs off
+# exponentially), and page deeper now that we are allowed to. The added delay
+# is ~80 seconds of deliberate waiting against a 150-minute allowance.
+_MAX_PAGES = 40
+_REQUEST_DELAY_SECONDS = 2.0
+_MAX_RETRIES = 5
 
 HealthStatus = Literal["ok", "degraded", "broken"]
 
