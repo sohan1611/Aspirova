@@ -20,6 +20,7 @@ import pipeline.notifications as notifications_module
 from core import models
 from pipeline.notifications import (
     HACKATHON_DIGEST_REPUTED_RESERVE,
+    HACKATHON_DIGEST_SUBJECT,
     _hackathon_digest_opportunities,
     send_hackathon_digests,
 )
@@ -410,10 +411,10 @@ def test_digest_carries_the_list_unsubscribe_header(
     monkeypatch.setattr(
         "core.unsubscribe._signing_key", lambda: b"pinned-test-key-do-not-use-in-prod"
     )
-    captured: list[dict | None] = []
+    captured: list[tuple[str, dict | None]] = []
 
     def _fake_send(to, subject, html, text, headers=None):
-        captured.append(headers)
+        captured.append((subject, headers))
         return True
 
     monkeypatch.setattr(notifications_module, "send_email", _fake_send)
@@ -427,7 +428,16 @@ def test_digest_carries_the_list_unsubscribe_header(
     send_hackathon_digests(db_session, now=datetime.now(timezone.utc))
 
     assert captured, "expected at least one send"
-    headers = captured[0]
+    subject, headers = captured[0]
     assert headers, "bulk mail must carry List-Unsubscribe"
     assert headers["List-Unsubscribe"].startswith("<http")
     assert headers["List-Unsubscribe-Post"] == "List-Unsubscribe=One-Click"
+
+    # Subject and headers are asserted together on purpose. They are set in one
+    # call and were lost independently once already: this rename branch was cut
+    # before List-Unsubscribe existed, so rebasing it produced a conflict where
+    # taking either side silently dropped the other - the branch's side would
+    # have shipped the new subject with no headers, reinstating the exact Gmail
+    # accept-then-discard bug that PR #101 fixed.
+    assert subject == HACKATHON_DIGEST_SUBJECT
+    assert subject == "Your Daily Dose of Hackathons \U0001f680"
