@@ -18,7 +18,6 @@ const STATIC_ROUTES = [
   "/programmes",
   "/competitions",
   "/research",
-  "/scholarships",
 ] as const;
 
 export const revalidate = 86400;
