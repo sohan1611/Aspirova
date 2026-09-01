@@ -89,7 +89,7 @@ function throwResumeApiError(res: Response, action: string): never {
 }
 
 export interface FeedParams {
-  category?: "internship" | "job";
+  category?: "internship" | "job" | "scholarship";
   kind?: "roles" | "competitions";
   source?: "direct" | "unstop" | "remoteok" | "devpost";
   experience?: "early";

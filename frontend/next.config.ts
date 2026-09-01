@@ -36,6 +36,11 @@ const nextConfig: NextConfig = {
         destination: "/remote",
         permanent: true,
       },
+      {
+        source: "/scholarships/page/1",
+        destination: "/scholarships",
+        permanent: true,
+      },
     ];
   },
 };

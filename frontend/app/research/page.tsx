@@ -25,19 +25,30 @@ interface PageProps {
   searchParams: Promise<{ category?: string }>;
 }
 
-type ResearchCategory = "research_internship" | "fellowship";
+// The research-shaped subset of the programmes registry. This page used to
+// query only research_internship + fellowship, which rendered 25 of the 82
+// active programmes - the other 57 were reachable only at /programmes, so the
+// tab looked empty while the content already existed.
+//
+// scholarship, open_source, recurring_competition and conference stay out on
+// purpose: they live in the registry but they are not research.
+type ResearchCategory =
+  | "research_internship"
+  | "fellowship"
+  | "international_research"
+  | "corporate_research"
+  | "government_internship";
 
 const RESEARCH_CATEGORIES: Array<{ label: string; value: ResearchCategory }> = [
   { label: "Research internships", value: "research_internship" },
   { label: "Fellowships", value: "fellowship" },
+  { label: "International research", value: "international_research" },
+  { label: "Corporate research", value: "corporate_research" },
+  { label: "Government internships", value: "government_internship" },
 ];
 
 function parseResearchCategory(category?: string): ResearchCategory | undefined {
-  if (category === "research_internship" || category === "fellowship") {
-    return category;
-  }
-
-  return undefined;
+  return RESEARCH_CATEGORIES.find((entry) => entry.value === category)?.value;
 }
 
 function categoryHref(category?: ResearchCategory): string {
@@ -53,14 +64,17 @@ async function getResearchProgrammes(
     return programmes.items;
   }
 
-  const [research, fellowships] = await Promise.all([
-    getProgrammes({ category: "research_internship", limit: 100 }),
-    getProgrammes({ category: "fellowship", limit: 100 }),
-  ]);
-
-  return [...research.items, ...fellowships.items].sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+  const results = await Promise.all(
+    RESEARCH_CATEGORIES.map((entry) =>
+      getProgrammes({ category: entry.value, limit: 100 }),
+    ),
   );
+
+  return results
+    .flatMap((result) => result.items)
+    .sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+    );
 }
 
 export default async function ResearchPage({ searchParams }: PageProps) {
