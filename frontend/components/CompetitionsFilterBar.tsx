@@ -2,8 +2,13 @@
 
 import { Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
+import {
+  CompetitionsAdvancedFilters,
+  type CompetitionFacetsStatus,
+} from "@/components/CompetitionsAdvancedFilters";
 import { useFeedNavigation } from "@/components/FeedNavigation";
 import { Badge } from "@/components/ui/badge";
+import type { Facets } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type CompetitionSort = "recent" | "deadline";
@@ -14,6 +19,11 @@ type SearchParamReader = Pick<URLSearchParams, "get">;
 const COMPETITIONS_PATH = "/competitions";
 const INDIA_COUNTRY_CODE = "IN";
 const LOCATION_PARAM_KEYS = ["scope", "country", "remote", "remote_abroad"];
+
+interface CompetitionsFilterBarProps {
+  facets: Facets | null;
+  facetsStatus: CompetitionFacetsStatus;
+}
 
 function isScope(value: string | null): value is LocationScope {
   if (value === "abroad" || value === "domestic" || value === "both") {
@@ -66,7 +76,10 @@ function applyLocationParams(params: URLSearchParams, location: CompetitionLocat
   }
 }
 
-export default function CompetitionsFilterBar() {
+export default function CompetitionsFilterBar({
+  facets,
+  facetsStatus,
+}: CompetitionsFilterBarProps) {
   const searchParams = useSearchParams();
   const { navigate, isFeedPending: isPending } = useFeedNavigation();
   const activeLocation = getLocation(searchParams);
@@ -121,6 +134,8 @@ export default function CompetitionsFilterBar() {
           Updating competitions...
         </span>
       )}
+
+      <CompetitionsAdvancedFilters facets={facets} facetsStatus={facetsStatus} />
 
       <div
         className="flex min-w-0 flex-wrap items-center justify-end gap-2"

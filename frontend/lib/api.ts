@@ -100,6 +100,12 @@ export interface FeedParams {
   scope?: "abroad" | "domestic" | "both";
   country?: string;
   remote_abroad?: boolean;
+  comp_type?: string | string[];
+  registration?: string;
+  deadline_within?: number;
+  organiser_type?: string | string[];
+  mode?: string | string[];
+  prize_min?: number;
   sort?: "student" | "recent" | "deadline";
   page?: number;
   limit?: number;
@@ -143,7 +149,7 @@ type SearchFilterParams = Pick<
 
 function appendRepeatedParam(
   search: URLSearchParams,
-  key: "company" | "location",
+  key: "company" | "location" | "comp_type" | "organiser_type" | "mode",
   value: string | string[] | undefined,
 ) {
   const values = Array.isArray(value) ? value : value ? [value] : [];
@@ -173,6 +179,14 @@ export async function getFeed(
   if (params.scope) search.set("scope", params.scope);
   if (params.country) search.set("country", params.country);
   if (params.remote_abroad) search.set("remote_abroad", "true");
+  appendRepeatedParam(search, "comp_type", params.comp_type);
+  if (params.registration) search.set("registration", params.registration);
+  if (params.deadline_within !== undefined) {
+    search.set("deadline_within", String(params.deadline_within));
+  }
+  appendRepeatedParam(search, "organiser_type", params.organiser_type);
+  appendRepeatedParam(search, "mode", params.mode);
+  if (params.prize_min !== undefined) search.set("prize_min", String(params.prize_min));
   if (params.sort === "recent" || params.sort === "deadline") {
     search.set("sort", params.sort);
   }
@@ -243,8 +257,16 @@ export async function getStats(revalidateSeconds = 300): Promise<StatsResponse> 
   return res.json();
 }
 
-export async function getFacets(): Promise<Facets> {
-  const res = await fetch(`${API_URL}/facets`, { next: { revalidate: 3600 } });
+export async function getFacets(
+  params: Pick<FeedParams, "kind" | "category"> = {},
+): Promise<Facets> {
+  const search = new URLSearchParams();
+  if (params.kind) search.set("kind", params.kind);
+  if (params.category) search.set("category", params.category);
+  const query = search.toString();
+  const res = await fetch(`${API_URL}/facets${query ? `?${query}` : ""}`, {
+    next: { revalidate: 3600 },
+  });
   if (!res.ok) throw new Error(`Failed to load facets: ${res.status}`);
   return res.json();
 }
