@@ -45,11 +45,7 @@ export default function AppFooter() {
                   Research
                 </Link>
               </li>
-              <li>
-                <Link className={FOOTER_LINK_CLASSES} href="/scholarships">
-                  Scholarships
-                </Link>
-              </li>
+              {/* Scholarships intentionally unlinked - see MobileNav for why. */}
               <li>
                 <Link className={FOOTER_LINK_CLASSES} href="/programmes">
                   Programmes

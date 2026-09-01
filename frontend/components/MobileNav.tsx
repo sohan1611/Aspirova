@@ -20,7 +20,11 @@ const NAV_LINKS = [
   { href: "/copilot", label: "Copilot" },
   { href: "/competitions", label: "Competitions" },
   { href: "/research", label: "Research" },
-  { href: "/scholarships", label: "Scholarships" },
+  // Scholarships is deliberately NOT linked here yet. The route, its ISR
+  // wiring and the crawl are all live, but Unstop only had 3 open
+  // scholarships on 2026-09-01 (the 2,383 figure was an all-time archive
+  // count - the adapter sends oppstatus=open). Restore this link when the
+  // page carries enough to be worth a nav slot.
   { href: "/programmes", label: "Programmes" },
   { href: "/pricing", label: "Pricing" },
 ] as const;

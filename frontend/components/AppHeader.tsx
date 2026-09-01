@@ -33,9 +33,7 @@ export default function AppHeader() {
             <Link href="/research" className={NAV_LINK_CLASSES}>
               Research
             </Link>
-            <Link href="/scholarships" className={NAV_LINK_CLASSES}>
-              Scholarships
-            </Link>
+            {/* Scholarships intentionally unlinked - see MobileNav for why. */}
             <Link href="/programmes" className={NAV_LINK_CLASSES}>
               Programmes
             </Link>
