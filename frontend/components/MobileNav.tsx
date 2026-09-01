@@ -18,6 +18,8 @@ const NAV_LINKS = [
   { href: "/resume", label: "Matches" },
   { href: "/referral", label: "Invite" },
   { href: "/copilot", label: "Copilot" },
+  { href: "/jobs", label: "Jobs" },
+  { href: "/internships", label: "Internships" },
   { href: "/competitions", label: "Competitions" },
   { href: "/research", label: "Research" },
   // Scholarships is deliberately NOT linked here yet. The route, its ISR

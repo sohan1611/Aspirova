@@ -1019,3 +1019,44 @@ def test_failed_type_still_reports_degraded_when_a_later_type_runs_out_of_budget
     assert adapter.stopped_early is True
     # The regression: this reported "ok" while internships had genuinely failed.
     assert adapter.health() == "degraded"
+
+
+# ------------------------------------------------- jobs/internships separation
+
+# Real titles Unstop's *jobs* search returned on 2026-09-01. Filed under Jobs,
+# they put an internship in front of someone browsing full-time roles.
+_JOBS_SEARCH_TITLES_THAT_ARE_INTERNSHIPS = [
+    "Business Development Internship",
+    "Campus Ambassador Internship",
+    "AI Backend Internship",
+    "Content Development Intern",
+    "Campus Relations Internship",
+    "EHS Intern_Shenzhen",
+]
+
+# The lookalikes that must NOT be reclassified. "International" and "Internal"
+# both contain "intern"; a substring match would move real jobs into the
+# internships tab, which is the same failure in the opposite direction.
+_JOBS_SEARCH_TITLES_THAT_STAY_JOBS = [
+    "International Sales Manager",
+    "Internal Auditor",
+    "Software Engineer",
+    "Senior Backend Developer",
+    "Interndom Analyst",
+]
+
+
+@pytest.mark.parametrize("title", _JOBS_SEARCH_TITLES_THAT_ARE_INTERNSHIPS)
+def test_title_says_internship_catches_real_mislabelled_rows(title: str) -> None:
+    assert unstop._title_says_internship(title) is True
+
+
+@pytest.mark.parametrize("title", _JOBS_SEARCH_TITLES_THAT_STAY_JOBS)
+def test_title_says_internship_ignores_lookalikes(title: str) -> None:
+    """Word-boundary anchored on both sides, like the reputed-organiser regex."""
+    assert unstop._title_says_internship(title) is False
+
+
+def test_title_says_internship_handles_missing_titles() -> None:
+    for value in (None, "", "   "):
+        assert unstop._title_says_internship(value) is False

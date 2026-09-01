@@ -27,6 +27,12 @@ export default function AppHeader() {
             <Link href="/copilot" className={NAV_LINK_CLASSES}>
               Copilot
             </Link>
+            <Link href="/jobs" className={NAV_LINK_CLASSES}>
+              Jobs
+            </Link>
+            <Link href="/internships" className={NAV_LINK_CLASSES}>
+              Internships
+            </Link>
             <Link href="/competitions" className={NAV_LINK_CLASSES}>
               Competitions
             </Link>
