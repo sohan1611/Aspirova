@@ -11,6 +11,7 @@ const REQUIRED_ISR_ROUTES = [
   "/opportunity/[slug]",
   "/programme/[slug]",
   "/remote/page/[n]",
+  "/scholarships/page/[n]",
 ];
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));

@@ -56,12 +56,25 @@ export const REMOTE_LANDING: LandingConfig = {
   query: { remote: true },
 };
 
+export const SCHOLARSHIPS_LANDING: LandingConfig = {
+  title: "Scholarships",
+  description:
+    "Scholarships and fellowships auto-discovered from public sources, with " +
+    "each listing linking back to the original announcement.",
+  intro:
+    "Scholarships and fellowships, auto-discovered from public sources; " +
+    "Aspirova links out to the original announcement.",
+  basePath: "/scholarships",
+  query: { category: "scholarship" },
+};
+
 // Landing paths that also have a /page/[n] segment. Revalidating "/jobs" does not
 // touch "/jobs/page/2", so these need their route pattern invalidated as well.
 export const PAGINATED_LANDING_PATHS = [
   JOBS_LANDING.basePath,
   INTERNSHIPS_LANDING.basePath,
   REMOTE_LANDING.basePath,
+  SCHOLARSHIPS_LANDING.basePath,
 ] as const;
 
 // Every ISR-cached list path the crawler may invalidate. The revalidation route
