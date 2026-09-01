@@ -46,6 +46,16 @@ def test_feed_list_query_does_not_select_heavy_opportunity_columns() -> None:
         remote_abroad=False,
         source=None,
         experience=None,
+        # Called as a plain function, not through FastAPI, so an omitted
+        # parameter keeps its Query(...) default OBJECT rather than resolving to
+        # None. Every new /feed parameter must be listed here or the helpers
+        # receive a Query and fail with an unrelated-looking TypeError.
+        comp_type=None,
+        registration=None,
+        deadline_within=None,
+        organiser_type=None,
+        mode=None,
+        prize_min=None,
         top=None,
         sort="student",
         page=1,

@@ -90,7 +90,11 @@ def get_facets(
         modes = _mode_facets(db, base_filters)
 
     return FacetsResponse(
-        companies=[name for _slug, name, _count in company_rows],
+        # Deduplicated, order preserved. The counted facet groups by slug so each
+        # option has a stable value, but two distinct companies can share a
+        # display name - grouping by slug therefore emits that name twice, and
+        # this legacy list has always been a distinct set of names.
+        companies=list(dict.fromkeys(name for _slug, name, _count in company_rows)),
         locations=[location for location, _count in location_rows if location is not None],
         company_counts=company_counts,
         location_counts=location_counts,
