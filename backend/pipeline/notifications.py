@@ -42,6 +42,7 @@ from core.config import get_settings
 from core.email_client import send_email
 from core.email_templates import email_layout, text_footer
 from core.gating import can
+from core.organisers import REPUTED_ORGANISER_REGEX
 from core.unsubscribe import list_unsubscribe_headers, unsubscribe_url
 
 
@@ -685,22 +686,6 @@ _SCHOOL_LEVEL_REGEX = (
     r"|school[[:space:]]+students"
 )
 
-# Deterministic reputation signal - string matching, no AI, no per-user work.
-# Every acronym is word-boundary anchored on BOTH sides because the naive
-# substring test is wrong in ways that matter here, verified against real rows:
-#   "KIIT School of Management"                 must NOT match IIT
-#   "Institute of Information Technology (IITM)" must NOT match IIT
-#   "IGNITE"                                     must NOT match NIT
-#   "IIT Delhi", "Indian Institute of Technology Bhubaneswar"  MUST match
-_REPUTED_ORGANISER_REGEX = (
-    r"(^|[^A-Za-z])(IIT|IIM|IISc|IISER|IIIT|NIT|BITS)([^A-Za-z]|$)"
-    r"|indian institute of (technology|management|science)"
-    r"|birla institute of technology"
-    r"|national institute of technology"
-    r"|(^|[^a-z])national([^a-z]|$)"
-    r"|smart india hackathon"
-)
-
 
 def _reputed_organiser_expression():
     """1 for a top-tier organiser or a national-level event, else 0.
@@ -715,7 +700,7 @@ def _reputed_organiser_expression():
         " ",
         func.coalesce(models.Company.name, ""),
     )
-    return case((haystack.op("~*")(_REPUTED_ORGANISER_REGEX), 1), else_=0)
+    return case((haystack.op("~*")(REPUTED_ORGANISER_REGEX), 1), else_=0)
 
 
 def _hackathon_digest_opportunities(

@@ -380,9 +380,22 @@ class StatsResponse(BaseModel):
     updated_at: datetime | None
 
 
+class FacetOption(BaseModel):
+    value: str
+    label: str
+    count: int
+
+
 class FacetsResponse(BaseModel):
     companies: list[str]
     locations: list[str]
+    company_counts: list[FacetOption] = []
+    location_counts: list[FacetOption] = []
+    comp_types: list[FacetOption] = []
+    registrations: list[FacetOption] = []
+    deadline_within: list[FacetOption] = []
+    organiser_types: list[FacetOption] = []
+    modes: list[FacetOption] = []
 
 
 class CompanyPage(BaseModel):

@@ -16,10 +16,12 @@ from sqlalchemy.orm import Session
 from api.deps import get_db
 from api.filters import (
     SOURCE_GROUPS,
+    competition_filters,
     exclude_closed_competitions,
     exclude_experienced_only_opportunities,
     exclude_stale_opportunities,
     experience_filters,
+    kind_filters,
     location_scope_filters,
     opportunity_filters,
     student_rank_expression,
@@ -45,6 +47,12 @@ def get_feed(
     remote_abroad: bool = Query(False),
     source: str | None = Query(None, pattern="^(direct|unstop|remoteok|devpost)$"),
     experience: str | None = Query(None, pattern="^(early)$"),
+    comp_type: list[str] | None = Query(None),
+    registration: str | None = Query(None),
+    deadline_within: int | None = Query(None),
+    organiser_type: list[str] | None = Query(None),
+    mode: list[str] | None = Query(None),
+    prize_min: int | None = Query(None, ge=0),
     top: int | None = Query(None, gt=0),
     sort: str = Query("student", pattern="^(recent|deadline|student)$"),
     page: int = Query(1, ge=1),
@@ -59,17 +67,16 @@ def get_feed(
         *opportunity_filters(category, remote, company, location, top),
         *experience_filters(experience),
         *location_scope_filters(scope, country, remote_abroad),
+        *competition_filters(
+            comp_type,
+            registration,
+            deadline_within,
+            organiser_type,
+            mode,
+            prize_min,
+        ),
     ]
-    if kind == "competitions":
-        base_filters.append(models.Opportunity.category.in_(["hackathon", "competition"]))
-    elif kind == "roles":
-        base_filters.append(
-            or_(
-                models.Opportunity.category.in_(["internship", "job"]),
-                models.Opportunity.meta["offers_ppi"].as_boolean().is_(True),
-                models.Opportunity.meta["offers_ppo"].as_boolean().is_(True),
-            )
-        )
+    base_filters.extend(kind_filters(kind))
     if source is not None:
         base_filters.append(models.Opportunity.primary_source.in_(SOURCE_GROUPS[source]))
 

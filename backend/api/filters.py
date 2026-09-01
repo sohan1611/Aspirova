@@ -2,10 +2,11 @@
 
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import and_, case, func, not_, or_, text
+from sqlalchemy import and_, case, false, func, not_, or_, text
 
 from core import models
 from core.eligibility import ELIGIBLE_EXPERIENCED_ONLY_META_KEY
+from core.organisers import ORGANISER_TYPE_LABELS, organiser_type_expression
 
 SOURCE_GROUPS = {
     "direct": ["greenhouse", "lever", "ashby", "smartrecruiters", "amazon"],
@@ -16,6 +17,22 @@ SOURCE_GROUPS = {
 
 # Founder ruling: "10 months" means 305 days for stale-listing promotion.
 STALE_AFTER_DAYS = 305
+COMP_TYPE_LABELS = {
+    "online_coding_challenge": "Online coding challenge",
+    "general_competition": "General competition",
+    "case_competition": "Case competition",
+    "innovation_challenge": "Innovation challenge",
+    "hiring_challenge": "Hiring challenge",
+    "events": "Events",
+}
+REGISTRATION_LABELS = {"free": "Free", "paid": "Paid"}
+DEADLINE_WITHIN_DAYS = (1, 3, 7, 30)
+COMPETITION_MODE_LABELS = {
+    "online": "Online",
+    "offline": "Offline",
+    "hybrid": "Hybrid",
+}
+INR_PRIZE_CURRENCY_TOKENS = ("fa-rupee", "fa-inr", "fa-rupee-sign", "INR", "inr")
 
 SENIOR_TITLE_PATTERN = (
     r"(^|[^a-z])(senior|sr|staff|principal|director|vp|vice president|president|"
@@ -118,6 +135,20 @@ def experience_filters(experience: str | None) -> list:
     return []
 
 
+def kind_filters(kind: str | None) -> list:
+    if kind == "competitions":
+        return [models.Opportunity.category.in_(["hackathon", "competition"])]
+    if kind == "roles":
+        return [
+            or_(
+                models.Opportunity.category.in_(["internship", "job"]),
+                models.Opportunity.meta["offers_ppi"].as_boolean().is_(True),
+                models.Opportunity.meta["offers_ppo"].as_boolean().is_(True),
+            )
+        ]
+    return []
+
+
 def opportunity_filters(
     category: str | None,
     remote: bool | None,
@@ -165,6 +196,149 @@ def opportunity_filters(
                 )
             )
         )
+
+    return filters
+
+
+def normalize_competition_mode(value: str | None) -> str:
+    """Collapse Unstop's dirty mode field to the three UI-safe buckets."""
+    if value is None:
+        return "unknown"
+
+    normalized = value.strip().casefold()
+    if normalized in COMPETITION_MODE_LABELS:
+        return normalized
+    return "unknown"
+
+
+def competition_mode_expression():
+    mode_value = func.lower(
+        func.trim(func.coalesce(models.Opportunity.meta["mode"].as_string(), ""))
+    )
+    return case(
+        (mode_value == "online", "online"),
+        (mode_value == "offline", "offline"),
+        (mode_value == "hybrid", "hybrid"),
+        else_="unknown",
+    )
+
+
+def _clean_values(values: list[str] | None) -> list[str]:
+    return [value.strip() for value in (values or []) if value and value.strip()]
+
+
+def _comp_type_values(values: list[str] | None) -> list[str]:
+    selected = []
+    label_to_key = {
+        label.casefold().replace("-", "_").replace(" ", "_"): key
+        for key, label in COMP_TYPE_LABELS.items()
+    }
+    for value in _clean_values(values):
+        normalized = value.casefold().replace("-", "_").replace(" ", "_")
+        mapped = normalized if normalized in COMP_TYPE_LABELS else label_to_key.get(normalized)
+        if mapped and mapped not in selected:
+            selected.append(mapped)
+    return selected
+
+
+def _organiser_type_values(values: list[str] | None) -> list[str]:
+    selected = []
+    for value in _clean_values(values):
+        normalized = value.casefold()
+        if normalized in ORGANISER_TYPE_LABELS and normalized not in selected:
+            selected.append(normalized)
+    return selected
+
+
+def _mode_values(values: list[str] | None) -> list[str]:
+    selected = []
+    for value in _clean_values(values):
+        normalized = normalize_competition_mode(value)
+        if normalized != "unknown" and normalized not in selected:
+            selected.append(normalized)
+    return selected
+
+
+def _prize_min_filter(prize_min: int):
+    # Unstop stores currency as font-awesome tokens, not ISO 4217. Until there
+    # is a real FX normalisation layer, compare only INR-token prize entries.
+    currency_values = ", ".join(f"'{token}'" for token in INR_PRIZE_CURRENCY_TOKENS)
+    return text(f"""
+        exists (
+            select 1
+            from jsonb_array_elements(
+                case
+                    when jsonb_typeof(opportunities.meta->'prizes') = 'array'
+                    then opportunities.meta->'prizes'
+                    else '[]'::jsonb
+                end
+            ) as prize
+            where prize->>'currency' in ({currency_values})
+            and prize->>'cash' ~ '^[0-9]+(\\.[0-9]+)?$'
+            and (prize->>'cash')::numeric >= :prize_min
+        )
+        """).bindparams(prize_min=prize_min)
+
+
+def competition_filters(
+    comp_type: list[str] | None,
+    registration: str | None,
+    deadline_within: int | None,
+    organiser_type: list[str] | None,
+    mode: list[str] | None,
+    prize_min: int | None,
+) -> list:
+    filters = []
+
+    requested_comp_types = _clean_values(comp_type)
+    if requested_comp_types:
+        selected = _comp_type_values(comp_type)
+        filters.append(
+            models.Opportunity.meta["subtype"].as_string().in_(selected) if selected else false()
+        )
+
+    if registration is not None and registration.strip():
+        normalized_registration = registration.strip().casefold()
+        if normalized_registration == "free":
+            filters.append(models.Opportunity.meta["is_paid"].as_boolean().is_(False))
+        elif normalized_registration == "paid":
+            filters.append(models.Opportunity.meta["is_paid"].as_boolean().is_(True))
+        else:
+            filters.append(false())
+
+    if deadline_within is not None:
+        if deadline_within in DEADLINE_WITHIN_DAYS:
+            filters.append(
+                and_(
+                    models.Opportunity.deadline.is_not(None),
+                    models.Opportunity.deadline >= func.now(),
+                    models.Opportunity.deadline
+                    <= func.now() + text(f"interval '{deadline_within} days'"),
+                )
+            )
+        else:
+            filters.append(false())
+
+    requested_organiser_types = _clean_values(organiser_type)
+    if requested_organiser_types:
+        selected = _organiser_type_values(organiser_type)
+        if selected:
+            organiser_match = models.Opportunity.company.has(
+                organiser_type_expression(models.Company.name).in_(selected)
+            )
+            if "other" in selected:
+                organiser_match = or_(models.Opportunity.company_id.is_(None), organiser_match)
+            filters.append(organiser_match)
+        else:
+            filters.append(false())
+
+    requested_modes = _clean_values(mode)
+    if requested_modes:
+        selected = _mode_values(mode)
+        filters.append(competition_mode_expression().in_(selected) if selected else false())
+
+    if prize_min is not None:
+        filters.append(_prize_min_filter(prize_min))
 
     return filters
 
@@ -245,16 +419,7 @@ def saved_search_base_filters(params: dict) -> list:
         *experience_filters(experience),
         *location_scope_filters(scope, country, False),
     ]
-    if kind == "competitions":
-        base_filters.append(models.Opportunity.category.in_(["hackathon", "competition"]))
-    elif kind == "roles":
-        base_filters.append(
-            or_(
-                models.Opportunity.category.in_(["internship", "job"]),
-                models.Opportunity.meta["offers_ppi"].as_boolean().is_(True),
-                models.Opportunity.meta["offers_ppo"].as_boolean().is_(True),
-            )
-        )
+    base_filters.extend(kind_filters(kind))
     if source is not None:
         base_filters.append(models.Opportunity.primary_source.in_(SOURCE_GROUPS[source]))
 
