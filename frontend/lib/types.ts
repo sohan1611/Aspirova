@@ -178,9 +178,22 @@ export interface StatsResponse {
   updated_at: string | null;
 }
 
+export interface FacetOption {
+  value: string;
+  label: string;
+  count: number;
+}
+
 export interface Facets {
   companies: string[];
   locations: string[];
+  company_counts?: FacetOption[];
+  location_counts?: FacetOption[];
+  comp_types?: FacetOption[];
+  registrations?: FacetOption[];
+  deadline_within?: FacetOption[];
+  organiser_types?: FacetOption[];
+  modes?: FacetOption[];
 }
 
 export interface CompanyPage {

@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import {
+  CompetitionsActiveFilterChips,
+  useCompetitionFacets,
+} from "@/components/CompetitionsAdvancedFilters";
 import CompetitionsFilterBar from "@/components/CompetitionsFilterBar";
 import FeedGrid from "@/components/FeedGrid";
 import { FeedNavigationProvider } from "@/components/FeedNavigation";
@@ -34,6 +38,7 @@ export default function CompetitionsResults({ initialData }: CompetitionsResults
   // the default request - so the build renders initialData into the HTML.
   const query = new URLSearchParams(searchParams.toString());
   const request = parseCompetitionsRequest(query);
+  const { facets, facetsStatus } = useCompetitionFacets();
 
   // One keyed state with both flags derived from it. `data: null` records a
   // failed request on purpose: keying only successes would leave a failed fetch
@@ -83,8 +88,10 @@ export default function CompetitionsResults({ initialData }: CompetitionsResults
           </p>
         </div>
 
-        <CompetitionsFilterBar />
+        <CompetitionsFilterBar facets={facets} facetsStatus={facetsStatus} />
       </div>
+
+      <CompetitionsActiveFilterChips facets={facets} />
 
       <FeedGrid
         items={isLoading ? [] : data.items}
