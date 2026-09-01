@@ -237,6 +237,15 @@ def test_for_you_skills_filter_and_rank_by_overlap(
     db_session: Session,
 ) -> None:
     suffix = uuid.uuid4().hex
+    # Skill tokens are derived from the per-test suffix so they cannot collide
+    # with production rows. Real names like "Python" do collide: `scope=domestic`
+    # matches `country == 'AQ'` OR `is_remote AND country IS NULL`, so every
+    # remote production job with an unknown country leaked into this query and
+    # the total came back 224 instead of 2. The `keyword` below already used
+    # this pattern for terms; skills needed it too.
+    skill_a = "SkillA" + "".join(character for character in suffix if character.isalpha())
+    skill_b = "SkillB" + "".join(character for character in suffix if character.isalpha())
+    skill_unrelated = "SkillZ" + "".join(character for character in suffix if character.isalpha())
     now = datetime.now(UTC)
     company = models.Company(
         slug=f"for-you-skills-company-{suffix}",
@@ -247,7 +256,7 @@ def test_for_you_skills_filter_and_rank_by_overlap(
         title="Backend engineer",
         company=company,
         category="job",
-        skills=["Python", "SQL"],
+        skills=[skill_a, skill_b],
         country="AQ",
         is_remote=False,
         apply_url=f"https://example.com/for-you/skills/full/{suffix}",
@@ -259,7 +268,7 @@ def test_for_you_skills_filter_and_rank_by_overlap(
         title="Data analyst",
         company=company,
         category="job",
-        skills=["SQL"],
+        skills=[skill_b],
         country="AQ",
         is_remote=False,
         apply_url=f"https://example.com/for-you/skills/one/{suffix}",
@@ -271,7 +280,7 @@ def test_for_you_skills_filter_and_rank_by_overlap(
         title="Frontend engineer",
         company=company,
         category="job",
-        skills=["React"],
+        skills=[skill_unrelated],
         country="AQ",
         is_remote=False,
         apply_url=f"https://example.com/for-you/skills/nonmatch/{suffix}",
@@ -284,7 +293,7 @@ def test_for_you_skills_filter_and_rank_by_overlap(
     response = client.get(
         "/for-you",
         params={
-            "skills": "Python,SQL",
+            "skills": f"{skill_a},{skill_b}",
             "categories": "job",
             "scope": "domestic",
             "country": "AQ",
@@ -372,6 +381,15 @@ def test_for_you_skills_take_precedence_over_terms_ranking(
 ) -> None:
     suffix = uuid.uuid4().hex
     keyword = "skillterm" + "".join(character for character in suffix if character.isalpha())
+    # Skill tokens are derived from the per-test suffix so they cannot collide
+    # with production rows. Real names like "Python" do collide: `scope=domestic`
+    # matches `country == 'AQ'` OR `is_remote AND country IS NULL`, so every
+    # remote production job with an unknown country leaked into this query and
+    # the total came back 224 instead of 2. The `keyword` below already used
+    # this pattern for terms; skills needed it too.
+    skill_a = "SkillA" + "".join(character for character in suffix if character.isalpha())
+    skill_b = "SkillB" + "".join(character for character in suffix if character.isalpha())
+    skill_unrelated = "SkillZ" + "".join(character for character in suffix if character.isalpha())
     now = datetime.now(UTC)
     company = models.Company(
         slug=f"for-you-skills-precedence-company-{suffix}",
@@ -382,7 +400,7 @@ def test_for_you_skills_take_precedence_over_terms_ranking(
         title="Backend platform role",
         company=company,
         category="job",
-        skills=["Python", "SQL"],
+        skills=[skill_a, skill_b],
         country="AQ",
         is_remote=False,
         apply_url=f"https://example.com/for-you/skills-precedence/strong/{suffix}",
@@ -394,7 +412,7 @@ def test_for_you_skills_take_precedence_over_terms_ranking(
         title=f"{keyword} {keyword} {keyword}",
         company=company,
         category="job",
-        skills=["Python"],
+        skills=[skill_a],
         country="AQ",
         is_remote=False,
         apply_url=f"https://example.com/for-you/skills-precedence/weak/{suffix}",
@@ -406,7 +424,7 @@ def test_for_you_skills_take_precedence_over_terms_ranking(
         title=f"{keyword} {keyword} {keyword}",
         company=company,
         category="job",
-        skills=["React"],
+        skills=[skill_unrelated],
         country="AQ",
         is_remote=False,
         apply_url=f"https://example.com/for-you/skills-precedence/terms/{suffix}",
@@ -419,7 +437,7 @@ def test_for_you_skills_take_precedence_over_terms_ranking(
     response = client.get(
         "/for-you",
         params={
-            "skills": "Python,SQL",
+            "skills": f"{skill_a},{skill_b}",
             "terms": keyword,
             "categories": "job",
             "scope": "domestic",
