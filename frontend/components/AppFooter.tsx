@@ -36,6 +36,16 @@ export default function AppFooter() {
                 </Link>
               </li>
               <li>
+                <Link className={FOOTER_LINK_CLASSES} href="/jobs">
+                  Jobs
+                </Link>
+              </li>
+              <li>
+                <Link className={FOOTER_LINK_CLASSES} href="/internships">
+                  Internships
+                </Link>
+              </li>
+              <li>
                 <Link className={FOOTER_LINK_CLASSES} href="/competitions">
                   Competitions
                 </Link>

@@ -253,7 +253,22 @@ class UnstopAdapter:
         if search_opportunity == "internships":
             category = "internship"
         elif search_opportunity == "jobs":
-            category = "job"
+            # The search type is authoritative EXCEPT when the title plainly
+            # contradicts it. Unstop's jobs search returns a small number of
+            # listings titled "... Internship" (9 live rows on 2026-09-01:
+            # "Business Development Internship", "AI Backend Internship",
+            # "Campus Ambassador Internship"), and filing those under Jobs puts
+            # an internship in front of someone browsing full-time roles.
+            #
+            # Deliberately narrow: an explicit intern/internship word in the
+            # title only. It does NOT try to reclassify "Trainee", "Apprentice"
+            # or "Graduate Programme" - those are genuinely ambiguous, and
+            # guessing at them would move far more rows than it fixed.
+            category = (
+                "internship"
+                if _title_says_internship(_as_text(opportunity.get("title")))
+                else "job"
+            )
         elif search_opportunity == "scholarships":
             category = "scholarship"
         elif search_opportunity == "hackathons" or item_type == "hackathons":
@@ -425,6 +440,20 @@ def _opportunity_items(payload: Any) -> list[Any] | None:
     if not isinstance(items, list):
         return None
     return items
+
+
+_INTERNSHIP_TITLE_RE = re.compile(r"(^|[^a-z])interns?(hip)?s?([^a-z]|$)", re.IGNORECASE)
+
+
+def _title_says_internship(title: Any) -> bool:
+    """Does the title explicitly name itself an internship?
+
+    Word-boundary anchored on BOTH sides so it cannot fire on "International",
+    "Internal" or "Interns" inside a longer word - the same lookalike trap the
+    reputed-organiser regex in core/organisers.py exists to avoid.
+    """
+    text = _as_text(title)
+    return bool(text) and _INTERNSHIP_TITLE_RE.search(text) is not None
 
 
 def _declared_total(payload: Any) -> int | None:
