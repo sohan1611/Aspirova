@@ -64,6 +64,141 @@ def fixture_payload() -> dict:
     return _load_fixture()
 
 
+@pytest.mark.parametrize(
+    "title",
+    [
+        pytest.param("X Scholarship 2023", id="single-past-year"),
+        pytest.param("X Fellowship 2024-25", id="short-range"),
+        pytest.param("X Grant 2024-2025", id="long-range"),
+    ],
+)
+def test_scholarship_quality_rejects_stale_editions(title: str) -> None:
+    """A named past edition is stale even when Unstop still reports it open."""
+    assert unstop.is_high_quality_scholarship_title(title, current_year=2026) is False
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        pytest.param("X Scholarship 2026", id="current-year"),
+        pytest.param("X Fellowship 2026-27", id="future-range"),
+    ],
+)
+def test_scholarship_quality_keeps_current_or_future_editions(title: str) -> None:
+    """Edition years at or beyond the crawl year are still current."""
+    assert unstop.is_high_quality_scholarship_title(title, current_year=2026) is True
+
+
+def test_scholarship_quality_keeps_title_with_no_year() -> None:
+    """No explicit year is unknown, not stale; the adapter must not guess."""
+    assert unstop.is_high_quality_scholarship_title("Merit Scholarship", current_year=2026) is True
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "Career Reboot Scholarship Bootcamp for Women on Career Break",
+        "Full Stack Development Scholarship Bootcamp for Final Years",
+        "Data Science Scholarship Masterclass",
+        "Interview Scholarship Crash Course",
+        "Cloud Scholarship Certification Course",
+        "AI Scholarship Workshop",
+        "Admissions Scholarship Webinar",
+    ],
+)
+def test_scholarship_quality_rejects_course_shaped_titles(title: str) -> None:
+    """Unstop scholarships include training products that are not financial aid."""
+    assert unstop.is_high_quality_scholarship_title(title, current_year=2026) is False
+
+
+def test_scholarship_quality_keeps_course_fee_scholarship() -> None:
+    """The word 'course' alone is not enough to reject real financial aid."""
+    assert (
+        unstop.is_high_quality_scholarship_title(
+            "Merit Scholarship for Degree Course Fees",
+            current_year=2026,
+        )
+        is True
+    )
+
+
+def test_scholarship_quality_rejects_generic_study_abroad_lead_title() -> None:
+    """A generic admissions lead-gen title is not a named scholarship programme."""
+    assert (
+        unstop.is_high_quality_scholarship_title(
+            "Study in USA - Study Abroad Scholarship",
+            current_year=2026,
+        )
+        is False
+    )
+
+
+_LIVE_UNSTOP_REJECTED_SCHOLARSHIP_TITLES = [
+    "Study in USA - Study Abroad Scholarship",
+    "Vahani Scholarship 2023",
+    "Career Reboot Bootcamp for Women on Career Break",
+    "Full Stack Development Bootcamp for Final Years",
+    "Abdul Kalam Technology Innovation National Fellowship 2023-24",
+    "Fulbright-Nehru Doctoral Research Fellowships 2024-25",
+    "Prodigy Finance-GyanDhan Scholarship 2023",
+    "Goonj Urban Fellowship 2023-24",
+    "State University Research Excellence Fellowship (SERB-SURE) 2023",
+    "Supercharge your career with EHAM's 5-month Full Stack Development Bootcamp",
+    "IELTS Scholarships 2022",
+]
+
+_LIVE_UNSTOP_WRONGLY_KEPT_SCHOLARSHIP_TITLES = [
+    "Free Scholarship Test on VLSI",
+    "Free Scholarship Test on Digital Marketing",
+    "Free Scholarship Test on UI/UX Design with AI",
+    "Free Scholarship Test on Full Stack Java",
+    "Free Scholarship Test on Medical Coding on 19July2026 at 10:30am onwards",
+    "Free Scholarship Test: Digital Marketing with AI Training",
+    "MSAT- MissionEd Scholastic Aptitude Test",
+    "MissionEd Scholastic Aptitude Test",
+    "Future Leaders Assessment 2026",
+    "Get Your Admission in Top Universities in Germany with GradSmartly",
+    "Welcome to the Study Abroad Festival",
+    "Pregrad Mentorship Program",
+    "Elite Campus Ambassador - Pan-India Tech Initiative",
+    "AI Career Readiness Challenge 2026",
+    "Ace engiXplor by NITK",
+    # Second live pass, same day, 60-item page: these two survived the aid-noun
+    # requirement because "Scholarship" is right there in the title. Marketing
+    # funnel vocabulary is the only thing that separates them from real aid.
+    "Lead gen - scholarship events",
+    "Lead to Win: Scholarship Edition",
+]
+
+_LIVE_UNSTOP_CORRECTLY_KEPT_SCHOLARSHIP_TITLES = [
+    "IISER Berhampur Post-Doctoral Research Fellowship (PDRF) 2025-26",
+    "Bharat Academix National Excellence Scholarship 2026",
+    "CPRG - Social Sciences Research Grant",
+    "Grant for Educational Development Projects",
+    "Commuter Bursary",
+    "IBSAT Scholarship",
+    "Sage IT Scholarship India - November 2026",
+    "Mutual Funds Catalyst Scholarship",
+]
+
+
+@pytest.mark.parametrize(
+    ("title", "expected"),
+    [(title, False) for title in _LIVE_UNSTOP_REJECTED_SCHOLARSHIP_TITLES]
+    + [(title, False) for title in _LIVE_UNSTOP_WRONGLY_KEPT_SCHOLARSHIP_TITLES]
+    + [(title, True) for title in _LIVE_UNSTOP_CORRECTLY_KEPT_SCHOLARSHIP_TITLES],
+)
+def test_scholarship_quality_live_unstop_precision_regression(
+    title: str,
+    expected: bool,
+) -> None:
+    """These titles came from a live Unstop page on 2026-09-01.
+
+    They are real production examples, not invented fixtures.
+    """
+    assert unstop.is_high_quality_scholarship_title(title, current_year=2026) is expected
+
+
 def test_adapter_identity_and_default_health(adapter: UnstopAdapter) -> None:
     assert adapter.source_slug == "unstop"
     assert adapter.requires_browser is False
@@ -144,6 +279,12 @@ def test_fetch_returns_fixture_opportunities_and_deduplicates_across_types(
             "page": 1,
         },
         {"opportunity": "jobs", "oppstatus": "open", "per_page": 300, "page": 1},
+        {
+            "opportunity": "scholarships",
+            "oppstatus": "open",
+            "per_page": 300,
+            "page": 1,
+        },
     ]
     assert adapter.health() == "ok"
 
@@ -186,7 +327,7 @@ def test_fetch_retries_transient_request_error_and_completes_type(
     assert coverage["details"]["fully_paged_types"] == list(unstop._OPPORTUNITY_TYPES)
     assert coverage["details"]["retry_attempts"] == 1
     assert coverage["details"]["retry_reasons"] == ["request_error"]
-    assert coverage["details"]["requests_made"] == 5
+    assert coverage["details"]["requests_made"] == 6
     assert sleep_calls == [2.0]
     assert [params["opportunity"] for params in request_params] == [
         "internships",
@@ -194,6 +335,7 @@ def test_fetch_retries_transient_request_error_and_completes_type(
         "competitions",
         "hackathons",
         "jobs",
+        "scholarships",
     ]
 
 
@@ -225,11 +367,12 @@ def test_fetch_persistent_request_error_marks_one_type_incomplete_and_continues(
         "competitions",
         "hackathons",
         "jobs",
+        "scholarships",
     ]
     assert coverage["details"]["incomplete_type_reasons"] == {"internships": "request_error"}
     assert coverage["details"]["retry_attempts"] == 2
     assert coverage["details"]["retry_reasons"] == ["request_error", "request_error"]
-    assert coverage["details"]["requests_made"] == 6
+    assert coverage["details"]["requests_made"] == 7
     assert sleep_calls == [2.0, 4.0]
     assert [params["opportunity"] for params in request_params] == [
         "internships",
@@ -238,6 +381,7 @@ def test_fetch_persistent_request_error_marks_one_type_incomplete_and_continues(
         "competitions",
         "hackathons",
         "jobs",
+        "scholarships",
     ]
 
 
@@ -264,6 +408,7 @@ def test_fetch_http_404_marks_source_broken_and_stops(
         "competitions": "not_reached",
         "hackathons": "not_reached",
         "jobs": "not_reached",
+        "scholarships": "not_reached",
     }
     assert coverage["details"]["requests_made"] == 1
     assert "retry_attempts" not in coverage["details"]
@@ -278,6 +423,7 @@ def test_coverage_reports_overlapping_type_totals_without_summed_denominator(
         "competitions": 305,
         "hackathons": 104,
         "jobs": 1097,
+        "scholarships": 2383,
     }
     adapter._fully_paged_types = set(unstop._OPPORTUNITY_TYPES)
 
@@ -291,6 +437,7 @@ def test_coverage_reports_overlapping_type_totals_without_summed_denominator(
         "competitions": 305,
         "hackathons": 104,
         "jobs": 1097,
+        "scholarships": 2383,
     }
     assert "types overlap" in coverage["note"]
     assert "not a valid distinct-listing denominator" in coverage["note"]
@@ -313,8 +460,14 @@ def test_coverage_reports_unpaged_unstop_type_as_partial_without_ratio(
         "competitions": 305,
         "hackathons": 104,
         "jobs": 1097,
+        "scholarships": 2383,
     }
-    adapter._fully_paged_types = {"internships", "competitions", "hackathons"}
+    adapter._fully_paged_types = {
+        "internships",
+        "competitions",
+        "hackathons",
+        "scholarships",
+    }
     adapter._incomplete_type_reasons = {"jobs": "stopped_early"}
 
     coverage = adapter.coverage()
@@ -322,6 +475,49 @@ def test_coverage_reports_unpaged_unstop_type_as_partial_without_ratio(
     assert coverage["expected_total"] is None
     assert coverage["status"] == "partial"
     assert coverage["details"]["incomplete_type_reasons"] == {"jobs": "stopped_early"}
+
+
+def test_fetch_counts_rejected_low_quality_scholarships_in_coverage(
+    adapter: UnstopAdapter,
+    fixture_payload: dict,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Filtered scholarships must be visible in coverage, not look like scarcity."""
+    current_year = datetime.now(UTC).year
+    good = {
+        **_open_fixture_item(fixture_payload, "scholarships", "scholarship-good"),
+        "title": f"National Merit Scholarship {current_year}",
+    }
+    stale = {
+        **_open_fixture_item(fixture_payload, "scholarships", "scholarship-stale"),
+        "title": f"Legacy Scholarship {current_year - 1}",
+    }
+    bootcamp = {
+        **_open_fixture_item(fixture_payload, "scholarships", "scholarship-bootcamp"),
+        "title": "Full Stack Development Bootcamp for Final Years",
+    }
+
+    def fake_get(url: str, *, params: dict) -> httpx.Response:
+        items = (
+            [good, stale, bootcamp]
+            if params["opportunity"] == "scholarships" and params["page"] == 1
+            else []
+        )
+        request = httpx.Request("GET", url, params=params)
+        return httpx.Response(
+            200,
+            json=_payload_for(items, total=len(items)),
+            request=request,
+        )
+
+    monkeypatch.setattr(adapter._client, "get", fake_get)
+
+    raw_listings = adapter.fetch()
+
+    assert [listing.external_id for listing in raw_listings] == ["scholarship-good"]
+    assert adapter.health() == "ok"
+    assert adapter.coverage()["details"]["rejected_low_quality"] == 2
+    assert adapter.coverage()["details"]["rejected_low_quality_by_type"] == {"scholarships": 2}
 
 
 def test_fetch_skips_internship_deadlines_older_than_grace_period(
@@ -592,9 +788,18 @@ def test_parse_search_opportunity_wins_over_unreliable_item_type(
         "type": "jobs",
         "_aspirova_opportunity": "internships",
     }
+    scholarship_payload = {
+        **base,
+        "id": 103,
+        "title": "National Scholarship 2026",
+        "seo_url": "https://unstop.com/scholarships/national-scholarship-103",
+        "type": "jobs",
+        "_aspirova_opportunity": "scholarships",
+    }
 
     assert adapter.parse(_raw_listing_for(job_payload)).category == "job"
     assert adapter.parse(_raw_listing_for(internship_payload)).category == "internship"
+    assert adapter.parse(_raw_listing_for(scholarship_payload)).category == "scholarship"
 
 
 def test_parse_maps_pre_placement_prizes_to_offer_flags(

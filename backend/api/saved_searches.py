@@ -19,7 +19,7 @@ from core.redis_client import get_redis
 
 router = APIRouter()
 
-_ALLOWED_CATEGORIES = {"internship", "job", "hackathon", "competition"}
+_ALLOWED_CATEGORIES = {"internship", "job", "hackathon", "competition", "scholarship"}
 _ALLOWED_KINDS = {"roles", "competitions"}
 _ALLOWED_SCOPES = {"abroad", "domestic", "both"}
 _ALLOWED_SOURCES = {"direct", "unstop", "remoteok", "devpost"}

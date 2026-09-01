@@ -1,5 +1,6 @@
 """Unstop aggregator adapter using its public opportunity search API."""
 
+import re
 from datetime import UTC, datetime, timedelta
 from time import monotonic, sleep
 from typing import Any, Callable, Literal
@@ -20,10 +21,43 @@ from crawlers.common import (
 )
 
 _API_URL = "https://unstop.com/api/public/opportunity/search-result"
-_OPPORTUNITY_TYPES = ("internships", "competitions", "hackathons", "jobs")
+_OPPORTUNITY_TYPES = ("internships", "competitions", "hackathons", "jobs", "scholarships")
 _PAGE_SIZE = 300
 _MAX_PAGES = 8
 _MAX_RETRIES = 2
+_EDITION_YEAR_RE = re.compile(r"(?<!\d)(?P<start>\d{4})(?:\s*-\s*(?P<end>\d{2}|\d{4}))?(?!\d)")
+_SCHOLARSHIP_AID_NOUN_RE = re.compile(
+    r"\b("
+    r"scholarship(?:-in-aid)?|fellowship|grant|bursary|stipend|"
+    r"studentship|endowment"
+    r")\b",
+    re.IGNORECASE,
+)
+_SCHOLARSHIP_TEST_LEAD_TITLE_RE = re.compile(
+    r"\b("
+    r"scholarship(?:-in-aid)?|fellowship|grant|bursary|stipend|"
+    r"studentship|endowment"
+    r")\b\s*(?:[-:/]\s*)?(?:cum\s+entrance\s+)?(?:test|exam|assessment)\b",
+    re.IGNORECASE,
+)
+_COURSE_PRODUCT_TITLE_RE = re.compile(
+    r"\b(bootcamp|masterclass|workshop|webinar|crash\s+course|" r"certification\s+course)\b",
+    re.IGNORECASE,
+)
+# Marketing-funnel vocabulary. Real aid is never described this way, and these
+# survived the aid-noun requirement because the word "scholarship" is right
+# there in the title: "Lead gen - scholarship events", "Lead to Win: Scholarship
+# Edition". Both came off a live Unstop page on 2026-09-01.
+_MARKETING_FUNNEL_TITLE_RE = re.compile(
+    r"\b(lead\s*gen(?:eration)?|lead\s+to\s+win|campus\s+ambassador|"
+    r"referral\s+program(?:me)?|webinar\s+series)\b",
+    re.IGNORECASE,
+)
+_STUDY_ABROAD_LEAD_TITLE_RE = re.compile(
+    r"\A\s*(?:study\s+in\s+[^-:]+[-:]\s*)?study\s+abroad\s+"
+    r"(?:scholarship(?:-in-aid)?|fellowship|grant|bursary|stipend|studentship|endowment)\b",
+    re.IGNORECASE,
+)
 
 HealthStatus = Literal["ok", "degraded", "broken"]
 
@@ -47,6 +81,8 @@ class UnstopAdapter:
         self._request_count = 0
         self._retry_count = 0
         self._retry_reasons: list[str] = []
+        self._rejected_low_quality = 0
+        self._rejected_low_quality_by_type: dict[str, int] = {}
 
     @property
     def stopped_early(self) -> bool:
@@ -71,6 +107,9 @@ class UnstopAdapter:
         self._request_count = 0
         self._retry_count = 0
         self._retry_reasons = []
+        self._rejected_low_quality = 0
+        self._rejected_low_quality_by_type = {}
+        current_year = datetime.now(UTC).year
 
         for opportunity_type in _OPPORTUNITY_TYPES:
             for page in range(1, _MAX_PAGES + 1):
@@ -148,6 +187,15 @@ class UnstopAdapter:
                     deadline = _registration_deadline(item)
                     if deadline is not None and deadline < expiry_cutoff:
                         continue
+                    if (
+                        opportunity_type == "scholarships"
+                        and not is_high_quality_scholarship_title(
+                            item.get("title"),
+                            current_year=current_year,
+                        )
+                    ):
+                        self._record_low_quality_rejection(opportunity_type)
+                        continue
 
                     opportunity_id = item.get("id")
                     source_url = _as_text(item.get("seo_url"))
@@ -206,6 +254,8 @@ class UnstopAdapter:
             category = "internship"
         elif search_opportunity == "jobs":
             category = "job"
+        elif search_opportunity == "scholarships":
+            category = "scholarship"
         elif search_opportunity == "hackathons" or item_type == "hackathons":
             category = "hackathon"
         else:
@@ -288,6 +338,8 @@ class UnstopAdapter:
         declared_totals = getattr(self, "_declared_totals", {})
         fully_paged_type_set = getattr(self, "_fully_paged_types", set())
         incomplete_reasons = getattr(self, "_incomplete_type_reasons", {})
+        rejected_low_quality = getattr(self, "_rejected_low_quality", 0)
+        rejected_low_quality_by_type = getattr(self, "_rejected_low_quality_by_type", {})
         fully_paged_types = [
             opportunity_type
             for opportunity_type in _OPPORTUNITY_TYPES
@@ -306,7 +358,10 @@ class UnstopAdapter:
         details: dict[str, Any] = {
             "declared_totals_by_type": dict(declared_totals),
             "fully_paged_types": fully_paged_types,
+            "rejected_low_quality": rejected_low_quality,
         }
+        if rejected_low_quality_by_type:
+            details["rejected_low_quality_by_type"] = dict(rejected_low_quality_by_type)
         if incomplete_type_reasons:
             details["incomplete_type_reasons"] = incomplete_type_reasons
         if missing_declared_totals:
@@ -331,6 +386,12 @@ class UnstopAdapter:
 
     def _mark_type_incomplete(self, opportunity_type: str, reason: str) -> None:
         self._incomplete_type_reasons.setdefault(opportunity_type, reason)
+
+    def _record_low_quality_rejection(self, opportunity_type: str) -> None:
+        self._rejected_low_quality += 1
+        self._rejected_low_quality_by_type[opportunity_type] = (
+            self._rejected_low_quality_by_type.get(opportunity_type, 0) + 1
+        )
 
     def _get_page(self, opportunity_type: str, page: int) -> RetriedResponse:
         return request_with_retries(
@@ -386,6 +447,52 @@ def _declared_total(payload: Any) -> int | None:
             except (TypeError, ValueError):
                 return None
     return None
+
+
+def is_high_quality_scholarship_title(title: Any, *, current_year: int) -> bool:
+    """Return whether a scholarship title is current and shaped like financial aid."""
+    text = _as_text(title)
+    if not text or not _SCHOLARSHIP_AID_NOUN_RE.search(text):
+        return False
+
+    latest_year = _latest_edition_year(text)
+    if latest_year is not None and latest_year < current_year:
+        return False
+    if _STUDY_ABROAD_LEAD_TITLE_RE.search(text):
+        return False
+    # Lead magnets say the aid noun is for a test/exam/assessment, as in
+    # "Scholarship Test". Award names can contain exam acronyms before the aid
+    # noun, such as "IBSAT Scholarship", so the order is deliberate.
+    if _SCHOLARSHIP_TEST_LEAD_TITLE_RE.search(text):
+        return False
+    if _MARKETING_FUNNEL_TITLE_RE.search(text):
+        return False
+
+    # Do not match bare "course": real scholarships can fund degree course fees.
+    # These standalone product labels name the offering itself in Unstop titles,
+    # so a match is a training listing, not a scholarship listing.
+    return _COURSE_PRODUCT_TITLE_RE.search(text) is None
+
+
+def _latest_edition_year(title: str) -> int | None:
+    years: list[int] = []
+    for match in _EDITION_YEAR_RE.finditer(title):
+        start_year = int(match.group("start"))
+        years.append(start_year)
+        end_year = match.group("end")
+        if end_year:
+            years.append(_range_end_year(start_year, end_year))
+    return max(years) if years else None
+
+
+def _range_end_year(start_year: int, end_year_text: str) -> int:
+    if len(end_year_text) == 4:
+        return int(end_year_text)
+
+    end_year = (start_year // 100) * 100 + int(end_year_text)
+    if end_year < start_year:
+        end_year += 100
+    return end_year
 
 
 def _location_from_payload(opportunity: dict[str, Any], region: str | None) -> str | None:

@@ -95,7 +95,7 @@ def is_stale_opportunity(opportunity: models.Opportunity, now: datetime | None =
 def exclude_closed_competitions():
     """Exclude listings whose closed grace window has elapsed."""
     expired_deadline = and_(
-        models.Opportunity.category.in_(["hackathon", "competition", "internship"]),
+        models.Opportunity.category.in_(["hackathon", "competition", "internship", "scholarship"]),
         models.Opportunity.deadline.is_not(None),
         models.Opportunity.deadline < func.now() - text("interval '14 days'"),
     )

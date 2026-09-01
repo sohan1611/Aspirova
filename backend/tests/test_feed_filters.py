@@ -555,6 +555,57 @@ def test_feed_accepts_hackathon_category_and_rejects_bogus_category(
     assert bogus_response.status_code == 422
 
 
+def test_feed_accepts_scholarship_category(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    """A crawled scholarship category is dead code if /feed rejects it."""
+    suffix = uuid.uuid4().hex
+    seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    location_token = f"ScholarshipFilterville-{suffix}"
+    company = models.Company(
+        slug=f"scholarship-filter-company-{suffix}",
+        name=f"Scholarship Filter Company {suffix}",
+    )
+    scholarship = models.Opportunity(
+        slug=f"scholarship-filter-award-{suffix}",
+        title="Research scholarship",
+        company=company,
+        category="scholarship",
+        location=location_token,
+        apply_url=f"https://example.com/scholarship-filter/award/{suffix}",
+        status="active",
+        last_seen_at=seen_at,
+    )
+    role = models.Opportunity(
+        slug=f"scholarship-filter-role-{suffix}",
+        title="Backend engineer",
+        company=company,
+        category="job",
+        location=location_token,
+        apply_url=f"https://example.com/scholarship-filter/role/{suffix}",
+        status="active",
+        last_seen_at=seen_at,
+    )
+    db_session.add_all([company, scholarship, role])
+    db_session.flush()
+
+    response = client.get(
+        "/feed",
+        params={
+            "category": "scholarship",
+            "location": location_token,
+            "limit": 10,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 1
+    assert [item["slug"] for item in body["items"]] == [scholarship.slug]
+    assert all(item["category"] == "scholarship" for item in body["items"])
+
+
 def test_feed_top_filter_returns_ranked_companies_and_combines_with_category(
     client: TestClient,
     db_session: Session,
