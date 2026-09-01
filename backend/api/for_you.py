@@ -116,7 +116,7 @@ FIELD_KEYWORDS: dict[str, list[str]] = {
     "other": [],
 }
 
-VALID_CATEGORIES = frozenset({"internship", "job", "hackathon", "competition"})
+VALID_CATEGORIES = frozenset({"internship", "job", "hackathon", "competition", "scholarship"})
 MAX_SELECTED_SKILLS = 30
 
 
