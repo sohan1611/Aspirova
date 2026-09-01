@@ -141,7 +141,10 @@ def test_facets_return_distinct_active_companies_and_locations(
 
     assert response.status_code == 200
     body = response.json()
-    assert set(body.keys()) == {"companies", "locations"}
+    # The response is additive: counted facet groups were added alongside these
+    # two without replacing them, so assert the original contract still holds
+    # rather than pinning the exact key set.
+    assert {"companies", "locations"} <= set(body.keys())
 
     companies = body["companies"]
     locations = body["locations"]
