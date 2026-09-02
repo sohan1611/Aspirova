@@ -1,9 +1,23 @@
 import { AlertCircle } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import {
+  ProgrammesActiveFilterChips,
+  ProgrammesAdvancedFilters,
+  type ProgrammesFacetsStatus,
+} from "@/components/ProgrammesAdvancedFilters";
 import ProgrammeCard from "@/components/ProgrammeCard";
-import { getProgrammes } from "@/lib/api";
-import type { ProgrammeListItem } from "@/lib/types";
+import { FeedNavigationProvider } from "@/components/FeedNavigation";
+import { getFacets } from "@/lib/api";
+import {
+  appendCurrentProgrammeFilters,
+  loadProgrammes,
+  parseParamValues,
+  parseProgrammesRequest,
+  programmeCountLabel,
+  type ProgrammeSearchParams,
+} from "@/lib/programmesQuery";
+import type { Facets, ProgrammeListItem } from "@/lib/types";
 
 const TITLE = "Research fellowships & internships";
 const DESCRIPTION =
@@ -22,7 +36,7 @@ export const metadata: Metadata = {
 };
 
 interface PageProps {
-  searchParams: Promise<{ category?: string }>;
+  searchParams: Promise<ProgrammeSearchParams>;
 }
 
 // The research-shaped subset of the programmes registry. This page used to
@@ -46,47 +60,52 @@ const RESEARCH_CATEGORIES: Array<{ label: string; value: ResearchCategory }> = [
   { label: "Corporate research", value: "corporate_research" },
   { label: "Government internships", value: "government_internship" },
 ];
+const RESEARCH_CATEGORY_VALUES = RESEARCH_CATEGORIES.map((category) => category.value);
 
-function parseResearchCategory(category?: string): ResearchCategory | undefined {
-  return RESEARCH_CATEGORIES.find((entry) => entry.value === category)?.value;
-}
-
-function categoryHref(category?: ResearchCategory): string {
-  if (!category) return "/research";
-  return `/research?category=${encodeURIComponent(category)}`;
-}
-
-async function getResearchProgrammes(
-  category?: ResearchCategory,
-): Promise<ProgrammeListItem[]> {
-  if (category) {
-    const programmes = await getProgrammes({ category, limit: 100 });
-    return programmes.items;
-  }
-
-  const results = await Promise.all(
-    RESEARCH_CATEGORIES.map((entry) =>
-      getProgrammes({ category: entry.value, limit: 100 }),
-    ),
+function parseSelectedResearchCategories(
+  query: ProgrammeSearchParams,
+): ResearchCategory[] {
+  return parseParamValues(query.category).filter((category): category is ResearchCategory =>
+    RESEARCH_CATEGORY_VALUES.includes(category as ResearchCategory),
   );
+}
 
-  return results
-    .flatMap((result) => result.items)
-    .sort((a, b) =>
-      a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
-    );
+function categoryHref(query: ProgrammeSearchParams, category?: ResearchCategory): string {
+  const search = new URLSearchParams();
+  appendCurrentProgrammeFilters(search, query, "category");
+  if (category) search.set("category", category);
+  const queryString = search.toString();
+  return queryString ? `/research?${queryString}` : "/research";
 }
 
 export default async function ResearchPage({ searchParams }: PageProps) {
-  const params = await searchParams;
-  const selectedCategory = parseResearchCategory(params.category);
+  const query = await searchParams;
+  const selectedCategories = parseSelectedResearchCategories(query);
+  const request = parseProgrammesRequest(query, {
+    allowedCategories: RESEARCH_CATEGORY_VALUES,
+    defaultCategories: RESEARCH_CATEGORY_VALUES,
+  });
   let programmes: ProgrammeListItem[] = [];
+  let total = 0;
   let failed = false;
+  let facets: Facets | null = null;
+  let facetsStatus: ProgrammesFacetsStatus = "loaded";
 
   try {
-    programmes = await getResearchProgrammes(selectedCategory);
+    const data = await loadProgrammes(request, 100);
+    programmes = data.items;
+    total = data.total;
   } catch {
     failed = true;
+  }
+
+  try {
+    facets = await getFacets({
+      source: "programmes",
+      category: RESEARCH_CATEGORY_VALUES,
+    });
+  } catch {
+    facetsStatus = "error";
   }
 
   return (
@@ -104,61 +123,84 @@ export default async function ResearchPage({ searchParams }: PageProps) {
         </p>
       </header>
 
-      <section className="mt-10 border-y border-border py-6" aria-label="Research categories">
-        <p className="eyebrow">Browse by category</p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Link
-            href={categoryHref()}
-            className={`inline-flex h-9 items-center rounded-md border px-3 text-sm font-medium transition-colors ${
-              selectedCategory
-                ? "border-border bg-transparent text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
-                : "border-primary/20 bg-primary text-primary-foreground"
-            }`}
-          >
-            All
-          </Link>
-          {RESEARCH_CATEGORIES.map((category) => {
-            const selected = selectedCategory === category.value;
-            return (
-              <Link
-                key={category.value}
-                href={categoryHref(category.value)}
-                className={`inline-flex h-9 items-center rounded-md border px-3 text-sm font-medium transition-colors ${
-                  selected
-                    ? "border-primary/20 bg-primary text-primary-foreground"
-                    : "border-border bg-transparent text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
-                }`}
-              >
-                {category.label}
-              </Link>
-            );
-          })}
-        </div>
-      </section>
-
-      {failed ? (
-        <section className="mt-10 flex flex-col items-center rounded-xl border border-border bg-card px-5 py-16 text-center shadow-soft sm:py-20">
-          <div className="rounded-lg border border-border bg-secondary/40 p-3 shadow-soft">
-            <AlertCircle className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
+      <FeedNavigationProvider>
+        <section className="mt-10 border-y border-border py-6" aria-label="Research categories">
+          <p className="eyebrow">Browse by category</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              href={categoryHref(query)}
+              className={`inline-flex h-9 items-center rounded-md border px-3 text-sm font-medium transition-colors ${
+                selectedCategories.length > 0
+                  ? "border-border bg-transparent text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+                  : "border-primary/20 bg-primary text-primary-foreground"
+              }`}
+            >
+              All
+            </Link>
+            {RESEARCH_CATEGORIES.map((category) => {
+              const selected = selectedCategories.includes(category.value);
+              return (
+                <Link
+                  key={category.value}
+                  href={categoryHref(query, category.value)}
+                  className={`inline-flex h-9 items-center rounded-md border px-3 text-sm font-medium transition-colors ${
+                    selected
+                      ? "border-primary/20 bg-primary text-primary-foreground"
+                      : "border-border bg-transparent text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+                  }`}
+                >
+                  {category.label}
+                </Link>
+              );
+            })}
           </div>
-          <p className="eyebrow mt-5">Programmes</p>
-          <h2 className="mt-2 font-serif text-xl font-semibold text-foreground">
-            The research track could not be loaded.
-          </h2>
-          <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-            Check back soon; the official programme pages remain the source of truth.
-          </p>
         </section>
-      ) : (
-        <section
-          className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
-          aria-label="Flagship research programs"
-        >
-          {programmes.map((programme) => (
-            <ProgrammeCard key={programme.slug} programme={programme} />
-          ))}
-        </section>
-      )}
+
+        <div className="mb-5 mt-10 flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+            <p className="eyebrow">Research programmes</p>
+            {!failed && (
+              <p className="tnum text-sm text-muted-foreground">
+                {programmeCountLabel(total)}
+              </p>
+            )}
+          </div>
+          <ProgrammesAdvancedFilters
+            facets={facets}
+            facetsStatus={facetsStatus}
+            path="/research"
+            activeFilterLabel="research filters"
+            panelLabel="Research filters"
+            mobileDescription="Counted research filters"
+          />
+        </div>
+
+        <ProgrammesActiveFilterChips facets={facets} path="/research" />
+
+        {failed ? (
+          <section className="mt-10 flex flex-col items-center rounded-xl border border-border bg-card px-5 py-16 text-center shadow-soft sm:py-20">
+            <div className="rounded-lg border border-border bg-secondary/40 p-3 shadow-soft">
+              <AlertCircle className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
+            </div>
+            <p className="eyebrow mt-5">Programmes</p>
+            <h2 className="mt-2 font-serif text-xl font-semibold text-foreground">
+              The research track could not be loaded.
+            </h2>
+            <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+              Check back soon; the official programme pages remain the source of truth.
+            </p>
+          </section>
+        ) : (
+          <section
+            className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
+            aria-label="Flagship research programs"
+          >
+            {programmes.map((programme) => (
+              <ProgrammeCard key={programme.slug} programme={programme} />
+            ))}
+          </section>
+        )}
+      </FeedNavigationProvider>
     </main>
   );
 }

@@ -4,13 +4,14 @@ import json
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import Text, and_, any_, bindparam, cast, func, literal, or_, select
+from sqlalchemy import Text, and_, any_, bindparam, cast, false, func, literal, or_, select
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Session, aliased, selectinload
 
 from api.deps import get_db
 from api.schemas import ProgrammeDetail, ProgrammeListItem, ProgrammeListResponse
 from core import models
+from core.organisers import ORGANISER_TYPE_LABELS, classify_organiser
 
 router = APIRouter()
 MAX_SELECTED_DIVISIONS = 30
@@ -19,28 +20,98 @@ PROGRAMME_TAG_MAP: dict[str, list[str]] = json.loads(
     PROGRAMME_TAG_MAP_PATH.read_text(encoding="utf-8")
 )["divisions"]
 
-VALID_PROGRAMME_CATEGORIES = frozenset(
-    {
-        "research_internship",
-        "fellowship",
-        "government_internship",
-        "open_source",
-        "international_research",
-        "corporate_research",
-        "recurring_competition",
-        "scholarship",
-        "conference",
-    }
-)
+PROGRAMME_CATEGORY_LABELS = {
+    "research_internship": "Research internship",
+    "fellowship": "Fellowship",
+    "government_internship": "Government internship",
+    "open_source": "Open source",
+    "international_research": "International research",
+    "corporate_research": "Corporate research",
+    "recurring_competition": "Recurring competition",
+    "scholarship": "Scholarship",
+    "conference": "Conference",
+}
+PROGRAMME_STATUS_LABELS = {
+    "expected": "Expected",
+    "announced": "Announced",
+    "open": "Open",
+    "closed": "Closed",
+}
+VALID_PROGRAMME_CATEGORIES = frozenset(PROGRAMME_CATEGORY_LABELS)
+VALID_PROGRAMME_STATUSES = frozenset(PROGRAMME_STATUS_LABELS)
 
 
-def _selected_category(category: str | None) -> str | None:
-    normalized = (category or "").strip().lower()
-    if not normalized:
-        return None
-    if normalized not in VALID_PROGRAMME_CATEGORIES:
-        raise HTTPException(status_code=422, detail="Invalid category")
-    return normalized
+def _selected_values(
+    values: list[str] | None,
+    *,
+    valid_values: frozenset[str] | None = None,
+    detail: str = "Invalid filter",
+    split_commas: bool = True,
+    casefold: bool = True,
+) -> list[str]:
+    selected: list[str] = []
+    seen: set[str] = set()
+    for raw_value in values or []:
+        parts = raw_value.split(",") if split_commas else [raw_value]
+        for part in parts:
+            normalized = part.strip()
+            if casefold:
+                normalized = normalized.lower()
+            if not normalized:
+                continue
+            if valid_values is not None and normalized not in valid_values:
+                raise HTTPException(status_code=422, detail=detail)
+            if normalized in seen:
+                continue
+            selected.append(normalized)
+            seen.add(normalized)
+    return selected
+
+
+def _selected_categories(category: list[str] | None) -> list[str]:
+    return _selected_values(
+        category,
+        valid_values=VALID_PROGRAMME_CATEGORIES,
+        detail="Invalid category",
+    )
+
+
+def _selected_statuses(status: list[str] | None) -> list[str]:
+    return _selected_values(
+        status,
+        valid_values=VALID_PROGRAMME_STATUSES,
+        detail="Invalid status",
+    )
+
+
+def _selected_fields(field: list[str] | None) -> list[str]:
+    return _selected_values(field)
+
+
+def _selected_organisers(organiser: list[str] | None) -> list[str]:
+    return _selected_values(organiser, split_commas=False, casefold=False)
+
+
+def _selected_institution_types(institution_type: list[str] | None) -> list[str]:
+    return _selected_values(
+        institution_type,
+        valid_values=frozenset(ORGANISER_TYPE_LABELS),
+        detail="Invalid institution_type",
+    )
+
+
+def _organisers_for_institution_types(
+    db: Session,
+    institution_types: list[str],
+) -> list[str]:
+    rows = db.execute(
+        select(models.Programme.organiser)
+        .where(models.Programme.is_active.is_(True))
+        .group_by(models.Programme.organiser)
+    ).all()
+    return [
+        organiser for (organiser,) in rows if classify_organiser(organiser) in institution_types
+    ]
 
 
 def _ilike_substring(value: str) -> str:
@@ -77,9 +148,12 @@ def _tags_for_divisions(selected_divisions: list[str]) -> list[str]:
 
 @router.get("/programmes", response_model=ProgrammeListResponse)
 def list_programmes(
-    category: str | None = Query(None, max_length=64),
+    category: list[str] | None = Query(None),
     country: str | None = Query(None, min_length=2, max_length=2),
-    status: str | None = Query(None, pattern="^(expected|announced|open|closed)$"),
+    status: list[str] | None = Query(None),
+    field: list[str] | None = Query(None),
+    organiser: list[str] | None = Query(None),
+    institution_type: list[str] | None = Query(None),
     q: str | None = Query(None, max_length=200),
     divisions: str | None = Query(None, max_length=500),
     page: int = Query(1, ge=1),
@@ -101,13 +175,34 @@ def list_programmes(
     )
 
     filters = [models.Programme.is_active.is_(True)]
-    selected_category = _selected_category(category)
-    if selected_category is not None:
-        filters.append(models.Programme.category == selected_category)
+    selected_categories = _selected_categories(category)
+    if selected_categories:
+        filters.append(models.Programme.category.in_(selected_categories))
     if country is not None:
         filters.append(func.lower(models.Programme.country) == country.lower())
-    if status is not None:
-        filters.append(current_edition.status == status)
+    selected_statuses = _selected_statuses(status)
+    if selected_statuses:
+        filters.append(current_edition.status.in_(selected_statuses))
+    selected_fields = _selected_fields(field)
+    if selected_fields:
+        field_values = cast(
+            bindparam(
+                "programme_filter_tags",
+                value=selected_fields,
+                type_=ARRAY(Text()),
+            ),
+            ARRAY(Text()),
+        )
+        filters.append(models.Programme.tags.op("?|")(field_values))
+    selected_organisers = _selected_organisers(organiser)
+    if selected_organisers:
+        filters.append(models.Programme.organiser.in_(selected_organisers))
+    selected_institution_types = _selected_institution_types(institution_type)
+    if selected_institution_types:
+        matching_organisers = _organisers_for_institution_types(db, selected_institution_types)
+        filters.append(
+            models.Programme.organiser.in_(matching_organisers) if matching_organisers else false()
+        )
 
     query_text = (q or "").strip()
     if query_text:

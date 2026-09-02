@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 import pipeline.notifications as notifications_module
 from core import models
 from pipeline.notifications import (
+    HACKATHON_DIGEST_SIZE,
     HACKATHON_DIGEST_MIN_GAP,
     HACKATHON_DIGEST_REPUTED_RESERVE,
     HACKATHON_DIGEST_SUBJECT,
@@ -112,6 +113,10 @@ def competition_factory(db_session: Session):
 
 def _titles(opportunities) -> set[str]:
     return {o.title for o in opportunities}
+
+
+def _deadline_days(opportunities) -> list[int]:
+    return [(o.deadline - NOW).days for o in opportunities if o.deadline is not None]
 
 
 def _assert_isolated(picks) -> None:
@@ -267,6 +272,73 @@ def test_events_with_enough_runway_outrank_ones_closing_immediately(
 
     assert picks, "expected at least one pick"
     assert picks[0].title == "Closing In A Week"
+
+
+def test_digest_prefers_distinct_deadline_days(db_session, company_factory, competition_factory):
+    """A deep +2d pool must not monopolise the daily digest."""
+    for i in range(6):
+        company = company_factory(f"Same Day College {i}")
+        competition_factory(company, title=f"Same Day Event {i}", days_to_deadline=2)
+    for day in (3, 4, 5, 6):
+        company = company_factory(f"Distinct Day College {day}")
+        competition_factory(
+            company,
+            title=f"Distinct Day Event {day}",
+            days_to_deadline=day,
+        )
+
+    picks = _hackathon_digest_opportunities(db_session, NOW, limit=HACKATHON_DIGEST_SIZE)
+    _assert_isolated(picks)
+    days = _deadline_days(picks)
+
+    assert len(picks) == HACKATHON_DIGEST_SIZE
+    assert len(days) == len(set(days))
+
+
+def test_digest_falls_back_to_repeated_days_when_distinct_days_cannot_fill(
+    db_session, company_factory, competition_factory
+):
+    """Diversity is a preference, not permission to shrink the email."""
+    for i in range(HACKATHON_DIGEST_SIZE):
+        company = company_factory(f"Limited Day College {i}")
+        competition_factory(
+            company,
+            title=f"Limited Day Event {i}",
+            days_to_deadline=2 if i < 3 else 3,
+        )
+
+    picks = _hackathon_digest_opportunities(db_session, NOW, limit=HACKATHON_DIGEST_SIZE)
+    _assert_isolated(picks)
+    days = _deadline_days(picks)
+
+    assert len(picks) == HACKATHON_DIGEST_SIZE
+    assert set(days) == {2, 3}
+
+
+def test_reputed_reserved_pick_wins_when_fill_collides_on_deadline_day(
+    db_session, company_factory, competition_factory
+):
+    """A same-day filler must move on instead of displacing the reserve."""
+    iit = company_factory("Indian Institute of Technology (IIT), Delhi")
+    competition_factory(iit, title="IIT Same Day Reserve", days_to_deadline=5)
+
+    same_day = company_factory("Plain Same Day College")
+    competition_factory(same_day, title="Plain Same Day Fill", days_to_deadline=5)
+    for day in (6, 7, 8):
+        company = company_factory(f"Later Distinct College {day}")
+        competition_factory(
+            company,
+            title=f"Later Distinct Event {day}",
+            days_to_deadline=day,
+        )
+
+    picks = _hackathon_digest_opportunities(db_session, NOW, limit=3)
+    _assert_isolated(picks)
+    titles = _titles(picks)
+
+    assert "IIT Same Day Reserve" in titles
+    assert "Plain Same Day Fill" not in titles
+    assert _deadline_days(picks) == [5, 6, 7]
 
 
 def test_one_slot_per_organiser(db_session, company_factory, competition_factory):

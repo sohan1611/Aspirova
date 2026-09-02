@@ -396,6 +396,11 @@ class FacetsResponse(BaseModel):
     deadline_within: list[FacetOption] = []
     organiser_types: list[FacetOption] = []
     modes: list[FacetOption] = []
+    programme_categories: list[FacetOption] = []
+    programme_fields: list[FacetOption] = []
+    programme_organisers: list[FacetOption] = []
+    programme_institution_types: list[FacetOption] = []
+    programme_statuses: list[FacetOption] = []
 
 
 class CompanyPage(BaseModel):

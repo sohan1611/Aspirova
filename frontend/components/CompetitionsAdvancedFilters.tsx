@@ -1,52 +1,41 @@
 "use client";
 
-import { Loader2, SlidersHorizontal } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import {
+  activeSingleValue,
+  activeValues,
+  countedOptions,
+  countedStatusLabel,
+  CountedAdvancedFilterShell,
+  optionLabel,
+  setRepeatedParam,
+  type CountedFacetsStatus,
+  type SearchParamReader,
+} from "@/components/CountedAdvancedFilterShell";
 import {
   ActiveFilterChips,
   CountedMultiSelectGroup,
   CountedSingleSelectGroup,
   FilterPanelSection,
   type ActiveFilterChip,
-  type CountedFilterOption,
 } from "@/components/CountedFilterControls";
 import { useFeedNavigation } from "@/components/FeedNavigation";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 import { getFacets } from "@/lib/api";
 import { COMPETITION_FILTER_PARAM_KEYS } from "@/lib/competitionsQuery";
 import type { Facets } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
 const COMPETITIONS_PATH = "/competitions";
 const DEBOUNCE_MS = 300;
 
-export type CompetitionFacetsStatus = "loading" | "loaded" | "error";
+export type CompetitionFacetsStatus = CountedFacetsStatus;
 type MultiFilterKey = "comp_type" | "organiser_type" | "mode";
 type SingleFilterKey = "registration" | "deadline_within";
-
-interface SearchParamReader {
-  get(name: string): string | null;
-  getAll(name: string): string[];
-  toString(): string;
-}
 
 interface CompetitionFacetsState {
   facets: Facets | null;
@@ -107,41 +96,6 @@ export function useCompetitionFacets(): CompetitionFacetsState {
   return { facets, facetsStatus };
 }
 
-function activeValues(searchParams: SearchParamReader, key: string): string[] {
-  return Array.from(
-    new Set(
-      searchParams
-        .getAll(key)
-        .map((value) => value.trim())
-        .filter(Boolean),
-    ),
-  );
-}
-
-function activeSingleValue(searchParams: SearchParamReader, key: string): string | null {
-  const value = searchParams.get(key)?.trim();
-  return value || null;
-}
-
-function countedOptions(options: CountedFilterOption[] | undefined): CountedFilterOption[] {
-  return (options ?? []).filter((option) => option.count > 0);
-}
-
-function optionLabel(
-  options: CountedFilterOption[] | undefined,
-  value: string,
-): string {
-  return options?.find((option) => option.value === value)?.label ?? humanizeValue(value);
-}
-
-function humanizeValue(value: string): string {
-  return value
-    .replace(/[-_]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
 function formatPrize(value: string): string {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return value;
@@ -151,14 +105,6 @@ function formatPrize(value: string): string {
 function competitionHref(params: URLSearchParams): string {
   const query = params.toString();
   return query ? `${COMPETITIONS_PATH}?${query}` : COMPETITIONS_PATH;
-}
-
-function setRepeatedParam(params: URLSearchParams, key: MultiFilterKey, values: string[]) {
-  params.delete(key);
-  for (const value of values) {
-    const nextValue = value.trim();
-    if (nextValue) params.append(key, nextValue);
-  }
 }
 
 function parsePrizeInput(value: string): string | null | undefined {
@@ -179,62 +125,6 @@ export function getCompetitionActiveFilterCount(searchParams: SearchParamReader)
     (activeSingleValue(searchParams, "registration") ? 1 : 0) +
     (activeSingleValue(searchParams, "deadline_within") ? 1 : 0) +
     (activeSingleValue(searchParams, "prize_min") ? 1 : 0)
-  );
-}
-
-function statusLabel(status: CompetitionFacetsStatus): string {
-  if (status === "loading") return "Loading counts...";
-  if (status === "error") return "Counts unavailable";
-  return "No counted options available";
-}
-
-// `...triggerProps` is load-bearing, not tidiness. This renders inside
-// <PopoverTrigger asChild> / <SheetTrigger asChild>, and Radix opens the panel by
-// CLONING this child to inject onClick, aria-expanded, data-state and a ref.
-// Without spreading them onto the Button those props are silently dropped: the
-// button renders, typechecks, lints and builds - and clicking it does nothing.
-function FilterTriggerButton({
-  activeFilterCount,
-  isPending,
-  ...triggerProps
-}: React.ComponentProps<typeof Button> & {
-  activeFilterCount: number;
-  isPending: boolean;
-}) {
-  const hasFilters = activeFilterCount > 0;
-
-  return (
-    <Button
-      {...triggerProps}
-      type="button"
-      variant="outline"
-      size="sm"
-      disabled={isPending}
-      aria-label={
-        hasFilters
-          ? `Filters, ${activeFilterCount} active competition filters`
-          : "Filters"
-      }
-    >
-      {isPending ? (
-        <Loader2
-          className="animate-spin motion-reduce:animate-none"
-          aria-hidden="true"
-        />
-      ) : (
-        <SlidersHorizontal aria-hidden="true" />
-      )}
-      Filters
-      {hasFilters && (
-        <Badge
-          variant="secondary"
-          className="tnum"
-          aria-label={`${activeFilterCount} active competition filters`}
-        >
-          {activeFilterCount}
-        </Badge>
-      )}
-    </Button>
   );
 }
 
@@ -315,7 +205,7 @@ function CompetitionFiltersPanel({
   const deadlineOptions = countedOptions(facets?.deadline_within);
   const organiserTypeOptions = countedOptions(facets?.organiser_types);
   const modeOptions = countedOptions(facets?.modes);
-  const emptyLabel = statusLabel(facetsStatus);
+  const emptyLabel = countedStatusLabel(facetsStatus);
   const activeFilterCount = getCompetitionActiveFilterCount(searchParams);
   const hasActiveFilters = activeFilterCount > 0;
 
@@ -443,73 +333,27 @@ export function CompetitionsAdvancedFilters({
 }: CompetitionFacetsState) {
   const searchParams = useSearchParams();
   const { isFeedPending: isPending } = useFeedNavigation();
-  const [desktopOpen, setDesktopOpen] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
   const activeFilterCount = getCompetitionActiveFilterCount(searchParams);
 
   return (
-    <>
-      <span className="sr-only" role="status" aria-live="polite">
-        {activeFilterCount === 0
-          ? "No active competition filters"
-          : `${activeFilterCount} active competition filters`}
-      </span>
-
-      <div className="hidden md:block">
-        <Popover modal open={desktopOpen} onOpenChange={setDesktopOpen}>
-          <PopoverTrigger asChild>
-            <FilterTriggerButton
-              activeFilterCount={activeFilterCount}
-              isPending={isPending}
-            />
-          </PopoverTrigger>
-          <PopoverContent
-            align="end"
-            aria-label="Competition filters"
-            className={cn(
-              "max-h-(--radix-popover-content-available-height) w-[min(26rem,calc(100vw-2rem))] overflow-y-auto p-0",
-              isPending && "pointer-events-none",
-            )}
-          >
-            <CompetitionFiltersPanel
-              facets={facets}
-              facetsStatus={facetsStatus}
-              isPending={isPending}
-              idPrefix="desktop-competition-filter"
-            />
-          </PopoverContent>
-        </Popover>
-      </div>
-
-      <div className="md:hidden">
-        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-          <SheetTrigger asChild>
-            <FilterTriggerButton
-              activeFilterCount={activeFilterCount}
-              isPending={isPending}
-            />
-          </SheetTrigger>
-          <SheetContent
-            side="bottom"
-            className="max-h-[85vh] rounded-t-md border-border p-0"
-          >
-            <SheetHeader className="border-b border-border pr-12">
-              <SheetTitle className="font-serif text-2xl">Filters</SheetTitle>
-              <SheetDescription>Counted competition filters</SheetDescription>
-            </SheetHeader>
-            <div className="min-h-0 overflow-y-auto">
-              <CompetitionFiltersPanel
-                facets={facets}
-                facetsStatus={facetsStatus}
-                isPending={isPending}
-                idPrefix="mobile-competition-filter"
-                onClose={() => setMobileOpen(false)}
-              />
-            </div>
-          </SheetContent>
-        </Sheet>
-      </div>
-    </>
+    <CountedAdvancedFilterShell
+      activeFilterCount={activeFilterCount}
+      activeFilterLabel="competition filters"
+      isPending={isPending}
+      panelLabel="Competition filters"
+      mobileDescription="Counted competition filters"
+      idPrefixBase="competition-filter"
+    >
+      {({ idPrefix, onClose }) => (
+        <CompetitionFiltersPanel
+          facets={facets}
+          facetsStatus={facetsStatus}
+          isPending={isPending}
+          idPrefix={idPrefix}
+          onClose={onClose}
+        />
+      )}
+    </CountedAdvancedFilterShell>
   );
 }
 
