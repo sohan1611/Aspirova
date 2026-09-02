@@ -123,9 +123,12 @@ export interface ForYouParams {
 }
 
 export interface ProgrammeParams {
-  category?: string;
+  category?: string | string[];
   country?: string;
-  status?: "expected" | "announced" | "open" | "closed";
+  status?: string | string[];
+  field?: string | string[];
+  organiser?: string | string[];
+  institution_type?: string | string[];
   q?: string;
   divisions?: string[];
   page?: number;
@@ -150,6 +153,18 @@ type SearchFilterParams = Pick<
 function appendRepeatedParam(
   search: URLSearchParams,
   key: "company" | "location" | "comp_type" | "organiser_type" | "mode",
+  value: string | string[] | undefined,
+) {
+  const values = Array.isArray(value) ? value : value ? [value] : [];
+  for (const item of values) {
+    const nextValue = item.trim();
+    if (nextValue) search.append(key, nextValue);
+  }
+}
+
+function appendStringParams(
+  search: URLSearchParams,
+  key: string,
   value: string | string[] | undefined,
 ) {
   const values = Array.isArray(value) ? value : value ? [value] : [];
@@ -258,11 +273,15 @@ export async function getStats(revalidateSeconds = 300): Promise<StatsResponse> 
 }
 
 export async function getFacets(
-  params: Pick<FeedParams, "kind" | "category"> = {},
+  params: Pick<FeedParams, "kind"> & {
+    category?: FeedParams["category"] | string | string[];
+    source?: "opportunities" | "programmes";
+  } = {},
 ): Promise<Facets> {
   const search = new URLSearchParams();
   if (params.kind) search.set("kind", params.kind);
-  if (params.category) search.set("category", params.category);
+  appendStringParams(search, "category", params.category);
+  if (params.source) search.set("source", params.source);
   const query = search.toString();
   const res = await fetch(`${API_URL}/facets${query ? `?${query}` : ""}`, {
     next: { revalidate: 3600 },
@@ -310,9 +329,12 @@ export async function getProgrammes(
   params: ProgrammeParams = {},
 ): Promise<ProgrammeListResponse> {
   const search = new URLSearchParams();
-  if (params.category) search.set("category", params.category);
+  appendStringParams(search, "category", params.category);
   if (params.country) search.set("country", params.country);
-  if (params.status) search.set("status", params.status);
+  appendStringParams(search, "status", params.status);
+  appendStringParams(search, "field", params.field);
+  appendStringParams(search, "organiser", params.organiser);
+  appendStringParams(search, "institution_type", params.institution_type);
   if (params.q) search.set("q", params.q);
   if (params.divisions?.length) search.set("divisions", params.divisions.join(","));
   if (params.page) search.set("page", String(params.page));

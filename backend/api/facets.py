@@ -1,8 +1,8 @@
 """Facet lists for picker-style feed filters."""
 
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import case, func, select, text
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import and_, case, func, select, text, true
+from sqlalchemy.orm import Session, aliased
 
 from api.deps import get_db
 from api.filters import (
@@ -16,27 +16,75 @@ from api.filters import (
     exclude_stale_opportunities,
     kind_filters,
 )
+from api.programmes import (
+    PROGRAMME_CATEGORY_LABELS,
+    PROGRAMME_STATUS_LABELS,
+    VALID_PROGRAMME_CATEGORIES,
+)
 from api.schemas import FacetOption, FacetsResponse
 from core import models
-from core.organisers import ORGANISER_TYPE_LABELS, organiser_type_expression
+from core.organisers import (
+    ORGANISER_TYPE_LABELS,
+    classify_organiser,
+    organiser_type_expression,
+)
 
 router = APIRouter()
+
+
+VALID_OPPORTUNITY_CATEGORIES = frozenset({"internship", "job", "hackathon", "competition"})
+
+
+def _selected_category_values(
+    category: list[str] | None,
+    *,
+    valid_values: frozenset[str],
+    detail: str,
+) -> list[str]:
+    selected: list[str] = []
+    seen: set[str] = set()
+    for raw_value in category or []:
+        for part in raw_value.split(","):
+            normalized = part.strip().lower()
+            if not normalized:
+                continue
+            if normalized not in valid_values:
+                raise HTTPException(status_code=422, detail=detail)
+            if normalized in seen:
+                continue
+            selected.append(normalized)
+            seen.add(normalized)
+    return selected
 
 
 @router.get("/facets", response_model=FacetsResponse)
 def get_facets(
     kind: str | None = Query(None, pattern="^(roles|competitions)$"),
-    category: str | None = Query(None, pattern="^(internship|job|hackathon|competition)$"),
+    category: list[str] | None = Query(None),
+    source: str | None = Query(None, pattern="^(opportunities|programmes)$"),
     db: Session = Depends(get_db),
 ) -> FacetsResponse:
+    if source == "programmes":
+        programme_categories = _selected_category_values(
+            category,
+            valid_values=VALID_PROGRAMME_CATEGORIES,
+            detail="Invalid category",
+        )
+        return _programme_facets(db, programme_categories)
+
+    opportunity_categories = _selected_category_values(
+        category,
+        valid_values=VALID_OPPORTUNITY_CATEGORIES,
+        detail="Invalid category",
+    )
     base_filters = [
         models.Opportunity.status == "active",
         exclude_stale_opportunities(),
         exclude_experienced_only_opportunities(),
         exclude_closed_competitions(),
     ]
-    if category is not None:
-        base_filters.append(models.Opportunity.category == category)
+    if opportunity_categories:
+        base_filters.append(models.Opportunity.category.in_(opportunity_categories))
     base_filters.extend(kind_filters(kind))
 
     count_label = func.count(models.Opportunity.id).label("count")
@@ -76,7 +124,9 @@ def get_facets(
         if location is not None and count > 0
     ]
 
-    competition_scope = kind == "competitions" or category in {"hackathon", "competition"}
+    competition_scope = kind == "competitions" or bool(
+        set(opportunity_categories) & {"hackathon", "competition"}
+    )
     comp_types: list[FacetOption] = []
     registrations: list[FacetOption] = []
     deadline_within: list[FacetOption] = []
@@ -104,6 +154,150 @@ def get_facets(
         organiser_types=organiser_types,
         modes=modes,
     )
+
+
+def _programme_base_filters(categories: list[str]) -> list:
+    filters = [models.Programme.is_active.is_(True)]
+    if categories:
+        filters.append(models.Programme.category.in_(categories))
+    return filters
+
+
+def _programme_facets(db: Session, categories: list[str]) -> FacetsResponse:
+    base_filters = _programme_base_filters(categories)
+    return FacetsResponse(
+        companies=[],
+        locations=[],
+        programme_categories=_programme_category_facets(db, base_filters),
+        programme_fields=_programme_field_facets(db, base_filters),
+        programme_organisers=_programme_organiser_facets(db, base_filters),
+        programme_institution_types=_programme_institution_type_facets(db, base_filters),
+        programme_statuses=_programme_status_facets(db, base_filters),
+    )
+
+
+def _programme_category_facets(db: Session, base_filters: list) -> list[FacetOption]:
+    rows = db.execute(
+        select(models.Programme.category, func.count(models.Programme.id).label("count"))
+        .where(*base_filters)
+        .group_by(models.Programme.category)
+    ).all()
+    counts = {value: count for value, count in rows if value in PROGRAMME_CATEGORY_LABELS}
+    return [
+        FacetOption(value=value, label=label, count=counts[value])
+        for value, label in PROGRAMME_CATEGORY_LABELS.items()
+        if value in counts and counts[value] > 0
+    ]
+
+
+def _programme_field_facets(db: Session, base_filters: list) -> list[FacetOption]:
+    tag_element = (
+        func.jsonb_array_elements_text(models.Programme.tags)
+        .table_valued("tag")
+        .render_derived(name="tag")
+    )
+    rows = db.execute(
+        select(
+            tag_element.c.tag,
+            func.count(func.distinct(models.Programme.id)).label("count"),
+        )
+        .select_from(models.Programme)
+        .join(tag_element, true())
+        .where(*base_filters)
+        .group_by(tag_element.c.tag)
+        .order_by(
+            func.count(func.distinct(models.Programme.id)).desc(),
+            tag_element.c.tag.asc(),
+        )
+    ).all()
+    return [
+        FacetOption(value=tag, label=_humanize_programme_value(tag), count=count)
+        for tag, count in rows
+        if tag and count > 0
+    ]
+
+
+def _programme_organiser_facets(db: Session, base_filters: list) -> list[FacetOption]:
+    rows = db.execute(
+        select(models.Programme.organiser, func.count(models.Programme.id).label("count"))
+        .where(*base_filters)
+        .group_by(models.Programme.organiser)
+        .order_by(
+            func.lower(models.Programme.organiser).asc(),
+            models.Programme.organiser.asc(),
+        )
+    ).all()
+    return [
+        FacetOption(value=organiser, label=organiser, count=count)
+        for organiser, count in rows
+        if organiser and count > 0
+    ]
+
+
+def _programme_institution_type_facets(
+    db: Session,
+    base_filters: list,
+) -> list[FacetOption]:
+    rows = db.execute(
+        select(models.Programme.organiser, func.count(models.Programme.id).label("count"))
+        .where(*base_filters)
+        .group_by(models.Programme.organiser)
+    ).all()
+    counts: dict[str, int] = {}
+    for organiser, count in rows:
+        organiser_type = classify_organiser(organiser)
+        counts[organiser_type] = counts.get(organiser_type, 0) + count
+    return [
+        FacetOption(value=value, label=label, count=counts[value])
+        for value, label in ORGANISER_TYPE_LABELS.items()
+        if counts.get(value, 0) > 0
+    ]
+
+
+def _programme_status_facets(db: Session, base_filters: list) -> list[FacetOption]:
+    current_edition = aliased(models.ProgrammeEdition)
+    edition_for_max_year = aliased(models.ProgrammeEdition)
+    current_edition_year = (
+        select(func.max(edition_for_max_year.year))
+        .where(
+            and_(
+                edition_for_max_year.programme_id == models.Programme.id,
+                edition_for_max_year.status != "discontinued",
+            )
+        )
+        .correlate(models.Programme)
+        .scalar_subquery()
+    )
+    rows = db.execute(
+        select(current_edition.status, func.count(models.Programme.id).label("count"))
+        .select_from(models.Programme)
+        .outerjoin(
+            current_edition,
+            and_(
+                current_edition.programme_id == models.Programme.id,
+                current_edition.year == current_edition_year,
+            ),
+        )
+        .where(*base_filters, current_edition.status.in_(tuple(PROGRAMME_STATUS_LABELS)))
+        .group_by(current_edition.status)
+    ).all()
+    counts = {value: count for value, count in rows if value in PROGRAMME_STATUS_LABELS}
+    return [
+        FacetOption(value=value, label=label, count=counts[value])
+        for value, label in PROGRAMME_STATUS_LABELS.items()
+        if value in counts and counts[value] > 0
+    ]
+
+
+# Tags that .title() gets wrong. The registry vocabulary is small and curated,
+# so this is a complete list rather than a heuristic - "cs" rendered as "Cs" and
+# "ai" as "Ai" in the field filter.
+_PROGRAMME_ACRONYM_LABELS = {"cs": "CS", "ai": "AI"}
+
+
+def _humanize_programme_value(value: str) -> str:
+    words = value.replace("-", " ").replace("_", " ").split()
+    return " ".join(_PROGRAMME_ACRONYM_LABELS.get(word.lower(), word.title()) for word in words)
 
 
 def _ordered_options(rows, labels: dict[str, str]) -> list[FacetOption]:

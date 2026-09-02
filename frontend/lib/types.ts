@@ -194,6 +194,11 @@ export interface Facets {
   deadline_within?: FacetOption[];
   organiser_types?: FacetOption[];
   modes?: FacetOption[];
+  programme_categories?: FacetOption[];
+  programme_fields?: FacetOption[];
+  programme_organisers?: FacetOption[];
+  programme_institution_types?: FacetOption[];
+  programme_statuses?: FacetOption[];
 }
 
 export interface CompanyPage {
