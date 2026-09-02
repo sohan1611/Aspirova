@@ -4,9 +4,9 @@ import Link from "next/link";
 import MatchedProgrammes from "@/components/MatchedProgrammes";
 import {
   ProgrammesActiveFilterChips,
-  ProgrammesAdvancedFilters,
   type ProgrammesFacetsStatus,
 } from "@/components/ProgrammesAdvancedFilters";
+import ProgrammesListingControls from "@/components/ProgrammesListingControls";
 import ProgrammeCard from "@/components/ProgrammeCard";
 import { FeedNavigationProvider } from "@/components/FeedNavigation";
 import { Button } from "@/components/ui/button";
@@ -154,13 +154,15 @@ export default async function ProgrammesPage({ searchParams }: PageProps) {
               </p>
             )}
           </div>
-          <ProgrammesAdvancedFilters
+          <ProgrammesListingControls
             facets={facets}
             facetsStatus={facetsStatus}
             path="/programmes"
             activeFilterLabel="programme filters"
             panelLabel="Programme filters"
             mobileDescription="Counted programme filters"
+            searchPlaceholder="Search programmes..."
+            searchLabel="Search programmes"
           />
         </div>
 

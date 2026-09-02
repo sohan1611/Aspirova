@@ -50,6 +50,7 @@ export default async function InternshipsPaginatedPage({ params }: PageProps) {
       page={page}
       limit={LANDING_LIMIT}
       basePath={INTERNSHIPS_LANDING.basePath}
+      query={INTERNSHIPS_LANDING.query}
     />
   );
 }

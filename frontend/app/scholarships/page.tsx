@@ -26,6 +26,7 @@ export default async function ScholarshipsPage() {
       page={1}
       limit={LANDING_LIMIT}
       basePath={SCHOLARSHIPS_LANDING.basePath}
+      query={SCHOLARSHIPS_LANDING.query}
     />
   );
 }

@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
+  activeSingleValue,
   activeValues,
   countedOptions,
   countedStatusLabel,
@@ -91,7 +92,8 @@ function ProgrammesFiltersPanel({
     for (const key of PROGRAMME_FILTER_PARAM_KEYS) {
       params.delete(key);
     }
-    commit(params, false);
+    params.delete("q");
+    commit(params);
     onClose?.();
   }
 
@@ -275,15 +277,33 @@ export function ProgrammesActiveFilterChips({
     commit(params);
   }
 
+  function removeSingleParam(key: "q") {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete(key);
+    commit(params);
+  }
+
   function clearAllFilters() {
     const params = new URLSearchParams(searchParams.toString());
     for (const key of PROGRAMME_FILTER_PARAM_KEYS) {
       params.delete(key);
     }
-    commit(params, false);
+    params.delete("q");
+    commit(params);
   }
 
-  const filters: ActiveFilterChip[] = [
+  const filters: ActiveFilterChip[] = [];
+  const q = activeSingleValue(searchParams, "q");
+  if (q) {
+    filters.push({
+      id: "q",
+      label: `Search: "${q}"`,
+      humanLabel: `Search: "${q}"`,
+      onRemove: () => removeSingleParam("q"),
+    });
+  }
+
+  filters.push(
     ...activeValues(searchParams, "category").map((value) => {
       const label = optionLabel(facets?.programme_categories, value);
       return {
@@ -329,7 +349,7 @@ export function ProgrammesActiveFilterChips({
         onRemove: () => removeMultiParam("status", value),
       };
     }),
-  ];
+  );
 
   return (
     <ActiveFilterChips

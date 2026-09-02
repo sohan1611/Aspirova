@@ -89,7 +89,7 @@ function throwResumeApiError(res: Response, action: string): never {
 }
 
 export interface FeedParams {
-  category?: "internship" | "job" | "scholarship";
+  category?: "internship" | "job" | "hackathon" | "competition" | "scholarship";
   kind?: "roles" | "competitions";
   source?: "direct" | "unstop" | "remoteok" | "devpost";
   experience?: "early";
@@ -148,6 +148,13 @@ type SearchFilterParams = Pick<
   | "scope"
   | "country"
   | "remote_abroad"
+  | "comp_type"
+  | "registration"
+  | "deadline_within"
+  | "organiser_type"
+  | "mode"
+  | "prize_min"
+  | "sort"
 >;
 
 function appendRepeatedParam(
@@ -202,7 +209,11 @@ export async function getFeed(
   appendRepeatedParam(search, "organiser_type", params.organiser_type);
   appendRepeatedParam(search, "mode", params.mode);
   if (params.prize_min !== undefined) search.set("prize_min", String(params.prize_min));
-  if (params.sort === "recent" || params.sort === "deadline") {
+  if (
+    params.sort === "recent" ||
+    params.sort === "deadline" ||
+    params.sort === "student"
+  ) {
     search.set("sort", params.sort);
   }
   if (params.page) search.set("page", String(params.page));
@@ -308,6 +319,15 @@ export async function searchOpportunities(
   if (filters.scope) search.set("scope", filters.scope);
   if (filters.country) search.set("country", filters.country);
   if (filters.remote_abroad) search.set("remote_abroad", "true");
+  appendRepeatedParam(search, "comp_type", filters.comp_type);
+  if (filters.registration) search.set("registration", filters.registration);
+  if (filters.deadline_within !== undefined) {
+    search.set("deadline_within", String(filters.deadline_within));
+  }
+  appendRepeatedParam(search, "organiser_type", filters.organiser_type);
+  appendRepeatedParam(search, "mode", filters.mode);
+  if (filters.prize_min !== undefined) search.set("prize_min", String(filters.prize_min));
+  if (filters.sort) search.set("sort", filters.sort);
   const res = await fetch(`${API_URL}/search?${search.toString()}`, {
     next: { revalidate: 300 },
   });

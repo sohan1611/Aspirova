@@ -3,9 +3,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   ProgrammesActiveFilterChips,
-  ProgrammesAdvancedFilters,
   type ProgrammesFacetsStatus,
 } from "@/components/ProgrammesAdvancedFilters";
+import ProgrammesListingControls from "@/components/ProgrammesListingControls";
 import ProgrammeCard from "@/components/ProgrammeCard";
 import { FeedNavigationProvider } from "@/components/FeedNavigation";
 import { getFacets } from "@/lib/api";
@@ -165,13 +165,15 @@ export default async function ResearchPage({ searchParams }: PageProps) {
               </p>
             )}
           </div>
-          <ProgrammesAdvancedFilters
+          <ProgrammesListingControls
             facets={facets}
             facetsStatus={facetsStatus}
             path="/research"
             activeFilterLabel="research filters"
             panelLabel="Research filters"
             mobileDescription="Counted research filters"
+            searchPlaceholder="Search research..."
+            searchLabel="Search research programmes"
           />
         </div>
 

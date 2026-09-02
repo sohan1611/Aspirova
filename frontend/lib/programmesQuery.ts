@@ -19,6 +19,7 @@ export interface ProgrammeSearchParams {
   organiser?: ProgrammeSearchParamValue;
   institution_type?: ProgrammeSearchParamValue;
   status?: ProgrammeSearchParamValue;
+  q?: ProgrammeSearchParamValue;
   page?: ProgrammeSearchParamValue;
 }
 
@@ -28,6 +29,7 @@ export interface ProgrammesRequest {
   organiser: string[];
   institution_type: string[];
   status: string[];
+  q: string | undefined;
   page: number;
 }
 
@@ -36,6 +38,12 @@ export function parseParamValues(value: ProgrammeSearchParamValue): string[] {
   return Array.from(
     new Set(rawValues.map((item) => item.trim()).filter(Boolean)),
   );
+}
+
+function parseSingleParamValue(value: ProgrammeSearchParamValue): string | undefined {
+  const rawValue = Array.isArray(value) ? value[0] : value;
+  const nextValue = rawValue?.trim();
+  return nextValue || undefined;
 }
 
 export function parseProgrammesRequest(
@@ -65,6 +73,7 @@ export function parseProgrammesRequest(
     organiser: parseParamValues(query.organiser),
     institution_type: parseParamValues(query.institution_type),
     status: parseParamValues(query.status),
+    q: parseSingleParamValue(query.q),
     page,
   };
 }
@@ -79,6 +88,7 @@ export function loadProgrammes(
     organiser: request.organiser,
     institution_type: request.institution_type,
     status: request.status,
+    q: request.q,
     page: request.page,
     limit,
   });
@@ -95,12 +105,17 @@ export function programmesTotalPages(total: number, limit = PROGRAMMES_LIMIT): n
 export function appendCurrentProgrammeFilters(
   search: URLSearchParams,
   query: ProgrammeSearchParams,
-  exclude: ProgrammeFilterParamKey | null = null,
+  exclude: ProgrammeFilterParamKey | "q" | null = null,
 ) {
   for (const key of PROGRAMME_FILTER_PARAM_KEYS) {
     if (key === exclude) continue;
     for (const value of parseParamValues(query[key])) {
       search.append(key, value);
     }
+  }
+
+  if (exclude !== "q") {
+    const q = parseSingleParamValue(query.q);
+    if (q) search.set("q", q);
   }
 }

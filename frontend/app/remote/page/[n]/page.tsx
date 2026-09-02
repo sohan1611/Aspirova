@@ -50,6 +50,7 @@ export default async function RemotePaginatedPage({ params }: PageProps) {
       page={page}
       limit={LANDING_LIMIT}
       basePath={REMOTE_LANDING.basePath}
+      query={REMOTE_LANDING.query}
     />
   );
 }

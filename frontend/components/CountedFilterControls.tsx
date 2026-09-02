@@ -144,10 +144,12 @@ export function ActiveFilterChips({
   filters,
   disabled = false,
   onClearAll,
+  showClearAll = true,
 }: {
   filters: ActiveFilterChip[];
   disabled?: boolean;
   onClearAll: () => void;
+  showClearAll?: boolean;
 }) {
   if (filters.length === 0) return null;
 
@@ -171,14 +173,16 @@ export function ActiveFilterChips({
           </button>
         </Badge>
       ))}
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={onClearAll}
-        className="min-h-7 whitespace-nowrap rounded-sm px-1.5 py-1 text-sm font-medium text-muted-foreground transition-colors duration-200 ease-[var(--ease-premium)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-wait"
-      >
-        Clear all
-      </button>
+      {showClearAll && (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={onClearAll}
+          className="min-h-7 whitespace-nowrap rounded-sm px-1.5 py-1 text-sm font-medium text-muted-foreground transition-colors duration-200 ease-[var(--ease-premium)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-wait"
+        >
+          Clear all
+        </button>
+      )}
     </div>
   );
 }
