@@ -328,9 +328,15 @@ export async function searchOpportunities(
   appendRepeatedParam(search, "mode", filters.mode);
   if (filters.prize_min !== undefined) search.set("prize_min", String(filters.prize_min));
   if (filters.sort) search.set("sort", filters.sort);
-  const res = await fetch(`${API_URL}/search?${search.toString()}`, {
-    next: { revalidate: 300 },
-  });
+  // No `next: { revalidate }` here: searchOpportunities is only ever called from
+  // client components. The three query modules that import it are all consumed
+  // by "use client" results components, and the static pages never take the `q`
+  // branch because they do not read searchParams. Server fetch-cache options are
+  // meaningless from the browser, so passing them is at best noise.
+  //
+  // This is NOT the fix for the outstanding search bug - removing it was tried
+  // and the bug survived. See the note in OpportunityLandingResults.
+  const res = await fetch(`${API_URL}/search?${search.toString()}`);
   if (!res.ok) throw new Error(`Failed to search: ${res.status}`);
   return res.json();
 }

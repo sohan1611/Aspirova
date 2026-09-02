@@ -55,6 +55,27 @@ export default function OpportunityLandingResults({
   } | null>(null);
   const queryKey = query.toString();
 
+  // KNOWN BUG - search renders "Nothing open here" on every listing page.
+  //
+  // Measured, not guessed (in-page diagnostics plus the API server's own access
+  // log, because the browser devtools console, network panel and JS probes all
+  // reported this wrongly at least once):
+  //   - the effect runs and request.canReusePrerendered is false
+  //   - the request goes out and the API answers 200 with thousands of rows
+  //   - neither .then nor .catch ever fires; `settled` stays null forever
+  //   - so isLoading stays true, items are blanked, and the empty state shows
+  //
+  // An identical fetch() typed into the console on the same page resolves fine,
+  // so the request itself is healthy. Adding ANY synchronous setState at the top
+  // of this effect made it start working, which points at two component
+  // instances - Suspense state loss on a statically prerendered route using
+  // useSearchParams, where the instance running the effect is not the instance
+  // being rendered. Ruled out along the way: response-shape mismatch, the
+  // `next: { revalidate }` fetch option, and the `cancelled` cleanup guard.
+  //
+  // The fix is architectural (how results are held across that Suspense
+  // boundary), not a one-line change, so it is left documented rather than
+  // half-attempted.
   useEffect(() => {
     if (request.canReusePrerendered) return;
 
