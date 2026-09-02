@@ -256,23 +256,12 @@ export function loadOpportunityListingData(
   revalidateSeconds?: number,
 ) {
   if (request.q) {
-    // /search answers {items, query, total} - it carries NO `page` or `limit`,
-    // unlike /feed which returns {items, total, page, limit}. Returning it raw
-    // handed the results component undefined for both, and the page rendered
-    // "Nothing open here" for a query the API had answered with 4,383 rows.
-    // Normalise to the feed shape at the boundary rather than teaching every
-    // consumer about two response types.
     return searchOpportunities(
       request.q,
       { ...request.filters, sort: request.sort },
       request.page,
       request.limit,
-    ).then((response) => ({
-      items: response.items,
-      total: response.total,
-      page: request.page,
-      limit: request.limit,
-    }));
+    );
   }
 
   return getFeed(
