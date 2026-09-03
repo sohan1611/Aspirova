@@ -30,13 +30,20 @@ count - building for anticipated load here would violate the same
 """
 
 import logging
+import random
+from collections import Counter, defaultdict
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from html import escape
 
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
-from api.filters import exclude_stale_opportunities, student_rank_expression
+from api.filters import (
+    exclude_school_only_opportunities,
+    exclude_stale_opportunities,
+    student_rank_expression,
+)
 from core import models
 from core.config import get_settings
 from core.email_client import send_email
@@ -653,6 +660,7 @@ HACKATHON_DIGEST_SUBJECT = "Your Daily Dose of Hackathons 🚀"
 
 HACKATHON_DIGEST_SIZE = 5
 HACKATHON_DIGEST_REPUTED_RESERVE = 2
+HACKATHON_DIGEST_MAX_PER_SOURCE = 3
 
 # Minimum runway for a listing to be worth emailing about. Sorting purely by
 # soonest deadline looked right and was not: with ~760 live competitions, dozens
@@ -660,6 +668,11 @@ HACKATHON_DIGEST_REPUTED_RESERVE = 2
 # measured, the first five picks all closed the same day. A digest telling you
 # about a hackathon you can no longer enter is worse than not sending one.
 HACKATHON_DIGEST_MIN_LEAD = timedelta(days=2)
+
+# The daily crawl lands around 07:00 UTC. Thirty-six hours tolerates one missed
+# crawl but not two; measured stale Unstop rows last seen 2-3 days earlier were
+# still being emailed with countdowns after the source had stopped listing them.
+HACKATHON_DIGEST_MAX_STALENESS = timedelta(hours=36)
 
 # Minimum spacing between a user's daily digest and their hackathon digest.
 #
@@ -687,6 +700,12 @@ _SCHOOL_LEVEL_REGEX = (
 )
 
 
+@dataclass(frozen=True)
+class _DigestCandidate:
+    opportunity: models.Opportunity
+    reputed: bool
+
+
 def _reputed_organiser_expression():
     """1 for a top-tier organiser or a national-level event, else 0.
 
@@ -708,7 +727,7 @@ def _hackathon_digest_opportunities(
     now: datetime,
     limit: int = HACKATHON_DIGEST_SIZE,
 ) -> list[models.Opportunity]:
-    """Pick the day's hackathons: reputed organisers first, then most urgent.
+    """Pick the day's hackathons across deadlines, organisers and sources.
 
     Deliberately NOT ranked purely by reputation. Sorting everything by tier
     would bury a hackathon closing tomorrow behind a well-branded one closing in
@@ -721,6 +740,13 @@ def _hackathon_digest_opportunities(
         models.Opportunity.is_hidden.is_not(True),
         models.Opportunity.category.in_(["hackathon", "competition"]),
         exclude_stale_opportunities(now),
+        models.Opportunity.last_seen_at >= now - HACKATHON_DIGEST_MAX_STALENESS,
+        # A printed countdown needs an explicit source date. No-deadline rows are
+        # still allowed, because they render honestly as "no stated deadline".
+        or_(
+            models.Opportunity.deadline.is_(None),
+            models.Opportunity.deadline_confidence == "explicit",
+        ),
         # Stricter than exclude_closed_competitions(): that keeps a 14-day grace
         # so a closed page stays readable. An email must only carry things the
         # reader can still enter, with enough runway to act.
@@ -728,6 +754,7 @@ def _hackathon_digest_opportunities(
             models.Opportunity.deadline.is_(None),
             models.Opportunity.deadline >= now + HACKATHON_DIGEST_MIN_LEAD,
         ),
+        exclude_school_only_opportunities(),
         func.coalesce(models.Opportunity.title, "").op("!~*")(_SCHOOL_LEVEL_REGEX),
     ]
 
@@ -743,6 +770,7 @@ def _hackathon_digest_opportunities(
             reputed.label("reputed"),
             models.Opportunity.deadline.label("deadline"),
             models.Opportunity.first_seen_at.label("first_seen_at"),
+            models.Opportunity.primary_source.label("primary_source"),
             func.row_number()
             .over(
                 partition_by=func.coalesce(models.Opportunity.company_id, -models.Opportunity.id),
@@ -765,23 +793,26 @@ def _hackathon_digest_opportunities(
         where_extra: list,
         order_by: list,
         count: int | None = None,
-    ) -> list[models.Opportunity]:
+    ) -> list[_DigestCandidate]:
         if count is not None and count <= 0:
             return []
         query = (
-            select(ranked.c.id).where(ranked.c.organiser_row == 1, *where_extra).order_by(*order_by)
+            select(ranked.c.id, ranked.c.reputed)
+            .where(ranked.c.organiser_row == 1, *where_extra)
+            .order_by(*order_by)
         )
         if count is not None:
             query = query.limit(count)
         rows = session.execute(query).all()
-        ids = [row[0] for row in rows]
+        ids = [row.id for row in rows]
         if not ids:
             return []
+        reputed_by_id = {row.id: bool(row.reputed) for row in rows}
         found = session.scalars(
             select(models.Opportunity).where(models.Opportunity.id.in_(ids))
         ).all()
         by_id = {opportunity.id: opportunity for opportunity in found}
-        return [by_id[i] for i in ids if i in by_id]
+        return [_DigestCandidate(by_id[i], reputed_by_id[i]) for i in ids if i in by_id]
 
     def _deadline_day(opportunity: models.Opportunity) -> int | None:
         if opportunity.deadline is None:
@@ -791,81 +822,242 @@ def _hackathon_digest_opportunities(
             deadline = deadline.replace(tzinfo=timezone.utc)
         return (deadline - now).days
 
-    def _deadline_diverse_selection(
-        reserved: list[models.Opportunity],
-        candidates: list[models.Opportunity],
-        max_items: int | None = None,
-    ) -> list[models.Opportunity]:
-        """Fill up to `max_items` preferring one pick per distinct deadline-day.
+    def _source_key(candidate: _DigestCandidate) -> str:
+        return candidate.opportunity.primary_source or "__unknown__"
 
-        Used twice: once to choose the reserved reputed picks, once for the
-        digest as a whole. Without it on the reserve too, both reserved slots can
-        land on the same day and the reader still sees a wall of identical
-        "closes in N days" - which is the bug this exists to fix.
+    def _candidate_day(candidate: _DigestCandidate) -> int | None:
+        return _deadline_day(candidate.opportunity)
 
-        `cap` rather than `limit`: assigning to `limit` here would make it local
-        to this function and shadow the enclosing parameter throughout.
+    def _day_sort_key(day: int | None) -> tuple[int, int]:
+        return (1, 0) if day is None else (0, day)
+
+    def _ordered_days(candidates: list[_DigestCandidate]) -> list[int | None]:
+        return sorted({_candidate_day(candidate) for candidate in candidates}, key=_day_sort_key)
+
+    def _spread_days(candidates: list[_DigestCandidate], count: int) -> list[int | None]:
+        """Choose deadline buckets across the whole range, not the next N days.
+
+        The first deadline-diversity fix walked candidates already ordered by
+        urgency. With ~440 eligible rows spanning every upcoming day, that made
+        the digest read as 2, 3, 4, 5, 6 days - as machine-made as five same-day
+        deadlines. Anchor on the closest real deadline, then sample the full
+        available range so the remaining buckets have visible breathing room.
         """
-        cap = max_items if max_items is not None else limit
-        selected = reserved[:cap]
-        selected_ids = {opportunity.id for opportunity in selected}
-        selected_days = {_deadline_day(opportunity) for opportunity in selected}
-        deferred_repeats: list[models.Opportunity] = []
+        if count <= 0:
+            return []
 
-        for opportunity in candidates:
-            if len(selected) >= cap:
-                return selected
-            if opportunity.id in selected_ids:
-                continue
+        days = _ordered_days(candidates)
+        dated_days = [day for day in days if day is not None]
+        selected: list[int | None] = []
+        if dated_days:
+            target = min(count, len(dated_days))
+            indexes = (
+                [0]
+                if target == 1
+                else [round(i * (len(dated_days) - 1) / (target - 1)) for i in range(target)]
+            )
+            for index in indexes:
+                day = dated_days[index]
+                if day not in selected:
+                    selected.append(day)
+            for day in dated_days:
+                if len(selected) >= target:
+                    break
+                if day not in selected:
+                    selected.append(day)
 
-            deadline_day = _deadline_day(opportunity)
-            if deadline_day in selected_days:
-                deferred_repeats.append(opportunity)
-                continue
-
-            selected.append(opportunity)
-            selected_ids.add(opportunity.id)
-            selected_days.add(deadline_day)
-
-        for opportunity in deferred_repeats:
-            if len(selected) >= cap:
-                break
-            if opportunity.id in selected_ids:
-                continue
-            selected.append(opportunity)
-            selected_ids.add(opportunity.id)
-
+        if len(selected) < count and None in days:
+            selected.append(None)
         return selected
 
-    # Soonest eligible deadlines first. The Python selection pass spreads these
-    # candidates across deadline-day buckets before falling back to repeats.
-    urgency_order = [
+    def _deadline_diverse_selection(candidates: list[_DigestCandidate]) -> list[models.Opportunity]:
+        """Select digest rows with distinct deadline-days before any repeat fill."""
+        cap = min(limit, len(candidates))
+        if cap <= 0:
+            return []
+
+        buckets: dict[int | None, list[_DigestCandidate]] = defaultdict(list)
+        for candidate in candidates:
+            buckets[_candidate_day(candidate)].append(candidate)
+
+        day_order = _spread_days(candidates, cap)
+        day_order.extend(day for day in _ordered_days(candidates) if day not in day_order)
+        distinct_day_count = len(buckets)
+
+        source_totals = Counter(_source_key(candidate) for candidate in candidates)
+        dominant_source = None
+        required_other_source_slots = 0
+        if len(source_totals) > 1:
+            dominant_source = max(source_totals, key=lambda source: (source_totals[source], source))
+            other_source_candidates = sum(
+                count for source, count in source_totals.items() if source != dominant_source
+            )
+            required_other_source_slots = min(2, cap, other_source_candidates)
+
+        selected: list[_DigestCandidate] = []
+        selected_ids: set[int] = set()
+        selected_days: set[int | None] = set()
+        selected_source_counts: Counter[str] = Counter()
+
+        def _source_allowed(
+            candidate: _DigestCandidate,
+            *,
+            enforce_source: bool,
+            protect_other_sources: bool,
+        ) -> bool:
+            if not enforce_source:
+                return True
+
+            source = _source_key(candidate)
+            if selected_source_counts[source] >= HACKATHON_DIGEST_MAX_PER_SOURCE:
+                return False
+
+            if protect_other_sources and dominant_source is not None and source == dominant_source:
+                other_selected = len(selected) - selected_source_counts[dominant_source]
+                remaining_after_pick = cap - (len(selected) + 1)
+                if other_selected + remaining_after_pick < required_other_source_slots:
+                    return False
+
+            return True
+
+        def _best_candidate(
+            candidates_to_scan: list[_DigestCandidate],
+            *,
+            unique_days: bool,
+            enforce_source: bool,
+            protect_other_sources: bool,
+            require_reputed: bool = False,
+        ) -> _DigestCandidate | None:
+            for candidate in candidates_to_scan:
+                opportunity = candidate.opportunity
+                if opportunity.id in selected_ids:
+                    continue
+                if require_reputed and not candidate.reputed:
+                    continue
+                day = _candidate_day(candidate)
+                if unique_days and day in selected_days:
+                    continue
+                if not _source_allowed(
+                    candidate,
+                    enforce_source=enforce_source,
+                    protect_other_sources=protect_other_sources,
+                ):
+                    continue
+                return candidate
+            return None
+
+        def _add(candidate: _DigestCandidate) -> None:
+            selected.append(candidate)
+            selected_ids.add(candidate.opportunity.id)
+            selected_days.add(_candidate_day(candidate))
+            selected_source_counts[_source_key(candidate)] += 1
+
+        def _fill_unique_days(*, enforce_source: bool, protect_other_sources: bool) -> None:
+            for day in day_order:
+                if len(selected) >= cap:
+                    break
+                if day in selected_days:
+                    continue
+                candidate = _best_candidate(
+                    buckets[day],
+                    unique_days=True,
+                    enforce_source=enforce_source,
+                    protect_other_sources=protect_other_sources,
+                )
+                if candidate is not None:
+                    _add(candidate)
+
+        def _fill_repeated_days(*, enforce_source: bool) -> None:
+            for candidate in candidates:
+                if len(selected) >= cap:
+                    break
+                if candidate.opportunity.id in selected_ids:
+                    continue
+                if not _source_allowed(
+                    candidate,
+                    enforce_source=enforce_source,
+                    protect_other_sources=enforce_source,
+                ):
+                    continue
+                _add(candidate)
+
+        # Always spend the first logical slot on the closest deadline bucket.
+        # The final email is shuffled later, so this affects inclusion, not
+        # rendered order.
+        if day_order:
+            urgent = _best_candidate(
+                buckets[day_order[0]],
+                unique_days=True,
+                enforce_source=True,
+                protect_other_sources=False,
+            )
+            if urgent is not None:
+                _add(urgent)
+
+        # Reputed organisers get a reserve, but not at the cost of source
+        # diversity. That complaint was measured separately: 360 Unstop rows vs
+        # 79 other aggregator rows let Unstop sweep all five slots unless source
+        # balance is protected before the reserve spends another dominant-source
+        # pick.
+        reputed_target = min(
+            HACKATHON_DIGEST_REPUTED_RESERVE,
+            cap,
+            sum(1 for candidate in candidates if candidate.reputed),
+        )
+        while sum(1 for candidate in selected if candidate.reputed) < reputed_target:
+            candidate = _best_candidate(
+                candidates,
+                unique_days=True,
+                enforce_source=True,
+                protect_other_sources=True,
+                require_reputed=True,
+            )
+            if candidate is None:
+                break
+            _add(candidate)
+
+        _fill_unique_days(enforce_source=True, protect_other_sources=True)
+        if len(selected) < cap and distinct_day_count >= cap:
+            # If source balance and deadline uniqueness conflict, keep the
+            # no-two-deadline-days guarantee and relax source balance before
+            # allowing repeated dates.
+            _fill_unique_days(enforce_source=False, protect_other_sources=False)
+
+        if len(selected) < cap and distinct_day_count < cap:
+            # Existing deferred-repeat behaviour: only repeat a deadline-day
+            # once the available distinct buckets genuinely cannot fill the
+            # digest. Try the source cap first, then ship a full digest if the
+            # dominant source is the only remaining way to fill the last slot.
+            _fill_repeated_days(enforce_source=True)
+            _fill_repeated_days(enforce_source=False)
+
+        rng = random.Random(
+            (now if now.tzinfo else now.replace(tzinfo=timezone.utc))
+            .astimezone(timezone.utc)
+            .date()
+            .toordinal()
+        )
+        rng.shuffle(selected)
+        if len({_candidate_day(candidate) for candidate in selected}) > 1 and [
+            _candidate_day(candidate) for candidate in selected
+        ] == sorted((_candidate_day(candidate) for candidate in selected), key=_day_sort_key):
+            selected = selected[1:] + selected[:1]
+
+        return [candidate.opportunity for candidate in selected]
+
+    # Strongest first inside a chosen deadline-day bucket: reputed organiser,
+    # then soonest deadline, newest first_seen_at, and finally highest id. The
+    # bucket picker decides WHICH days appear; this order decides which row best
+    # represents any chosen day.
+    quality_order = [
+        ranked.c.reputed.desc(),
         ranked.c.deadline.asc().nullslast(),
         ranked.c.first_seen_at.desc(),
         ranked.c.id.desc(),
     ]
 
-    # Reserved slots: the most urgent REPUTED events. This is the guarantee that
-    # a digest is never all unknown-college events.
-    # Fetch MORE reputed candidates than the reserve needs, then diversify within
-    # them. Taking the N most urgent directly put both reserved slots on the same
-    # deadline-day in production (two "+2 days" picks on 2026-09-02), which is
-    # the very thing the reader complained about.
-    reputed_candidates = _fetch([ranked.c.reputed == 1], urgency_order)
-    reserved = _deadline_diverse_selection(
-        [],
-        reputed_candidates,
-        min(HACKATHON_DIGEST_REPUTED_RESERVE, limit),
-    )
-    chosen_ids = {opportunity.id for opportunity in reserved}
-
-    # Remaining slots: most urgent overall, reputed or not, but deadline-day
-    # diversity wins over another same-day fill candidate. Reserved picks are
-    # already chosen, so if a fill candidate collides with one, the fill moves on.
-    fill_extra = [ranked.c.id.not_in(chosen_ids)] if chosen_ids else []
-    fill_candidates = _fetch(fill_extra, urgency_order)
-
-    return _deadline_diverse_selection(reserved, fill_candidates)
+    candidates = _fetch([], quality_order)
+    return _deadline_diverse_selection(candidates)
 
 
 def _render_hackathon_digest(
@@ -928,7 +1120,7 @@ def _render_hackathon_digest(
         intro_html=(
             '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:15px;'
             'line-height:22px;margin:0 0 20px">Hackathons and competitions you can still '
-            "enter, soonest deadline first.</p>"
+            "enter, spread across upcoming deadlines.</p>"
         ),
         body_html=html_rows,
         cta_label="Browse all competitions",

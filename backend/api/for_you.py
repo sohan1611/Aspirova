@@ -14,6 +14,7 @@ from api.deps import get_db
 from api.filters import (
     exclude_closed_competitions,
     exclude_experienced_only_opportunities,
+    exclude_school_only_opportunities,
     exclude_stale_opportunities,
     location_scope_filters,
 )
@@ -187,6 +188,7 @@ def get_for_you(
         models.Opportunity.status == "active",
         exclude_stale_opportunities(),
         exclude_experienced_only_opportunities(),
+        exclude_school_only_opportunities(),
         exclude_closed_competitions(),
         *location_scope_filters(scope, country),
     ]

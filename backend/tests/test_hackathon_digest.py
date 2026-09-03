@@ -10,15 +10,18 @@ found by hand against production rows before this was written.
 """
 
 import uuid
+from collections import Counter
 from datetime import datetime, time, timedelta, timezone
 
 import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+import api.filters as filters_module
 import pipeline.notifications as notifications_module
 from core import models
 from pipeline.notifications import (
+    HACKATHON_DIGEST_MAX_PER_SOURCE,
     HACKATHON_DIGEST_SIZE,
     HACKATHON_DIGEST_MIN_GAP,
     HACKATHON_DIGEST_REPUTED_RESERVE,
@@ -90,6 +93,11 @@ def competition_factory(db_session: Session):
         title: str,
         days_to_deadline: int | None = 7,
         category: str = "hackathon",
+        deadline_confidence: str | None = None,
+        first_seen_at: datetime | None = None,
+        last_seen_at: datetime | None = None,
+        meta: dict | None = None,
+        primary_source: str | None = None,
     ) -> models.Opportunity:
         deadline = None if days_to_deadline is None else NOW + timedelta(days=days_to_deadline)
         opportunity = models.Opportunity(
@@ -99,10 +107,14 @@ def competition_factory(db_session: Session):
             category=category,
             status="active",
             apply_url="https://example.com/enter",
-            first_seen_at=NOW - timedelta(days=1),
-            last_seen_at=NOW - timedelta(hours=1),
+            first_seen_at=first_seen_at or NOW - timedelta(days=1),
+            last_seen_at=last_seen_at or NOW - timedelta(hours=1),
             posted_at=NOW - timedelta(days=1),
             deadline=deadline,
+            deadline_confidence=deadline_confidence
+            or ("explicit" if deadline is not None else "unknown"),
+            meta=meta,
+            primary_source=primary_source,
         )
         db_session.add(opportunity)
         db_session.flush()
@@ -194,8 +206,13 @@ def test_lookalike_organisers_are_not_treated_as_top_tier(
     """KIIT contains 'IIT' and IITM contains 'IIT'. Neither is an IIT.
 
     If these matched, the reserve would spend its guaranteed slots on them and
-    the feature would silently stop doing the one thing it exists for.
+    the feature would silently stop doing the one thing it exists for. The
+    digest is deliberately shuffled, so a positional assertion would test the
+    shuffle seed instead of the reputation rule.
     """
+    real_iit = company_factory("Indian Institute of Technology (IIT), Bhubaneswar")
+    competition_factory(real_iit, title="Real Reputed Event", days_to_deadline=25)
+
     lookalike = company_factory(organiser)
     competition_factory(lookalike, title="Lookalike Event", days_to_deadline=25)
 
@@ -203,12 +220,15 @@ def test_lookalike_organisers_are_not_treated_as_top_tier(
     for i in range(5):
         competition_factory(urgent, title=f"Urgent {i}", days_to_deadline=3 + i)
 
-    picks = _hackathon_digest_opportunities(db_session, NOW, limit=3)
+    # With only two slots, the real IIT and lookalike rows cannot both be
+    # selected from the day-25 bucket. A substring false positive would spend
+    # the reserve on the later-inserted lookalike and displace the real IIT row.
+    picks = _hackathon_digest_opportunities(db_session, NOW, limit=2)
     _assert_isolated(picks)
+    titles = _titles(picks)
 
-    # It may still appear on urgency, but never ahead of sooner deadlines.
-    if "Lookalike Event" in _titles(picks):
-        assert picks[0].title != "Lookalike Event"
+    assert "Real Reputed Event" in titles
+    assert "Lookalike Event" not in titles
 
 
 def test_national_level_in_title_counts_without_a_known_organiser(
@@ -258,6 +278,63 @@ def test_closed_events_are_never_selected(db_session, company_factory, competiti
     assert "Already Closed" not in _titles(picks)
 
 
+def test_digest_requires_recent_last_seen_at(db_session, company_factory, competition_factory):
+    stale_company = company_factory("Stale Digest College")
+    fresh_company = company_factory("Fresh Digest College")
+    competition_factory(
+        stale_company,
+        title="Taken Down Competition",
+        days_to_deadline=5,
+        last_seen_at=NOW - timedelta(hours=40),
+    )
+    competition_factory(
+        fresh_company,
+        title="Recently Seen Competition",
+        days_to_deadline=6,
+        last_seen_at=NOW - timedelta(hours=2),
+    )
+
+    picks = _hackathon_digest_opportunities(db_session, NOW, limit=10)
+    _assert_isolated(picks)
+    titles = _titles(picks)
+
+    assert "Taken Down Competition" not in titles
+    assert "Recently Seen Competition" in titles
+
+
+def test_digest_requires_explicit_deadline_when_countdown_is_printed(
+    db_session, company_factory, competition_factory
+):
+    inferred_company = company_factory("Inferred Date College")
+    explicit_company = company_factory("Explicit Date College")
+    no_deadline_company = company_factory("No Deadline College")
+    competition_factory(
+        inferred_company,
+        title="Inferred Deadline Competition",
+        days_to_deadline=5,
+        deadline_confidence="inferred",
+    )
+    competition_factory(
+        explicit_company,
+        title="Explicit Deadline Competition",
+        days_to_deadline=6,
+        deadline_confidence="explicit",
+    )
+    competition_factory(
+        no_deadline_company,
+        title="No Stated Deadline Competition",
+        days_to_deadline=None,
+    )
+
+    picks = _hackathon_digest_opportunities(db_session, NOW, limit=10)
+    _assert_isolated(picks)
+    titles = _titles(picks)
+
+    assert "Inferred Deadline Competition" not in titles
+    assert "Explicit Deadline Competition" in titles
+    assert "No Stated Deadline Competition" in titles
+
+
 def test_events_with_enough_runway_outrank_ones_closing_immediately(
     db_session, company_factory, competition_factory
 ):
@@ -269,9 +346,128 @@ def test_events_with_enough_runway_outrank_ones_closing_immediately(
 
     picks = _hackathon_digest_opportunities(db_session, NOW, limit=2)
     _assert_isolated(picks)
+    titles = _titles(picks)
 
-    assert picks, "expected at least one pick"
-    assert picks[0].title == "Closing In A Week"
+    assert "Closing In A Week" in titles
+    assert "Closing Today" not in titles
+
+
+def test_digest_spreads_deadline_days_and_is_not_rendered_in_deadline_order(
+    db_session, company_factory, competition_factory
+):
+    """Both halves of the reader's complaint: "2,3,4,5,6 ... give jumbled".
+
+    The consecutive-run check covers the days chosen; the sorted-order check
+    covers how they are rendered. A digest can satisfy one and still look
+    machine-made: 2, 5, 9, 14, 21 read in ascending order is still a ladder.
+    Both are deterministic here because the shuffle is seeded from NOW's date.
+    """
+    for day in range(2, 31):
+        company = company_factory(f"Staircase College {day}")
+        competition_factory(
+            company,
+            title=f"Staircase Event {day}",
+            days_to_deadline=day,
+            primary_source="unstop",
+        )
+
+    picks = _hackathon_digest_opportunities(db_session, NOW, limit=HACKATHON_DIGEST_SIZE)
+    _assert_isolated(picks)
+    chosen_days = _deadline_days(picks)
+    sorted_days = sorted(chosen_days)
+
+    assert len(picks) == HACKATHON_DIGEST_SIZE
+    assert len(chosen_days) == len(set(chosen_days))
+    assert sorted_days != list(range(sorted_days[0], sorted_days[0] + len(sorted_days)))
+    assert chosen_days != sorted_days
+
+
+def test_digest_selection_is_deterministic_for_the_same_utc_day(
+    db_session, company_factory, competition_factory
+):
+    for day in range(2, 31):
+        company = company_factory(f"Determinism College {day}")
+        competition_factory(
+            company,
+            title=f"Determinism Event {day}",
+            days_to_deadline=day,
+            primary_source="devpost",
+        )
+
+    first = _hackathon_digest_opportunities(db_session, NOW, limit=HACKATHON_DIGEST_SIZE)
+    second = _hackathon_digest_opportunities(db_session, NOW, limit=HACKATHON_DIGEST_SIZE)
+    _assert_isolated(first)
+    _assert_isolated(second)
+
+    assert [opportunity.id for opportunity in first] == [opportunity.id for opportunity in second]
+
+
+def test_structured_school_only_eligibility_is_excluded_and_strict_mode_is_ready(
+    db_session, monkeypatch, company_factory, competition_factory
+):
+    fixtures = [
+        ("School Only Event", ["School Students"], 2),
+        ("Mixed Audience Event", ["School Students", "Undergraduate"], 5),
+        ("Missing Eligibility Event", None, 8),
+        ("Null Eligibility Event", None, 11),
+        ("String Eligibility Event", "School Students", 14),
+    ]
+    for title, eligibility, day in fixtures:
+        company = company_factory(f"{title} College")
+        if title == "Missing Eligibility Event":
+            meta = {}
+        elif title == "Null Eligibility Event":
+            meta = {"eligibility": None}
+        else:
+            meta = {"eligibility": eligibility}
+        competition_factory(company, title=title, days_to_deadline=day, meta=meta)
+
+    monkeypatch.setattr(filters_module, "SCHOOL_AUDIENCE_STRICT", False)
+    default_titles = _titles(_hackathon_digest_opportunities(db_session, NOW, limit=10))
+
+    assert "School Only Event" not in default_titles
+    assert "Mixed Audience Event" in default_titles
+    assert "Missing Eligibility Event" in default_titles
+    assert "Null Eligibility Event" in default_titles
+    assert "String Eligibility Event" in default_titles
+
+    monkeypatch.setattr(filters_module, "SCHOOL_AUDIENCE_STRICT", True)
+    strict_titles = _titles(_hackathon_digest_opportunities(db_session, NOW, limit=10))
+
+    assert "School Only Event" not in strict_titles
+    assert "Mixed Audience Event" not in strict_titles
+    assert "Missing Eligibility Event" in strict_titles
+    assert "Null Eligibility Event" in strict_titles
+    assert "String Eligibility Event" in strict_titles
+
+
+def test_digest_limits_dominant_source_when_other_sources_can_fill(
+    db_session, company_factory, competition_factory
+):
+    for i in range(20):
+        company = company_factory(f"Unstop Source College {i}")
+        competition_factory(
+            company,
+            title=f"Unstop Source Event {i}",
+            days_to_deadline=2 + i,
+            primary_source="unstop",
+        )
+    for i in range(3):
+        company = company_factory(f"Devpost Source College {i}")
+        competition_factory(
+            company,
+            title=f"Devpost Source Event {i}",
+            days_to_deadline=22 + i,
+            primary_source="devpost",
+        )
+
+    picks = _hackathon_digest_opportunities(db_session, NOW, limit=HACKATHON_DIGEST_SIZE)
+    _assert_isolated(picks)
+    source_counts = Counter(opportunity.primary_source for opportunity in picks)
+
+    assert len(picks) == HACKATHON_DIGEST_SIZE
+    assert source_counts["unstop"] <= HACKATHON_DIGEST_MAX_PER_SOURCE
+    assert source_counts["devpost"] >= 2
 
 
 def test_digest_prefers_distinct_deadline_days(db_session, company_factory, competition_factory):
@@ -338,7 +534,7 @@ def test_reputed_reserved_pick_wins_when_fill_collides_on_deadline_day(
 
     assert "IIT Same Day Reserve" in titles
     assert "Plain Same Day Fill" not in titles
-    assert _deadline_days(picks) == [5, 6, 7]
+    assert len(_deadline_days(picks)) == len(set(_deadline_days(picks)))
 
 
 def test_one_slot_per_organiser(db_session, company_factory, competition_factory):

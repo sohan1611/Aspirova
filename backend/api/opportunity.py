@@ -9,6 +9,7 @@ from api.deps import get_db
 from api.filters import (
     exclude_closed_competitions,
     exclude_experienced_only_opportunities,
+    exclude_school_only_opportunities,
     exclude_stale_opportunities,
     is_stale_opportunity,
 )
@@ -61,6 +62,7 @@ def get_similar_opportunities(
         models.Opportunity.status == "active",
         exclude_stale_opportunities(),
         exclude_experienced_only_opportunities(),
+        exclude_school_only_opportunities(),
         exclude_closed_competitions(),
         models.Opportunity.id != target.id,
     ]

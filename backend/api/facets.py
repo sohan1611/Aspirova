@@ -13,6 +13,7 @@ from api.filters import (
     competition_mode_expression,
     exclude_closed_competitions,
     exclude_experienced_only_opportunities,
+    exclude_school_only_opportunities,
     exclude_stale_opportunities,
     kind_filters,
 )
@@ -81,6 +82,7 @@ def get_facets(
         models.Opportunity.status == "active",
         exclude_stale_opportunities(),
         exclude_experienced_only_opportunities(),
+        exclude_school_only_opportunities(),
         exclude_closed_competitions(),
     ]
     if opportunity_categories:
