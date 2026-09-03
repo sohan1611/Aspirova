@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
 import {
   CompetitionsActiveFilterChips,
   useCompetitionFacets,
@@ -19,6 +18,7 @@ import {
   parseCompetitionsRequest,
 } from "@/lib/competitionsQuery";
 import type { FeedResultData } from "@/lib/feedQuery";
+import { useListingResults } from "@/lib/listingResults";
 
 interface CompetitionsResultsProps {
   // The statically prerendered default view, reused whenever the visitor's query
@@ -40,41 +40,23 @@ export default function CompetitionsResults({ initialData }: CompetitionsResults
   const request = parseCompetitionsRequest(query);
   const { facets, facetsStatus } = useCompetitionFacets();
 
-  // One keyed state with both flags derived from it. `data: null` records a
-  // failed request on purpose: keying only successes would leave a failed fetch
-  // showing skeletons forever.
-  const [settled, setSettled] = useState<{
-    key: string;
-    data: FeedResultData | null;
-  } | null>(null);
   const queryKey = query.toString();
 
-  useEffect(() => {
-    if (request.canReusePrerendered) return;
+  // Results are held outside React, keyed by the query string - see
+  // lib/listingResults.ts for why component state could not hold them on this
+  // statically prerendered, useSearchParams-reading route.
+  const settled = useListingResults(
+    "/competitions",
+    queryKey,
+    !request.canReusePrerendered,
+    () => loadCompetitions(request),
+  );
 
-    let cancelled = false;
-
-    loadCompetitions(request)
-      .then((response) => {
-        if (!cancelled) setSettled({ key: queryKey, data: response });
-      })
-      .catch(() => {
-        if (!cancelled) setSettled({ key: queryKey, data: null });
-      });
-
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryKey]);
-
-  const isSettled = settled?.key === queryKey;
-  const isLoading = !request.canReusePrerendered && !isSettled;
-  // On a failed fetch keep the previous listings rather than blanking the grid;
-  // the empty state would otherwise claim nothing matched when the real problem
-  // was a dead request.
-  const data =
-    !request.canReusePrerendered && isSettled && settled?.data ? settled.data : initialData;
+  const isLoading = !request.canReusePrerendered && !settled;
+  // On a failed fetch (`settled.data === null`) keep the prerendered listings
+  // rather than blanking the grid; the empty state would otherwise claim nothing
+  // matched when the real problem was a dead request.
+  const data = settled?.data ?? initialData;
 
   const totalPages = competitionsTotalPages(data.total);
 

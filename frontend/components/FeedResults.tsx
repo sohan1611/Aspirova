@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
 import FeedGrid from "@/components/FeedGrid";
 import { FeedNavigationProvider } from "@/components/FeedNavigation";
 import FeedViewControls from "@/components/FeedViewControls";
@@ -14,6 +13,7 @@ import TopCompanies from "@/components/TopCompanies";
 import { Button } from "@/components/ui/button";
 import { findExternalCompany } from "@/lib/externalCompanies";
 import { type FeedResultData, loadFeedData, parseFeedRequest } from "@/lib/feedQuery";
+import { useListingResults } from "@/lib/listingResults";
 import { matchesResearchIntent } from "@/lib/programmes";
 import type { OpportunityListItem } from "@/lib/types";
 
@@ -39,44 +39,24 @@ export default function FeedResults({ initialData, trendingItems }: FeedResultsP
   const query = new URLSearchParams(searchParams.toString());
   const request = parseFeedRequest(query);
 
-  // One piece of state, keyed by the query it settled for; both flags below are
-  // derived from it rather than assigned in the effect. `data: null` records a
-  // failed request deliberately - keying only successes would leave a failed
-  // fetch showing skeletons forever.
-  const [settled, setSettled] = useState<{
-    key: string;
-    data: FeedResultData | null;
-  } | null>(null);
   const queryKey = query.toString();
 
-  useEffect(() => {
-    if (request.canReusePrerenderedFeed) return;
+  // Results are held outside React, keyed by route plus query string - see
+  // lib/listingResults.ts for why component state could not hold them on these
+  // statically prerendered, useSearchParams-reading routes.
+  const settled = useListingResults(
+    "/",
+    queryKey,
+    !request.canReusePrerenderedFeed,
+    () => loadFeedData(request),
+  );
 
-    let cancelled = false;
-
-    loadFeedData(request)
-      .then((response) => {
-        if (!cancelled) setSettled({ key: queryKey, data: response });
-      })
-      .catch(() => {
-        if (!cancelled) setSettled({ key: queryKey, data: null });
-      });
-
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryKey]);
-
-  const isSettled = settled?.key === queryKey;
-  const isLoading = !request.canReusePrerenderedFeed && !isSettled;
-  // On a failed fetch this keeps the previous listings on screen rather than
-  // blanking the feed - the empty state would otherwise claim there are no
-  // matches when the real problem was a dead request.
-  const data =
-    !request.canReusePrerenderedFeed && isSettled && settled?.data
-      ? settled.data
-      : initialData;
+  const isLoading = !request.canReusePrerenderedFeed && !settled;
+  // On a failed fetch (`settled.data === null`) this keeps the prerendered
+  // listings on screen rather than blanking the feed - the empty state would
+  // otherwise claim there are no matches when the real problem was a dead
+  // request.
+  const data = settled?.data ?? initialData;
 
   const sourceCompany = request.q ? findExternalCompany(request.q) : undefined;
   const showResearch = request.q ? matchesResearchIntent(request.q) : false;

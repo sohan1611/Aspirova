@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
 import FeedGrid from "@/components/FeedGrid";
 import { FeedNavigationProvider } from "@/components/FeedNavigation";
 import {
@@ -13,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import type { FeedParams } from "@/lib/api";
 import type { FeedResultData } from "@/lib/feedQuery";
+import { useListingResults } from "@/lib/listingResults";
 import {
   loadOpportunityListingData,
   opportunityCountLabel,
@@ -49,58 +49,23 @@ export default function OpportunityLandingResults({
     limit,
   });
   const { data: facetsData, facetsStatus } = useOpportunityListingFacets(baseQuery);
-  const [settled, setSettled] = useState<{
-    key: string;
-    data: FeedResultData | null;
-  } | null>(null);
   const queryKey = query.toString();
 
-  // KNOWN BUG - search renders "Nothing open here" on every listing page.
-  //
-  // Measured, not guessed (in-page diagnostics plus the API server's own access
-  // log, because the browser devtools console, network panel and JS probes all
-  // reported this wrongly at least once):
-  //   - the effect runs and request.canReusePrerendered is false
-  //   - the request goes out and the API answers 200 with thousands of rows
-  //   - neither .then nor .catch ever fires; `settled` stays null forever
-  //   - so isLoading stays true, items are blanked, and the empty state shows
-  //
-  // An identical fetch() typed into the console on the same page resolves fine,
-  // so the request itself is healthy. Adding ANY synchronous setState at the top
-  // of this effect made it start working, which points at two component
-  // instances - Suspense state loss on a statically prerendered route using
-  // useSearchParams, where the instance running the effect is not the instance
-  // being rendered. Ruled out along the way: response-shape mismatch, the
-  // `next: { revalidate }` fetch option, and the `cancelled` cleanup guard.
-  //
-  // The fix is architectural (how results are held across that Suspense
-  // boundary), not a one-line change, so it is left documented rather than
-  // half-attempted.
-  useEffect(() => {
-    if (request.canReusePrerendered) return;
+  // Results are held outside React, keyed by the query string - see
+  // lib/listingResults.ts for why component state could not hold them on these
+  // statically prerendered, useSearchParams-reading routes.
+  const settled = useListingResults(
+    basePath,
+    queryKey,
+    !request.canReusePrerendered,
+    () => loadOpportunityListingData(request),
+  );
 
-    let cancelled = false;
-
-    loadOpportunityListingData(request)
-      .then((response) => {
-        if (!cancelled) setSettled({ key: queryKey, data: response });
-      })
-      .catch(() => {
-        if (!cancelled) setSettled({ key: queryKey, data: null });
-      });
-
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryKey]);
-
-  const isSettled = settled?.key === queryKey;
-  const isLoading = !request.canReusePrerendered && !isSettled;
-  const data =
-    !request.canReusePrerendered && isSettled && settled?.data
-      ? settled.data
-      : initialData;
+  const isLoading = !request.canReusePrerendered && !settled;
+  // On a failed fetch (`settled.data === null`) keep the prerendered listings
+  // rather than blanking the grid; the empty state would otherwise claim nothing
+  // matched when the real problem was a dead request.
+  const data = settled?.data ?? initialData;
   const totalPages = Math.max(1, Math.ceil(data.total / request.limit));
 
   return (
