@@ -375,7 +375,7 @@ export function CompetitionsActiveFilterChips({ facets }: { facets: Facets | nul
     commit(params);
   }
 
-  function removeSingleParam(key: SingleFilterKey | "prize_min") {
+  function removeSingleParam(key: SingleFilterKey | "prize_min" | "q") {
     const params = new URLSearchParams(searchParams.toString());
     params.delete(key);
     commit(params);
@@ -389,7 +389,18 @@ export function CompetitionsActiveFilterChips({ facets }: { facets: Facets | nul
     commit(params, false);
   }
 
-  const filters: ActiveFilterChip[] = [
+  const filters: ActiveFilterChip[] = [];
+  const q = activeSingleValue(searchParams, "q");
+  if (q) {
+    filters.push({
+      id: "q",
+      label: `Search: "${q}"`,
+      humanLabel: `Search: "${q}"`,
+      onRemove: () => removeSingleParam("q"),
+    });
+  }
+
+  filters.push(
     ...activeValues(searchParams, "comp_type").map((value) => {
       const label = optionLabel(facets?.comp_types, value);
       return {
@@ -417,7 +428,7 @@ export function CompetitionsActiveFilterChips({ facets }: { facets: Facets | nul
         onRemove: () => removeMultiParam("mode", value),
       };
     }),
-  ];
+  );
 
   const registration = activeSingleValue(searchParams, "registration");
   if (registration) {
@@ -461,6 +472,7 @@ export function CompetitionsActiveFilterChips({ facets }: { facets: Facets | nul
       filters={filters}
       disabled={isPending}
       onClearAll={clearAllFilters}
+      showClearAll={filters.some((filter) => filter.id !== "q")}
     />
   );
 }

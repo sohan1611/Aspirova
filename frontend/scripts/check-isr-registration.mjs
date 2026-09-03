@@ -50,6 +50,7 @@ const REQUIRED_STATIC_ISR_ROUTES = {
   "/internships": 21600,
   "/jobs": 21600,
   "/remote": 21600,
+  "/scholarships": 21600,
 };
 
 const staticRoutes = manifest.routes ?? {};

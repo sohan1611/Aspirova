@@ -28,6 +28,7 @@ export default async function JobsPage() {
       page={1}
       limit={LANDING_LIMIT}
       basePath={JOBS_LANDING.basePath}
+      query={JOBS_LANDING.query}
     />
   );
 }

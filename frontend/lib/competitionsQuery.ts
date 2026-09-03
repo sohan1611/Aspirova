@@ -1,4 +1,4 @@
-import { getFeed } from "@/lib/api";
+import { getFeed, searchOpportunities } from "@/lib/api";
 import type { FeedResultData } from "@/lib/feedQuery";
 
 // Single source of truth for reading /competitions' query string, for the same
@@ -26,6 +26,7 @@ export const COMPETITION_FILTER_PARAM_KEYS = [
 ] as const;
 
 export interface CompetitionsRequest {
+  q: string | undefined;
   page: number;
   sort: CompetitionSort;
   scope: LocationScope | undefined;
@@ -86,6 +87,7 @@ function hasCompetitionFilterParam(sp: URLSearchParams): boolean {
 }
 
 export function parseCompetitionsRequest(sp: URLSearchParams): CompetitionsRequest {
+  const q = parseSingle(sp.get("q"));
   const page = Math.max(1, Number(sp.get("page") ?? "1") || 1);
   // "deadline" is the default sort, so ?sort=deadline is still the default view.
   const sort: CompetitionSort = sp.get("sort") === "recent" ? "recent" : "deadline";
@@ -101,6 +103,7 @@ export function parseCompetitionsRequest(sp: URLSearchParams): CompetitionsReque
   const hasActiveCompetitionFilter = hasCompetitionFilterParam(sp);
 
   const canReusePrerendered =
+    !q &&
     page === 1 &&
     sort === "deadline" &&
     scope === undefined &&
@@ -109,6 +112,7 @@ export function parseCompetitionsRequest(sp: URLSearchParams): CompetitionsReque
     !hasActiveCompetitionFilter;
 
   return {
+    q,
     page,
     sort,
     scope,
@@ -128,6 +132,27 @@ export function loadCompetitions(
   request: CompetitionsRequest,
   revalidateSeconds?: number,
 ): Promise<FeedResultData> {
+  if (request.q) {
+    return searchOpportunities(
+      request.q,
+      {
+        kind: "competitions",
+        scope: request.scope,
+        country: request.country,
+        remote: request.remote,
+        comp_type: request.comp_type,
+        registration: request.registration,
+        deadline_within: request.deadline_within,
+        organiser_type: request.organiser_type,
+        mode: request.mode,
+        prize_min: request.prize_min,
+        sort: request.sort,
+      },
+      request.page,
+      COMPETITIONS_LIMIT,
+    );
+  }
+
   return getFeed(
     {
       kind: "competitions",

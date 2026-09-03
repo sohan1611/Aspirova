@@ -7,6 +7,7 @@ import {
   type CompetitionFacetsStatus,
 } from "@/components/CompetitionsAdvancedFilters";
 import { useFeedNavigation } from "@/components/FeedNavigation";
+import ListingSearchInput from "@/components/ListingSearchInput";
 import { Badge } from "@/components/ui/badge";
 import type { Facets } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -134,6 +135,12 @@ export default function CompetitionsFilterBar({
           Updating competitions...
         </span>
       )}
+
+      <ListingSearchInput
+        path={COMPETITIONS_PATH}
+        placeholder="Search competitions..."
+        ariaLabel="Search competitions"
+      />
 
       <CompetitionsAdvancedFilters facets={facets} facetsStatus={facetsStatus} />
 

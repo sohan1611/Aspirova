@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { type FeedParams, getFeed } from "@/lib/api";
 import { withBuildFallback } from "@/lib/buildFallback";
+import type { OpportunityListingPath } from "@/lib/opportunityListingQuery";
 import { buildPagePath } from "@/lib/pagination";
 import type { FeedResponse } from "@/lib/types";
 
@@ -16,7 +17,7 @@ export interface LandingConfig {
   title: string;
   description: string;
   intro: string;
-  basePath: string;
+  basePath: OpportunityListingPath;
   query: FeedParams;
 }
 

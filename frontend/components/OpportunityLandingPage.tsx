@@ -1,14 +1,17 @@
-import { SearchX } from "lucide-react";
 import Link from "next/link";
-import OpportunityCard from "@/components/OpportunityCard";
+import { Suspense } from "react";
+import FeedGrid from "@/components/FeedGrid";
+import { FeedNavigationProvider } from "@/components/FeedNavigation";
+import OpportunityLandingResults from "@/components/OpportunityLandingResults";
 import { Button } from "@/components/ui/button";
+import type { FeedParams } from "@/lib/api";
 import { buildPagePath } from "@/lib/pagination";
 import type { OpportunityListItem } from "@/lib/types";
-
-const EMPTY_STATE_CLASS_NAME = [
-  "flex flex-col items-center gap-3 rounded-lg border border-dashed",
-  "border-border py-16 text-center",
-].join(" ");
+import {
+  opportunityCountLabel,
+  type OpportunityListingPath,
+  type OpportunityListingSort,
+} from "@/lib/opportunityListingQuery";
 
 interface OpportunityLandingPageProps {
   title: string;
@@ -17,51 +20,52 @@ interface OpportunityLandingPageProps {
   total: number;
   page: number;
   limit: number;
-  basePath: string;
+  basePath: OpportunityListingPath;
+  query: FeedParams;
+  defaultSort?: OpportunityListingSort;
 }
 
-export default function OpportunityLandingPage({
-  title,
-  intro,
+function DefaultOpportunityLanding({
   items,
   total,
   page,
   limit,
   basePath,
-}: OpportunityLandingPageProps) {
+}: {
+  items: OpportunityListItem[];
+  total: number;
+  page: number;
+  limit: number;
+  basePath: OpportunityListingPath;
+}) {
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">{title}</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{intro}</p>
+    <FeedNavigationProvider>
+      <div className="mb-5 mt-10 flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+          <p className="eyebrow">Open opportunities</p>
+          <p className="tnum text-sm text-muted-foreground">
+            {opportunityCountLabel(total)}
+          </p>
+        </div>
       </div>
 
-      <p className="mb-3 text-sm text-muted-foreground">{total} opportunities</p>
-
-      {items.length > 0 ? (
-        <div className="space-y-3">
-          {items.map((item) => (
-            <OpportunityCard key={item.slug} item={item} />
-          ))}
-        </div>
-      ) : (
-        <div className={EMPTY_STATE_CLASS_NAME}>
-          <SearchX className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
-          <p className="font-medium text-foreground">Nothing open here — yet.</p>
-          <p className="max-w-xs text-sm text-muted-foreground">
-            Aspirova is always discovering more from public career pages. Meanwhile, browse
-            everything on offer.
-          </p>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/">Browse all opportunities</Link>
-          </Button>
-        </div>
-      )}
+      <FeedGrid
+        items={items}
+        cols={3}
+        skeletonCount={items.length || Math.min(limit, 9)}
+        emptyHref={basePath}
+        emptyActionLabel="Clear filters"
+        emptyTitle="Nothing open here - yet."
+        emptyDescription="Aspirova is always discovering more from public sources. Try a broader search or clear your filters."
+      />
 
       {totalPages > 1 && (
-        <div className="mt-8 flex items-center justify-center gap-4">
+        <nav
+          className="mt-8 flex flex-wrap items-center justify-center gap-3 sm:gap-4"
+          aria-label="Opportunities pagination"
+        >
           <Button variant="outline" size="sm" disabled={page <= 1} asChild={page > 1}>
             {page > 1 ? (
               <Link href={buildPagePath(basePath, page - 1)} rel="prev">
@@ -71,7 +75,7 @@ export default function OpportunityLandingPage({
               "Previous"
             )}
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="tnum text-sm text-muted-foreground">
             Page {page} of {totalPages}
           </span>
           <Button
@@ -88,8 +92,56 @@ export default function OpportunityLandingPage({
               "Next"
             )}
           </Button>
-        </div>
+        </nav>
       )}
+    </FeedNavigationProvider>
+  );
+}
+
+export default function OpportunityLandingPage({
+  title,
+  intro,
+  items,
+  total,
+  page,
+  limit,
+  basePath,
+  query,
+  defaultSort = "student",
+}: OpportunityLandingPageProps) {
+  const initialData = { items, total };
+
+  return (
+    <main className="mx-auto w-full max-w-[1680px] px-4 py-10 sm:px-6 sm:py-14 lg:px-10 xl:px-12">
+      <header className="max-w-3xl">
+        <h1 className="font-serif text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl">
+          {title}
+        </h1>
+        <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
+          {intro}
+        </p>
+      </header>
+
+      <Suspense
+        fallback={
+          <DefaultOpportunityLanding
+            items={items}
+            total={total}
+            page={page}
+            limit={limit}
+            basePath={basePath}
+          />
+        }
+      >
+        <OpportunityLandingResults
+          initialData={initialData}
+          basePath={basePath}
+          baseQuery={query}
+          initialPage={page}
+          limit={limit}
+          defaultSort={defaultSort}
+        />
+      </Suspense>
     </main>
   );
 }

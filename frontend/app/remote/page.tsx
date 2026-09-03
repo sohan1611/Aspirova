@@ -26,6 +26,7 @@ export default async function RemotePage() {
       page={1}
       limit={LANDING_LIMIT}
       basePath={REMOTE_LANDING.basePath}
+      query={REMOTE_LANDING.query}
     />
   );
 }

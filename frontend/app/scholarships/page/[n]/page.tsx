@@ -50,6 +50,7 @@ export default async function ScholarshipsPaginatedPage({ params }: PageProps) {
       page={page}
       limit={LANDING_LIMIT}
       basePath={SCHOLARSHIPS_LANDING.basePath}
+      query={SCHOLARSHIPS_LANDING.query}
     />
   );
 }

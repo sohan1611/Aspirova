@@ -26,6 +26,7 @@ export default async function InternshipsPage() {
       page={1}
       limit={LANDING_LIMIT}
       basePath={INTERNSHIPS_LANDING.basePath}
+      query={INTERNSHIPS_LANDING.query}
     />
   );
 }

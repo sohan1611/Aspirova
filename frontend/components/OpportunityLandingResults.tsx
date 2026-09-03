@@ -2,54 +2,63 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import {
-  CompetitionsActiveFilterChips,
-  useCompetitionFacets,
-} from "@/components/CompetitionsAdvancedFilters";
-import CompetitionsFilterBar from "@/components/CompetitionsFilterBar";
 import FeedGrid from "@/components/FeedGrid";
 import { FeedNavigationProvider } from "@/components/FeedNavigation";
-import { Button } from "@/components/ui/button";
 import {
-  COMPETITIONS_LIMIT,
-  competitionsTotalPages,
-  loadCompetitions,
-  opportunityCountLabel,
-  parseCompetitionsRequest,
-} from "@/lib/competitionsQuery";
+  OpportunityListingActiveFilterChips,
+  OpportunityListingFilterBar,
+  useOpportunityListingFacets,
+} from "@/components/OpportunityListingFilters";
+import { Button } from "@/components/ui/button";
+import type { FeedParams } from "@/lib/api";
 import type { FeedResultData } from "@/lib/feedQuery";
 import { useListingResults } from "@/lib/listingResults";
+import {
+  loadOpportunityListingData,
+  opportunityCountLabel,
+  opportunityListingPageHref,
+  parseOpportunityListingRequest,
+  type OpportunityListingPath,
+  type OpportunityListingSort,
+} from "@/lib/opportunityListingQuery";
 
-interface CompetitionsResultsProps {
-  // The statically prerendered default view, reused whenever the visitor's query
-  // string describes that same view - which is the point of this component.
+interface OpportunityLandingResultsProps {
   initialData: FeedResultData;
+  basePath: OpportunityListingPath;
+  baseQuery: FeedParams;
+  initialPage: number;
+  limit: number;
+  defaultSort: OpportunityListingSort;
 }
 
-function pageHref(searchParams: URLSearchParams, page: number): string {
-  const next = new URLSearchParams(searchParams.toString());
-  next.set("page", String(page));
-  return `/competitions?${next.toString()}`;
-}
-
-export default function CompetitionsResults({ initialData }: CompetitionsResultsProps) {
+export default function OpportunityLandingResults({
+  initialData,
+  basePath,
+  baseQuery,
+  initialPage,
+  limit,
+  defaultSort,
+}: OpportunityLandingResultsProps) {
   const searchParams = useSearchParams();
-  // During the static prerender this yields an empty set, which parses to exactly
-  // the default request - so the build renders initialData into the HTML.
   const query = new URLSearchParams(searchParams.toString());
-  const request = parseCompetitionsRequest(query);
-  const { facets, facetsStatus } = useCompetitionFacets();
-
+  const request = parseOpportunityListingRequest(query, {
+    basePath,
+    baseQuery,
+    defaultSort,
+    initialPage,
+    limit,
+  });
+  const { data: facetsData, facetsStatus } = useOpportunityListingFacets(baseQuery);
   const queryKey = query.toString();
 
   // Results are held outside React, keyed by the query string - see
-  // lib/listingResults.ts for why component state could not hold them on this
-  // statically prerendered, useSearchParams-reading route.
+  // lib/listingResults.ts for why component state could not hold them on these
+  // statically prerendered, useSearchParams-reading routes.
   const settled = useListingResults(
-    "/competitions",
+    basePath,
     queryKey,
     !request.canReusePrerendered,
-    () => loadCompetitions(request),
+    () => loadOpportunityListingData(request),
   );
 
   const isLoading = !request.canReusePrerendered && !settled;
@@ -57,38 +66,47 @@ export default function CompetitionsResults({ initialData }: CompetitionsResults
   // rather than blanking the grid; the empty state would otherwise claim nothing
   // matched when the real problem was a dead request.
   const data = settled?.data ?? initialData;
-
-  const totalPages = competitionsTotalPages(data.total);
+  const totalPages = Math.max(1, Math.ceil(data.total / request.limit));
 
   return (
     <FeedNavigationProvider>
       <div className="mb-5 mt-10 flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
         <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
-          <p className="eyebrow">Open arena</p>
+          <p className="eyebrow">Open opportunities</p>
           <p className="tnum text-sm text-muted-foreground">
             {opportunityCountLabel(data.total)}
           </p>
         </div>
 
-        <CompetitionsFilterBar facets={facets} facetsStatus={facetsStatus} />
+        <OpportunityListingFilterBar
+          basePath={basePath}
+          baseQuery={baseQuery}
+          defaultSort={defaultSort}
+          data={facetsData}
+          facetsStatus={facetsStatus}
+        />
       </div>
 
-      <CompetitionsActiveFilterChips facets={facets} />
+      <OpportunityListingActiveFilterChips
+        basePath={basePath}
+        baseQuery={baseQuery}
+        data={facetsData}
+      />
 
       <FeedGrid
         items={isLoading ? [] : data.items}
         cols={3}
-        skeletonCount={data.items.length || Math.min(COMPETITIONS_LIMIT, 9)}
-        emptyHref="/competitions"
+        skeletonCount={data.items.length || Math.min(request.limit, 9)}
+        emptyHref={basePath}
         emptyActionLabel="Clear filters"
-        emptyTitle="The next challenge is still being discovered."
-        emptyDescription="Check back soon as Aspirova indexes more competitions and hackathons."
+        emptyTitle="Nothing open here - yet."
+        emptyDescription="Aspirova is always discovering more from public sources. Try a broader search or clear your filters."
       />
 
       {totalPages > 1 && (
         <nav
           className="mt-8 flex flex-wrap items-center justify-center gap-3 sm:gap-4"
-          aria-label="Competitions pagination"
+          aria-label="Opportunities pagination"
         >
           <Button
             variant="outline"
@@ -97,7 +115,7 @@ export default function CompetitionsResults({ initialData }: CompetitionsResults
             asChild={request.page > 1}
           >
             {request.page > 1 ? (
-              <Link href={pageHref(query, request.page - 1)} rel="prev">
+              <Link href={opportunityListingPageHref(basePath, query, request, request.page - 1)} rel="prev">
                 Previous
               </Link>
             ) : (
@@ -114,7 +132,7 @@ export default function CompetitionsResults({ initialData }: CompetitionsResults
             asChild={request.page < totalPages}
           >
             {request.page < totalPages ? (
-              <Link href={pageHref(query, request.page + 1)} rel="next">
+              <Link href={opportunityListingPageHref(basePath, query, request, request.page + 1)} rel="next">
                 Next
               </Link>
             ) : (

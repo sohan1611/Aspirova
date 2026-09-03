@@ -54,6 +54,7 @@ export default async function JobsPaginatedPage({ params }: PageProps) {
       page={page}
       limit={LANDING_LIMIT}
       basePath={JOBS_LANDING.basePath}
+      query={JOBS_LANDING.query}
     />
   );
 }
