@@ -70,6 +70,52 @@ def _seed_opportunity(
     return opportunity
 
 
+def _seed_aggregator_opportunity(
+    db_session: Session,
+    suffix: str,
+    case: str,
+    *,
+    last_seen_at: datetime,
+    crawls: list[tuple[str, datetime | None]],
+) -> models.Opportunity:
+    adapter_key = f"expire-test-aggregator-{suffix}"
+    source = models.Source(
+        slug=f"expire-test-aggregator-source-{case}-{suffix}",
+        name=f"Expire test aggregator source {case}",
+        adapter_key=adapter_key,
+    )
+    company = models.Company(
+        slug=f"expire-test-aggregator-company-{case}-{suffix}",
+        name=f"Expire test aggregator company {case}",
+        ats_type=None,
+    )
+    db_session.add_all([source, company])
+    db_session.flush()
+
+    opportunity = models.Opportunity(
+        slug=f"expire-test-aggregator-opportunity-{case}-{suffix}",
+        company_id=company.id,
+        title=f"Expire test aggregator opportunity {case}",
+        apply_url=f"https://example.com/expire/aggregator/{case}/{suffix}",
+        status="active",
+        primary_source=adapter_key,
+        last_seen_at=last_seen_at,
+    )
+    db_session.add(opportunity)
+    db_session.add_all(
+        [
+            models.SourceState(
+                source_id=source.id,
+                page_key=page_key,
+                last_crawled_at=last_crawled_at,
+            )
+            for page_key, last_crawled_at in crawls
+        ]
+    )
+    db_session.flush()
+    return opportunity
+
+
 def _status_for_slug(db_session: Session, slug: str) -> str | None:
     db_session.expire_all()
     return db_session.scalar(
@@ -178,6 +224,43 @@ def test_expire_missing_opportunities_keeps_listings_when_board_was_never_crawle
     expire_missing_opportunities(db_session)
 
     assert _status_for_slug(db_session, opportunity.slug) == "active"
+
+
+def test_expire_missing_opportunities_handles_aggregator_absence_with_fail_safes(
+    db_session: Session,
+) -> None:
+    now = datetime.now(timezone.utc)
+    closed = _seed_aggregator_opportunity(
+        db_session,
+        str(uuid.uuid4()),
+        "gone",
+        last_seen_at=now - timedelta(hours=12),
+        crawls=[
+            ("competitions-page-1", now - timedelta(hours=1)),
+            ("competitions-page-2", now - timedelta(hours=3)),
+        ],
+    )
+    stalled_crawl = _seed_aggregator_opportunity(
+        db_session,
+        str(uuid.uuid4()),
+        "stalled",
+        last_seen_at=now - timedelta(days=6),
+        crawls=[("aggregator", now - timedelta(days=3))],
+    )
+    seen_after_crawl = _seed_aggregator_opportunity(
+        db_session,
+        str(uuid.uuid4()),
+        "present",
+        last_seen_at=now - timedelta(minutes=30),
+        crawls=[("aggregator", now - timedelta(hours=1))],
+    )
+
+    expire_missing_opportunities(db_session)
+
+    assert _status_and_closed_at_for_slug(db_session, closed.slug)[0] == "active"
+    assert _status_and_closed_at_for_slug(db_session, closed.slug)[1] is not None
+    assert _status_and_closed_at_for_slug(db_session, stalled_crawl.slug) == ("active", None)
+    assert _status_and_closed_at_for_slug(db_session, seen_after_crawl.slug) == ("active", None)
 
 
 def test_expire_missing_opportunities_marks_past_deadline_rows_closed(

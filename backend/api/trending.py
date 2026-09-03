@@ -10,6 +10,7 @@ from api.deps import get_db
 from api.filters import (
     exclude_closed_competitions,
     exclude_experienced_only_opportunities,
+    exclude_school_only_opportunities,
     exclude_stale_opportunities,
     experience_filters,
 )
@@ -102,6 +103,7 @@ def get_trending(
             models.Opportunity.status == "active",
             exclude_stale_opportunities(),
             exclude_experienced_only_opportunities(),
+            exclude_school_only_opportunities(),
             exclude_closed_competitions(),
             roles_filter,
             *experience_filters("early"),

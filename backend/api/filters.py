@@ -2,7 +2,8 @@
 
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import and_, case, false, func, not_, or_, text
+from sqlalchemy import and_, case, false, func, literal, not_, or_, text
+from sqlalchemy.dialects.postgresql import JSONB
 
 from core import models
 from core.eligibility import ELIGIBLE_EXPERIENCED_ONLY_META_KEY
@@ -39,6 +40,12 @@ SENIOR_TITLE_PATTERN = (
     r"chief|cto|ceo|coo|cfo|cxo|head of|lead|manager|architect|distinguished|"
     r"fellow|executive|counsel)([^a-z]|$)"
 )
+
+# False (default) -> exclude only rows whose eligibility is School Students and nothing
+#                    else. A competition open to school students AND undergraduates is
+#                    still relevant to Aspirova's audience.
+# True            -> exclude any row whose eligibility mentions School Students at all.
+SCHOOL_AUDIENCE_STRICT = False
 
 
 def student_rank_expression():
@@ -85,6 +92,23 @@ def exclude_stale_opportunities(now: datetime | None = None):
 def exclude_experienced_only_opportunities():
     experienced_only = models.Opportunity.meta[ELIGIBLE_EXPERIENCED_ONLY_META_KEY].as_boolean()
     return experienced_only.is_not(True)
+
+
+def exclude_school_only_opportunities():
+    eligibility = models.Opportunity.meta["eligibility"]
+    eligibility_is_array = func.jsonb_typeof(eligibility) == "array"
+    school_students = eligibility.op("@>")(literal(["School Students"], type_=JSONB))
+    if SCHOOL_AUDIENCE_STRICT:
+        school_audience = case((eligibility_is_array, school_students), else_=False)
+    else:
+        school_audience = case(
+            (
+                eligibility_is_array,
+                and_(func.jsonb_array_length(eligibility) == 1, school_students),
+            ),
+            else_=False,
+        )
+    return school_audience.is_not(True)
 
 
 def _as_utc(value: datetime) -> datetime:
@@ -414,6 +438,7 @@ def saved_search_base_filters(params: dict) -> list:
         models.Opportunity.status == "active",
         exclude_stale_opportunities(),
         exclude_experienced_only_opportunities(),
+        exclude_school_only_opportunities(),
         exclude_closed_competitions(),
         *opportunity_filters(category, remote, None, None, None),
         *experience_filters(experience),
