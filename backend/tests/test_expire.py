@@ -2,13 +2,18 @@
 
 import uuid
 from datetime import datetime, timedelta, timezone
+from math import ceil
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from core import models
-from pipeline.expire import expire_missing_opportunities
+from pipeline.expire import (
+    FULL_INVENTORY_SOURCES,
+    RETIRE_MIN_COVERAGE,
+    expire_missing_opportunities,
+)
 
 
 @pytest.fixture
@@ -70,50 +75,91 @@ def _seed_opportunity(
     return opportunity
 
 
+def _seed_aggregator_evidence(
+    db_session: Session,
+    suffix: str,
+    case: str,
+    *,
+    adapter_key: str,
+    last_crawled_at: datetime | None,
+    crawl_runs: list[tuple[datetime, int | None]],
+) -> None:
+    # Tests run transactionally against a real database that may already contain
+    # production sources for allowlisted adapter keys. Insert the newest evidence
+    # for every matching source id so the assertions do not depend on live crawl
+    # timing outside this transaction.
+    db_session.add(
+        models.Source(
+            slug=f"expire-test-aggregator-source-{case}-{adapter_key}-{suffix}",
+            name=f"Expire test aggregator source {case}",
+            type="aggregator",
+            adapter_key=adapter_key,
+        )
+    )
+    db_session.flush()
+    sources = db_session.scalars(
+        select(models.Source).where(models.Source.adapter_key == adapter_key)
+    ).all()
+    for source in sources:
+        if last_crawled_at is not None:
+            db_session.add(
+                models.SourceState(
+                    source_id=source.id,
+                    page_key=f"expire-test-aggregator-{case}-{source.id}-{suffix}",
+                    last_crawled_at=last_crawled_at,
+                )
+            )
+        for started_at, listings_found in crawl_runs:
+            db_session.add(
+                models.CrawlRun(
+                    source_id=source.id,
+                    tier=1,
+                    started_at=started_at,
+                    finished_at=started_at + timedelta(minutes=5),
+                    status="success",
+                    listings_found=listings_found,
+                    errors=0,
+                )
+            )
+    db_session.flush()
+
+
 def _seed_aggregator_opportunity(
     db_session: Session,
     suffix: str,
     case: str,
     *,
+    primary_source: str,
     last_seen_at: datetime,
-    crawls: list[tuple[str, datetime | None]],
 ) -> models.Opportunity:
-    adapter_key = f"expire-test-aggregator-{suffix}"
-    source = models.Source(
-        slug=f"expire-test-aggregator-source-{case}-{suffix}",
-        name=f"Expire test aggregator source {case}",
-        adapter_key=adapter_key,
-    )
     company = models.Company(
         slug=f"expire-test-aggregator-company-{case}-{suffix}",
         name=f"Expire test aggregator company {case}",
         ats_type=None,
     )
-    db_session.add_all([source, company])
-    db_session.flush()
-
     opportunity = models.Opportunity(
         slug=f"expire-test-aggregator-opportunity-{case}-{suffix}",
-        company_id=company.id,
+        company=company,
         title=f"Expire test aggregator opportunity {case}",
         apply_url=f"https://example.com/expire/aggregator/{case}/{suffix}",
         status="active",
-        primary_source=adapter_key,
+        primary_source=primary_source,
         last_seen_at=last_seen_at,
     )
-    db_session.add(opportunity)
-    db_session.add_all(
-        [
-            models.SourceState(
-                source_id=source.id,
-                page_key=page_key,
-                last_crawled_at=last_crawled_at,
-            )
-            for page_key, last_crawled_at in crawls
-        ]
-    )
+    db_session.add_all([company, opportunity])
     db_session.flush()
     return opportunity
+
+
+def _good_coverage_for_primary_source(db_session: Session, primary_source: str) -> int:
+    currently_open = db_session.scalar(
+        select(func.count(models.Opportunity.id)).where(
+            models.Opportunity.status == "active",
+            models.Opportunity.closed_at.is_(None),
+            models.Opportunity.primary_source == primary_source,
+        )
+    )
+    return max(1, ceil(RETIRE_MIN_COVERAGE * int(currently_open or 0)))
 
 
 def _status_for_slug(db_session: Session, slug: str) -> str | None:
@@ -226,41 +272,179 @@ def test_expire_missing_opportunities_keeps_listings_when_board_was_never_crawle
     assert _status_for_slug(db_session, opportunity.slug) == "active"
 
 
-def test_expire_missing_opportunities_handles_aggregator_absence_with_fail_safes(
+def test_expire_missing_opportunities_keeps_windowed_aggregator_absence_open(
     db_session: Session,
 ) -> None:
     now = datetime.now(timezone.utc)
-    closed = _seed_aggregator_opportunity(
+    suffix = str(uuid.uuid4())
+    assert "remoteok" not in FULL_INVENTORY_SOURCES
+    opportunity = _seed_aggregator_opportunity(
         db_session,
-        str(uuid.uuid4()),
-        "gone",
+        suffix,
+        "windowed-source",
+        primary_source="remoteok",
         last_seen_at=now - timedelta(hours=12),
-        crawls=[
-            ("competitions-page-1", now - timedelta(hours=1)),
-            ("competitions-page-2", now - timedelta(hours=3)),
-        ],
     )
-    stalled_crawl = _seed_aggregator_opportunity(
+    _seed_aggregator_evidence(
         db_session,
-        str(uuid.uuid4()),
-        "stalled",
-        last_seen_at=now - timedelta(days=6),
-        crawls=[("aggregator", now - timedelta(days=3))],
-    )
-    seen_after_crawl = _seed_aggregator_opportunity(
-        db_session,
-        str(uuid.uuid4()),
-        "present",
-        last_seen_at=now - timedelta(minutes=30),
-        crawls=[("aggregator", now - timedelta(hours=1))],
+        suffix,
+        "windowed-source",
+        adapter_key="remoteok",
+        last_crawled_at=now - timedelta(hours=1),
+        crawl_runs=[(now - timedelta(hours=1), 100)],
     )
 
     expire_missing_opportunities(db_session)
 
-    assert _status_and_closed_at_for_slug(db_session, closed.slug)[0] == "active"
-    assert _status_and_closed_at_for_slug(db_session, closed.slug)[1] is not None
-    assert _status_and_closed_at_for_slug(db_session, stalled_crawl.slug) == ("active", None)
-    assert _status_and_closed_at_for_slug(db_session, seen_after_crawl.slug) == ("active", None)
+    assert _status_and_closed_at_for_slug(db_session, opportunity.slug) == ("active", None)
+
+
+def test_expire_missing_opportunities_marks_allowlisted_aggregator_absence_closed(
+    db_session: Session,
+) -> None:
+    now = datetime.now(timezone.utc)
+    suffix = str(uuid.uuid4())
+    assert "unstop" in FULL_INVENTORY_SOURCES
+    opportunity = _seed_aggregator_opportunity(
+        db_session,
+        suffix,
+        "allowlisted-source",
+        primary_source="unstop",
+        last_seen_at=now - timedelta(hours=12),
+    )
+    _seed_aggregator_evidence(
+        db_session,
+        suffix,
+        "allowlisted-source",
+        adapter_key="unstop",
+        last_crawled_at=now - timedelta(hours=1),
+        crawl_runs=[
+            (
+                now - timedelta(hours=1),
+                _good_coverage_for_primary_source(db_session, "unstop"),
+            )
+        ],
+    )
+
+    expire_missing_opportunities(db_session)
+
+    status_and_closed_at = _status_and_closed_at_for_slug(db_session, opportunity.slug)
+    assert status_and_closed_at is not None
+    status, closed_at = status_and_closed_at
+    assert status == "active"
+    assert closed_at is not None
+
+
+def test_expire_missing_opportunities_keeps_allowlisted_source_when_run_truncated(
+    db_session: Session,
+) -> None:
+    now = datetime.now(timezone.utc)
+    suffix = str(uuid.uuid4())
+    first = _seed_aggregator_opportunity(
+        db_session,
+        f"{suffix}-1",
+        "truncated-source-one",
+        primary_source="devpost",
+        last_seen_at=now - timedelta(hours=12),
+    )
+    second = _seed_aggregator_opportunity(
+        db_session,
+        f"{suffix}-2",
+        "truncated-source-two",
+        primary_source="devpost",
+        last_seen_at=now - timedelta(hours=13),
+    )
+    _seed_aggregator_evidence(
+        db_session,
+        suffix,
+        "truncated-source",
+        adapter_key="devpost",
+        last_crawled_at=now - timedelta(hours=1),
+        crawl_runs=[
+            (now - timedelta(hours=3), 1_000_000),
+            (now - timedelta(hours=1), 0),
+        ],
+    )
+
+    expire_missing_opportunities(db_session)
+
+    assert _status_and_closed_at_for_slug(db_session, first.slug) == ("active", None)
+    assert _status_and_closed_at_for_slug(db_session, second.slug) == ("active", None)
+
+
+def test_expire_missing_opportunities_with_good_coverage_closes_absent_only(
+    db_session: Session,
+) -> None:
+    now = datetime.now(timezone.utc)
+    suffix = str(uuid.uuid4())
+    absent = _seed_aggregator_opportunity(
+        db_session,
+        f"{suffix}-absent",
+        "good-coverage-absent",
+        primary_source="devfolio",
+        last_seen_at=now - timedelta(hours=12),
+    )
+    seen_after_crawl = _seed_aggregator_opportunity(
+        db_session,
+        f"{suffix}-present",
+        "good-coverage-present",
+        primary_source="devfolio",
+        last_seen_at=now - timedelta(minutes=30),
+    )
+    _seed_aggregator_evidence(
+        db_session,
+        suffix,
+        "good-coverage",
+        adapter_key="devfolio",
+        last_crawled_at=now - timedelta(hours=1),
+        crawl_runs=[
+            (
+                now - timedelta(hours=1),
+                _good_coverage_for_primary_source(db_session, "devfolio"),
+            )
+        ],
+    )
+
+    expire_missing_opportunities(db_session)
+
+    status_and_closed_at = _status_and_closed_at_for_slug(db_session, absent.slug)
+    assert status_and_closed_at is not None
+    status, closed_at = status_and_closed_at
+    assert status == "active"
+    assert closed_at is not None
+    assert _status_and_closed_at_for_slug(db_session, seen_after_crawl.slug) == (
+        "active",
+        None,
+    )
+
+
+def test_expire_missing_opportunities_keeps_allowlisted_source_when_run_count_unknown(
+    db_session: Session,
+) -> None:
+    now = datetime.now(timezone.utc)
+    suffix = str(uuid.uuid4())
+    opportunity = _seed_aggregator_opportunity(
+        db_session,
+        suffix,
+        "unknown-run-count",
+        primary_source="unstop",
+        last_seen_at=now - timedelta(hours=12),
+    )
+    _seed_aggregator_evidence(
+        db_session,
+        suffix,
+        "unknown-run-count",
+        adapter_key="unstop",
+        last_crawled_at=now - timedelta(hours=1),
+        crawl_runs=[
+            (now - timedelta(hours=3), 1_000_000),
+            (now - timedelta(hours=1), None),
+        ],
+    )
+
+    expire_missing_opportunities(db_session)
+
+    assert _status_and_closed_at_for_slug(db_session, opportunity.slug) == ("active", None)
 
 
 def test_expire_missing_opportunities_marks_past_deadline_rows_closed(
