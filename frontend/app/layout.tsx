@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/next";
 import type { Metadata } from "next";
 import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
@@ -84,6 +85,13 @@ export default function RootLayout({
           <AppFooter />
           <Toaster />
         </ThemeProvider>
+        {/* Aspirova had no analytics of any kind, so "12 registered users" was a
+            number with no story attached: nobody arriving, and many arriving and
+            leaving, are indistinguishable without this and call for opposite
+            responses. Vercel's collector is cookieless, so it adds no consent
+            obligation; the Hobby plan caps it at 2,500 events a month, which is
+            ample now and is the thing to watch if traffic ever moves. */}
+        <Analytics />
       </body>
     </html>
   );
