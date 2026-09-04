@@ -111,6 +111,142 @@ def search_rows(db_session: Session):
     return search_term, location_token, top_company.slug, opportunities
 
 
+@pytest.fixture
+def multipage_search_rows(db_session: Session):
+    suffix = uuid.uuid4().hex
+    search_term = f"multipagesearch{suffix}"
+    company = models.Company(
+        slug=f"search-multipage-company-{suffix}",
+        name=f"Search Multipage Company {suffix}",
+    )
+    opportunities = [
+        models.Opportunity(
+            slug=f"search-multipage-{index}-{suffix}",
+            title=f"{search_term} opportunity {index}",
+            title_normalized=f"{search_term} opportunity {index}",
+            company=company,
+            category="internship",
+            apply_url=f"https://example.com/search-multipage/{index}/{suffix}",
+            status="active",
+        )
+        for index in range(5)
+    ]
+    distractors = [
+        models.Opportunity(
+            slug=f"search-multipage-different-query-{suffix}",
+            title=f"different query {suffix}",
+            title_normalized=f"different query {suffix}",
+            company=company,
+            category="internship",
+            apply_url=f"https://example.com/search-multipage/different/{suffix}",
+            status="active",
+        ),
+        models.Opportunity(
+            slug=f"search-multipage-inactive-{suffix}",
+            title=f"{search_term} inactive",
+            title_normalized=f"{search_term} inactive",
+            company=company,
+            category="internship",
+            apply_url=f"https://example.com/search-multipage/inactive/{suffix}",
+            status="closed",
+        ),
+    ]
+    db_session.add_all([company, *opportunities, *distractors])
+    db_session.flush()
+
+    return search_term, opportunities
+
+
+@pytest.fixture
+def trigram_search_rows(db_session: Session):
+    suffix = uuid.uuid4().hex
+    query = f"sofware enginer {suffix}"
+    company = models.Company(
+        slug=f"search-trigram-company-{suffix}",
+        name=f"Search Trigram Company {suffix}",
+    )
+    opportunities = [
+        models.Opportunity(
+            slug=f"search-trigram-{index}-{suffix}",
+            title=f"Software Engineer {suffix} role {index}",
+            title_normalized=f"software engineer {suffix} role {index}",
+            company=company,
+            category="job",
+            apply_url=f"https://example.com/search-trigram/{index}/{suffix}",
+            status="active",
+        )
+        for index in range(3)
+    ]
+    db_session.add_all([company, *opportunities])
+    db_session.flush()
+
+    return query, opportunities
+
+
+def test_search_total_matches_true_count_for_multipage_result_set(
+    client: TestClient,
+    multipage_search_rows,
+) -> None:
+    search_term, opportunities = multipage_search_rows
+    expected_slugs = {opportunity.slug for opportunity in opportunities}
+
+    responses = [
+        client.get("/search", params={"q": search_term, "limit": 2, "page": page})
+        for page in (1, 2, 3)
+    ]
+
+    assert [response.status_code for response in responses] == [200, 200, 200]
+    bodies = [response.json() for response in responses]
+    assert {body["total"] for body in bodies} == {len(opportunities)}
+    assert [len(body["items"]) for body in bodies] == [2, 2, 1]
+    returned_slugs = [item["slug"] for body in bodies for item in body["items"]]
+    assert len(returned_slugs) == len(set(returned_slugs))
+    assert set(returned_slugs) == expected_slugs
+
+
+def test_search_page_beyond_end_returns_total_with_empty_items(
+    client: TestClient,
+    multipage_search_rows,
+) -> None:
+    search_term, opportunities = multipage_search_rows
+
+    response = client.get("/search", params={"q": search_term, "limit": 2, "page": 4})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == len(opportunities)
+    assert body["items"] == []
+
+
+def test_search_zero_match_query_returns_total_zero(client: TestClient) -> None:
+    response = client.get("/search", params={"q": f"zeromatch{uuid.uuid4().hex}"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 0
+    assert body["items"] == []
+
+
+def test_search_trigram_fallback_total_matches_fallback_rows(
+    client: TestClient,
+    trigram_search_rows,
+) -> None:
+    query, opportunities = trigram_search_rows
+    expected_slugs = {opportunity.slug for opportunity in opportunities}
+
+    page_one = client.get("/search", params={"q": query, "limit": 2, "page": 1})
+    page_two = client.get("/search", params={"q": query, "limit": 2, "page": 2})
+
+    assert page_one.status_code == 200
+    assert page_two.status_code == 200
+    bodies = [page_one.json(), page_two.json()]
+    assert {body["total"] for body in bodies} == {len(opportunities)}
+    assert [len(body["items"]) for body in bodies] == [2, 1]
+    returned_slugs = [item["slug"] for body in bodies for item in body["items"]]
+    assert len(returned_slugs) == len(set(returned_slugs))
+    assert set(returned_slugs) == expected_slugs
+
+
 def test_search_without_filters_returns_all_fts_matches(
     client: TestClient,
     search_rows,

@@ -2,14 +2,14 @@
 queries that don't tokenize (Doc 02 sec 3.5). websearch_to_tsquery (not
 to_tsquery) because it never raises on arbitrary user input.
 
-Each branch fetches its count via count(*) OVER() in the same query as the
-page of results (see api/feed.py for why - it's a real ~44ms network round-
-trip per query against the Supabase pooler, not free). That count only
-rides on a returned row though, so a page that overshoots the real result
-set comes back just as empty as a true zero-match query would - the two
-are distinguished with one extra cheap count-only query, run ONLY when the
-requested page came back empty (the common case, where rows ARE returned,
-stays at one round-trip).
+Search totals are fetched with separate exact count-only queries. The old
+count(*) OVER() saved a real ~44ms Supabase pooler round-trip when queries
+were cheap, but production EXPLAIN for q=engineer (16,706 matches) showed the
+tradeoff had flipped: the row query with the window took 504ms / 80,022 buffer
+hits, the same row query without it took 173ms / 80,503, and a separate plain
+count(*) took 27ms / 3,046. Keeping the count separate avoids making Postgres
+materialise every match before returning the requested page, and it directly
+distinguishes true zero-match queries from out-of-range pages.
 """
 
 from fastapi import APIRouter, Depends, Query
@@ -34,6 +34,18 @@ from core import models
 router = APIRouter()
 
 TRIGRAM_FALLBACK_THRESHOLD = 0.3
+
+
+def _count_matches(db: Session, base_filters: list, search_predicate) -> int:
+    return (
+        db.scalar(
+            select(func.count())
+            .select_from(models.Opportunity)
+            .where(*base_filters)
+            .where(search_predicate)
+        )
+        or 0
+    )
 
 
 @router.get("/search", response_model=SearchResponse)
@@ -84,51 +96,42 @@ def search_opportunities(
     tsquery = func.websearch_to_tsquery("english", q)
     matches_fts = models.Opportunity.search_tsv.op("@@")(tsquery)
     rank = func.ts_rank(models.Opportunity.search_tsv, tsquery)
-    total_count = func.count().over().label("total_count")
+    offset = (page - 1) * limit
 
     # id tie-breaker: rank/similarity ties are common (many non-matches tie
     # at rank 0, or share an identical trigram score) and Postgres gives no
     # ordering guarantee among tied rows across separate paginated queries
     # (same class of bug as api/feed.py's pagination - verified there).
-    fts_query = (
-        select(models.Opportunity, total_count)
-        .options(*opportunity_list_load_options())
-        .where(*base_filters)
-        .where(matches_fts)
-        .order_by(rank.desc(), models.Opportunity.id.desc())
-    )
-    rows = db.execute(fts_query.offset((page - 1) * limit).limit(limit)).unique().all()
+    fts_total = _count_matches(db, base_filters, matches_fts)
+    if fts_total > 0:
+        if offset >= fts_total:
+            return SearchResponse(items=[], total=fts_total, query=q)
 
-    if rows:
-        items = [OpportunityListItem.from_model(row.Opportunity) for row in rows]
-        return SearchResponse(items=items, total=rows[0].total_count, query=q)
-
-    # No rows on THIS page - could be a true zero-match query (try the
-    # trigram fallback) or a real result set that this page overshot
-    # (report the real total, no fallback). Telling these apart needs an
-    # explicit count, since the window-function count had no row to ride.
-    fts_total = (
-        db.scalar(
-            select(func.count())
-            .select_from(models.Opportunity)
+        fts_query = (
+            select(models.Opportunity)
+            .options(*opportunity_list_load_options())
             .where(*base_filters)
             .where(matches_fts)
+            .order_by(rank.desc(), models.Opportunity.id.desc())
         )
-        or 0
-    )
-    if fts_total > 0:
-        return SearchResponse(items=[], total=fts_total, query=q)
+        opportunities = db.execute(fts_query.offset(offset).limit(limit)).unique().scalars().all()
+        items = [OpportunityListItem.from_model(opportunity) for opportunity in opportunities]
+        return SearchResponse(items=items, total=fts_total, query=q)
 
     similarity = func.similarity(models.Opportunity.title_normalized, q.lower())
+    matches_trigram = similarity >= TRIGRAM_FALLBACK_THRESHOLD
+    fallback_total = _count_matches(db, base_filters, matches_trigram)
+    if fallback_total == 0 or offset >= fallback_total:
+        return SearchResponse(items=[], total=fallback_total, query=q)
+
     fallback_query = (
-        select(models.Opportunity, total_count)
+        select(models.Opportunity)
         .options(*opportunity_list_load_options())
         .where(*base_filters)
-        .where(similarity >= TRIGRAM_FALLBACK_THRESHOLD)
+        .where(matches_trigram)
         .order_by(similarity.desc(), models.Opportunity.id.desc())
     )
-    rows = db.execute(fallback_query.offset((page - 1) * limit).limit(limit)).unique().all()
+    opportunities = db.execute(fallback_query.offset(offset).limit(limit)).unique().scalars().all()
 
-    items = [OpportunityListItem.from_model(row.Opportunity) for row in rows]
-    total = rows[0].total_count if rows else 0
-    return SearchResponse(items=items, total=total, query=q)
+    items = [OpportunityListItem.from_model(opportunity) for opportunity in opportunities]
+    return SearchResponse(items=items, total=fallback_total, query=q)
