@@ -149,6 +149,10 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
           {item.title}
         </h3>
 
+        <p className="line-clamp-2 min-h-10 break-words text-sm leading-5 text-muted-foreground">
+          {item.summary}
+        </p>
+
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <p className="min-w-0 truncate text-sm font-medium text-foreground/80">
             {companyName}

@@ -31,6 +31,7 @@ export interface OpportunityListItem {
   posted_at: string | null;
   last_seen_at: string;
   is_hidden: boolean;
+  summary: string | null;
 }
 
 export type BookmarkStage =
@@ -91,7 +92,6 @@ export interface MatchItem {
 
 export interface OpportunityDetail extends OpportunityListItem {
   description_raw: string;
-  summary: string | null;
   apply_url: string;
   skills: string[];
   is_stale: boolean;
