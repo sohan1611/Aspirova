@@ -53,6 +53,19 @@ def _tag_slug(name: str) -> str:
     return re.sub(r"-+", "-", slug).strip("-")
 
 
+def _summary_source(meta: dict | None) -> str | None:
+    if not isinstance(meta, dict):
+        return None
+    value = meta.get("summary_source")
+    return value if isinstance(value, str) else None
+
+
+def _meta_with_summary_source(meta: dict | None, source: str) -> dict:
+    next_meta = dict(meta) if isinstance(meta, dict) else {}
+    next_meta["summary_source"] = source
+    return next_meta
+
+
 def _replace_tags(session: Session, opportunity_id: int, tag_names: list[str]) -> None:
     session.execute(
         delete(models.OpportunityTag).where(models.OpportunityTag.opportunity_id == opportunity_id)
@@ -82,7 +95,15 @@ def _replace_tags(session: Session, opportunity_id: int, tag_names: list[str]) -
 
 def enrich_opportunity(session: Session, opportunity: models.Opportunity) -> bool:
     """Set reusable summary, tags, and embedding for one canonical opportunity."""
-    if opportunity.summary is not None and opportunity.embedding is not None:
+    summary_is_extracted = _summary_source(opportunity.meta) == "extracted"
+    # Extracted summaries are placeholders that Phase 3 AI may replace. If this
+    # provenance is flattened away, every deterministic ingest/backfill summary
+    # looks final and the AI enrichment path gets stranded for those rows.
+    if (
+        opportunity.summary is not None
+        and not summary_is_extracted
+        and opportunity.embedding is not None
+    ):
         return False
 
     description = opportunity.description_raw or ""
@@ -115,6 +136,8 @@ def enrich_opportunity(session: Session, opportunity: models.Opportunity) -> boo
     )[0]
 
     opportunity.summary = summary or None
+    if opportunity.summary is not None:
+        opportunity.meta = _meta_with_summary_source(opportunity.meta, "ai")
     opportunity.embedding = embedding
     opportunity.embedding_model = get_settings().ai_embedding_model
     session.flush()
@@ -133,6 +156,7 @@ def enrich_pending(session: Session, *, limit: int) -> dict[str, object]:
             or_(
                 models.Opportunity.summary.is_(None),
                 models.Opportunity.embedding.is_(None),
+                models.Opportunity.meta["summary_source"].as_string() == "extracted",
             )
         )
         .order_by(models.Opportunity.id)

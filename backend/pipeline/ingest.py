@@ -48,6 +48,7 @@ from sqlalchemy.orm import Session
 
 from core import models
 from core.adapters import NormalizedListing, RawListing
+from core.summarise import summarise_description
 from core.textclean import fix_multiline_text, fix_text
 from pipeline.dedup import find_matching_opportunity
 from pipeline.location_country import derive_country
@@ -70,6 +71,60 @@ def _make_opportunity_slug(company_name: str, title: str, raw: RawListing) -> st
     # change once set (Doc 03 sec 3.4).
     disambiguator = hashlib.sha256(f"{raw.external_id}|{raw.source_url}".encode()).hexdigest()[:8]
     return f"{base}-{disambiguator}"
+
+
+def _copy_meta(meta: dict | None) -> dict:
+    return dict(meta) if isinstance(meta, dict) else {}
+
+
+def _summary_source(meta: dict | None) -> str | None:
+    if not isinstance(meta, dict):
+        return None
+    value = meta.get("summary_source")
+    return value if isinstance(value, str) else None
+
+
+def _meta_with_summary_source(meta: dict | None, source: str) -> dict:
+    next_meta = _copy_meta(meta)
+    next_meta["summary_source"] = source
+    return next_meta
+
+
+def _meta_without_summary_source(meta: dict | None) -> dict | None:
+    next_meta = _copy_meta(meta)
+    next_meta.pop("summary_source", None)
+    return next_meta or None
+
+
+def _extracted_summary_and_meta(
+    *,
+    description: str | None,
+    title: str | None,
+    meta: dict | None,
+) -> tuple[str | None, dict | None]:
+    summary = summarise_description(description, title=title)
+    if summary is None:
+        return None, _meta_without_summary_source(meta)
+    return summary, _meta_with_summary_source(meta, "extracted")
+
+
+def _refresh_extracted_summary(
+    opportunity: models.Opportunity,
+    *,
+    meta: dict | None,
+) -> None:
+    # Extracted summaries keep cards useful while all but 45 active rows already
+    # have long descriptions. They are placeholders only; an AI summary must
+    # never be replaced by this deterministic fallback.
+    if _summary_source(opportunity.meta) == "ai":
+        opportunity.meta = _meta_with_summary_source(meta, "ai")
+        return
+
+    opportunity.summary, opportunity.meta = _extracted_summary_and_meta(
+        description=opportunity.description_raw,
+        title=opportunity.title,
+        meta=meta,
+    )
 
 
 @dataclass
@@ -246,12 +301,12 @@ def ingest_one(
                 "category": opportunity.category,
                 "deadline": opportunity.deadline,
                 "description_raw": opportunity.description_raw,
+                "summary": opportunity.summary,
                 "skills": sorted(opportunity.skills or []),
             }
             # Deliberately exclude title_normalized (derived from title); meta and
             # deadline_confidence (not part of the rendered comparison); posted_at
-            # (the upstream can re-timestamp it without a listing change); and
-            # summary (cleared for re-enrichment, not a rendered difference).
+            # (the upstream can re-timestamp it without a listing change).
             raw_row.content_hash = raw.content_hash
             raw_row.raw_payload = raw.raw_payload
             if len(normalized.description_raw or "") > len(opportunity.description_raw or ""):
@@ -265,16 +320,15 @@ def ingest_one(
             opportunity.category = normalized.category
             opportunity.posted_at = normalized.posted_at
             opportunity.deadline = normalized.deadline
-            opportunity.meta = normalized.meta
             opportunity.deadline_confidence = normalized.deadline_confidence
             opportunity.skills = extract_opportunity_skills(
                 normalized.title,
                 opportunity.description_raw or "",
                 company_name=normalized.company_name,
             )
-            opportunity.summary = None
             opportunity.embedding = None
             opportunity.embedding_model = None
+            _refresh_extracted_summary(opportunity, meta=normalized.meta)
             session.execute(
                 delete(models.OpportunityTag).where(
                     models.OpportunityTag.opportunity_id == opportunity.id
@@ -289,6 +343,7 @@ def ingest_one(
                 "category": opportunity.category,
                 "deadline": opportunity.deadline,
                 "description_raw": opportunity.description_raw,
+                "summary": opportunity.summary,
                 "skills": sorted(opportunity.skills or []),
             }
             if (
@@ -336,6 +391,7 @@ def ingest_one(
                 match.description_raw or "",
                 company_name=normalized.company_name,
             )
+            _refresh_extracted_summary(match, meta=match.meta)
         mark_seen(match)
         opportunity, is_new = match, False
     else:
@@ -356,9 +412,15 @@ def ingest_one(
                     opportunity.description_raw or "",
                     company_name=normalized.company_name,
                 )
+                _refresh_extracted_summary(opportunity, meta=opportunity.meta)
             mark_seen(opportunity)
             is_new = False
         else:
+            summary, meta = _extracted_summary_and_meta(
+                description=normalized.description_raw,
+                title=normalized.title,
+                meta=normalized.meta,
+            )
             opportunity = models.Opportunity(
                 slug=slug,
                 company_id=company_id,
@@ -375,10 +437,11 @@ def ingest_one(
                 country=country,
                 is_remote=normalized.is_remote,
                 description_raw=normalized.description_raw,
+                summary=summary,
                 apply_url=normalized.apply_url,
                 posted_at=normalized.posted_at,
                 deadline=normalized.deadline,
-                meta=normalized.meta,
+                meta=meta,
                 deadline_confidence=normalized.deadline_confidence,
             )
             session.add(opportunity)

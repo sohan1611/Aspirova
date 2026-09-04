@@ -403,7 +403,7 @@ export default async function OpportunityPage({ params }: PageProps) {
           <aside className="mt-8 max-w-3xl rounded-xl border border-border bg-card p-6 shadow-soft sm:p-7">
             {opportunity.summary && (
               <div>
-                <p className="eyebrow">AI summary</p>
+                <p className="eyebrow">At a glance</p>
                 <p className="mt-3 whitespace-pre-wrap leading-7 text-foreground">
                   {opportunity.summary}
                 </p>

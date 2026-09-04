@@ -51,6 +51,7 @@ class OpportunityListItem(BaseModel):
     posted_at: datetime | None
     last_seen_at: datetime
     is_hidden: bool
+    summary: str | None = None
     meta: dict | None = None
 
     @field_validator("location")
@@ -88,6 +89,7 @@ class OpportunityListItem(BaseModel):
             posted_at=o.posted_at,
             last_seen_at=o.last_seen_at,
             is_hidden=o.is_hidden,
+            summary=o.summary,
             meta=o.meta,
         )
 
@@ -304,7 +306,6 @@ class ReopenEstimateSchema(BaseModel):
 
 class OpportunityDetail(OpportunityListItem):
     description_raw: str
-    summary: str | None
     apply_url: str
     skills: list[str] = []
     reopen_estimate: ReopenEstimateSchema | None = None

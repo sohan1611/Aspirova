@@ -14,13 +14,31 @@
 ## The canon is law
 `docs/` is the single source of truth. `docs/README.md` is the index + append-only **Decision log** (never contradict a **Binding** row without an architect amendment). Docs 01-08 cover product/architecture/data/crawler/AI/pricing/roadmap/governance. Phase handoffs + reports live in `docs/handoffs/`. **Doc 08 §3 HARD RULES are the merge gate.**
 
-## Where things stand (2026-06-30)
-- **Phase 1 (Foundation + Ingestion + Read API + Frontend): DONE, reviewed (PASS), and DEPLOYED live.**
-  - Backend: FastAPI on **Render Singapore** → `https://aspirova-api.onrender.com`
-  - Frontend: Next.js on **Vercel** → `https://aspirova.vercel.app`
-  - DB: **Supabase Postgres, ap-south-1 (Mumbai)**; crawler on **GitHub Actions** (repo `sohan1611/Aspirova`)
-- **Phase 2 (Production-ready platform): HANDED OFF — start here.** Read `docs/handoffs/PHASE-2-HANDOFF.md`. Begin at **Part 2.1 (rate limiting + caching)** — most urgent, since the API is already public.
-  - Binding rulings carried in: **Lever-1** (crawler set-based bulk ops) must land *before* new adapters; **rate limiting is urgent**; **Lever-2** (Supabase→Singapore migration) is deferred pending isolated `X-DB-Time-Ms` measurement; **all AI is out of scope until Phase 3.**
+## Where things stand (2026-09-04)
+*Phases 1 and 2 are long done. This section drifted two months out of date and was rewritten;
+keep it current, because it is the first thing every session reads.*
+
+- **Live and healthy.** Backend on **Render Singapore** (`https://aspirova-api.onrender.com`),
+  frontend on **Vercel** at **`https://www.aspirova.org`** (the `aspirova.vercel.app` domain still
+  serves and canonicalises to it), DB **Supabase Postgres, ap-south-1 (Mumbai)**, crawler +
+  digests on **GitHub Actions**. All production routes answer 200.
+- **Scale:** ~25,800 visible opportunities across **16 sources** and 5,638 companies. Auth is live
+  (Google, GitHub, email). Application tracking, listing filters/sort/search, and both digests all
+  ship and work.
+- **The binding constraint is DISTRIBUTION, not engineering.** 12 registered users, 1 bookmark all
+  time, 0 saved searches. Features are not the bottleneck and have not been for months — see the
+  2026-09-04 audit. Weigh any proposed supply-side work against that.
+
+### Rulings that still bind day-to-day
+- **Lever-2 (Supabase → Singapore) is CLOSED — do not migrate.** Re-measured 2026-09-04: all the
+  latency variance is database CPU, not the Mumbai hop. Fix query shape instead.
+- **Absence is evidence only when the crawl that missed a listing could have seen it.** Only
+  `FULL_INVENTORY_SOURCES` may retire on absence; see `pipeline/expire.py`. Violating this closed
+  ~2,000 live jobs in one crawl.
+- **All AI remains deferred by founder ruling.** Deterministic paths only; anything that writes
+  `summary` must respect `meta.summary_source` so the AI upgrade is not foreclosed.
+- **Nothing ships on a green gate alone** (Doc 08 §3): exercise a change against real production
+  data or a real rendered DOM and record the numbers in the PR.
 
 ## Local setup (after clone/unzip on a new machine)
 - **Backend:** Python 3.12+ and `uv`. `cd backend && uv sync`, then `uv run uvicorn api.main:app --reload`. Tests: `uv run pytest`. Migrations: `uv run alembic upgrade head`.
