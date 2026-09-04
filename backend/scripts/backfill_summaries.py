@@ -9,7 +9,7 @@ import argparse
 from collections.abc import Iterator
 from typing import TypedDict
 
-from sqlalchemy import func, or_, select, text
+from sqlalchemy import func, or_, select, text, update
 from sqlalchemy.orm import Session, load_only
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -20,6 +20,17 @@ from core.summarise import summarise_description
 BATCH_SIZE = 500
 MAINTENANCE_STATEMENT_TIMEOUT = "120s"
 SAMPLE_SIZE = 10
+
+# A summary attached to this many DISTINCT job titles is describing the employer,
+# not the job. Measured after the first full backfill: one Samsara sentence sat on
+# 47 listings spanning 40 different titles, a Pinterest one on 39 across 37, and
+# "Palantir builds the world's leading software..." on 62 across 34. Extraction
+# cannot reliably tell those from role prose - they are grammatically identical
+# and mention the company, not the post - but reuse across unrelated titles
+# identifies them exactly. Counting DISTINCT TITLES rather than rows is what
+# spares the legitimate case: one real role description shared by many locations
+# of the same job.
+BOILERPLATE_DISTINCT_TITLES = 5
 
 
 class SummarySample(TypedDict):
@@ -196,6 +207,55 @@ def _preview(value: str | None, *, max_length: int = 140) -> str:
     return f"{single_line[: max_length - 3]}..."
 
 
+def boilerplate_summaries(session: Session) -> list[tuple[str, int, int]]:
+    """Summaries reused across too many distinct titles to be about any of them."""
+    rows = session.execute(
+        select(
+            models.Opportunity.summary,
+            func.count(func.distinct(models.Opportunity.title_normalized)).label("titles"),
+            func.count().label("rows"),
+        )
+        .where(
+            models.Opportunity.status == "active",
+            models.Opportunity.summary.is_not(None),
+            # Only ever clears text this script produced. An AI summary is not
+            # ours to discard, however widely it is shared.
+            models.Opportunity.meta["summary_source"].as_string() == "extracted",
+        )
+        .group_by(models.Opportunity.summary)
+        .having(
+            func.count(func.distinct(models.Opportunity.title_normalized))
+            >= BOILERPLATE_DISTINCT_TITLES
+        )
+        .order_by(func.count().desc())
+    ).all()
+    return [(row[0], int(row[1]), int(row[2])) for row in rows]
+
+
+def prune_boilerplate(session: Session, *, apply: bool) -> tuple[int, int]:
+    """Null summaries that describe the employer rather than the post."""
+    found = boilerplate_summaries(session)
+    if not found:
+        return 0, 0
+
+    affected = sum(rows for _summary, _titles, rows in found)
+    if apply:
+        for start in range(0, len(found), 100):
+            chunk = [summary for summary, _titles, _rows in found[start : start + 100]]
+            session.execute(
+                update(models.Opportunity)
+                .where(
+                    models.Opportunity.status == "active",
+                    models.Opportunity.summary.in_(chunk),
+                    models.Opportunity.meta["summary_source"].as_string() == "extracted",
+                )
+                .values(summary=None)
+                .execution_options(synchronize_session=False)
+            )
+        session.commit()
+    return len(found), affected
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Backfill deterministic extracted opportunity summaries."
@@ -223,6 +283,9 @@ def main() -> None:
             limit=args.limit,
             batch_size=args.batch_size,
         )
+        # Runs after the fill, not instead of it: reuse across unrelated titles is
+        # only visible once every row has been summarised.
+        pruned_summaries, pruned_rows = prune_boilerplate(session, apply=args.apply)
 
     print(f"mode: {'apply' if args.apply else 'dry-run'}", flush=True)
     print(f"matching rows: {result['matching']}", flush=True)
@@ -236,6 +299,14 @@ def main() -> None:
             print(f"- {row['id']} | {_preview(row['title'], max_length=80)}", flush=True)
             print(f"  before: {_preview(row['before'])}", flush=True)
             print(f"  after: {_preview(row['after'])}", flush=True)
+
+    print(
+        f"boilerplate summaries (reused across >= {BOILERPLATE_DISTINCT_TITLES} distinct "
+        f"titles): {pruned_summaries} covering {pruned_rows} rows",
+        flush=True,
+    )
+    if args.apply:
+        print(f"boilerplate summaries cleared: {pruned_rows}", flush=True)
 
     if not args.apply:
         print("dry-run only; no rows updated", flush=True)
