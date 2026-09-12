@@ -89,8 +89,15 @@ export default function RootLayout({
             number with no story attached: nobody arriving, and many arriving and
             leaving, are indistinguishable without this and call for opposite
             responses. Vercel's collector is cookieless, so it adds no consent
-            obligation; the Hobby plan caps it at 2,500 events a month, which is
-            ample now and is the thing to watch if traffic ever moves. */}
+            obligation; Hobby includes 50,000 events a month and simply pauses
+            collection at the cap rather than billing for the overage.
+
+            This does nothing until Web Analytics is switched on for the project
+            (Vercel dashboard, or `vercel project web-analytics aspirova`). While
+            it is off, the component still requests its script on every page load
+            and gets a 404 - measured on production 2026-09-11, one wasted edge
+            request per view since this shipped. Turn it on or take this out; a
+            component that only 404s is worse than no analytics. */}
         <Analytics />
       </body>
     </html>

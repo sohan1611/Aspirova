@@ -1,4 +1,4 @@
-import Link from "next/link";
+import HoverPrefetchLink from "@/components/HoverPrefetchLink";
 import { Badge } from "@/components/ui/badge";
 import {
   formatProgrammeCategory,
@@ -27,7 +27,7 @@ export default function ProgrammeCard({ programme }: { programme: ProgrammeListI
       : "border-border bg-secondary/50 text-muted-foreground";
 
   return (
-    <Link
+    <HoverPrefetchLink
       href={programmePath(programme.slug)}
       className="group flex min-h-72 flex-col rounded-xl border border-border bg-card p-5 shadow-soft transition-[transform,box-shadow,border-color] duration-300 ease-premium hover:-translate-y-1 hover:border-primary/45 hover:[box-shadow:var(--shadow-md)] focus-visible:-translate-y-1 focus-visible:border-primary/45 focus-visible:[box-shadow:var(--shadow-md)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
@@ -60,6 +60,6 @@ export default function ProgrammeCard({ programme }: { programme: ProgrammeListI
       <p className="mt-5 line-clamp-4 text-sm leading-6 text-muted-foreground">
         {truncateText(programme.description)}
       </p>
-    </Link>
+    </HoverPrefetchLink>
   );
 }

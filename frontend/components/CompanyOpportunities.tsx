@@ -1,5 +1,5 @@
 import { ExternalLink, SearchX } from "lucide-react";
-import Link from "next/link";
+import HoverPrefetchLink from "@/components/HoverPrefetchLink";
 import CompanyFavicon from "@/components/CompanyFavicon";
 import OpportunityCard from "@/components/OpportunityCard";
 import { Button } from "@/components/ui/button";
@@ -38,12 +38,12 @@ export default function CompanyOpportunities({
 
   return (
     <main className="mx-auto w-full max-w-[1680px] px-4 py-10 sm:px-6 sm:py-14 lg:px-10 xl:px-12">
-      <Link
+      <HoverPrefetchLink
         href="/companies"
         className="inline-flex text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
       >
         ← All companies
-      </Link>
+      </HoverPrefetchLink>
 
       <header className="mt-8 border-b border-border pb-10">
         <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:gap-7">
@@ -119,7 +119,7 @@ export default function CompanyOpportunities({
           >
             <Button variant="outline" size="sm" disabled={page <= 1} asChild={page > 1}>
               {page > 1 ? (
-                <Link href={companyPageHref(slug, page - 1)}>Previous</Link>
+                <HoverPrefetchLink href={companyPageHref(slug, page - 1)}>Previous</HoverPrefetchLink>
               ) : (
                 "Previous"
               )}
@@ -134,7 +134,7 @@ export default function CompanyOpportunities({
               asChild={page < totalPages}
             >
               {page < totalPages ? (
-                <Link href={companyPageHref(slug, page + 1)}>Next</Link>
+                <HoverPrefetchLink href={companyPageHref(slug, page + 1)}>Next</HoverPrefetchLink>
               ) : (
                 "Next"
               )}

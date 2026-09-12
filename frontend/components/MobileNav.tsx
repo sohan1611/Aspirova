@@ -1,7 +1,7 @@
 "use client";
 
 import { Menu } from "lucide-react";
-import Link from "next/link";
+import HoverPrefetchLink from "@/components/HoverPrefetchLink";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -59,14 +59,14 @@ export default function MobileNav() {
         </SheetHeader>
         <nav className="flex flex-col gap-1 px-4" aria-label="Mobile navigation">
           {NAV_LINKS.map((link) => (
-            <Link
+            <HoverPrefetchLink
               key={link.href}
               href={link.href}
               className={MOBILE_NAV_LINK_CLASSES}
               onClick={() => setOpen(false)}
             >
               {link.label}
-            </Link>
+            </HoverPrefetchLink>
           ))}
         </nav>
       </SheetContent>

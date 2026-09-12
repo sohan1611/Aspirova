@@ -1,4 +1,4 @@
-import Link from "next/link";
+import HoverPrefetchLink from "@/components/HoverPrefetchLink";
 import { cn } from "@/lib/utils";
 
 type WordmarkProps = {
@@ -7,7 +7,7 @@ type WordmarkProps = {
 
 export function Wordmark({ className }: WordmarkProps) {
   return (
-    <Link
+    <HoverPrefetchLink
       href="/"
       className={cn(
         "inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:min-h-0 sm:min-w-0 sm:justify-start",
@@ -25,7 +25,7 @@ export function Wordmark({ className }: WordmarkProps) {
       <span className="font-serif text-lg font-semibold tracking-tight text-foreground">
         Aspirova
       </span>
-    </Link>
+    </HoverPrefetchLink>
   );
 }
 

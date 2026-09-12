@@ -1,4 +1,4 @@
-import Link from "next/link";
+import HoverPrefetchLink from "@/components/HoverPrefetchLink";
 import Wordmark from "@/components/Wordmark";
 
 const FOOTER_LINK_CLASSES =
@@ -21,50 +21,50 @@ export default function AppFooter() {
             <p className="eyebrow">Browse</p>
             <ul className="mt-4 space-y-0 text-sm sm:space-y-3">
               <li>
-                <Link className={FOOTER_LINK_CLASSES} href="/internships">
+                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/internships">
                   Internships
-                </Link>
+                </HoverPrefetchLink>
               </li>
               <li>
-                <Link className={FOOTER_LINK_CLASSES} href="/jobs">
+                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/jobs">
                   Jobs
-                </Link>
+                </HoverPrefetchLink>
               </li>
               <li>
-                <Link className={FOOTER_LINK_CLASSES} href="/remote">
+                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/remote">
                   Remote
-                </Link>
+                </HoverPrefetchLink>
               </li>
               <li>
-                <Link className={FOOTER_LINK_CLASSES} href="/jobs">
+                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/jobs">
                   Jobs
-                </Link>
+                </HoverPrefetchLink>
               </li>
               <li>
-                <Link className={FOOTER_LINK_CLASSES} href="/internships">
+                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/internships">
                   Internships
-                </Link>
+                </HoverPrefetchLink>
               </li>
               <li>
-                <Link className={FOOTER_LINK_CLASSES} href="/competitions">
+                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/competitions">
                   Competitions
-                </Link>
+                </HoverPrefetchLink>
               </li>
               <li>
-                <Link className={FOOTER_LINK_CLASSES} href="/research">
+                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/research">
                   Research
-                </Link>
+                </HoverPrefetchLink>
               </li>
               {/* Scholarships intentionally unlinked - see MobileNav for why. */}
               <li>
-                <Link className={FOOTER_LINK_CLASSES} href="/programmes">
+                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/programmes">
                   Programmes
-                </Link>
+                </HoverPrefetchLink>
               </li>
               <li>
-                <Link className={FOOTER_LINK_CLASSES} href="/companies">
+                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/companies">
                   Companies
-                </Link>
+                </HoverPrefetchLink>
               </li>
             </ul>
           </nav>
@@ -73,29 +73,29 @@ export default function AppFooter() {
             <p className="eyebrow">Aspirova</p>
             <ul className="mt-4 space-y-0 text-sm sm:space-y-3">
               <li>
-                <Link className={FOOTER_LINK_CLASSES} href="/pricing">
+                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/pricing">
                   Pricing
-                </Link>
+                </HoverPrefetchLink>
               </li>
               <li>
-                <Link className={FOOTER_LINK_CLASSES} href="/referral">
+                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/referral">
                   Invite
-                </Link>
+                </HoverPrefetchLink>
               </li>
               <li>
-                <Link className={FOOTER_LINK_CLASSES} href="/copilot">
+                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/copilot">
                   Copilot
-                </Link>
+                </HoverPrefetchLink>
               </li>
               <li>
-                <Link className={FOOTER_LINK_CLASSES} href="/resume">
+                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/resume">
                   Matches
-                </Link>
+                </HoverPrefetchLink>
               </li>
               <li>
-                <Link className={FOOTER_LINK_CLASSES} href="/report">
+                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/report">
                   Report a problem
-                </Link>
+                </HoverPrefetchLink>
               </li>
             </ul>
           </nav>
@@ -104,24 +104,24 @@ export default function AppFooter() {
             <p className="eyebrow">Legal</p>
             <ul className="mt-4 space-y-0 text-sm sm:space-y-3">
               <li>
-                <Link className={FOOTER_LINK_CLASSES} href="/terms">
+                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/terms">
                   Terms
-                </Link>
+                </HoverPrefetchLink>
               </li>
               <li>
-                <Link className={FOOTER_LINK_CLASSES} href="/privacy">
+                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/privacy">
                   Privacy
-                </Link>
+                </HoverPrefetchLink>
               </li>
               <li>
-                <Link className={FOOTER_LINK_CLASSES} href="/refunds">
+                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/refunds">
                   Refunds
-                </Link>
+                </HoverPrefetchLink>
               </li>
               <li>
-                <Link className={FOOTER_LINK_CLASSES} href="/contact">
+                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/contact">
                   Contact
-                </Link>
+                </HoverPrefetchLink>
               </li>
             </ul>
           </nav>

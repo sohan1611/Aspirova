@@ -1,4 +1,4 @@
-import Link from "next/link";
+import HoverPrefetchLink from "@/components/HoverPrefetchLink";
 import HeaderAuth from "@/components/HeaderAuth";
 import MobileNav from "@/components/MobileNav";
 import NotificationBell from "@/components/NotificationBell";
@@ -15,37 +15,37 @@ export default function AppHeader() {
           <Wordmark className="[&>span]:hidden [&>span]:tracking-[-0.01em] sm:[&>span]:inline" />
           <MobileNav />
           <nav className="hidden min-w-0 items-center gap-3 overflow-x-auto whitespace-nowrap text-sm font-medium [scrollbar-width:none] sm:gap-4 md:flex [&::-webkit-scrollbar]:hidden">
-            <Link href="/saved" className={NAV_LINK_CLASSES}>
+            <HoverPrefetchLink href="/saved" className={NAV_LINK_CLASSES}>
               Saved
-            </Link>
-            <Link href="/resume" className={NAV_LINK_CLASSES}>
+            </HoverPrefetchLink>
+            <HoverPrefetchLink href="/resume" className={NAV_LINK_CLASSES}>
               Matches
-            </Link>
-            <Link href="/referral" className={NAV_LINK_CLASSES}>
+            </HoverPrefetchLink>
+            <HoverPrefetchLink href="/referral" className={NAV_LINK_CLASSES}>
               Invite
-            </Link>
-            <Link href="/copilot" className={NAV_LINK_CLASSES}>
+            </HoverPrefetchLink>
+            <HoverPrefetchLink href="/copilot" className={NAV_LINK_CLASSES}>
               Copilot
-            </Link>
-            <Link href="/jobs" className={NAV_LINK_CLASSES}>
+            </HoverPrefetchLink>
+            <HoverPrefetchLink href="/jobs" className={NAV_LINK_CLASSES}>
               Jobs
-            </Link>
-            <Link href="/internships" className={NAV_LINK_CLASSES}>
+            </HoverPrefetchLink>
+            <HoverPrefetchLink href="/internships" className={NAV_LINK_CLASSES}>
               Internships
-            </Link>
-            <Link href="/competitions" className={NAV_LINK_CLASSES}>
+            </HoverPrefetchLink>
+            <HoverPrefetchLink href="/competitions" className={NAV_LINK_CLASSES}>
               Competitions
-            </Link>
-            <Link href="/research" className={NAV_LINK_CLASSES}>
+            </HoverPrefetchLink>
+            <HoverPrefetchLink href="/research" className={NAV_LINK_CLASSES}>
               Research
-            </Link>
+            </HoverPrefetchLink>
             {/* Scholarships intentionally unlinked - see MobileNav for why. */}
-            <Link href="/programmes" className={NAV_LINK_CLASSES}>
+            <HoverPrefetchLink href="/programmes" className={NAV_LINK_CLASSES}>
               Programmes
-            </Link>
-            <Link href="/pricing" className={NAV_LINK_CLASSES}>
+            </HoverPrefetchLink>
+            <HoverPrefetchLink href="/pricing" className={NAV_LINK_CLASSES}>
               Pricing
-            </Link>
+            </HoverPrefetchLink>
           </nav>
         </div>
         <div className="flex items-center gap-2">
