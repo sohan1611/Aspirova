@@ -1,4 +1,4 @@
-import Link from "next/link";
+import HoverPrefetchLink from "@/components/HoverPrefetchLink";
 import CompanyFavicon from "@/components/CompanyFavicon";
 import { Badge } from "@/components/ui/badge";
 import type { ExternalCompany } from "@/lib/externalCompanies";
@@ -9,7 +9,7 @@ interface SourceCompanyCardProps {
 
 export default function SourceCompanyCard({ company }: SourceCompanyCardProps) {
   return (
-    <Link
+    <HoverPrefetchLink
       href={`/companies/${company.slug}`}
       className="group flex min-h-44 flex-col rounded-xl border border-border bg-card p-5 shadow-soft transition-[transform,box-shadow,border-color] duration-300 ease-premium hover:-translate-y-1 hover:border-primary/45 hover:[box-shadow:var(--shadow-md)] focus-visible:-translate-y-1 focus-visible:border-primary/45 focus-visible:[box-shadow:var(--shadow-md)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
@@ -36,6 +36,6 @@ export default function SourceCompanyCard({ company }: SourceCompanyCardProps) {
           Official student roles + flagship programs
         </p>
       </div>
-    </Link>
+    </HoverPrefetchLink>
   );
 }

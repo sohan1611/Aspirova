@@ -1,5 +1,5 @@
 import { Clock, Globe2, MapPin } from "lucide-react";
-import Link from "next/link";
+import HoverPrefetchLink from "@/components/HoverPrefetchLink";
 import { Badge } from "@/components/ui/badge";
 import CompanyFavicon from "@/components/CompanyFavicon";
 import SaveButton from "@/components/SaveButton";
@@ -137,7 +137,7 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
 
   return (
     <div className="relative h-full">
-      <Link
+      <HoverPrefetchLink
         href={`/opportunity/${item.slug}`}
         className="group flex h-full flex-col gap-3 rounded-xl border border-border bg-card p-5 shadow-soft transition-[transform,box-shadow,border-color] duration-300 ease-premium hover:-translate-y-1 hover:border-primary/50 hover:[box-shadow:var(--shadow-md)] focus-visible:-translate-y-1 focus-visible:border-primary/50 focus-visible:[box-shadow:var(--shadow-md)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
@@ -278,7 +278,7 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
             </span>
           </div>
         </div>
-      </Link>
+      </HoverPrefetchLink>
       <SaveButton
         slug={item.slug}
         title={item.title}

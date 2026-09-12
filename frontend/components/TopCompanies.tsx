@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import HoverPrefetchLink from "@/components/HoverPrefetchLink";
 import CompanyFavicon from "@/components/CompanyFavicon";
 import { getTopCompanies } from "@/lib/api";
 import type { CompanyListItem } from "@/lib/types";
@@ -71,7 +71,7 @@ export default function TopCompanies() {
 
       <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2">
         {state.companies.map((company) => (
-          <Link
+          <HoverPrefetchLink
             key={company.slug}
             href={`/companies/${company.slug}`}
             className="group flex w-52 shrink-0 snap-start items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-soft transition-[transform,box-shadow,border-color] duration-300 ease-premium hover:-translate-y-0.5 hover:border-primary/50 hover:[box-shadow:var(--shadow-md)] focus-visible:-translate-y-0.5 focus-visible:border-primary/50 focus-visible:[box-shadow:var(--shadow-md)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
@@ -85,7 +85,7 @@ export default function TopCompanies() {
                 {openRolesLabel(company.active_count)}
               </p>
             </div>
-          </Link>
+          </HoverPrefetchLink>
         ))}
       </div>
     </section>

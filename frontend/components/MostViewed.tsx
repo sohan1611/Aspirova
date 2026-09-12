@@ -1,4 +1,4 @@
-import Link from "next/link";
+import HoverPrefetchLink from "@/components/HoverPrefetchLink";
 import CompanyFavicon from "@/components/CompanyFavicon";
 import { getCountry } from "@/lib/countries";
 import type { OpportunityListItem } from "@/lib/types";
@@ -22,7 +22,7 @@ export default function MostViewed({ items }: MostViewedProps) {
           const countryFlag = getCountry(item.country)?.flag;
 
           return (
-            <Link
+            <HoverPrefetchLink
               key={item.slug}
               href={`/opportunity/${item.slug}`}
               className="group flex w-56 shrink-0 snap-start items-start gap-3 rounded-xl border border-border bg-card p-3 shadow-soft transition-[transform,box-shadow,border-color] duration-300 ease-premium hover:-translate-y-0.5 hover:border-primary/50 hover:[box-shadow:var(--shadow-md)] focus-visible:-translate-y-0.5 focus-visible:border-primary/50 focus-visible:[box-shadow:var(--shadow-md)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
@@ -37,7 +37,7 @@ export default function MostViewed({ items }: MostViewedProps) {
                   {countryFlag && <span aria-hidden="true"> · {countryFlag}</span>}
                 </p>
               </div>
-            </Link>
+            </HoverPrefetchLink>
           );
         })}
       </div>
