@@ -26,10 +26,9 @@ class Settings(BaseSettings):
     # Where the API itself is reachable. Needed for one-click unsubscribe, whose
     # URL Gmail POSTs to directly - that endpoint is on the API, not the site.
     api_base_url: str = "https://aspirova-api.onrender.com"
-    # Optional. Signs unsubscribe tokens; falls back to a domain-separated
-    # derivation of the Supabase service key so this works before the secret is
-    # provisioned. Setting it invalidates previously issued links, which is
-    # harmless - a reader who needs one gets it in the next email.
+    # Signs unsubscribe tokens. GitHub Actions and Render must use the same
+    # value; DATABASE_URL is only a warned compatibility fallback because URL
+    # differences and database migrations invalidate every outstanding link.
     unsubscribe_secret: str = ""
 
     # AI providers (Doc 05, Doc handoffs/PHASE-3-HANDOFF.md Part 1).

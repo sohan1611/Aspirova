@@ -10,9 +10,9 @@
 # 15min idle with a ~1min cold start, which makes a live demo worse than
 # none.
 #
-# Secrets (DATABASE_URL, SUPABASE_*) are marked sync: false - set them in
-# the Render dashboard only, never commit them here (Doc 08: no secrets in
-# code/config files).
+# Secrets (DATABASE_URL, UNSUBSCRIBE_SECRET, SUPABASE_*) are marked sync:
+# false - set them in the Render dashboard only, never commit them here
+# (Doc 08: no secrets in code/config files).
 
 services:
   - type: web
@@ -37,6 +37,8 @@ services:
       - key: ENV
         value: production
       - key: DATABASE_URL
+        sync: false
+      - key: UNSUBSCRIBE_SECRET
         sync: false
       - key: SUPABASE_URL
         sync: false
