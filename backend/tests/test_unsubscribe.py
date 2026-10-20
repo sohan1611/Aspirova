@@ -11,8 +11,10 @@ import uuid
 import pytest
 from sqlalchemy.orm import Session
 
-from core import models
+from core import models, unsubscribe as unsubscribe_module
+from core.config import get_settings
 from core.unsubscribe import (
+    key_fingerprint,
     list_unsubscribe_headers,
     make_token,
     unsubscribe_url,
@@ -28,14 +30,17 @@ _UID_B = uuid.UUID("22222222-2222-2222-2222-222222222222")
 
 @pytest.fixture(autouse=True)
 def _pinned_signing_key(monkeypatch):
-    """Pin the key so these tests never depend on which secrets an environment
-    happens to carry. CI failed exactly that way once: it has no
-    SUPABASE_SERVICE_KEY, the key came back empty, and every token was blank -
-    which was a real production bug, but the tests should have been asserting
-    logic rather than reporting on the runner's env."""
-    monkeypatch.setattr(
-        "core.unsubscribe._signing_key", lambda: b"pinned-test-key-do-not-use-in-prod"
-    )
+    """Pin the explicit key so tests never depend on runner credentials.
+
+    Production proved that letting GitHub Actions and Render derive from their
+    separate DATABASE_URL strings made every verification fail, so the tests
+    exercise the dedicated-secret path by default.
+    """
+    settings = get_settings()
+    monkeypatch.setattr(settings, "unsubscribe_secret", "pinned-test-key-do-not-use-in-prod")
+    monkeypatch.setattr(settings, "database_url", "postgresql://fallback.invalid/aspirova")
+    monkeypatch.setattr(settings, "api_base_url", "https://api.example.test")
+    monkeypatch.setattr(unsubscribe_module, "_fallback_warning_emitted", False)
 
 
 @pytest.fixture
@@ -54,10 +59,50 @@ def db_session(engine):
 # --------------------------------------------------------------- token round trip
 
 
-def test_token_round_trips():
+def test_token_round_trips_with_explicit_unsubscribe_secret():
     token = make_token(_UID_A, "hackathon_digest")
     assert token, "signing key must be configured in this environment"
     assert verify_token(token) == (str(_UID_A), "hackathon_digest")
+
+
+def test_token_signed_under_a_different_secret_fails(monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "unsubscribe_secret", "first-explicit-secret")
+    token = make_token(_UID_A, "daily_digest")
+
+    monkeypatch.setattr(settings, "unsubscribe_secret", "different-explicit-secret")
+    assert verify_token(token) is None
+
+
+def test_key_fingerprint_is_stable_distinct_and_empty_without_a_key(monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "unsubscribe_secret", "first-explicit-secret")
+    first = key_fingerprint()
+
+    assert len(first) == 12
+    assert key_fingerprint() == first
+
+    monkeypatch.setattr(settings, "unsubscribe_secret", "different-explicit-secret")
+    assert key_fingerprint() != first
+
+    monkeypatch.setattr(settings, "unsubscribe_secret", "")
+    monkeypatch.setattr(settings, "database_url", "")
+    assert key_fingerprint() == ""
+
+
+def test_database_url_fallback_warns_only_once_per_process(monkeypatch, caplog):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "unsubscribe_secret", "")
+
+    with caplog.at_level("WARNING", logger="core.unsubscribe"):
+        unsubscribe_module._signing_key()
+        unsubscribe_module._signing_key()
+
+    fallback_warnings = [
+        record for record in caplog.records if "DATABASE_URL-derived" in record.message
+    ]
+    assert len(fallback_warnings) == 1
+    assert "GitHub Actions and Render" in fallback_warnings[0].message
 
 
 def test_token_is_bound_to_one_preference():
@@ -137,7 +182,7 @@ def test_headers_are_omitted_entirely_when_signing_is_unconfigured(monkeypatch):
 
 
 def test_unsubscribing_turns_off_only_the_named_preference(db_session):
-    from api.notifications import unsubscribe_post
+    from api.notifications import _apply_unsubscribe
 
     user = models.User(
         email=f"unsub-{uuid.uuid4()}@example.com",
@@ -146,9 +191,10 @@ def test_unsubscribing_turns_off_only_the_named_preference(db_session):
     db_session.add(user)
     db_session.flush()
 
-    unsubscribe_post(token=make_token(user.id, "hackathon_digest"), db=db_session)
+    outcome = _apply_unsubscribe(token=make_token(user.id, "hackathon_digest"), db=db_session)
     db_session.refresh(user)
 
+    assert outcome == "unsubscribed"
     assert user.notification_prefs["hackathon_digest"] is False
     assert user.notification_prefs["daily_digest"] is True, "must not touch other lists"
     assert user.notification_prefs["instant_alerts"] is True
@@ -170,7 +216,17 @@ def test_invalid_token_changes_nothing_and_still_answers_200(db_session):
     db_session.refresh(user)
 
     assert response.status_code == 200
+    assert "didn't work" in response.body.decode()
+    assert "Open email settings" in response.body.decode()
     assert user.notification_prefs == {"daily_digest": True}
+
+
+def test_apply_unsubscribe_distinguishes_invalid_token_from_missing_user(db_session):
+    from api.notifications import _apply_unsubscribe
+
+    assert _apply_unsubscribe(token="forged.deadbeef", db=db_session) == "invalid"
+    missing_user_token = make_token(uuid.uuid4(), "daily_digest")
+    assert _apply_unsubscribe(token=missing_user_token, db=db_session) == "no_user"
 
 
 # ------------------------------------------------- GET must not mutate anything
@@ -240,4 +296,18 @@ def test_post_still_unsubscribes_in_one_shot(db_session):
     db_session.refresh(user)
 
     assert response.status_code == 200
+    assert "daily opportunity digest" in response.body.decode()
     assert user.notification_prefs["daily_digest"] is False
+
+
+def test_missing_user_is_presented_as_success(db_session):
+    from api.notifications import unsubscribe_post
+
+    response = unsubscribe_post(
+        token=make_token(uuid.uuid4(), "hackathon_digest"),
+        db=db_session,
+    )
+
+    assert response.status_code == 200
+    assert "You've been unsubscribed." in response.body.decode()
+    assert "hackathon digest" in response.body.decode()

@@ -27,6 +27,7 @@ from api import (
 )
 from api.middleware import RateLimitMiddleware, ReadCacheMiddleware, TimingMiddleware
 from core.config import get_settings
+from core.unsubscribe import key_fingerprint
 
 settings = get_settings()
 
@@ -76,4 +77,11 @@ app.include_router(waitlist.router)
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "env": settings.env}
+    # Safe to expose: this is only a truncated hash of the domain-derived key,
+    # not key material. Digest workers compare it before sending so mismatched
+    # GitHub Actions/Render secrets fail the run instead of mailing broken links.
+    return {
+        "status": "ok",
+        "env": settings.env,
+        "unsubscribe_key": key_fingerprint(),
+    }

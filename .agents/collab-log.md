@@ -734,3 +734,8 @@ RESULT (source expansion, live): SmartRecruiters seeded to production and the Ti
 - Task: four founder-reported digest defects — 2/3/4/5/6 deadline ladder, wrong deadlines on taken-down listings, school-only events reaching a college list, all five picks from Unstop.
 - Codex: implemented freshness + explicit-confidence gates, structured school-eligibility filter wired site-wide, aggregator absence branch in expire.py, source caps and spread deadline buckets with a date-seeded shuffle; added regressions to test_hackathon_digest.py and test_expire.py.
 - Review: corrections sent once (an obsolete positional assertion in test_lookalike_organisers_are_not_treated_as_top_tier — rewritten around the reserve invariant, not deleted). Claude restored one assertion Codex removed on an over-broad instruction of Claude's own (rendered order must not be sorted — that IS the reported defect). Verified pass: ruff, black, 39 digest/expire tests, 114 API tests, plus a read-only production preview of the next digest.
+
+## 2026-10-18 — Work order (Claude → Codex): unsubscribe signing key
+- Task: email unsubscribe never worked (0/40 users; prod probe answered 200 "unsubscribed" and wrote nothing) because GitHub signs with HMAC(DATABASE_URL) while Render verifies with a different key. Dedicated UNSUBSCRIBE_SECRET, honest page, fingerprint guard that blocks a digest run on mismatch.
+- Codex: implemented all six parts plus tests in ~9.5 min; could not run DB-backed tests in its sandbox, said so plainly.
+- Review: no corrections needed. Verified ruff, black, 93 tests (unsubscribe, notifications API, guard, health, notifications, hackathon digest) including the DB-backed ones.

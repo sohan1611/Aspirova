@@ -12,6 +12,7 @@ from api.auth import get_current_user
 from api.deps import get_db
 from api.main import app
 from core import models
+from core.unsubscribe import make_token
 
 
 @pytest.fixture
@@ -169,6 +170,49 @@ def test_other_users_notifications_are_not_visible(client, seeded) -> None:
     assert response.status_code == 200
     returned_ids = {item["id"] for item in response.json()["items"]}
     assert seeded["notifications"][-1].id not in returned_ids
+
+
+def test_invalid_unsubscribe_post_is_honest_and_does_not_write(client, db_session, seeded) -> None:
+    user = seeded["user"]
+    user.notification_prefs = {"daily_digest": True}
+    db_session.flush()
+
+    response = client.post(
+        "/notifications/unsubscribe",
+        params={"token": "forged.deadbeef"},
+    )
+    db_session.refresh(user)
+
+    assert response.status_code == 200
+    assert "didn't work" in response.text
+    assert "Open email settings" in response.text
+    assert user.notification_prefs == {"daily_digest": True}
+
+
+def test_valid_unsubscribe_post_names_list_and_preserves_other_preferences(
+    client, db_session, seeded, monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        "core.unsubscribe._signing_key", lambda: b"pinned-test-key-do-not-use-in-prod"
+    )
+    user = seeded["user"]
+    user.notification_prefs = {"daily_digest": True, "weekly_report": False}
+    db_session.flush()
+    token = make_token(user.id, "hackathon_digest")
+
+    response = client.post(
+        "/notifications/unsubscribe",
+        params={"token": token},
+    )
+    db_session.refresh(user)
+
+    assert response.status_code == 200
+    assert "hackathon digest" in response.text
+    assert user.notification_prefs == {
+        "daily_digest": True,
+        "weekly_report": False,
+        "hackathon_digest": False,
+    }
 
 
 @pytest.mark.parametrize(

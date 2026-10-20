@@ -61,9 +61,16 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
+      - name: Verify unsubscribe signing key
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          UNSUBSCRIBE_SECRET: ${{ secrets.UNSUBSCRIBE_SECRET }}
+        run: uv run python -m scripts.check_unsubscribe_key
+
       - name: Send daily digests
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          UNSUBSCRIBE_SECRET: ${{ secrets.UNSUBSCRIBE_SECRET }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
           PYTHONUNBUFFERED: "1"
@@ -85,6 +92,7 @@ jobs:
       - name: Send closing-soon deadline alerts
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          UNSUBSCRIBE_SECRET: ${{ secrets.UNSUBSCRIBE_SECRET }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
           PYTHONUNBUFFERED: "1"
@@ -93,6 +101,7 @@ jobs:
       - name: Send saved-search alerts
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          UNSUBSCRIBE_SECRET: ${{ secrets.UNSUBSCRIBE_SECRET }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
           PYTHONUNBUFFERED: "1"

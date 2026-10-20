@@ -1,7 +1,9 @@
 """Authenticated in-app notification center endpoints."""
 
+import logging
 import uuid
 from html import escape
+from typing import Literal
 from urllib.parse import quote_plus
 
 from fastapi import APIRouter, Depends, Query, Response
@@ -16,6 +18,7 @@ from core import models
 from core.unsubscribe import verify_token
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def _notification_copy(
@@ -133,12 +136,24 @@ def mark_notifications_read(
     return {"unread": 0}
 
 
-_UNSUB_DONE = "You have been unsubscribed."
-_UNSUB_DETAIL = "You can re-enable this any time in your Aspirova account settings."
+_UNSUB_DONE = "You've been unsubscribed."
+_UNSUB_INVALID = "This unsubscribe link didn't work."
+_UNSUB_INVALID_DETAIL = (
+    "It may be from an older email. You can turn off any Aspirova email from your "
+    "account settings."
+)
 _UNSUB_CONFIRM = "Stop receiving these emails?"
+_UNSUB_CONFIRM_DETAIL = "You can re-enable this any time in your Aspirova account settings."
+_EMAIL_SETTINGS_URL = "https://www.aspirova.org/account?section=notifications"
+_UnsubscribeOutcome = Literal["unsubscribed", "invalid", "no_user"]
 
 
-def _unsub_page(heading: str, detail: str, confirm_token: str | None = None) -> Response:
+def _unsub_page(
+    heading: str,
+    detail: str,
+    confirm_token: str | None = None,
+    show_settings_link: bool = False,
+) -> Response:
     """Minimal self-contained HTML. No external assets - this is read by people
     who have just left, on unknown clients, and must render everywhere."""
     button = ""
@@ -154,6 +169,13 @@ def _unsub_page(heading: str, detail: str, confirm_token: str | None = None) -> 
             'font-weight:700;padding:12px 22px">Yes, unsubscribe</button>'
             "</form>"
         )
+    settings_link = ""
+    if show_settings_link:
+        settings_link = (
+            f'<p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;margin:18px 0 0">'
+            f'<a href="{_EMAIL_SETTINGS_URL}" style="color:#5e2b47">'
+            "Open email settings</a></p>"
+        )
     return HTMLResponse(
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -164,33 +186,44 @@ def _unsub_page(heading: str, detail: str, confirm_token: str | None = None) -> 
         "<p style=\"color:#5e2b47;font-family:Georgia,'Times New Roman',serif;font-size:22px;"
         'font-weight:700;margin:0 0 18px">Aspirova</p>'
         "<p style=\"color:#2b2620;font-family:Georgia,'Times New Roman',serif;font-size:20px;"
-        f'line-height:28px;margin:0 0 10px">{escape(heading)}</p>'
+        f'line-height:28px;margin:0 0 10px">{escape(heading, quote=False)}</p>'
         '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
-        f'line-height:21px;margin:0">{escape(detail)}</p>'
+        f'line-height:21px;margin:0">{escape(detail, quote=False)}</p>'
         f"{button}"
+        f"{settings_link}"
         "</div></body></html>"
     )
 
 
-def _apply_unsubscribe(token: str, db: Session) -> None:
-    """Turn off exactly the one preference the token names. Silent on every
-    failure path: an anonymous caller must not learn whether a user exists."""
+def _apply_unsubscribe(token: str, db: Session) -> _UnsubscribeOutcome:
+    """Turn off exactly the one preference the token names and report the outcome."""
     verified = verify_token(token)
     if verified is None:
-        return
+        return "invalid"
 
     user_id, preference_key = verified
     try:
         user = db.get(models.User, uuid.UUID(user_id))
     except (ValueError, AttributeError, TypeError):
-        return
+        return "invalid"
     if user is None:
-        return
+        return "no_user"
 
     # Merge rather than replace: this turns off exactly the one list the reader
     # clicked from, and leaves every other preference untouched.
     user.notification_prefs = {**(user.notification_prefs or {}), preference_key: False}
     db.commit()
+    return "unsubscribed"
+
+
+def _unsubscribe_detail(preference_key: str) -> str:
+    list_name = {
+        "daily_digest": "the daily opportunity digest",
+        "hackathon_digest": "the hackathon digest",
+    }.get(preference_key, "these emails")
+    return (
+        f"You won't get {list_name} any more. " "You can turn it back on in your account settings."
+    )
 
 
 @router.post("/notifications/unsubscribe")
@@ -202,11 +235,27 @@ def unsubscribe_post(token: str = Query(...), db: Session = Depends(get_db)) -> 
     the authorisation: it is signed, names exactly one user and one preference,
     and can do nothing else.
 
-    Always answers 200. A bad or expired token must not tell an anonymous caller
-    whether a user exists, and Gmail treats a non-2xx as a broken unsubscribe.
+    Always answers 200 because Gmail treats a non-2xx as a broken unsubscribe.
+    An honest invalid-signature page reveals nothing about whether a user exists;
+    a valid token for a missing user is still treated as success.
     """
-    _apply_unsubscribe(token, db)
-    return _unsub_page(_UNSUB_DONE, _UNSUB_DETAIL)
+    outcome = _apply_unsubscribe(token, db)
+    if outcome == "invalid":
+        # Do not log the token or a user id: URLs leak through logs easily, and
+        # the warning only needs to identify that verification failed.
+        logger.warning("unsubscribe rejected: invalid token signature or format")
+        return _unsub_page(
+            _UNSUB_INVALID,
+            _UNSUB_INVALID_DETAIL,
+            show_settings_link=True,
+        )
+
+    # Both outcomes mean there is nothing left to unsubscribe. Re-verification
+    # is only for list-specific copy; the database mutation happened exactly
+    # once inside _apply_unsubscribe.
+    verified = verify_token(token)
+    preference_key = verified[1] if verified is not None else ""
+    return _unsub_page(_UNSUB_DONE, _unsubscribe_detail(preference_key))
 
 
 @router.get("/notifications/unsubscribe")
@@ -224,4 +273,4 @@ def unsubscribe_get(token: str = Query(...), db: Session = Depends(get_db)) -> R
     is unaffected because it is defined as a POST, and a human who pastes the
     link still gets somewhere sensible.
     """
-    return _unsub_page(_UNSUB_CONFIRM, _UNSUB_DETAIL, confirm_token=token)
+    return _unsub_page(_UNSUB_CONFIRM, _UNSUB_CONFIRM_DETAIL, confirm_token=token)

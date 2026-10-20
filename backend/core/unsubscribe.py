@@ -14,17 +14,21 @@ So each email carries a per-recipient signed token. The token IS the
 authorisation: it names one user and one preference key, it is signed, and it
 grants nothing except turning that one preference off.
 
-The signing key must be IDENTICAL in two places, which constrains the choice more
-than it first appears: the notification worker (GitHub Actions) signs the token,
-and the API (Render) verifies it. Any scheme that resolves to different values in
-those two environments signs fine and then fails every verification - silently,
-because a failed verify is indistinguishable from a forged token.
+The signing key must be IDENTICAL in two places: the notification worker (GitHub
+Actions) signs the token, and the API (Render) verifies it. Production proved on
+2026-10-18 that DATABASE_URL is not a shared secret contract: a real worker token
+verified under the GitHub DATABASE_URL-derived key, while the current Render API
+returned HTTP 200 without changing notification_prefs. Zero of 40 users had a
+token-based opt-out. A byte-level URL difference (host, port, query, or driver)
+is enough to make every signature fail, and a database migration invalidates all
+outstanding links.
 
-So the fallback is DATABASE_URL, not the Supabase service key: the worker job
-carries only DATABASE_URL, RESEND_API_KEY and RESEND_FROM_EMAIL, and of those
-DATABASE_URL is the one the API provably shares. An earlier version fell back to
-the service key, which the worker does not have - tokens would have been empty
-there and no header emitted at all, shipping the feature inert.
+UNSUBSCRIBE_SECRET is therefore the primary and required production key. The
+DATABASE_URL fallback remains only so a missing secret degrades to the old
+header-producing behaviour instead of dropping List-Unsubscribe from bulk mail.
+It logs a process-level warning, and the digest guard compares a safe truncated
+fingerprint with the API before sending. The same UNSUBSCRIBE_SECRET must be set
+in GitHub Actions and Render.
 
 Whatever the source, it is never used raw: the key is a domain-separated HMAC of
 it, so a leaked token reveals nothing about the credential behind it. Set
@@ -37,6 +41,7 @@ import base64
 import hashlib
 import hmac
 import logging
+import threading
 import uuid  # noqa: F401  - used in type hints only
 
 from core.config import get_settings
@@ -45,18 +50,48 @@ logger = logging.getLogger(__name__)
 
 _DOMAIN = b"aspirova.unsubscribe.v1"
 _SIG_LENGTH = 32  # hex chars of SHA-256 => 128 bits, far beyond brute force
+_fallback_warning_lock = threading.Lock()
+_fallback_warning_emitted = False
+
+
+def _warn_database_url_fallback() -> None:
+    """Emit the migration-risk warning once even under concurrent requests."""
+    global _fallback_warning_emitted
+
+    if _fallback_warning_emitted:
+        return
+    with _fallback_warning_lock:
+        if _fallback_warning_emitted:
+            return
+        logger.warning(
+            "UNSUBSCRIBE_SECRET is unset; the unsubscribe signing key is "
+            "DATABASE_URL-derived and will break when the database changes. "
+            "Set UNSUBSCRIBE_SECRET to the same value in GitHub Actions and Render."
+        )
+        _fallback_warning_emitted = True
 
 
 def _signing_key() -> bytes:
     settings = get_settings()
     explicit = (getattr(settings, "unsubscribe_secret", "") or "").strip()
-    base = explicit or (settings.database_url or "").strip()
+    database_url = (settings.database_url or "").strip()
+    base = explicit or database_url
     if not base:
         # No header is emitted rather than a broken one - see
         # list_unsubscribe_headers.
         logger.warning("unsubscribe signing key unavailable; List-Unsubscribe will be omitted")
         return b""
+    if not explicit:
+        _warn_database_url_fallback()
     return hmac.new(base.encode(), _DOMAIN, hashlib.sha256).digest()
+
+
+def key_fingerprint() -> str:
+    """Identify the active derived key without revealing key material."""
+    key = _signing_key()
+    if not key:
+        return ""
+    return hashlib.sha256(key).hexdigest()[:12]
 
 
 def _b64(raw: bytes) -> str:
