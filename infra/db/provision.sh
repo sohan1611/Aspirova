@@ -150,7 +150,7 @@ systemctl daemon-reload
 log "check"
 sudo -u postgres psql -d "$DB_NAME" -tA <<'SQL'
 SELECT 'server   ' || current_setting('server_version');
-SELECT 'locale   ' || datlocprovider || ' ' || datlocale || ' / ' || datcollate FROM pg_database WHERE datname = current_database();
+SELECT 'locale   ' || datlocprovider::text || ' ' || datlocale || ' / ' || datcollate FROM pg_database WHERE datname = current_database();
 SELECT 'owner    ' || pg_get_userbyid(datdba) FROM pg_database WHERE datname = current_database();
 SELECT 'ext      ' || string_agg(extname || ' ' || extversion, ', ' ORDER BY extname) FROM pg_extension;
 SELECT 'buffers  ' || current_setting('shared_buffers') || ', max_connections ' || current_setting('max_connections');

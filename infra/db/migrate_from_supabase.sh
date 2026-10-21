@@ -21,7 +21,10 @@ WORK=/var/lib/postgresql/migration
 DUMP=$WORK/aspirova.dump
 
 [ -s "$SRC_FILE" ] || { echo "missing $SRC_FILE - see RUNBOOK step 3"; exit 1; }
-SRC=$(cat "$SRC_FILE")
+# tr, not cat: a URL piped from Python on Windows arrives with a CRLF ending,
+# and libpq keeps the \r - Supavisor then reports database "postgres\r" does
+# not exist (seen in the 2026-10-21 rehearsal).
+SRC=$(tr -d '\r\n' < "$SRC_FILE")
 
 existing=$(sudo -u postgres psql -d "$DB" -tAc "SELECT count(*) FROM pg_tables WHERE schemaname = 'public'")
 if [ "$existing" != "0" ]; then
