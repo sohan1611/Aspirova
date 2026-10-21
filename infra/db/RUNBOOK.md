@@ -67,6 +67,9 @@ cd backend && uv run python -c "from core.config import get_settings as g; print
   | ssh root@<ip> 'umask 077 && cat > /root/.supabase_url'
 ```
 
+The migration script strips `\r` from this file itself. On Windows, `print()`
+into a pipe writes CRLF.
+
 **3c. Copy and verify.**
 
 ```bash
@@ -95,7 +98,10 @@ It is production.**
 Build it on the operator's machine from `/root/aspirova_app_password`,
 without printing it. Then:
 
-1. `gh secret set DATABASE_URL < <file>` (covers all six DB workflows)
+1. `gh secret set DATABASE_URL < <file>` (covers all six DB workflows). The file
+   must hold the URL with **no `\r`**. Text written by Python on Windows ends in
+   CRLF, and libpq keeps the `\r` as part of the database name. That broke the
+   first rehearsal: Supavisor rejected database `"postgres\r"`.
 2. Render → `aspirova-api` → Environment → `DATABASE_URL` → paste → **Save, rebuild and deploy**
 3. Update the local `backend/.env`, then delete the temporary file
 

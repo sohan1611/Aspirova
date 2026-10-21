@@ -99,7 +99,8 @@ SELECT '   triggers        ' || string_agg(tgname, ', ') FROM pg_trigger WHERE N
 SELECT '   foreign keys    ' || count(*) FROM pg_constraint c JOIN pg_namespace n ON n.oid = c.connamespace
   WHERE n.nspname = 'public' AND c.contype = 'f';
 SELECT '   not app-owned   ' || count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-  WHERE n.nspname = 'public' AND c.relkind IN ('r', 'S', 'v', 'm') AND pg_get_userbyid(c.relowner) <> 'aspirova_app';
+  WHERE n.nspname = 'public' AND c.relkind IN ('r', 'S', 'v', 'm') AND pg_get_userbyid(c.relowner) <> 'aspirova_app'
+    AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.deptype = 'e');  -- pg_stat_statements' own views
 SELECT '   alembic         ' || version_num FROM alembic_version;
 SELECT '   size            ' || pg_size_pretty(pg_database_size(current_database()));
 SQL
