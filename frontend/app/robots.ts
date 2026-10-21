@@ -1,14 +1,22 @@
 import type { MetadataRoute } from "next";
+import {
+  getOpportunitySitemapIds,
+  sitemapSiteUrl,
+} from "@/lib/sitemap";
 
-const SITE_URL = "https://www.aspirova.org";
+export const revalidate = 86400;
 
-export default function robots(): MetadataRoute.Robots {
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const opportunitySitemaps = (await getOpportunitySitemapIds()).map(({ id }) =>
+    sitemapSiteUrl(`/opportunity/sitemap/${id}.xml`),
+  );
+
   return {
     rules: {
       userAgent: "*",
       allow: "/",
       disallow: "/style",
     },
-    sitemap: `${SITE_URL}/sitemap.xml`,
+    sitemap: [sitemapSiteUrl("/sitemap.xml"), ...opportunitySitemaps],
   };
 }

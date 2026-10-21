@@ -1,7 +1,7 @@
-"""Lean active slug lists for frontend sitemap.xml."""
+"""Lean active slug lists for frontend sitemaps."""
 
-from fastapi import APIRouter, Depends
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from api.deps import get_db
@@ -11,21 +11,39 @@ from core import models
 
 router = APIRouter()
 
-SITEMAP_OPPORTUNITY_LIMIT = 5000
+SITEMAP_PAGE_SIZE = 5000
+
+
+def _eligible_sitemap_opportunity_filters() -> tuple:
+    return (
+        models.Opportunity.status == "active",
+        exclude_stale_opportunities(),
+        models.Opportunity.closed_at.is_(None),
+        models.Opportunity.is_hidden.is_not(True),
+    )
 
 
 @router.get("/sitemap-opportunities", response_model=list[SitemapOpportunity])
-def get_sitemap_opportunities(db: Session = Depends(get_db)) -> list[SitemapOpportunity]:
+def get_sitemap_opportunities(
+    page: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+) -> list[SitemapOpportunity]:
     rows = db.execute(
         select(models.Opportunity.slug, models.Opportunity.last_seen_at)
-        .where(
-            models.Opportunity.status == "active",
-            exclude_stale_opportunities(),
-        )
-        .order_by(models.Opportunity.last_seen_at.desc(), models.Opportunity.slug.asc())
-        .limit(SITEMAP_OPPORTUNITY_LIMIT)
+        .where(*_eligible_sitemap_opportunity_filters())
+        .order_by(models.Opportunity.id.asc())
+        .offset(page * SITEMAP_PAGE_SIZE)
+        .limit(SITEMAP_PAGE_SIZE)
     ).all()
     return [SitemapOpportunity(slug=slug, last_seen_at=last_seen_at) for slug, last_seen_at in rows]
+
+
+@router.get("/sitemap-opportunities/count", response_model=dict[str, int])
+def get_sitemap_opportunity_count(db: Session = Depends(get_db)) -> dict[str, int]:
+    total = db.scalar(
+        select(func.count(models.Opportunity.id)).where(*_eligible_sitemap_opportunity_filters())
+    )
+    return {"total": total or 0, "page_size": SITEMAP_PAGE_SIZE}
 
 
 @router.get("/sitemap-companies", response_model=list[SitemapCompany])
