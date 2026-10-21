@@ -51,34 +51,60 @@ function nonEmpty(value: string | null | undefined): string | undefined {
   return trimmed || undefined;
 }
 
+// Google requires complete JobPosting data for active jobs only, so omit the
+// block unless every required field and a truthful country location are known.
 function buildJobPostingJsonLd(
   opportunity: OpportunityDetail,
   canonicalUrl: string,
-): Record<string, unknown> {
+  closed: boolean,
+): Record<string, unknown> | null {
+  if (
+    (opportunity.category !== "job" && opportunity.category !== "internship") ||
+    closed ||
+    opportunity.is_stale ||
+    opportunity.is_hidden ||
+    opportunity.is_remote === null
+  ) {
+    return null;
+  }
+
+  const title = nonEmpty(opportunity.title);
+  const description = nonEmpty(opportunity.description_raw);
+  const companyName = nonEmpty(opportunity.company?.name);
+  const datePosted =
+    nonEmpty(opportunity.posted_at) ?? nonEmpty(opportunity.first_seen_at);
+  const country = nonEmpty(opportunity.country);
+
+  if (!title || !description || !companyName || !datePosted || !country) {
+    return null;
+  }
+
+  const hiringOrganization: Record<string, string> = {
+    "@type": "Organization",
+    name: companyName,
+  };
+  const companyDomain = nonEmpty(opportunity.company?.domain);
+  if (companyDomain) {
+    hiringOrganization.sameAs = `https://${companyDomain}`;
+  }
+  const companyLogoUrl = nonEmpty(opportunity.company?.logo_url);
+  if (companyLogoUrl) {
+    hiringOrganization.logo = companyLogoUrl;
+  }
+
   const jsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "JobPosting",
+    title,
+    description,
+    datePosted,
+    hiringOrganization,
     directApply: false,
     url: canonicalUrl,
   };
 
-  const title = nonEmpty(opportunity.title);
-  if (title) {
-    jsonLd.title = title;
-  }
-
-  const description = nonEmpty(opportunity.description_raw);
-  if (description) {
-    jsonLd.description = description;
-  }
-
-  const companyName = nonEmpty(opportunity.company?.name);
-  if (companyName) {
-    jsonLd.hiringOrganization = { "@type": "Organization", name: companyName };
-  }
-
-  if (opportunity.posted_at) {
-    jsonLd.datePosted = opportunity.posted_at;
+  if (opportunity.category === "internship") {
+    jsonLd.employmentType = "INTERN";
   }
 
   if (opportunity.deadline && opportunity.deadline_confidence === "explicit") {
@@ -88,14 +114,19 @@ function buildJobPostingJsonLd(
   const location = nonEmpty(opportunity.location);
   if (opportunity.is_remote) {
     jsonLd.jobLocationType = "TELECOMMUTE";
-    if (location) {
-      jsonLd.applicantLocationRequirements = {
-        "@type": "AdministrativeArea",
-        name: location,
-      };
-    }
-  } else if (location) {
-    jsonLd.jobLocation = { "@type": "Place", name: location };
+    jsonLd.applicantLocationRequirements = {
+      "@type": "Country",
+      name: country,
+    };
+  } else {
+    jsonLd.jobLocation = {
+      "@type": "Place",
+      address: {
+        "@type": "PostalAddress",
+        addressCountry: country,
+        ...(location ? { addressLocality: location } : {}),
+      },
+    };
   }
 
   return jsonLd;
@@ -146,7 +177,6 @@ export default async function OpportunityPage({ params }: PageProps) {
 
   const sourceLabel = getSourceLabel(opportunity.apply_url);
   const canonicalUrl = opportunityUrl(slug);
-  const jobPostingJsonLd = buildJobPostingJsonLd(opportunity, canonicalUrl);
   const expires = hasExpiringDeadline(opportunity.category);
   const closedByDeadline =
     expires && !!opportunity.deadline && isDeadlinePast(opportunity.deadline);
@@ -154,6 +184,11 @@ export default async function OpportunityPage({ params }: PageProps) {
     opportunity.closed_at,
     opportunity.deadline,
     opportunity.category,
+  );
+  const jobPostingJsonLd = buildJobPostingJsonLd(
+    opportunity,
+    canonicalUrl,
+    closed,
   );
   // is_stale is a separate, older-than-10-months signal from the backend and
   // can be true even when closed is false (no closed_at, no expiring
@@ -191,10 +226,12 @@ export default async function OpportunityPage({ params }: PageProps) {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jobPostingJsonLd) }}
-      />
+      {jobPostingJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(jobPostingJsonLd) }}
+        />
+      )}
       <RecordOpportunityView
         slug={opportunity.slug}
         title={opportunity.title}
