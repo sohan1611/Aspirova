@@ -20,8 +20,15 @@ keep it current, because it is the first thing every session reads.*
 
 - **Live and healthy.** Backend on **Render Singapore** (`https://aspirova-api.onrender.com`),
   frontend on **Vercel** at **`https://www.aspirova.org`** (the `aspirova.vercel.app` domain still
-  serves and canonicalises to it), DB **Supabase Postgres, ap-south-1 (Mumbai)**, crawler +
-  digests on **GitHub Actions**. All production routes answer 200.
+  serves and canonicalises to it), crawler + digests on **GitHub Actions**. All production routes
+  answer 200.
+- **Database (since 2026-10-21): self-managed Postgres 17 on a DigitalOcean droplet,
+  `aspirova-db`, `168.144.242.186`, Singapore (SGP1), ~₹810/mo.** It moved off Supabase Pro
+  (₹2,900/mo). **Supabase still serves Auth and Storage (resume PDFs)**, to be downgraded to its
+  Free plan after the 7-day rollback window. The app connects as `aspirova_app` (not a
+  superuser) over TLS; operate the box over SSH as root. Everything is in
+  `infra/db/RUNBOOK.md`: provisioning, rollback, disaster recovery. **Never run tests or write
+  scripts against it. It is production.**
 - **Scale:** ~25,800 visible opportunities across **16 sources** and 5,638 companies. Auth is live
   (Google, GitHub, email). Application tracking, listing filters/sort/search, and both digests all
   ship and work.
@@ -30,8 +37,9 @@ keep it current, because it is the first thing every session reads.*
   2026-09-04 audit. Weigh any proposed supply-side work against that.
 
 ### Rulings that still bind day-to-day
-- **Lever-2 (Supabase → Singapore) is CLOSED — do not migrate.** Re-measured 2026-09-04: all the
-  latency variance is database CPU, not the Mumbai hop. Fix query shape instead.
+- **Lever-2 (moving the DB *for latency*) stays CLOSED.** Re-measured 2026-09-04: the variance
+  was database CPU, not the Mumbai hop, so fix query shape. The 2026-10-21 move was for **cost**.
+  It landed in Singapore only because Render runs there (decision log, 2026-10-21).
 - **Absence is evidence only when the crawl that missed a listing could have seen it.** Only
   `FULL_INVENTORY_SOURCES` may retire on absence; see `pipeline/expire.py`. Violating this closed
   ~2,000 live jobs in one crawl.
@@ -51,4 +59,4 @@ keep it current, because it is the first thing every session reads.*
 - Branch for changes; commit/push when the work for a part is done and green (ruff + black + pytest for backend; eslint + tsc for frontend).
 
 ## Cloud infra (all under the user's accounts; secrets already configured)
-Supabase (Mumbai) · Render (Singapore, $7 Starter, `render.yaml` blueprint) · Vercel (Hobby) · GitHub Actions (crawler + CI). `DATABASE_URL` is set as a GitHub Actions secret. Phase 2 will add: Razorpay, Resend, Upstash, and R2/B2 (user creates these when prompted).
+DigitalOcean (Singapore droplet, the app database, daily backups) · Supabase (Mumbai, Auth + Storage only) · Render (Singapore, $7 Starter, `render.yaml` blueprint) · Vercel (Hobby) · GitHub Actions (crawler + CI). `DATABASE_URL` (the droplet) and `SUPABASE_DB_URL` (Supabase, used only for the nightly Auth backup) are GitHub Actions secrets. Phase 2 will add: Razorpay, Resend, Upstash, and R2/B2 (user creates these when prompted).

@@ -148,3 +148,24 @@ with a data-only `pg_dump` of `bookmarks`, `saved_searches`, `users`,
 - **Bad change, droplet fine:** run `python -m scripts.restore_from_backup --key <r2-key> --target-database-url <url>` into a fresh database, then swap.
 - **Droplet broken:** DigitalOcean → droplet → Backups → restore the latest daily image. The IP stays the same, so `DATABASE_URL` doesn't change.
 - **Droplet gone:** step 1 → step 2 → restore the latest R2 backup with `restore_from_backup` → step 3e with the new IP.
+
+## Cutover record — 2026-10-21
+
+| Step | When (UTC) | Result |
+|---|---|---|
+| Droplet created + provisioned | 14:12 | PG 17.11, pgvector 0.8.7, ICU en-US; 5/5 outside-in access checks passed |
+| Rehearsal | ~14:30 | Copy exact on all 25 tables; `compare_endpoints --exact` 26/26 |
+| Writers frozen | 14:35 | The hackathon digest was mid-run (GitHub ran it 1.5 h late); waited for it (done 14:35:32) |
+| Copy | 14:37–14:40 | Dump 81 s, restore 103 s; every table matched Supabase |
+| Gate | 14:41 | 26/26, every total exact |
+| GitHub `DATABASE_URL` + `SUPABASE_DB_URL` | 14:41:54 | Set from CR-free files |
+| Render switched | 14:48:07 | First connection from Render (`74.220.52.217`, TLS) |
+| Live check | 14:49 | 26/26 healthy on production |
+| Lost writes | 14:50 | None: user tables fingerprint-identical on both sides (MD5 of all 40 users) |
+| Backup on the new server | 14:51 | `daily/aspirova-2026-10-21.dump` uploaded to R2 |
+
+Uncached DB time on production, before → after: search "engineer" 11–21 s (sometimes
+HTTP 500) → **296 ms**; "data" internships 742 ms → 83 ms; competitions 276 ms → 58 ms;
+company page 330 ms → 21 ms; main feed 571 ms → 531 ms.
+
+Supabase Pro stays untouched as the rollback target until **2026-10-28**. Step 5 follows.
