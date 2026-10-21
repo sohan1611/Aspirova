@@ -94,6 +94,8 @@ class Settings(BaseSettings):
     backup_s3_access_key_id: str = ""
     backup_s3_secret_access_key: str = ""
     backup_s3_bucket: str = ""
+    # Supabase session-pooler URL used only by the nightly Auth backup.
+    supabase_db_url: str = ""
 
     # Razorpay (Doc 02 sec 3.9, Doc handoffs/PHASE-2-HANDOFF.md sec 6) -
     # test-mode keys first (Doc handoffs/PHASE-2-HANDOFF.md sec 2: "never
