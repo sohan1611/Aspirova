@@ -739,3 +739,8 @@ RESULT (source expansion, live): SmartRecruiters seeded to production and the Ti
 - Task: email unsubscribe never worked (0/40 users; prod probe answered 200 "unsubscribed" and wrote nothing) because GitHub signs with HMAC(DATABASE_URL) while Render verifies with a different key. Dedicated UNSUBSCRIBE_SECRET, honest page, fingerprint guard that blocks a digest run on mismatch.
 - Codex: implemented all six parts plus tests in ~9.5 min; could not run DB-backed tests in its sandbox, said so plainly.
 - Review: no corrections needed. Verified ruff, black, 93 tests (unsubscribe, notifications API, guard, health, notifications, hackathon digest) including the DB-backed ones.
+
+## 2026-10-21 — Work order (Claude → Codex, gpt-5.6-sol high): Supabase Auth backup + Free keep-alive
+- Task: the app DB moved to the droplet, so the nightly R2 dump stopped covering Supabase `auth` (44 logins). Add `backup_db.py --supabase-auth`: its own prefixes, the same retention, fail loudly without SUPABASE_DB_URL, plus an independent workflow step. The daily connection also keeps Supabase Free from pausing.
+- Codex: implemented the mode, prefix-isolated retention, URL redaction on pg_dump failures, the workflow step (`if: !cancelled()`), and 5 tests. Could not run gates the first time (no network for uv).
+- Review: one correction round: `supabase_db_url` sat inside the R2 comment block, and the new redaction behaviour had no test. Both fixed. Verified: ruff, black, 10/10 test_backup.py, and a real `pg_dump --schema=auth` against Supabase from the droplet (exit 0, 27 tables, all 44 users; dump shredded).

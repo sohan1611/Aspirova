@@ -11,9 +11,16 @@ exercise.
 
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
+from core.config import Settings
+from scripts import backup_db
 from scripts.backup_db import (
     DAILY_PREFIX,
     DAILY_RETENTION_DAYS,
+    SUPABASE_AUTH_DAILY_PREFIX,
+    SUPABASE_AUTH_FILE_STEM,
+    SUPABASE_AUTH_WEEKLY_PREFIX,
     WEEKLY_DUMP_WEEKDAY,
     WEEKLY_PREFIX,
     WEEKLY_RETENTION_COUNT,
@@ -28,7 +35,13 @@ class FakePaginator:
         self._objects_by_prefix = objects_by_prefix
 
     def paginate(self, Bucket, Prefix):
-        yield {"Contents": list(self._objects_by_prefix.get(Prefix, []))}
+        objects = {
+            obj["Key"]: obj
+            for prefix_objects in self._objects_by_prefix.values()
+            for obj in prefix_objects
+            if obj["Key"].startswith(Prefix)
+        }
+        yield {"Contents": list(objects.values())}
 
 
 class FakeS3Client:
@@ -126,3 +139,170 @@ def test_upload_backup_always_creates_a_daily_key() -> None:
 
     assert result.daily_key == f"{DAILY_PREFIX}aspirova-2026-07-10.dump"
     assert result.daily_key in client.uploaded
+
+
+def test_upload_auth_backup_uses_its_own_daily_and_weekly_keys() -> None:
+    base = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    designated_day = base + timedelta(days=(WEEKLY_DUMP_WEEKDAY - base.weekday()) % 7)
+
+    client = FakeS3Client()
+    result = upload_backup(
+        client,
+        "bucket",
+        "/tmp/fake.dump",
+        now=designated_day,
+        daily_prefix=SUPABASE_AUTH_DAILY_PREFIX,
+        weekly_prefix=SUPABASE_AUTH_WEEKLY_PREFIX,
+        file_stem=SUPABASE_AUTH_FILE_STEM,
+    )
+
+    assert result.daily_key == (
+        f"{SUPABASE_AUTH_DAILY_PREFIX}supabase-auth-{designated_day:%Y-%m-%d}.dump"
+    )
+    iso_year, iso_week, _ = designated_day.isocalendar()
+    assert result.weekly_key == (
+        f"{SUPABASE_AUTH_WEEKLY_PREFIX}supabase-auth-{iso_year}-W{iso_week:02d}.dump"
+    )
+    assert client.uploaded == [result.daily_key, result.weekly_key]
+
+    other_day = designated_day + timedelta(days=1)
+    other_result = upload_backup(
+        FakeS3Client(),
+        "bucket",
+        "/tmp/fake.dump",
+        now=other_day,
+        daily_prefix=SUPABASE_AUTH_DAILY_PREFIX,
+        weekly_prefix=SUPABASE_AUTH_WEEKLY_PREFIX,
+        file_stem=SUPABASE_AUTH_FILE_STEM,
+    )
+    assert other_result.weekly_key is None
+
+
+def test_pruning_app_and_auth_prefixes_is_isolated() -> None:
+    now = datetime(2026, 7, 10, tzinfo=timezone.utc)
+    old = now - timedelta(days=DAILY_RETENTION_DAYS + 1)
+    objects = [
+        {"Key": f"{DAILY_PREFIX}app-old.dump", "LastModified": old},
+        {"Key": f"{SUPABASE_AUTH_DAILY_PREFIX}auth-old.dump", "LastModified": old},
+    ]
+    objects.extend(
+        {"Key": f"{WEEKLY_PREFIX}app-w{i}.dump", "LastModified": now - timedelta(weeks=i)}
+        for i in range(WEEKLY_RETENTION_COUNT + 1)
+    )
+    objects.extend(
+        {
+            "Key": f"{SUPABASE_AUTH_WEEKLY_PREFIX}auth-w{i}.dump",
+            "LastModified": now - timedelta(weeks=i),
+        }
+        for i in range(WEEKLY_RETENTION_COUNT + 1)
+    )
+
+    app_client = FakeS3Client({"bucket": list(objects)})
+    _prune(
+        app_client,
+        "bucket",
+        DAILY_PREFIX,
+        keep_newest=None,
+        max_age_days=DAILY_RETENTION_DAYS,
+        now=now,
+    )
+    _prune(
+        app_client,
+        "bucket",
+        WEEKLY_PREFIX,
+        keep_newest=WEEKLY_RETENTION_COUNT,
+        max_age_days=None,
+        now=now,
+    )
+    assert f"{DAILY_PREFIX}app-old.dump" in app_client.deleted
+    assert all(not key.startswith("supabase-auth/") for key in app_client.deleted)
+
+    auth_client = FakeS3Client({"bucket": list(objects)})
+    _prune(
+        auth_client,
+        "bucket",
+        SUPABASE_AUTH_DAILY_PREFIX,
+        keep_newest=None,
+        max_age_days=DAILY_RETENTION_DAYS,
+        now=now,
+    )
+    _prune(
+        auth_client,
+        "bucket",
+        SUPABASE_AUTH_WEEKLY_PREFIX,
+        keep_newest=WEEKLY_RETENTION_COUNT,
+        max_age_days=None,
+        now=now,
+    )
+    assert f"{SUPABASE_AUTH_DAILY_PREFIX}auth-old.dump" in auth_client.deleted
+    assert all(key.startswith("supabase-auth/") for key in auth_client.deleted)
+
+
+def test_auth_mode_without_supabase_db_url_exits_before_dump(monkeypatch) -> None:
+    settings = Settings(
+        _env_file=None,
+        supabase_db_url="",
+        backup_s3_endpoint_url="https://example.invalid",
+        backup_s3_access_key_id="access-key",
+        backup_s3_secret_access_key="secret-key",
+        backup_s3_bucket="bucket",
+    )
+    dump_called = False
+
+    def fake_dump(database_url: str, output_path: str) -> None:
+        nonlocal dump_called
+        dump_called = True
+
+    monkeypatch.setattr(backup_db, "get_settings", lambda: settings)
+    monkeypatch.setattr(backup_db, "dump_supabase_auth", fake_dump)
+
+    with pytest.raises(SystemExit) as exc_info:
+        backup_db.main(["--supabase-auth"])
+
+    assert exc_info.value.code == 1
+    assert dump_called is False
+
+
+def test_auth_dump_uses_schema_flags_and_libpq_url(monkeypatch) -> None:
+    captured_args = []
+
+    def fake_run(args, **kwargs):
+        captured_args.extend(args)
+        return backup_db.subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(backup_db.subprocess, "run", fake_run)
+
+    backup_db.dump_supabase_auth(
+        "postgresql+psycopg://user:password@example.invalid:5432/postgres",
+        "/tmp/auth.dump",
+    )
+
+    assert "--schema=auth" in captured_args
+    assert "--format=custom" in captured_args
+    assert captured_args[-1] == "postgresql://user:password@example.invalid:5432/postgres"
+    assert "+psycopg" not in captured_args[-1]
+
+
+def test_pg_dump_failures_redact_connection_urls(monkeypatch) -> None:
+    sqlalchemy_url = "postgresql+psycopg://user:s3cretpw@host:5432/postgres"
+    libpq_url = "postgresql://user:s3cretpw@host:5432/postgres"
+
+    def fake_run(args, **kwargs):
+        return backup_db.subprocess.CompletedProcess(
+            args,
+            23,
+            stdout="",
+            stderr=f"failed with {sqlalchemy_url} and {libpq_url}",
+        )
+
+    monkeypatch.setattr(backup_db.subprocess, "run", fake_run)
+
+    for dump_function in (backup_db.dump_supabase_auth, backup_db.dump_database):
+        with pytest.raises(RuntimeError) as exc_info:
+            dump_function(sqlalchemy_url, "/tmp/backup.dump")
+
+        message = str(exc_info.value)
+        assert sqlalchemy_url not in message
+        assert libpq_url not in message
+        assert "s3cretpw" not in message
+        assert "exit 23" in message
