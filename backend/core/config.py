@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     # canonical SITE_URL (app/layout.tsx) exactly - the apex redirects to www,
     # so a non-www link would cost every email click an extra hop.
     site_url: str = "https://www.aspirova.org"
+    google_indexing_sa_json: str = ""
+    indexing_daily_budget: int = 190
     # Where the API itself is reachable. Needed for one-click unsubscribe, whose
     # URL Gmail POSTs to directly - that endpoint is on the API, not the site.
     api_base_url: str = "https://aspirova-api.onrender.com"

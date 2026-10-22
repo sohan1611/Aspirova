@@ -1,0 +1,48 @@
+name: Google Indexing
+
+on:
+  schedule:
+    - cron: "23 12 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Preview candidates without publishing"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: google-indexing
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Notify Google Indexing API
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GOOGLE_INDEXING_SA_JSON: ${{ secrets.GOOGLE_INDEXING_SA_JSON }}
+          PYTHONUNBUFFERED: "1"
+        run: |
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            uv run python -m scripts.notify_google_indexing --dry-run
+          else
+            uv run python -m scripts.notify_google_indexing --apply
+          fi

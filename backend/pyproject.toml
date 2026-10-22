@@ -23,6 +23,7 @@ dependencies = [
     "resend>=2.32.2",
     "openai>=2.44.0",
     "anthropic>=0.116.0",
+    "google-auth>=2.30",
 ]
 
 [dependency-groups]
