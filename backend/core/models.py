@@ -175,6 +175,36 @@ class Opportunity(Base):
     )
 
 
+class GoogleIndexingNotification(Base):
+    """A successfully published Google Indexing API notification."""
+
+    __tablename__ = "google_indexing_notifications"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    opportunity_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("opportunities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    url: Mapped[str] = mapped_column(Text, nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    notified_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "reason IN ('opened', 'closed')",
+            name="ck_google_indexing_notifications_reason",
+        ),
+        UniqueConstraint(
+            "opportunity_id",
+            "reason",
+            name="uq_google_indexing_notifications_opportunity_reason",
+        ),
+    )
+
+
 class OpportunityViewCount(Base):
     """Hot cumulative view counters kept off the wide opportunities row."""
 
