@@ -109,6 +109,49 @@ export function parseDescriptionBlocks(raw: string): DescriptionBlock[] {
   return blocks;
 }
 
+/**
+ * Converts parsed description structure to safe JobPosting HTML.
+ *
+ * Example: heading("R&D") => "<p><strong>R&amp;D</strong></p>"
+ */
+export function descriptionBlocksToHtml(blocks: DescriptionBlock[]): string {
+  return blocks
+    .map((block) => {
+      if (block.type === "heading") {
+        return `<p><strong>${escapeHtml(block.text)}</strong></p>`;
+      }
+
+      if (block.type === "list") {
+        const items = block.items
+          .map((item) => `<li>${escapeHtml(item)}</li>`)
+          .join("");
+        return `<ul>${items}</ul>`;
+      }
+
+      return `<p>${escapeHtml(block.text)}</p>`;
+    })
+    .join("");
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => {
+    switch (character) {
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case '"':
+        return "&quot;";
+      case "'":
+        return "&#39;";
+      default:
+        return character;
+    }
+  });
+}
+
 function normalizeLines(raw: string): string[] {
   const lines = raw
     .replace(/\r\n?/g, "\n")
