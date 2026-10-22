@@ -3,12 +3,13 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from api import middleware
 from api import sitemap
 from api.deps import get_db
-from api.filters import STALE_AFTER_DAYS
+from api.filters import STALE_AFTER_DAYS, exclude_stale_opportunities
 from api.main import app
 from core import models
 
@@ -37,7 +38,7 @@ def client(db_session: Session, monkeypatch):
 
 
 def test_sitemap_opportunities_returns_active_slug_shape(
-    client: TestClient, db_session: Session
+    client: TestClient, db_session: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     suffix = str(uuid.uuid4())
     seen_at = datetime(2100, 1, 1, 12, 0, tzinfo=UTC)
@@ -70,6 +71,22 @@ def test_sitemap_opportunities_returns_active_slug_shape(
         posted_at=datetime.now(UTC) - timedelta(days=STALE_AFTER_DAYS + 1),
         last_seen_at=seen_at,
     )
+    closed = models.Opportunity(
+        slug=f"sitemap-test-closed-{suffix}",
+        title="Sitemap test closed",
+        apply_url=f"https://example.com/sitemap/closed/{suffix}",
+        status="active",
+        closed_at=seen_at,
+        last_seen_at=seen_at,
+    )
+    hidden = models.Opportunity(
+        slug=f"sitemap-test-hidden-{suffix}",
+        title="Sitemap test hidden",
+        apply_url=f"https://example.com/sitemap/hidden/{suffix}",
+        status="active",
+        is_hidden=True,
+        last_seen_at=seen_at,
+    )
     unknown_posted_at = models.Opportunity(
         slug=f"sitemap-test-null-posted-at-{suffix}",
         title="Sitemap test null posted_at",
@@ -78,8 +95,18 @@ def test_sitemap_opportunities_returns_active_slug_shape(
         posted_at=None,
         last_seen_at=seen_at,
     )
-    db_session.add_all([active_a, active_b, inactive, stale, unknown_posted_at])
+    db_session.add_all([active_a, active_b, inactive, stale, closed, hidden, unknown_posted_at])
     db_session.flush()
+
+    eligibility_filters = sitemap._eligible_sitemap_opportunity_filters()
+    monkeypatch.setattr(
+        sitemap,
+        "_eligible_sitemap_opportunity_filters",
+        lambda: (
+            *eligibility_filters,
+            models.Opportunity.slug.like(f"%-{suffix}"),
+        ),
+    )
 
     response = client.get("/sitemap-opportunities")
 
@@ -96,12 +123,30 @@ def test_sitemap_opportunities_returns_active_slug_shape(
     assert slugs.index(active_a.slug) < slugs.index(active_b.slug)
     assert inactive.slug not in slugs
     assert stale.slug not in slugs
+    assert closed.slug not in slugs
+    assert hidden.slug not in slugs
+
+    count_response = client.get("/sitemap-opportunities/count")
+    expected_total = db_session.scalar(
+        select(func.count(models.Opportunity.id)).where(
+            models.Opportunity.status == "active",
+            exclude_stale_opportunities(),
+            models.Opportunity.closed_at.is_(None),
+            models.Opportunity.is_hidden.is_not(True),
+            models.Opportunity.slug.like(f"%-{suffix}"),
+        )
+    )
+    assert count_response.status_code == 200
+    assert count_response.json() == {
+        "total": expected_total,
+        "page_size": 5000,
+    }
 
 
-def test_sitemap_opportunities_is_bounded_and_ranked_by_last_seen_at(
+def test_sitemap_opportunity_pages_are_stable_disjoint_and_complete(
     client: TestClient, db_session: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(sitemap, "SITEMAP_OPPORTUNITY_LIMIT", 2)
+    monkeypatch.setattr(sitemap, "SITEMAP_PAGE_SIZE", 2)
     suffix = str(uuid.uuid4())
     newest_seen_at = datetime(2100, 1, 3, 12, 0, tzinfo=UTC)
     older_seen_at = datetime(2100, 1, 2, 12, 0, tzinfo=UTC)
@@ -126,17 +171,43 @@ def test_sitemap_opportunities_is_bounded_and_ranked_by_last_seen_at(
         status="active",
         last_seen_at=older_seen_at,
     )
-    db_session.add_all([newest_a, newest_b, older])
+    db_session.add(newest_a)
+    db_session.flush()
+    db_session.add(older)
+    db_session.flush()
+    db_session.add(newest_b)
     db_session.flush()
 
-    response = client.get("/sitemap-opportunities")
+    eligibility_filters = sitemap._eligible_sitemap_opportunity_filters()
+    monkeypatch.setattr(
+        sitemap,
+        "_eligible_sitemap_opportunity_filters",
+        lambda: (
+            *eligibility_filters,
+            models.Opportunity.slug.like(f"%-{suffix}"),
+        ),
+    )
 
-    assert response.status_code == 200
-    body = response.json()
-    assert len(body) <= sitemap.SITEMAP_OPPORTUNITY_LIMIT
-    assert [item["slug"] for item in body] == [newest_a.slug, newest_b.slug]
-    last_seen_at_values = [datetime.fromisoformat(item["last_seen_at"]) for item in body]
-    assert last_seen_at_values == sorted(last_seen_at_values, reverse=True)
+    page_zero = client.get("/sitemap-opportunities", params={"page": 0})
+    page_one = client.get("/sitemap-opportunities", params={"page": 1})
+    page_past_end = client.get("/sitemap-opportunities", params={"page": 2})
+    default_page = client.get("/sitemap-opportunities")
+
+    assert page_zero.status_code == 200
+    assert page_one.status_code == 200
+    assert page_past_end.status_code == 200
+    assert default_page.status_code == 200
+
+    page_zero_slugs = [item["slug"] for item in page_zero.json()]
+    page_one_slugs = [item["slug"] for item in page_one.json()]
+    expected_slugs = [newest_a.slug, older.slug, newest_b.slug]
+
+    assert page_zero_slugs == expected_slugs[:2]
+    assert page_one_slugs == expected_slugs[2:]
+    assert set(page_zero_slugs).isdisjoint(page_one_slugs)
+    assert page_zero_slugs + page_one_slugs == expected_slugs
+    assert page_past_end.json() == []
+    assert default_page.json() == page_zero.json()
 
 
 def test_company_page_returns_company_and_only_active_opportunities(
