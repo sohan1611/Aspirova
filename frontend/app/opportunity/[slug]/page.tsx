@@ -19,7 +19,11 @@ import {
   isDeadlinePast,
   isListingClosed,
 } from "@/lib/deadline";
-import { parseDescriptionBlocks } from "@/lib/descriptionBlocks";
+import {
+  descriptionBlocksToHtml,
+  parseDescriptionBlocks,
+  type DescriptionBlock,
+} from "@/lib/descriptionBlocks";
 import { getSourceLabel } from "@/lib/sourceLabel";
 import type { OpportunityDetail, OpportunityListItem } from "@/lib/types";
 
@@ -57,6 +61,7 @@ function buildJobPostingJsonLd(
   opportunity: OpportunityDetail,
   canonicalUrl: string,
   closed: boolean,
+  descriptionBlocks: DescriptionBlock[],
 ): Record<string, unknown> | null {
   if (
     (opportunity.category !== "job" && opportunity.category !== "internship") ||
@@ -69,7 +74,7 @@ function buildJobPostingJsonLd(
   }
 
   const title = nonEmpty(opportunity.title);
-  const description = nonEmpty(opportunity.description_raw);
+  const description = descriptionBlocksToHtml(descriptionBlocks);
   const companyName = nonEmpty(opportunity.company?.name);
   const datePosted =
     nonEmpty(opportunity.posted_at) ?? nonEmpty(opportunity.first_seen_at);
@@ -185,10 +190,12 @@ export default async function OpportunityPage({ params }: PageProps) {
     opportunity.deadline,
     opportunity.category,
   );
+  const descriptionBlocks = parseDescriptionBlocks(opportunity.description_raw);
   const jobPostingJsonLd = buildJobPostingJsonLd(
     opportunity,
     canonicalUrl,
     closed,
+    descriptionBlocks,
   );
   // is_stale is a separate, older-than-10-months signal from the backend and
   // can be true even when closed is false (no closed_at, no expiring
@@ -205,7 +212,6 @@ export default async function OpportunityPage({ params }: PageProps) {
   const verifyLabel = opportunity.company?.name
     ? `Verify on ${opportunity.company.name} →`
     : "Verify at the source →";
-  const descriptionBlocks = parseDescriptionBlocks(opportunity.description_raw);
   const closedCaption = opportunity.closed_at
     ? "The source listing appears to be closed. Open the company's listing to confirm — the source may still be accepting entries."
     : estimated
