@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useSession } from "@/lib/useSession";
+import { cn } from "@/lib/utils";
 
 const QUICK_LINKS = [
   { href: "/saved", label: "Saved" },
@@ -12,12 +13,11 @@ const QUICK_LINKS = [
 export default function SignedInWelcome() {
   const session = useSession();
 
-  if (!session) {
-    return null;
-  }
-
   return (
-    <section aria-label="Member welcome" className="border-b border-border py-5 sm:py-6">
+    <section
+      aria-label="Member welcome"
+      className={cn("border-b border-border py-5 sm:py-6", !session && "auth-show-while-pending")}
+    >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="eyebrow text-heritage">Your almanac</p>

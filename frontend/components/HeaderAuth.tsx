@@ -13,6 +13,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useSession } from "@/lib/useSession";
+import { cn } from "@/lib/utils";
 
 interface HeaderAuthProps {
   triggerLabel?: string;
@@ -45,7 +46,11 @@ export default function HeaderAuth({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button size={triggerSize} variant={triggerVariant} className={triggerClassName}>
+        <Button
+          size={triggerSize}
+          variant={triggerVariant}
+          className={cn("auth-hide-while-pending", triggerClassName)}
+        >
           {triggerLabel}
         </Button>
       </DialogTrigger>

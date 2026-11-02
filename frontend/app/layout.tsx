@@ -9,6 +9,7 @@ import OnboardingDialog from "@/components/OnboardingDialog";
 import ReferralCapture from "@/components/ReferralCapture";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { AUTH_PENDING_SCRIPT } from "@/lib/authPending";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -62,6 +63,10 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} h-full antialiased`}
       suppressHydrationWarning
     >
+      <head>
+        {/* Decide likely auth state before first paint to avoid signed-out flashes. */}
+        <script dangerouslySetInnerHTML={{ __html: AUTH_PENDING_SCRIPT }} />
+      </head>
       <body className="min-h-full flex flex-col">
         <ThemeProvider attribute="class" forcedTheme="light" disableTransitionOnChange>
           <a
