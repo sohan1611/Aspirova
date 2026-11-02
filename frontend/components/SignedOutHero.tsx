@@ -15,7 +15,7 @@ export default function SignedOutHero() {
   return (
     <section
       aria-labelledby="signed-out-hero-title"
-      className="border-b border-border py-10 sm:py-14"
+      className="auth-collapse-while-pending border-b border-border py-10 sm:py-14"
     >
       <div className="max-w-4xl">
         <p className="eyebrow text-heritage">Est. 2026 · The Opportunity Almanac</p>

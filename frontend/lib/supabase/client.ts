@@ -4,9 +4,9 @@ import {
 } from "@supabase/supabase-js";
 
 // Auth state lives entirely client-side in Phase 1 (Doc 07 Part 1.7: "basic
-// auth UI"). No server-side session/middleware yet - the bookmark button is
-// a client component anyway, so there is no SSR auth-flash problem to
-// solve here. Revisit if a server-rendered "your bookmarks" page is added.
+// auth UI"). No server-side session/middleware yet - lib/authPending.ts
+// handles the SSR auth flash before the client session resolves.
+// Revisit if a server-rendered "your bookmarks" page is added.
 let browserClient: SupabaseClient | undefined;
 
 export function createClient(): SupabaseClient {

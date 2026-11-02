@@ -161,6 +161,23 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* Keep likely signed-in layouts stable until auth resolves; unlayered to beat utilities. */
+html[data-auth-pending] .auth-hide-while-pending {
+  visibility: hidden;
+}
+
+html[data-auth-pending] .auth-collapse-while-pending {
+  display: none;
+}
+
+.auth-show-while-pending {
+  display: none;
+}
+
+html[data-auth-pending] .auth-show-while-pending {
+  display: block;
+}
+
 .eyebrow {
   color: var(--muted-foreground);
   font-size: 0.6875rem;

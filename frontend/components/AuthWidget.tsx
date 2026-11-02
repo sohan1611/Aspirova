@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, MailCheck, UserCheck } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PasswordInput } from "@/components/PasswordInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -71,6 +71,15 @@ export default function AuthWidget() {
   const [notice, setNotice] = useState<AuthNotice | null>(null);
   const [resetLoading, setResetLoading] = useState(false);
   const supabase = createClient();
+
+  useEffect(() => {
+    function handlePageShow(event: PageTransitionEvent) {
+      if (event.persisted) setOauthLoadingProvider(null);
+    }
+
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
 
   if (session) {
     return (
@@ -186,16 +195,19 @@ export default function AuthWidget() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
+          redirectTo:
+            typeof window !== "undefined"
+              ? `${window.location.origin}${window.location.pathname}${window.location.search}`
+              : undefined,
         },
       });
 
       if (error) {
         setFormError(error.message);
+        setOauthLoadingProvider(null);
       }
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "Unable to start social sign-in.");
-    } finally {
       setOauthLoadingProvider(null);
     }
   }
@@ -329,7 +341,7 @@ export default function AuthWidget() {
 
       {formError && <p className="text-sm text-destructive">{formError}</p>}
 
-      <Button type="submit" disabled={loading} className="w-full">
+      <Button type="submit" disabled={loading || oauthLoadingProvider !== null} className="w-full">
         {loading && <Loader2 className="animate-spin" />}
         {mode === "signin" ? "Sign in" : "Sign up"}
       </Button>

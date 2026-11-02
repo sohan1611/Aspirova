@@ -7,8 +7,7 @@ request is an acceptable Phase-1 cost (Doc 02 sec 5: scale by measured
 trigger - revisit with local JWT verification + caching only if this is
 ever shown to matter).
 
-BLOCKED ON CREDENTIALS: untested against a real token - SUPABASE_URL and
-SUPABASE_ANON_KEY are still blank in .env as of this writing.
+A shared HTTP client reuses connections to Supabase across requests.
 """
 
 import uuid
@@ -21,6 +20,20 @@ from api.deps import get_db
 from core import models
 from core.config import get_settings
 
+_supabase_http = httpx.Client(
+    timeout=5.0,
+    limits=httpx.Limits(max_keepalive_connections=4, keepalive_expiry=30.0),
+)
+_DEAD_CONNECTION_ERRORS = (httpx.RemoteProtocolError, httpx.ReadError, httpx.WriteError)
+
+
+def _get_supabase_user(url: str, headers: dict[str, str]) -> httpx.Response:
+    try:
+        return _supabase_http.get(url, headers=headers)
+    except _DEAD_CONNECTION_ERRORS:
+        # The server may close a pooled connection between requests; retry once on a fresh one.
+        return _supabase_http.get(url, headers=headers)
+
 
 def get_current_user(
     authorization: str | None = Header(None),
@@ -32,13 +45,12 @@ def get_current_user(
 
     settings = get_settings()
     try:
-        response = httpx.get(
+        response = _get_supabase_user(
             f"{settings.supabase_url}/auth/v1/user",
             headers={
                 "Authorization": f"Bearer {token}",
                 "apikey": settings.supabase_anon_key,
             },
-            timeout=5.0,
         )
     except httpx.RequestError as exc:
         raise HTTPException(status_code=503, detail="Auth service unavailable") from exc

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { clearAuthPending } from "./authPending";
 import { createClient } from "./supabase/client";
 
 const AUTH_HASH_PARAMS = [
@@ -83,6 +84,12 @@ export function useSessionState(): SessionState {
     });
     return () => listener.subscription.unsubscribe();
   }, []);
+
+  // Keep signed-out server markup hidden until later-hydrating sections replace it.
+  const signedOut = state.resolved && state.session === null;
+  useEffect(() => {
+    if (signedOut) clearAuthPending();
+  }, [signedOut]);
 
   return state;
 }
