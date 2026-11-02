@@ -37,7 +37,7 @@ def client(db_session: Session, monkeypatch):
 @pytest.fixture
 def source_feed_rows(db_session: Session):
     suffix = uuid.uuid4().hex
-    seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    seen_at = datetime.now(UTC) - timedelta(days=30)
     location_token = f"SourceFilterville-{suffix}"
     company = models.Company(
         slug=f"source-filter-company-{suffix}",
@@ -114,7 +114,7 @@ def test_feed_recent_interleaves_sources_with_stable_pagination(
     db_session: Session,
 ) -> None:
     suffix = uuid.uuid4().hex
-    newest = datetime(2026, 1, 2, 12, 0, tzinfo=UTC)
+    newest = datetime.now(UTC) - timedelta(days=30)
     location_token = f"SourceDiversityville-{suffix}"
     company = models.Company(
         slug=f"source-diversity-company-{suffix}",

@@ -39,7 +39,7 @@ def search_rows(db_session: Session):
     suffix = uuid.uuid4().hex
     search_term = f"searchfilter{suffix}"
     location_token = f"Searchville-{suffix}"
-    seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    seen_at = datetime.now(UTC) - timedelta(days=30)
 
     top_company = models.Company(
         slug=f"search-filter-top-{suffix}",

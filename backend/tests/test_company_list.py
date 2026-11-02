@@ -1,5 +1,5 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -38,7 +38,7 @@ def test_companies_returns_active_company_counts_ordered(
     client: TestClient, db_session: Session
 ) -> None:
     suffix = str(uuid.uuid4())
-    seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    seen_at = datetime.now(UTC) - timedelta(days=30)
     high_count_company = models.Company(
         slug=f"company-list-high-count-{suffix}",
         name="Company List High Count",
@@ -147,7 +147,7 @@ def test_top_companies_returns_ranked_active_companies(
     client: TestClient, db_session: Session
 ) -> None:
     suffix = str(uuid.uuid4())
-    seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    seen_at = datetime.now(UTC) - timedelta(days=30)
     best_company = models.Company(
         slug=f"top-company-best-{suffix}",
         name="Top Company Best",
@@ -302,7 +302,7 @@ def test_top_companies_returns_ranked_active_companies(
 
 def test_top_companies_honours_limit(client: TestClient, db_session: Session) -> None:
     suffix = str(uuid.uuid4())
-    seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    seen_at = datetime.now(UTC) - timedelta(days=30)
     companies = [
         models.Company(
             slug=f"top-company-limit-{index}-{suffix}",
