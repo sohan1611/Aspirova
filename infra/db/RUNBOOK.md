@@ -143,6 +143,12 @@ with a data-only `pg_dump` of `bookmarks`, `saved_searches`, `users`,
 4. Downgrade the organisation to Free **before the next billing date**.
 5. Update CLAUDE.md "Where things stand" to say the DB is the droplet.
 
+**Done 2026-11-02.** Final archive: `archive/supabase-final-2026-11-02.dump` in R2 (279,989,515
+bytes, sha256 `65302fe9cb95891e…`; read in full with 0 errors across 63 tables). The `public` tables
+were dropped at about 16:45 UTC, leaving 13 MB, and the organisation moved to Free at about 16:52 UTC.
+Google and GitHub sign-in and the password-reset email were tested afterwards. The rollback in
+section 4 no longer works on its own: going back to Supabase now means restoring that archive first.
+
 ## 6. Disaster recovery
 
 - **Bad change, droplet fine:** run `python -m scripts.restore_from_backup --key <r2-key> --target-database-url <url>` into a fresh database, then swap.
