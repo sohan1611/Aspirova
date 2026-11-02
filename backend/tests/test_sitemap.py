@@ -214,8 +214,8 @@ def test_company_page_returns_company_and_only_active_opportunities(
     client: TestClient, db_session: Session
 ) -> None:
     suffix = str(uuid.uuid4())
-    old_seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
-    new_seen_at = datetime(2026, 1, 2, 12, 0, tzinfo=UTC)
+    old_seen_at = datetime.now(UTC) - timedelta(days=30)
+    new_seen_at = old_seen_at + timedelta(days=1)
     company = models.Company(
         slug=f"company-page-test-{suffix}",
         name="Company Page Test",
@@ -282,7 +282,7 @@ def test_sitemap_companies_returns_only_companies_with_active_opportunities(
     client: TestClient, db_session: Session
 ) -> None:
     suffix = str(uuid.uuid4())
-    seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    seen_at = datetime.now(UTC) - timedelta(days=30)
     active_company = models.Company(
         slug=f"sitemap-company-active-{suffix}",
         name="Sitemap Company Active",

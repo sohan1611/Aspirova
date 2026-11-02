@@ -24,8 +24,8 @@ keep it current, because it is the first thing every session reads.*
   answer 200.
 - **Database (since 2026-10-21): self-managed Postgres 17 on a DigitalOcean droplet,
   `aspirova-db`, `168.144.242.186`, Singapore (SGP1), ~₹810/mo.** It moved off Supabase Pro
-  (₹2,900/mo). **Supabase still serves Auth and Storage (resume PDFs)**, to be downgraded to its
-  Free plan after the 7-day rollback window. The app connects as `aspirova_app` (not a
+  (₹2,900/mo). **Supabase still serves Auth and Storage (resume PDFs)**, on its Free plan since
+  2026-11-02; its old app tables are gone (final archive in R2, `archive/`). The app connects as `aspirova_app` (not a
   superuser) over TLS; operate the box over SSH as root. Everything is in
   `infra/db/RUNBOOK.md`: provisioning, rollback, disaster recovery. **Never run tests or write
   scripts against it. It is production.**

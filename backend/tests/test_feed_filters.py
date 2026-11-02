@@ -39,7 +39,7 @@ def client(db_session: Session, monkeypatch):
 @pytest.fixture
 def feed_rows(db_session: Session):
     suffix = str(uuid.uuid4())
-    seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    seen_at = datetime.now(UTC) - timedelta(days=30)
     location_token = f"Filterville-{suffix}"
     company_a = models.Company(
         slug=f"feed-filter-alpha-{suffix}",
@@ -169,7 +169,7 @@ def test_feed_early_experience_filter_excludes_senior_titles(
     db_session: Session,
 ) -> None:
     suffix = uuid.uuid4().hex
-    seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    seen_at = datetime.now(UTC) - timedelta(days=30)
     location_token = f"EarlyCareerFilterville-{suffix}"
     company = models.Company(
         slug=f"early-career-filter-company-{suffix}",
@@ -232,7 +232,7 @@ def test_feed_early_experience_filter_excludes_new_senior_terms_and_keeps_studen
     db_session: Session,
 ) -> None:
     suffix = uuid.uuid4().hex
-    seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    seen_at = datetime.now(UTC) - timedelta(days=30)
     location_token = f"SeniorTermFilterville-{suffix}"
     company = models.Company(
         slug=f"senior-term-filter-company-{suffix}",
@@ -318,7 +318,7 @@ def test_feed_default_student_sort_prioritizes_internships_and_early_roles(
     db_session: Session,
 ) -> None:
     suffix = uuid.uuid4().hex
-    seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    seen_at = datetime.now(UTC) - timedelta(days=30)
     location_token = f"StudentFirstFilterville-{suffix}"
     company = models.Company(
         slug=f"student-first-filter-company-{suffix}",
@@ -385,7 +385,7 @@ def test_feed_location_scope_excludes_foreign_remote_by_default_and_allows_opt_i
     db_session: Session,
 ) -> None:
     suffix = uuid.uuid4().hex
-    seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    seen_at = datetime.now(UTC) - timedelta(days=30)
     location_token = f"LocationScopeville-{suffix}"
     company = models.Company(
         slug=f"location-scope-company-{suffix}",
@@ -507,7 +507,7 @@ def test_feed_accepts_hackathon_category_and_rejects_bogus_category(
     db_session: Session,
 ) -> None:
     suffix = str(uuid.uuid4())
-    seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    seen_at = datetime.now(UTC) - timedelta(days=30)
     location_token = f"HackathonFilterville-{suffix}"
     company = models.Company(
         slug=f"hackathon-filter-company-{suffix}",
@@ -561,7 +561,7 @@ def test_feed_accepts_scholarship_category(
 ) -> None:
     """A crawled scholarship category is dead code if /feed rejects it."""
     suffix = uuid.uuid4().hex
-    seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    seen_at = datetime.now(UTC) - timedelta(days=30)
     location_token = f"ScholarshipFilterville-{suffix}"
     company = models.Company(
         slug=f"scholarship-filter-company-{suffix}",
@@ -611,7 +611,7 @@ def test_feed_top_filter_returns_ranked_companies_and_combines_with_category(
     db_session: Session,
 ) -> None:
     suffix = str(uuid.uuid4())
-    seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    seen_at = datetime.now(UTC) - timedelta(days=30)
     location_token = f"TopFilterville-{suffix}"
     ranked_company = models.Company(
         slug=f"top-filter-ranked-{suffix}",
@@ -1129,7 +1129,7 @@ def test_feed_experienced_only_filter_is_null_safe_and_detail_still_serves(
     db_session: Session,
 ) -> None:
     suffix = uuid.uuid4().hex
-    seen_at = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    seen_at = datetime.now(UTC) - timedelta(days=30)
     location_token = f"ExperiencedOnlyFilterville-{suffix}"
     company = models.Company(
         slug=f"experienced-only-filter-company-{suffix}",
