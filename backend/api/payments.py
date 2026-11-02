@@ -70,6 +70,17 @@ _STATUS_BY_EVENT = {
 _TERMINAL_STATUSES = frozenset({"canceled"})
 
 
+def _webhook_event_time(created_at: object) -> datetime | None:
+    """Razorpay's event creation time (top-level created_at, Unix seconds),
+    or None when it is missing or invalid."""
+    if isinstance(created_at, bool) or not isinstance(created_at, int) or created_at <= 0:
+        return None
+    try:
+        return datetime.fromtimestamp(created_at, tz=timezone.utc)
+    except (OverflowError, OSError, ValueError):
+        return None
+
+
 def _send_subscription_status_email(
     db: Session, subscription: models.Subscription, new_status: str
 ) -> None:
@@ -666,7 +677,9 @@ async def razorpay_webhook(
         return {"status": "malformed_payload", "event": event}
 
     subscription = db.scalar(
-        select(models.Subscription).where(models.Subscription.razorpay_sub_id == razorpay_sub_id)
+        select(models.Subscription)
+        .where(models.Subscription.razorpay_sub_id == razorpay_sub_id)
+        .with_for_update()
     )
     if subscription is None:
         # Not one we created a local row for (e.g. a webhook retried after
@@ -680,6 +693,22 @@ async def razorpay_webhook(
     if subscription.status in _TERMINAL_STATUSES:
         return {"status": "ignored_terminal", "event": event}
 
+    event_time = _webhook_event_time(payload.get("created_at"))
+    # Terminal events always apply: dropping a cancellation could leave paid access
+    # forever, and the terminal guard prevents a later charge from undoing it.
+    if (
+        new_status not in _TERMINAL_STATUSES
+        and event_time is not None
+        and subscription.last_webhook_event_at is not None
+        and event_time < subscription.last_webhook_event_at
+    ):
+        logger.info("Ignoring stale webhook for subscription %s: %s", subscription.id, event)
+        return {"status": "ignored_stale", "event": event}
+    if event_time is None:
+        logger.warning(
+            "Webhook has no usable created_at for subscription %s: %s", subscription.id, event
+        )
+
     previous_status = subscription.status
     subscription.status = new_status
     current_end = subscription_entity.get("current_end")
@@ -690,6 +719,12 @@ async def razorpay_webhook(
             or incoming_period_end > subscription.current_period_end
         ):
             subscription.current_period_end = incoming_period_end
+
+    if event_time is not None and (
+        subscription.last_webhook_event_at is None
+        or event_time > subscription.last_webhook_event_at
+    ):
+        subscription.last_webhook_event_at = event_time
 
     db.commit()
 

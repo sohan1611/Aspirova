@@ -193,6 +193,7 @@ subscriptions (
   status        text,                   -- 'active'|'past_due'|'canceled'|'trialing'
   razorpay_sub_id text,
   current_period_end timestamptz,
+  last_webhook_event_at timestamptz,    -- newest applied Razorpay event; older deliveries are ignored
   created_at    timestamptz DEFAULT now()
 )
 -- INDEX (user_id, status);

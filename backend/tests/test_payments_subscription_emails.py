@@ -36,6 +36,7 @@ class FakeSession:
             status="created",
             razorpay_sub_id="sub_subscription_email_test",
             current_period_end=None,
+            last_webhook_event_at=None,
         )
         self.user = SimpleNamespace(
             id=self.subscription.user_id,
