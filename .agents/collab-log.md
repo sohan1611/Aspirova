@@ -779,3 +779,8 @@ RESULT (source expansion, live): SmartRecruiters seeded to production and the Ti
 - Task: six tests began failing on every branch at 12:00 UTC today, because fixtures used first_seen_at = 2026-01-01 and STALE_AFTER_DAYS is 305. Make the dates relative to now, test files only.
 - Codex: converted the fixed dates in six test files to relative ones with no assertion changes. Listed two later expiries it left alone: test_saved_search_alerts.py around 2027-05-21, test_hackathon_digest.py around 2030-01-02.
 - Review: no corrections. Verified: ruff, black, full backend suite 1036 passed on a clean throwaway database.
+
+## 2026-11-02 — Work order (Claude → Codex, gpt-6.1-sol high): applying requires sign-in
+- Task: founder ruling that a signed-out visitor must sign in before applying. Keep pages public and the real outbound link in the HTML, for Google's job-posting policy and Doc 04.
+- Codex: ApplyLink client component with a dialog, applied to open and possibly-expired listings; closed listings untouched; email sign-up returns to the current page.
+- Review: one correction round (dialog copy contradicted itself after signing in). Verified: eslint, tsc, build, ISR check; real DOM for click, Ctrl-click, middle-click, signed-in, closed and possibly-expired listings, sign-in during the dialog; raw server HTML keeps the link and JSON-LD.

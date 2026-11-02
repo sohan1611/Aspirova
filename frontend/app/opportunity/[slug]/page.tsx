@@ -2,6 +2,7 @@ import { CalendarClock, Clock, MapPin } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import ApplyLink from "@/components/ApplyLink";
 import BookmarkButton from "@/components/BookmarkButton";
 import CompanyFavicon from "@/components/CompanyFavicon";
 import RecordOpportunityView from "@/components/RecordOpportunityView";
@@ -357,15 +358,9 @@ export default async function OpportunityPage({ params }: PageProps) {
                   <span className="inline-flex h-10 items-center justify-center rounded-md border border-border bg-secondary/50 px-6 text-sm font-medium text-muted-foreground">
                     {staleStatusLabel}
                   </span>
-                  <Button size="lg" variant="outline" asChild>
-                    <a
-                      href={opportunity.apply_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {verifyLabel}
-                    </a>
-                  </Button>
+                  <ApplyLink href={opportunity.apply_url} size="lg" variant="outline">
+                    {verifyLabel}
+                  </ApplyLink>
                 </div>
                 <p className="mt-2 max-w-lg text-xs leading-5 text-muted-foreground">
                   Opens the company&apos;s own listing so you can check whether it is
@@ -376,17 +371,11 @@ export default async function OpportunityPage({ params }: PageProps) {
               <>
                 {/* Always links to the real source - we index and link out, we
                     never mirror (Doc 01 sec 7 R1, Doc 04 sec 10). */}
-                <Button size="lg" asChild>
-                  <a
-                    href={opportunity.apply_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {opportunity.company?.name
-                      ? `Apply on ${opportunity.company.name} →`
-                      : "Apply at the source →"}
-                  </a>
-                </Button>
+                <ApplyLink href={opportunity.apply_url} size="lg">
+                  {opportunity.company?.name
+                    ? `Apply on ${opportunity.company.name} →`
+                    : "Apply at the source →"}
+                </ApplyLink>
                 <p className="mt-2 max-w-lg text-xs leading-5 text-muted-foreground">
                   Opens the company&apos;s own listing — Aspirova never mirrors applications.
                 </p>

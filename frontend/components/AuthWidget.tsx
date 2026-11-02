@@ -16,6 +16,12 @@ type OAuthProvider = "google" | "github";
 /** A terminal message that replaces the form once an action succeeds. */
 type AuthNotice = "check-email" | "already-registered" | "reset-sent";
 
+function getAuthRedirectTo(): string | undefined {
+  return typeof window !== "undefined"
+    ? `${window.location.origin}${window.location.pathname}${window.location.search}`
+    : undefined;
+}
+
 function GoogleIcon() {
   return (
     <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -128,8 +134,7 @@ export default function AuthWidget() {
         email,
         password,
         options: {
-          emailRedirectTo:
-            typeof window !== "undefined" ? window.location.origin : undefined,
+          emailRedirectTo: getAuthRedirectTo(),
         },
       });
 
@@ -195,10 +200,7 @@ export default function AuthWidget() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo:
-            typeof window !== "undefined"
-              ? `${window.location.origin}${window.location.pathname}${window.location.search}`
-              : undefined,
+          redirectTo: getAuthRedirectTo(),
         },
       });
 
