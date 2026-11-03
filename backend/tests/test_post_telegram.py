@@ -35,6 +35,8 @@ def company(db_session: Session, monkeypatch) -> models.Company:
     company = models.Company(slug=f"telegram-company-{suffix}", name="Example & Company")
     db_session.add(company)
     db_session.flush()
+    # These tests rank rows of a single company; the per-company limit has its own test.
+    monkeypatch.setattr(telegram, "MAX_PER_COMPANY", 100)
     original_query = telegram._candidate_query
     monkeypatch.setattr(
         telegram,
@@ -106,6 +108,15 @@ def test_internships_stating_an_amount_come_before_paid_without_one(db_session: 
         older_amount.id,
         newer_paid.id,
     ]
+
+
+def test_limit_per_company_keeps_ranking_and_skips_repeats():
+    # Real sample: 3 of 5 internships came from one company, with identical pay and deadline.
+    rows = [
+        SimpleNamespace(id=index, company_id=company_id)
+        for index, company_id in enumerate([1, 1, 2, None, None, 1, 3, 4])
+    ]
+    assert [row.id for row in telegram._limit_per_company(rows, 5)] == [0, 2, 3, 4, 6]
 
 
 def test_competitions_prize_then_deadline_nulls_last(db_session: Session, company):

@@ -10,6 +10,7 @@ import html
 import logging
 import math
 import re
+from collections import Counter
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -29,6 +30,8 @@ from core.db import make_engine
 logger = logging.getLogger(__name__)
 INDIA_TIME = ZoneInfo("Asia/Kolkata")
 MESSAGE_LIMIT = 4096
+MAX_PER_COMPANY = 1
+CANDIDATE_POOL = 200
 Sender = Callable[[str], int]
 
 
@@ -72,6 +75,21 @@ def _candidate_query() -> Select[tuple[models.Opportunity]]:
     )
 
 
+def _limit_per_company(rows: Sequence[models.Opportunity], limit: int) -> list[models.Opportunity]:
+    """Keep the ranked order, but don't let one company fill the post."""
+    picked: list[models.Opportunity] = []
+    counts: Counter[int] = Counter()
+    for row in rows:
+        if row.company_id is not None:
+            if counts[row.company_id] >= MAX_PER_COMPANY:
+                continue
+            counts[row.company_id] += 1
+        picked.append(row)
+        if len(picked) == limit:
+            break
+    return picked
+
+
 def select_candidates(session: Session) -> list[models.Opportunity]:
     compensation = models.Opportunity.meta["compensation"]
     unpaid = compensation["unpaid"].as_boolean().is_(True)
@@ -88,7 +106,7 @@ def select_candidates(session: Session) -> list[models.Opportunity]:
             models.Opportunity.first_seen_at.desc(),
             models.Opportunity.id.desc(),
         )
-        .limit(5)
+        .limit(CANDIDATE_POOL)
     ).all()
     competitions = session.scalars(
         _candidate_query()
@@ -101,9 +119,9 @@ def select_candidates(session: Session) -> list[models.Opportunity]:
             models.Opportunity.deadline.asc(),
             models.Opportunity.id.asc(),
         )
-        .limit(3)
+        .limit(CANDIDATE_POOL)
     ).all()
-    return [*internships, *competitions]
+    return [*_limit_per_company(internships, 5), *_limit_per_company(competitions, 3)]
 
 
 def _positive_number(value: object) -> float | None:
