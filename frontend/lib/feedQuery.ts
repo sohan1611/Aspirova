@@ -29,6 +29,7 @@ export interface FeedRequest {
   sort: "student" | "recent" | "deadline";
   kind: "roles" | "competitions" | undefined;
   filters: FeedParams;
+  prefer_country?: string;
   forYouFields: string[] | undefined;
   forYouTerms: string[] | undefined;
   forYouSkills: string[] | undefined;
@@ -170,6 +171,7 @@ export function loadFeedData(
   return getFeed(
     {
       ...request.filters,
+      prefer_country: request.prefer_country ?? request.filters.prefer_country,
       kind: request.kind,
       sort: request.sort,
       page: request.page,

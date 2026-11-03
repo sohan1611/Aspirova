@@ -52,6 +52,7 @@ from crawlers.remoteok import RemoteOkAdapter
 from crawlers.smartrecruiters import SmartRecruitersAdapter
 from crawlers.unstop import UnstopAdapter
 from pipeline.company_resolution import resolve_company
+from pipeline.expire import FULL_INVENTORY_SOURCES
 from pipeline.ingest import ingest_one, load_board_state, load_source_raw_listings
 from pipeline.revalidate import notify_changed
 from scripts.match_prestige import match_prestige
@@ -1390,6 +1391,20 @@ def crawl_aggregator(
                     .where(models.Opportunity.id.in_(seen_ids[start : start + 5000]))
                     .values(last_seen_at=func.now())
                 )
+            if source_label in FULL_INVENTORY_SOURCES:
+                # A source listing a listing as open is direct evidence it is open
+                # under the absence ruling; a past deadline still proves closure.
+                for start in range(0, len(seen_ids), 5000):
+                    session.execute(
+                        update(models.Opportunity)
+                        .where(
+                            models.Opportunity.id.in_(seen_ids[start : start + 5000]),
+                            models.Opportunity.closed_at.is_not(None),
+                            (models.Opportunity.deadline.is_(None))
+                            | (models.Opportunity.deadline > func.now()),
+                        )
+                        .values(closed_at=None)
+                    )
             session.commit()
 
         if stop_now():

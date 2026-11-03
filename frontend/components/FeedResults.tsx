@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import FeedCountryPreference from "@/components/FeedCountryPreference";
 import FeedGrid from "@/components/FeedGrid";
 import { FeedNavigationProvider } from "@/components/FeedNavigation";
 import FeedViewControls from "@/components/FeedViewControls";
@@ -12,6 +13,7 @@ import SearchFilters from "@/components/SearchFilters";
 import SourceCompanyCard from "@/components/SourceCompanyCard";
 import TopCompanies from "@/components/TopCompanies";
 import { Button } from "@/components/ui/button";
+import { useFeedCountry, usePreferredCountry } from "@/lib/feedPreference";
 import { findExternalCompany } from "@/lib/externalCompanies";
 import { type FeedResultData, loadFeedData, parseFeedRequest } from "@/lib/feedQuery";
 import { useListingResults } from "@/lib/listingResults";
@@ -40,7 +42,16 @@ export default function FeedResults({ initialData, trendingItems }: FeedResultsP
   const query = new URLSearchParams(searchParams.toString());
   const request = parseFeedRequest(query);
 
-  const queryKey = query.toString();
+  const countryCode = useFeedCountry();
+  const preferredCountry = usePreferredCountry();
+  const preferenceApplies =
+    !request.q &&
+    !request.isForYou &&
+    !query.has("scope") &&
+    !query.has("country") &&
+    request.sort !== "deadline";
+  const preference = preferenceApplies ? preferredCountry : null;
+  const queryKey = JSON.stringify([query.toString(), preference]);
 
   // Results are held outside React, keyed by route plus query string - see
   // lib/listingResults.ts for why component state could not hold them on these
@@ -48,10 +59,11 @@ export default function FeedResults({ initialData, trendingItems }: FeedResultsP
   const settled = useListingResults(
     "/",
     queryKey,
-    !request.canReusePrerenderedFeed,
-    () => loadFeedData(request),
+    !request.canReusePrerenderedFeed || preference !== null,
+    () => loadFeedData({ ...request, prefer_country: preference ?? undefined }),
   );
 
+  // A preference-only fetch keeps the prerendered list visible while it settles.
   const isLoading = !request.canReusePrerenderedFeed && !settled;
   // On a failed fetch (`settled.data === null`) this keeps the prerendered
   // listings on screen rather than blanking the feed - the empty state would
@@ -79,8 +91,11 @@ export default function FeedResults({ initialData, trendingItems }: FeedResultsP
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-muted-foreground">
             {!request.q && !request.isForYou && typeof data.open_total === "number"
-              ? `${data.open_total.toLocaleString("en-IN")} open opportunities`
+              ? `${data.open_total.toLocaleString("en-IN")} ${request.kind === "roles" ? "open jobs and internships" : "open opportunities"}`
               : `${data.total.toLocaleString("en-IN")} opportunities`}
+            {preferenceApplies && (
+              <FeedCountryPreference countryCode={countryCode} preferredCountry={preference} />
+            )}
           </p>
           <FeedViewControls cols={request.cols} rows={request.rows} />
         </div>

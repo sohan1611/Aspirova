@@ -263,7 +263,7 @@ def ingest_one(
             "description_raw": fix_multiline_text(normalized.description_raw),
         }
     )
-    country = derive_country(normalized.location)
+    country = normalized.country or derive_country(normalized.location)
     raw_row = board_state.raw_by_external_id.get(raw.external_id)
 
     if raw_row is not None and raw_row.opportunity_id is not None:

@@ -46,6 +46,7 @@ def get_feed(
     scope: str | None = Query(None, pattern="^(abroad|domestic|both)$"),
     country: str | None = Query(None, min_length=2, max_length=2),
     remote_abroad: bool = Query(False),
+    prefer_country: str | None = Query(None, pattern="^[A-Za-z]{2}$"),
     source: str | None = Query(None, pattern="^(direct|unstop|remoteok|devpost)$"),
     experience: str | None = Query(None, pattern="^(early)$"),
     comp_type: list[str] | None = Query(None),
@@ -124,6 +125,20 @@ def get_feed(
             else_=1,
         )
         ordering.append(roles_first.asc())
+
+    if prefer_country is not None and sort in {"student", "recent"}:
+        preferred_country = case(
+            (models.Opportunity.country == prefer_country.upper(), 0),
+            (
+                and_(
+                    models.Opportunity.is_remote.is_(True),
+                    func.btrim(func.coalesce(models.Opportunity.country, "")) == "",
+                ),
+                1,
+            ),
+            else_=2,
+        )
+        ordering.append(preferred_country.asc())
 
     student_rank = student_rank_expression()
 

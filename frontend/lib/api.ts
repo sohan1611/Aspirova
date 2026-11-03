@@ -99,6 +99,7 @@ export interface FeedParams {
   top?: number;
   scope?: "abroad" | "domestic" | "both";
   country?: string;
+  prefer_country?: string;
   remote_abroad?: boolean;
   comp_type?: string | string[];
   registration?: string;
@@ -200,6 +201,7 @@ export async function getFeed(
   if (params.top) search.set("top", String(params.top));
   if (params.scope) search.set("scope", params.scope);
   if (params.country) search.set("country", params.country);
+  if (params.prefer_country) search.set("prefer_country", params.prefer_country);
   if (params.remote_abroad) search.set("remote_abroad", "true");
   appendRepeatedParam(search, "comp_type", params.comp_type);
   if (params.registration) search.set("registration", params.registration);

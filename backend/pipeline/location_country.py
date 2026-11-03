@@ -141,6 +141,12 @@ _COUNTRY_ALIASES: tuple[tuple[str, str], ...] = (
     ("dominican republic", "DO"),
     ("puerto rico", "PR"),
     ("guatemala", "GT"),
+    ("sgp", "SG"),
+    ("luxembourg", "LU"),
+    ("lebanon", "LB"),
+    ("macao", "MO"),
+    ("kazakhstan", "KZ"),
+    ("korea", "KR"),
 )
 
 # Major technology hubs, including the locations most frequently encountered
@@ -190,7 +196,11 @@ _CITY_COUNTRIES: tuple[tuple[str, str], ...] = (
     ("mohali", "IN"),
     ("dehradun", "IN"),
     ("madurai", "IN"),
+    ("ajmer", "IN"),
+    ("anupgarh", "IN"),
     # United States
+    ("sf office", "US"),
+    ("nyc", "US"),
     ("new york city", "US"),
     ("new york", "US"),
     ("san francisco", "US"),
@@ -239,6 +249,12 @@ _CITY_COUNTRIES: tuple[tuple[str, str], ...] = (
     ("köln", "DE"),
     ("stuttgart", "DE"),
     ("ulm", "DE"),
+    ("düsseldorf", "DE"),
+    ("mannheim", "DE"),
+    ("bonn", "DE"),
+    ("heidelberg", "DE"),
+    ("leipzig", "DE"),
+    ("aachen", "DE"),
     ("amsterdam", "NL"),
     ("eindhoven", "NL"),
     ("rotterdam", "NL"),
@@ -304,6 +320,14 @@ _CITY_COUNTRIES: tuple[tuple[str, str], ...] = (
     ("kyiv", "UA"),
     ("kiev", "UA"),
     ("lviv", "UA"),
+    ("belgrade", "RS"),
+    ("bordeaux", "FR"),
+    ("delft", "NL"),
+    ("yerevan", "AM"),
+    ("reykjavík", "IS"),
+    ("schlieren", "CH"),
+    ("bratislava", "SK"),
+    ("zaragoza", "ES"),
     # Middle East and Africa
     ("dubai", "AE"),
     ("abu dhabi", "AE"),
@@ -313,6 +337,7 @@ _CITY_COUNTRIES: tuple[tuple[str, str], ...] = (
     ("tel aviv", "IL"),
     ("jerusalem", "IL"),
     ("haifa", "IL"),
+    ("ramat gan", "IL"),
     ("istanbul", "TR"),
     ("ankara", "TR"),
     ("izmir", "TR"),
@@ -385,6 +410,7 @@ _CITY_COUNTRIES: tuple[tuple[str, str], ...] = (
     ("medellín", "CO"),
     ("medellin", "CO"),
     ("lima", "PE"),
+    ("montevideo", "UY"),
     ("san josé", "CR"),
     ("san jose", "CR"),
 )
@@ -519,6 +545,25 @@ _US_STATE_ABBREVIATION_RE = re.compile(
 )
 
 
+# Alpha-3 codes are accepted only as a complete trailing comma-separated part.
+# This avoids interpreting arbitrary fragments as country abbreviations.
+_TRAILING_ALPHA3_COUNTRIES = dict(
+    pair.split(":")
+    for pair in (
+        "USA:US GBR:GB ARE:AE IND:IN DEU:DE CAN:CA AUS:AU SGP:SG FRA:FR NLD:NL "
+        "IRL:IE JPN:JP CHN:CN HKG:HK KOR:KR TWN:TW ISR:IL POL:PL ESP:ES ITA:IT "
+        "BRA:BR MEX:MX AUT:AT BEL:BE CHE:CH SWE:SE NOR:NO DNK:DK FIN:FI PRT:PT "
+        "GRC:GR CZE:CZ ROU:RO HUN:HU SVK:SK SVN:SI HRV:HR SRB:RS BGR:BG EST:EE "
+        "LVA:LV LTU:LT UKR:UA RUS:RU TUR:TR SAU:SA QAT:QA KWT:KW OMN:OM BHR:BH "
+        "EGY:EG ZAF:ZA NGA:NG KEN:KE GHA:GH MAR:MA TUN:TN DZA:DZ PAK:PK BGD:BD "
+        "LKA:LK NPL:NP IDN:ID MYS:MY THA:TH VNM:VN PHL:PH NZL:NZ ARG:AR CHL:CL "
+        "COL:CO PER:PE URY:UY VEN:VE ECU:EC CRI:CR PAN:PA DOM:DO PRI:PR GTM:GT "
+        "LUX:LU LBN:LB MAC:MO KAZ:KZ ARM:AM ISL:IS GEO:GE"
+    ).split()
+)
+_TRAILING_ALPHA3_RE = re.compile(r",\s*([A-Za-z]{3})\s*$")
+
+
 def _first_match(text: str, matchers: tuple[tuple[str, re.Pattern[str]], ...]) -> str | None:
     """Find the first, then longest, matching entry in a deterministic matcher set."""
     winner: tuple[int, int, int, str] | None = None
@@ -552,6 +597,12 @@ def derive_country(location: str | None) -> str | None:
     text = location.strip()
     if not text or _remote_key(text) in _REMOTE_ONLY_VALUES:
         return None
+
+    trailing_code = _TRAILING_ALPHA3_RE.search(text)
+    if trailing_code is not None:
+        country = _TRAILING_ALPHA3_COUNTRIES.get(trailing_code.group(1).upper())
+        if country is not None:
+            return country
 
     explicit_country = _first_match(text, _COUNTRY_MATCHERS)
     if explicit_country is not None:

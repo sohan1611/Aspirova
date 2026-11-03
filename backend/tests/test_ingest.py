@@ -8,7 +8,7 @@ nothing persists in the real database (Doc 08: tests must not pollute
 shared state).
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import func, select, update
@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from core import models
 from core.adapters import NormalizedListing, RawListing
+from crawlers import runner
 from pipeline.ingest import ingest_one, load_board_state
 
 
@@ -734,3 +735,60 @@ def test_ingest_derives_and_refreshes_country_on_content_change(db_session, seed
     assert is_new_v2 is False
     assert opportunity_v2.id == opportunity_v1.id
     assert opportunity_v2.country == "CA"
+
+
+@pytest.mark.parametrize("source_key", ["unstop", "devpost", "devfolio", "remoteok"])
+@pytest.mark.parametrize("deadline_days", [1, -1, None])
+def test_aggregator_seen_listing_reopens_only_with_full_inventory_and_no_past_deadline(
+    db_session: Session,
+    seeded,
+    monkeypatch: pytest.MonkeyPatch,
+    source_key: str,
+    deadline_days: int | None,
+) -> None:
+    source, _other, company = seeded
+    source.adapter_key = source_key
+    source.type = "aggregator"
+    source.crawl_tier = 1
+    now = datetime.now(UTC)
+    deadline = now + timedelta(days=deadline_days) if deadline_days is not None else None
+    raw = _raw("reopen-role", "https://acme.example/jobs/reopen-role").model_copy(
+        update={"source_slug": source_key}
+    )
+    normalized = _normalized("Junior Software Engineer", raw.source_url).model_copy(
+        update={"source_slug": source_key, "deadline": deadline}
+    )
+    opportunity, _ = _ingest(db_session, source.id, company.id, raw, normalized)
+    opportunity.closed_at = now - timedelta(days=2)
+    db_session.flush()
+    opportunity_id = opportunity.id
+
+    class SeenAdapter:
+        def fetch(self):
+            return [raw]
+
+        def parse(self, _raw):
+            return normalized
+
+        def health(self):
+            return "ok"
+
+    monkeypatch.setattr(runner, "resolve_company", lambda *_args: company)
+    result = runner.crawl_aggregator(db_session, source, SeenAdapter)
+    assert result["status"] == "success"
+    assert result["errors"] == 0
+    db_session.expire_all()
+    refreshed = db_session.get(models.Opportunity, opportunity_id)
+    should_reopen = source_key in {"unstop", "devpost", "devfolio"} and deadline_days != -1
+    assert (refreshed.closed_at is None) is should_reopen
+    assert refreshed.deadline == deadline
+
+
+def test_ingest_prefers_explicit_normalized_country(db_session: Session, seeded) -> None:
+    source, _other, company = seeded
+    raw = _raw("explicit-country", "https://acme.example/jobs/explicit-country")
+    normalized = _normalized("Junior Engineer", raw.source_url, location="Online").model_copy(
+        update={"country": "IN"}
+    )
+    opportunity, _ = _ingest(db_session, source.id, company.id, raw, normalized)
+    assert opportunity.country == "IN"

@@ -63,6 +63,7 @@ class DevfolioAdapter:
         self._retry_reasons = []
 
         for filter_name in _FILTERS:
+            declared_pages = None
             for page in range(1, _MAX_PAGES + 1):
                 if self._page_count:
                     sleep(_REQUEST_DELAY_SECONDS)
@@ -133,11 +134,18 @@ class DevfolioAdapter:
                     if listing is not None:
                         listings.append(listing)
 
-                declared_pages = _declared_pages(payload)
+                page_count = _declared_pages(payload)
+                if page_count is not None:
+                    declared_pages = page_count
+                declared_total = self._declared_totals.get(filter_name)
                 if (
                     (declared_pages is not None and page >= declared_pages)
                     or (declared_total is not None and page * _PAGE_SIZE >= declared_total)
-                    or len(records) < _PAGE_SIZE
+                    or (
+                        declared_pages is None
+                        and declared_total is None
+                        and len(records) < _PAGE_SIZE
+                    )
                 ):
                     self._fully_paged_filters.add(filter_name)
                     break

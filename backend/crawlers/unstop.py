@@ -112,6 +112,7 @@ class UnstopAdapter:
         current_year = datetime.now(UTC).year
 
         for opportunity_type in _OPPORTUNITY_TYPES:
+            received_count = 0
             for page in range(1, _MAX_PAGES + 1):
                 if _should_stop(deadline_monotonic, should_stop):
                     self._stopped_early = True
@@ -175,6 +176,8 @@ class UnstopAdapter:
                 declared_total = _declared_total(payload)
                 if declared_total is not None:
                     self._declared_totals[opportunity_type] = declared_total
+                received_count += len(items)
+                declared_total = self._declared_totals.get(opportunity_type)
                 if not items:
                     self._fully_paged_types.add(opportunity_type)
                     break
@@ -228,13 +231,19 @@ class UnstopAdapter:
                         continue
                     listings.extend(item_listings)
 
-                if len(items) < _PAGE_SIZE or (
-                    declared_total is not None and page * _PAGE_SIZE >= declared_total
+                if (declared_total is not None and page * _PAGE_SIZE >= declared_total) or (
+                    declared_total is None and len(items) < _PAGE_SIZE
                 ):
                     self._fully_paged_types.add(opportunity_type)
                     break
             else:
                 self._mark_type_incomplete(opportunity_type, "page_cap")
+
+            declared_total = self._declared_totals.get(opportunity_type)
+            if declared_total is not None and received_count < declared_total * 0.9:
+                self._fully_paged_types.discard(opportunity_type)
+                self._mark_type_incomplete(opportunity_type, "short_of_declared_total")
+                degraded = True
 
         self._last_health = "degraded" if degraded else "ok"
         return listings
@@ -278,7 +287,10 @@ class UnstopAdapter:
         region = _as_text(opportunity.get("region")) or None
         deadline = _registration_deadline(opportunity)
         apply_url = _as_text(opportunity.get("seo_url")) or raw.source_url
-        location = _location_from_payload(opportunity, region)
+        role_fields = unstop_role_fields(opportunity) if category in {"internship", "job"} else None
+        location = (
+            role_fields["location"] if role_fields else _location_from_payload(opportunity, region)
+        )
 
         prizes = opportunity.get("prizes")
         if not isinstance(prizes, list):
@@ -329,6 +341,9 @@ class UnstopAdapter:
         if filters_meta:
             meta.update(filters_meta)
 
+        if role_fields:
+            meta.update(role_fields["meta"])
+
         return NormalizedListing(
             source_slug=self.source_slug,
             external_id=raw.external_id,
@@ -337,7 +352,10 @@ class UnstopAdapter:
             company_name=organizer or "Unstop",
             company_domain=None,
             location=location,
-            is_remote=(region or "").lower() == "online",
+            country=role_fields["country"] if role_fields else None,
+            is_remote=(
+                role_fields["is_remote"] if role_fields else (region or "").lower() == "online"
+            ),
             category=category,
             description_raw=extract_text(_as_text(opportunity.get("details"))),
             apply_url=apply_url,
@@ -522,6 +540,101 @@ def _range_end_year(start_year: int, end_year_text: str) -> int:
     if end_year < start_year:
         end_year += 100
     return end_year
+
+
+def unstop_role_fields(opportunity: dict[str, Any]) -> dict[str, Any]:
+    """Shared role fields for ingestion and the existing-row backfill."""
+    detail = opportunity.get("jobDetail")
+    has_detail = isinstance(detail, dict)
+    detail = detail if has_detail else {}
+    return {
+        "location": _role_location(opportunity, detail),
+        "country": _role_country(opportunity),
+        "is_remote": (
+            detail.get("type") == "wfh"
+            if has_detail
+            else _as_text(opportunity.get("region")).lower() == "online"
+        ),
+        "meta": _role_meta(detail),
+    }
+
+
+def _role_location(opportunity: dict[str, Any], detail: dict[str, Any]) -> str | None:
+    locations = detail.get("locations")
+    names = (
+        [name.strip() for name in locations if isinstance(name, str) and name.strip()]
+        if isinstance(locations, list)
+        else []
+    )
+    if not names:
+        locations = opportunity.get("locations")
+        if isinstance(locations, list):
+            names = [
+                ", ".join(
+                    part
+                    for part in (_as_text(place.get("city")), _as_text(place.get("state")))
+                    if part
+                )
+                for place in locations
+                if isinstance(place, dict)
+            ]
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for name in names:
+        if name and name.casefold() not in seen:
+            seen.add(name.casefold())
+            deduped.append(name)
+    if deduped:
+        return "; ".join(deduped)
+    return "Work from home" if detail.get("type") == "wfh" else None
+
+
+def _role_country(opportunity: dict[str, Any]) -> str | None:
+    locations = opportunity.get("locations")
+    if isinstance(locations, list):
+        for place in locations:
+            if isinstance(place, dict):
+                country = _as_text(place.get("country")).casefold()
+                if country and country not in {"india", "in", "ind"}:
+                    return None
+    # Unstop presents these internships and jobs as roles in India.
+    return "IN"
+
+
+def _role_meta(detail: dict[str, Any]) -> dict[str, Any]:
+    meta = {
+        key: detail[field]
+        for key, field in (("work_mode", "type"), ("timing", "timing"))
+        if detail.get(field)
+    }
+    compensation = _role_compensation(detail)
+    if compensation is not None:
+        meta["compensation"] = compensation
+    return meta
+
+
+def _role_compensation(detail: dict[str, Any]) -> dict[str, Any] | None:
+    if detail.get("paid_unpaid") == "unpaid":
+        return {"unpaid": True, "source": "unstop"}
+    period = {"monthly": "month", "annually": "year"}.get(detail.get("pay_in"))
+    maximum = detail.get("max_salary")
+    if (
+        detail.get("paid_unpaid") != "paid"
+        or not detail.get("show_salary")
+        or detail.get("not_disclosed")
+        or not isinstance(maximum, (int, float))
+        or not maximum > 0
+        or detail.get("currency") != "fa-rupee"
+        or period is None
+    ):
+        return None
+    return {
+        "min": detail.get("min_salary") or maximum,
+        "max": maximum,
+        "currency": "INR",
+        "period": period,
+        "source": "unstop",
+    }
 
 
 def _location_from_payload(opportunity: dict[str, Any], region: str | None) -> str | None:
