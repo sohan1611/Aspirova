@@ -15,24 +15,10 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { deleteSavedSearch, getSavedSearches, setSavedSearchAlerts } from "@/lib/api";
-import { getCountry } from "@/lib/countries";
+import { savedSearchHref, savedSearchParamsFromQuery, savedSearchSummary } from "@/lib/savedSearchParams";
 import { formatDate } from "@/lib/date";
 import type { SavedSearchItem, SavedSearchParams } from "@/lib/types";
 import { cn } from "@/lib/utils";
-
-const CATEGORY_LABELS: Record<string, string> = {
-  internship: "Internships",
-  job: "Jobs",
-  hackathon: "Hackathons",
-  competition: "Competitions",
-};
-
-const SOURCE_LABELS: Record<string, string> = {
-  direct: "Direct from company",
-  unstop: "Unstop",
-  remoteok: "RemoteOK",
-  devpost: "Devpost",
-};
 
 interface SavedSearchLoadState {
   accessToken: string | null;
@@ -46,37 +32,11 @@ interface SavedSearchLoadState {
 function safeSavedSearchParams(params: unknown): SavedSearchParams {
   if (!params || typeof params !== "object" || Array.isArray(params)) return {};
 
-  const values = params as Record<string, unknown>;
-  return {
-    q: typeof values.q === "string" ? values.q : undefined,
-    category:
-      values.category === "internship" ||
-      values.category === "job" ||
-      values.category === "hackathon" ||
-      values.category === "competition"
-        ? values.category
-        : undefined,
-    kind:
-      values.kind === "roles" || values.kind === "competitions"
-        ? values.kind
-        : undefined,
-    remote: typeof values.remote === "boolean" ? values.remote : undefined,
-    scope:
-      values.scope === "abroad" ||
-      values.scope === "domestic" ||
-      values.scope === "both"
-        ? values.scope
-        : undefined,
-    country: typeof values.country === "string" ? values.country : undefined,
-    source:
-      values.source === "direct" ||
-      values.source === "unstop" ||
-      values.source === "remoteok" ||
-      values.source === "devpost"
-        ? values.source
-        : undefined,
-    experience: values.experience === "early" ? values.experience : undefined,
-  };
+  const values = Object.fromEntries(Object.entries(params).filter(([, value]) =>
+    typeof value === "string" || typeof value === "boolean" || typeof value === "number" ||
+    (Array.isArray(value) && value.every((item) => typeof item === "string")),
+  ));
+  return savedSearchParamsFromQuery(values);
 }
 
 function isSavedSearchItem(value: unknown): value is SavedSearchItem {
@@ -85,58 +45,6 @@ function isSavedSearchItem(value: unknown): value is SavedSearchItem {
     typeof value === "object" &&
     typeof (value as { id?: unknown }).id === "number"
   );
-}
-
-function savedSearchSummary(params: unknown): string {
-  const safeParams = safeSavedSearchParams(params);
-  const parts: string[] = [];
-
-  if (safeParams.q) parts.push(`“${safeParams.q}”`);
-  if (safeParams.category) {
-    parts.push(CATEGORY_LABELS[safeParams.category] ?? safeParams.category);
-  } else if (safeParams.kind === "roles") {
-    parts.push("Roles");
-  } else if (safeParams.kind === "competitions") {
-    parts.push("Competitions");
-  }
-  if (safeParams.remote === true) parts.push("Remote");
-  if (safeParams.remote === false) parts.push("On-site");
-  if (safeParams.country) {
-    parts.push(
-      getCountry(safeParams.country)?.name ?? safeParams.country.toUpperCase(),
-    );
-  } else if (safeParams.scope === "abroad") {
-    parts.push("Abroad");
-  } else if (safeParams.scope === "domestic") {
-    parts.push("Domestic");
-  } else if (safeParams.scope === "both") {
-    parts.push("All locations");
-  }
-  if (safeParams.source) {
-    parts.push(SOURCE_LABELS[safeParams.source] ?? safeParams.source);
-  }
-  if (safeParams.experience === "early") parts.push("Early career");
-
-  return parts.join(" · ") || "All opportunities";
-}
-
-function savedSearchHref(params: unknown): string {
-  const safeParams = safeSavedSearchParams(params);
-  const search = new URLSearchParams();
-
-  if (safeParams.q) search.set("q", safeParams.q);
-  if (safeParams.category) search.set("category", safeParams.category);
-  if (safeParams.kind) search.set("kind", safeParams.kind);
-  if (safeParams.remote !== undefined && safeParams.remote !== null) {
-    search.set("remote", String(safeParams.remote));
-  }
-  if (safeParams.scope) search.set("scope", safeParams.scope);
-  if (safeParams.country) search.set("country", safeParams.country);
-  if (safeParams.source) search.set("source", safeParams.source);
-  if (safeParams.experience) search.set("experience", safeParams.experience);
-
-  const query = search.toString();
-  return query ? `/?${query}` : "/";
 }
 
 export default function SavedSearchesSection({ accessToken }: { accessToken: string }) {
@@ -351,7 +259,7 @@ export default function SavedSearchesSection({ accessToken }: { accessToken: str
         </CardHeader>
         <CardContent className="grid gap-3">
           {loadState.items.map((item) => {
-            const summary = savedSearchSummary(item.params);
+            const summary = savedSearchSummary(safeSavedSearchParams(item.params));
             const name = typeof item.name === "string" ? item.name.trim() : "";
             const title = name || summary;
             const createdAt = typeof item.created_at === "string" ? item.created_at : null;
@@ -421,7 +329,7 @@ export default function SavedSearchesSection({ accessToken }: { accessToken: str
                 <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-border pt-4">
                   <Button asChild variant="outline" size="sm">
                     <Link
-                      href={savedSearchHref(item.params)}
+                      href={savedSearchHref(safeSavedSearchParams(item.params))}
                       aria-label={`View ${title} on the opportunity feed`}
                     >
                       View

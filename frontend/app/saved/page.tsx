@@ -4,6 +4,7 @@ import { AlertCircle, Bookmark } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useBookmarks } from "@/components/BookmarksProvider";
 import HeaderAuth from "@/components/HeaderAuth";
 import OpportunityCard from "@/components/OpportunityCard";
 import OpportunityCardSkeleton from "@/components/OpportunityCardSkeleton";
@@ -86,6 +87,7 @@ function StageControl({
 }
 
 export default function SavedPage() {
+  const { syncStatus } = useBookmarks();
   const session = useSession();
   const accessToken = session?.access_token ?? null;
   const [retryKey, setRetryKey] = useState(0);
@@ -183,6 +185,7 @@ export default function SavedPage() {
 
     try {
       await updateBookmarkStatus(slug, nextStatus, accessToken);
+      syncStatus(slug, nextStatus);
     } catch {
       setLoadState((current) => {
         if (current.accessToken !== accessToken) return current;

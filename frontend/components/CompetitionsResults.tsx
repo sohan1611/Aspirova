@@ -7,6 +7,8 @@ import {
   useCompetitionFacets,
 } from "@/components/CompetitionsAdvancedFilters";
 import CompetitionsFilterBar from "@/components/CompetitionsFilterBar";
+import EmailMatchesButton from "@/components/EmailMatchesButton";
+import { hasSavedSearchParams, savedSearchParamsFromQuery } from "@/lib/savedSearchParams";
 import FeedGrid from "@/components/FeedGrid";
 import { FeedNavigationProvider } from "@/components/FeedNavigation";
 import { Button } from "@/components/ui/button";
@@ -70,6 +72,9 @@ export default function CompetitionsResults({ initialData }: CompetitionsResults
           </p>
         </div>
 
+        {hasSavedSearchParams(query) && (
+          <EmailMatchesButton params={savedSearchParamsFromQuery({ ...request, kind: "competitions" })} />
+        )}
         <CompetitionsFilterBar facets={facets} facetsStatus={facetsStatus} />
       </div>
 

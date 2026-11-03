@@ -2,7 +2,6 @@
 
 import {
   ArrowUpDown,
-  Bookmark,
   ChevronDown,
   Loader2,
   Search,
@@ -11,22 +10,12 @@ import {
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { toast } from "sonner";
 import RoleSignalFilters from "@/components/RoleSignalFilters";
 import { ROLE_FILTER_KEYS, roleFilterLabel } from "@/lib/roleSignalQuery";
 import FacetPicker from "@/components/FacetPicker";
 import { useFeedNavigation } from "@/components/FeedNavigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import LocationScope from "@/components/LocationScope";
@@ -43,11 +32,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { createSavedSearch, getFacets } from "@/lib/api";
-import { getCountry } from "@/lib/countries";
+import { getFacets } from "@/lib/api";
 import { summarizeLocation } from "@/lib/location";
-import type { Facets, SavedSearchParams } from "@/lib/types";
-import { useSession } from "@/lib/useSession";
+import type { Facets } from "@/lib/types";
+import EmailMatchesButton from "@/components/EmailMatchesButton";
+import { getSavedSearchParams, hasSavedSearchParams } from "@/lib/savedSearchParams";
 import { cn } from "@/lib/utils";
 
 const CATEGORY_OPTIONS = [
@@ -99,75 +88,11 @@ const FILTER_KEYS = [
   "sort",
 ] as const;
 
-const SAVED_SEARCH_PARAM_KEYS = [
-  "q",
-  "category",
-  "kind",
-  "remote",
-  "scope",
-  "country",
-  "source",
-  "experience",
-] as const;
-
 interface ActiveFilterDescriptor {
   id: string;
   label: React.ReactNode;
   humanLabel: string;
   onRemove: () => void;
-}
-
-interface SearchParamReader {
-  get(name: string): string | null;
-}
-
-function getSavedSearchParams(searchParams: SearchParamReader): SavedSearchParams {
-  const remote = searchParams.get("remote");
-
-  return {
-    q: searchParams.get("q") ?? undefined,
-    category: searchParams.get("category") as SavedSearchParams["category"],
-    kind: searchParams.get("kind") as SavedSearchParams["kind"],
-    remote: remote === "true" ? true : remote === "false" ? false : undefined,
-    scope: searchParams.get("scope") as SavedSearchParams["scope"],
-    country: searchParams.get("country") ?? undefined,
-    source: searchParams.get("source") as SavedSearchParams["source"],
-    experience: searchParams.get("experience") as SavedSearchParams["experience"],
-  };
-}
-
-function hasSavedSearchParams(searchParams: SearchParamReader): boolean {
-  return SAVED_SEARCH_PARAM_KEYS.some((key) => {
-    const value = searchParams.get(key);
-    return value !== null && value !== "";
-  });
-}
-
-function savedSearchNamePlaceholder(params: SavedSearchParams): string {
-  const parts: string[] = [];
-  const category = CATEGORY_OPTIONS.find((option) => option.value === params.category);
-  const source = SOURCE_OPTIONS.find((option) => option.value === params.source);
-
-  if (params.q) {
-    const query = params.q.length > 36 ? `${params.q.slice(0, 36)}…` : params.q;
-    parts.push(`“${query}”`);
-  }
-  if (category?.value) parts.push(category.label);
-  else if (params.kind === "roles") parts.push("Roles");
-  else if (params.kind === "competitions") parts.push("Competitions");
-  if (params.remote === true) parts.push("Remote");
-  if (params.remote === false) parts.push("On-site");
-  if (params.country) {
-    parts.push(getCountry(params.country)?.name ?? params.country.toUpperCase());
-  } else if (params.scope === "abroad") {
-    parts.push("Abroad");
-  } else if (params.scope === "domestic") {
-    parts.push("Domestic");
-  }
-  if (source?.value) parts.push(source.label);
-  if (params.experience === "early") parts.push("Early career");
-
-  return parts.join(" · ") || "My saved search";
 }
 
 function locationLabel(raw: string): string {
@@ -229,8 +154,6 @@ function SegmentedGroup({
 
 export default function SearchFilters() {
   const searchParams = useSearchParams();
-  const session = useSession();
-  const accessToken = session?.access_token;
   const { navigate, isFeedPending: isPending } = useFeedNavigation();
   const [q, setQ] = useState(searchParams.get("q") ?? "");
   const [facets, setFacets] = useState<Facets | null>(null);
@@ -240,11 +163,7 @@ export default function SearchFilters() {
   const [facetError, setFacetError] = useState<string | null>(null);
   const [locationPickerOpen, setLocationPickerOpen] = useState(false);
   const [companyPickerOpen, setCompanyPickerOpen] = useState(false);
-  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
-  const [saveName, setSaveName] = useState("");
-  const [saveAlertsEnabled, setSaveAlertsEnabled] = useState(true);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [isSavingSearch, setIsSavingSearch] = useState(false);
+
 
   // Resync the search input to the URL when params change externally (Clear all / Back),
   // without remounting — so the Filter popover stays open across selections.
@@ -341,7 +260,6 @@ export default function SearchFilters() {
   const hasFilters = activeFilterCount > 0;
   const savedSearchParams = getSavedSearchParams(searchParams);
   const canSaveSearch = hasSavedSearchParams(searchParams);
-  const saveSearchPlaceholder = savedSearchNamePlaceholder(savedSearchParams);
 
   function updateParam(key: string, value: string | null) {
     const params = new URLSearchParams(searchParams.toString());
@@ -401,36 +319,6 @@ export default function SearchFilters() {
 
   function clearFilters() {
     navigate("/");
-  }
-
-  function handleSaveDialogOpenChange(open: boolean) {
-    setSaveDialogOpen(open);
-    if (open) {
-      setSaveName("");
-      setSaveAlertsEnabled(true);
-      setSaveError(null);
-    }
-  }
-
-  async function handleSaveSearch(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!accessToken || isSavingSearch) return;
-
-    setIsSavingSearch(true);
-    setSaveError(null);
-    try {
-      await createSavedSearch(accessToken, {
-        name: saveName.trim() || null,
-        params: savedSearchParams,
-        alerts_enabled: saveAlertsEnabled,
-      });
-      toast.success("Search saved");
-      setSaveDialogOpen(false);
-    } catch {
-      setSaveError("We couldn't save this search. Please try again.");
-    } finally {
-      setIsSavingSearch(false);
-    }
   }
 
   return (
@@ -663,79 +551,7 @@ export default function SearchFilters() {
             </PopoverContent>
           </Popover>
 
-          {accessToken && canSaveSearch && (
-            <Dialog open={saveDialogOpen} onOpenChange={handleSaveDialogOpenChange}>
-              <DialogTrigger asChild>
-                <Button type="button" variant="outline" size="sm" disabled={isPending}>
-                  <Bookmark aria-hidden="true" />
-                  Save search
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <form onSubmit={handleSaveSearch} className="grid gap-5">
-                  <DialogHeader>
-                    <DialogTitle className="font-serif text-2xl">Save this search</DialogTitle>
-                    <DialogDescription>
-                      Save these filters so you can return to the same opportunities anytime.
-                    </DialogDescription>
-                  </DialogHeader>
-
-                  <div className="grid gap-2.5">
-                    <Label className="eyebrow" htmlFor="saved-search-name">
-                      Name <span className="normal-case text-muted-foreground">(optional)</span>
-                    </Label>
-                    <Input
-                      id="saved-search-name"
-                      value={saveName}
-                      maxLength={80}
-                      disabled={isSavingSearch}
-                      onChange={(event) => setSaveName(event.target.value)}
-                      placeholder={saveSearchPlaceholder}
-                    />
-                  </div>
-
-                  <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/40 px-3 py-3">
-                    <input
-                      id="saved-search-alerts"
-                      type="checkbox"
-                      checked={saveAlertsEnabled}
-                      disabled={isSavingSearch}
-                      onChange={(event) => setSaveAlertsEnabled(event.target.checked)}
-                      className="mt-0.5 h-4 w-4 shrink-0 rounded border-border bg-background accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
-                    />
-                    <div className="min-w-0">
-                      <Label htmlFor="saved-search-alerts" className="cursor-pointer">
-                        Email alerts
-                      </Label>
-                      <p className="mt-0.5 text-sm text-muted-foreground">
-                        We&apos;ll be able to email you new matches.
-                      </p>
-                    </div>
-                  </div>
-
-                  {saveError && (
-                    <p id="saved-search-error" role="alert" className="text-sm text-destructive">
-                      {saveError}
-                    </p>
-                  )}
-
-                  <DialogFooter>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={isSavingSearch}
-                      onClick={() => setSaveDialogOpen(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button type="submit" disabled={isSavingSearch}>
-                      {isSavingSearch ? "Saving…" : "Save search"}
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
-          )}
+          {canSaveSearch && <EmailMatchesButton params={savedSearchParams} disabled={isPending} />}
 
           <LocationScope />
 

@@ -569,10 +569,31 @@ def saved_search_base_filters(params: dict) -> list:
         exclude_experienced_only_opportunities(),
         exclude_school_only_opportunities(),
         exclude_closed_competitions(),
-        *opportunity_filters(category, remote, None, None, None),
+        *opportunity_filters(category, remote, None, params.get("location"), None),
         *experience_filters(experience),
         *location_scope_filters(scope, country, False),
     ]
+    base_filters.extend(
+        role_signal_filters(
+            paid=params.get("paid"),
+            min_stipend=params.get("min_stipend"),
+            part_time=params.get("part_time"),
+            max_duration=params.get("max_duration"),
+            job_offer=params.get("job_offer"),
+            role=params.get("role"),
+        )
+    )
+    base_filters.extend(
+        competition_filters(
+            params.get("comp_type"),
+            params.get("registration"),
+            params.get("deadline_within"),
+            params.get("organiser_type"),
+            params.get("mode"),
+            params.get("prize_min"),
+            params.get("status"),
+        )
+    )
     base_filters.extend(kind_filters(kind))
     if source is not None:
         base_filters.append(models.Opportunity.primary_source.in_(SOURCE_GROUPS[source]))

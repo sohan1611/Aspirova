@@ -5,12 +5,13 @@ ORM mirror of that contract; do not let the two drift apart.
 """
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     BigInteger,
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -189,7 +190,9 @@ class GoogleIndexingNotification(Base):
     url: Mapped[str] = mapped_column(Text, nullable=False)
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     notified_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=text("now()")
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=text("now()"),
     )
 
     __table_args__ = (
@@ -238,6 +241,24 @@ class OpportunityViewCount(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=text("now()"),
+    )
+
+
+class OpportunityActionCount(Base):
+    """Anonymous daily action totals kept off the opportunities row."""
+
+    __tablename__ = "opportunity_action_counts"
+
+    opportunity_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("opportunities.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    action: Mapped[str] = mapped_column(Text, primary_key=True)
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    count: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default=text("0"))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
 
 

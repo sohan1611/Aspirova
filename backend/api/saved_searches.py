@@ -6,6 +6,13 @@ from sqlalchemy.orm import Session
 
 from api.auth import get_current_user
 from api.deps import get_db
+from api.filters import (
+    DEADLINE_WITHIN_DAYS,
+    ROLE_TERMS,
+    _comp_type_values,
+    _mode_values,
+    _organiser_type_values,
+)
 from api.schemas import (
     SavedSearchAlertsUpdate,
     SavedSearchCreate,
@@ -65,6 +72,34 @@ def _validated_params(params: SavedSearchParams) -> dict:
         raise HTTPException(status_code=422, detail="Invalid source")
     if params.experience is not None and params.experience not in _ALLOWED_EXPERIENCE:
         raise HTTPException(status_code=422, detail="Invalid experience")
+
+    if params.role is not None and params.role not in ROLE_TERMS:
+        raise HTTPException(status_code=422, detail="Invalid role")
+    if params.min_stipend is not None and params.min_stipend < 0:
+        raise HTTPException(status_code=422, detail="min_stipend must be at least 0")
+    if params.max_duration is not None and not 1 <= params.max_duration <= 24:
+        raise HTTPException(status_code=422, detail="max_duration must be between 1 and 24")
+    if params.prize_min is not None and params.prize_min < 0:
+        raise HTTPException(status_code=422, detail="prize_min must be at least 0")
+    if params.registration is not None:
+        registration = params.registration.strip().casefold()
+        if registration not in {"free", "paid"}:
+            raise HTTPException(status_code=422, detail="Invalid registration")
+        values["registration"] = registration
+    if params.deadline_within is not None and params.deadline_within not in DEADLINE_WITHIN_DAYS:
+        raise HTTPException(status_code=422, detail="deadline_within must be 1, 3, 7 or 30")
+    if params.status is not None and params.status not in {"open", "closed"}:
+        raise HTTPException(status_code=422, detail="Invalid status")
+    for key, normalize in (
+        ("comp_type", _comp_type_values),
+        ("organiser_type", _organiser_type_values),
+        ("mode", _mode_values),
+    ):
+        selected = getattr(params, key)
+        if selected is not None:
+            if any(not normalize([value]) for value in selected):
+                raise HTTPException(status_code=422, detail=f"Invalid {key}")
+            values[key] = normalize(selected)
 
     return values
 

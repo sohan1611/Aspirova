@@ -220,3 +220,73 @@ def test_trending_excludes_stale_inactive_and_closed_opportunities(
     assert inactive.slug not in slugs
     assert stale.slug not in slugs
     assert closed_competition.slug not in slugs
+
+
+def test_opportunity_actions_increment_and_separate_actions_and_days(
+    client, db_session, monkeypatch
+) -> None:
+    suffix = uuid.uuid4().hex
+    company = models.Company(slug=f"action-company-{suffix}", name="Action Company")
+    opportunity = _opportunity(suffix, "actions", company)
+    db_session.add(opportunity)
+    db_session.flush()
+    first_day = datetime(2026, 11, 3, 23, 59, tzinfo=UTC)
+
+    class Clock:
+        current = first_day
+
+        @classmethod
+        def now(cls, tz):
+            assert tz is UTC
+            return cls.current
+
+    monkeypatch.setattr(trending, "datetime", Clock)
+    path = f"/opportunities/{opportunity.slug}/actions"
+    assert client.post(f"{path}/apply").json() == {"ok": True}
+    assert client.post(f"{path}/apply").status_code == 200
+    assert client.post(f"{path}/gate").status_code == 200
+    Clock.current = first_day + timedelta(minutes=2)
+    assert client.post(f"{path}/apply").status_code == 200
+
+    rows = db_session.scalars(
+        select(models.OpportunityActionCount).where(
+            models.OpportunityActionCount.opportunity_id == opportunity.id
+        )
+    ).all()
+    assert {(row.day, row.action): row.count for row in rows} == {
+        (first_day.date(), "apply"): 2,
+        (first_day.date(), "gate"): 1,
+        (Clock.current.date(), "apply"): 1,
+    }
+
+
+def test_opportunity_actions_unknown_slug_returns_404(client) -> None:
+    response = client.post(f"/opportunities/missing-{uuid.uuid4().hex}/actions/apply")
+    assert response.status_code == 404
+
+
+def test_opportunity_actions_invalid_action_returns_422(client) -> None:
+    response = client.post("/opportunities/anything/actions/share")
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize("failure_at", ["scalar", "execute", "commit"])
+def test_opportunity_actions_survive_database_error(failure_at) -> None:
+    from unittest.mock import Mock
+
+    from sqlalchemy.exc import SQLAlchemyError
+
+    db = Mock(spec=Session)
+    db.scalar.return_value = 1
+    getattr(db, failure_at).side_effect = SQLAlchemyError("counter unavailable")
+    assert trending.record_opportunity_action("example", "apply", db) == {"ok": True}
+    db.rollback.assert_called_once()
+
+
+def test_opportunity_actions_have_view_rate_limit_dependency() -> None:
+    route = next(
+        route
+        for route in trending.router.routes
+        if route.path == "/opportunities/{slug}/actions/{action}"
+    )
+    assert trending.enforce_view_rate_limit in [item.dependency for item in route.dependencies]

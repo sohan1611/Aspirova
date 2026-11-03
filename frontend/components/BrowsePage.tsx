@@ -1,4 +1,6 @@
 import Link from "next/link";
+import EmailMatchesButton from "@/components/EmailMatchesButton";
+import { savedSearchParamsFromQuery } from "@/lib/savedSearchParams";
 import FeedGrid from "@/components/FeedGrid";
 import { FeedNavigationProvider } from "@/components/FeedNavigation";
 import {
@@ -44,9 +46,10 @@ export default async function BrowsePage({ config }: { config: BrowseConfig }) {
         </p>
       </header>
       <FeedNavigationProvider>
-        <p className="tnum mb-5 mt-10 border-b border-border pb-4 text-sm text-muted-foreground">
-          {data.total.toLocaleString("en-IN")} open
-        </p>
+        <div className="mb-5 mt-10 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+          <p className="tnum text-sm text-muted-foreground">{data.total.toLocaleString("en-IN")} open</p>
+          <EmailMatchesButton params={savedSearchParamsFromQuery(config.query)} />
+        </div>
         <FeedGrid
           items={data.items}
           cols={3}

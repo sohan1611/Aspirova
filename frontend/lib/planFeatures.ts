@@ -4,15 +4,15 @@ export const FEATURE_LABELS: Array<[string, (value: unknown) => string | null]> 
     "dream_companies_limit",
     (value) =>
       typeof value === "number"
-        ? `Track ${value} dream ${value === 1 ? "company" : "companies"}`
+        ? `Follow ${value} ${value === 1 ? "company" : "companies"}`
         : value === null
-          ? "Unlimited dream companies"
+          ? "Follow unlimited companies"
           : null,
   ],
   ["daily_digest", (value) => (value === true ? "Daily digest email" : null)],
   [
     "instant_alerts",
-    (value) => (value === true ? "Instant alerts for dream companies" : null),
+    (value) => (value === true ? "Instant alerts for followed companies" : null),
   ],
   ["unlimited_bookmarks", (value) => (value === true ? "Unlimited bookmarks" : null)],
   ["weekly_report", (value) => (value === true ? "Weekly career report" : null)],

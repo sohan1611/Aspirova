@@ -3,7 +3,7 @@ responses - the canonical opportunity page links to the real source, never
 mirrors it (Doc 01 sec 7 R1, Doc 04 sec 10)."""
 
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
@@ -217,6 +217,20 @@ class SavedSearchParams(BaseModel):
     country: str | None = None
     source: str | None = None
     experience: str | None = None
+    location: list[Annotated[str, Field(max_length=80)]] | None = Field(default=None, max_length=5)
+    role: str | None = None
+    paid: bool | None = None
+    min_stipend: int | None = None
+    part_time: bool | None = None
+    max_duration: int | None = None
+    job_offer: bool | None = None
+    comp_type: list[str] | None = None
+    registration: str | None = None
+    deadline_within: int | None = None
+    organiser_type: list[str] | None = None
+    mode: list[str] | None = None
+    prize_min: int | None = None
+    status: str | None = None
 
 
 class SavedSearchCreate(BaseModel):
@@ -234,7 +248,7 @@ class SavedSearchItem(BaseModel):
     created_at: datetime
 
     @field_serializer("params")
-    def serialize_params(self, params: SavedSearchParams) -> dict[str, str | bool]:
+    def serialize_params(self, params: SavedSearchParams) -> dict:
         return params.model_dump(exclude_none=True)
 
 

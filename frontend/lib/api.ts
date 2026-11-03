@@ -8,6 +8,7 @@ import type {
   CompanyListItem,
   CompanyPage,
   CopilotResponse,
+  DreamCompanyItem,
   Facets,
   FeedResponse,
   MatchItem,
@@ -484,7 +485,10 @@ export async function createSavedSearch(
     },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(`Failed to save search: ${res.status}`);
+  if (!res.ok) {
+    if (res.status === 409) throw new Error("Saved search limit of 25 reached");
+    throw new Error("We couldn't save this search. Please try again.");
+  }
   return res.json();
 }
 
@@ -722,4 +726,50 @@ export async function submitBugReport(
   });
   if (!res.ok) throw new Error(`Failed to submit report: ${res.status}`);
   return res.json();
+}
+
+export async function pingOpportunityAction(slug: string, action: "apply" | "gate"): Promise<void> {
+  try {
+    await fetch(
+      `${API_URL}/opportunities/${encodeURIComponent(slug)}/actions/${action}`,
+      { method: "POST", keepalive: true },
+    );
+  } catch {
+    // The visitor may already be leaving the page.
+  }
+}
+
+export async function getDreamCompanies(accessToken: string): Promise<DreamCompanyItem[]> {
+  const res = await fetch(`${API_URL}/dream-companies`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error("Couldn't load followed companies");
+  return res.json();
+}
+
+export class FollowLimitError extends Error {
+  constructor(readonly detail: string) {
+    super(detail);
+    this.name = "FollowLimitError";
+  }
+}
+
+export async function addDreamCompany(slug: string, accessToken: string): Promise<void> {
+  const res = await fetch(`${API_URL}/dream-companies/${encodeURIComponent(slug)}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (res.status === 403) {
+    const payload = await res.json();
+    throw new FollowLimitError(payload.detail);
+  }
+  if (!res.ok) throw new Error("Couldn't follow this company");
+}
+
+export async function removeDreamCompany(slug: string, accessToken: string): Promise<void> {
+  const res = await fetch(`${API_URL}/dream-companies/${encodeURIComponent(slug)}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error("Couldn't unfollow this company");
 }

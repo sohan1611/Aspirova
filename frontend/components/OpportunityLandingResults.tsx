@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import FeedCountryPreference from "@/components/FeedCountryPreference";
+import EmailMatchesButton from "@/components/EmailMatchesButton";
+import { hasSavedSearchParams, savedSearchParamsFromQuery } from "@/lib/savedSearchParams";
 import FeedGrid from "@/components/FeedGrid";
 import { FeedNavigationProvider } from "@/components/FeedNavigation";
 import {
@@ -98,6 +100,9 @@ export default function OpportunityLandingResults({
           </p>
         </div>
 
+        {["/internships", "/jobs", "/remote"].includes(basePath) && hasSavedSearchParams(query) && (
+          <EmailMatchesButton params={savedSearchParamsFromQuery({ ...request.filters, q: request.q })} />
+        )}
         <OpportunityListingFilterBar
           basePath={basePath}
           baseQuery={baseQuery}

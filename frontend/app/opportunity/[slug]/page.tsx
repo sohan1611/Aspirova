@@ -415,7 +415,7 @@ export default async function OpportunityPage({ params }: PageProps) {
                   <span className="inline-flex h-10 items-center justify-center rounded-md border border-border bg-secondary/50 px-6 text-sm font-medium text-muted-foreground">
                     {staleStatusLabel}
                   </span>
-                  <ApplyLink href={opportunity.apply_url} size="lg" variant="outline" className={SOURCE_LINK_CLASSES}>
+                  <ApplyLink slug={opportunity.slug} href={opportunity.apply_url} size="lg" variant="outline" className={SOURCE_LINK_CLASSES}>
                     {verifyLabel}
                   </ApplyLink>
                 </div>
@@ -428,7 +428,7 @@ export default async function OpportunityPage({ params }: PageProps) {
               <>
                 {/* Always links to the real source - we index and link out, we
                     never mirror (Doc 01 sec 7 R1, Doc 04 sec 10). */}
-                <ApplyLink href={opportunity.apply_url} size="lg" className={SOURCE_LINK_CLASSES}>
+                <ApplyLink slug={opportunity.slug} href={opportunity.apply_url} size="lg" className={SOURCE_LINK_CLASSES}>
                   {opportunity.company?.name
                     ? `Apply on ${opportunity.company.name} →`
                     : "Apply at the source →"}

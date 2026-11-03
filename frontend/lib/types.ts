@@ -1,4 +1,5 @@
 import type { AtsResult } from "@/lib/atsScore";
+import type { Role } from "@/lib/roleSignalQuery";
 import type { FieldProfile } from "@/lib/taxonomy";
 
 // Mirrors backend/api/schemas.py - keep these in sync by hand (Phase 1 has
@@ -60,15 +61,33 @@ export type SavedOpportunityItem = OpportunityListItem & {
   bookmark_status: BookmarkStage;
 };
 
+export interface DreamCompanyItem {
+  company: CompanySummary;
+}
+
 export interface SavedSearchParams {
   q?: string | null;
-  category?: "internship" | "job" | "hackathon" | "competition" | null;
+  category?: "internship" | "job" | "hackathon" | "competition" | "scholarship" | null;
   kind?: "roles" | "competitions" | null;
   remote?: boolean | null;
   scope?: "abroad" | "domestic" | "both" | null;
   country?: string | null;
   source?: "direct" | "unstop" | "remoteok" | "devpost" | null;
   experience?: "early" | null;
+  location?: string[] | null;
+  role?: Role | null;
+  paid?: boolean | null;
+  min_stipend?: number | null;
+  part_time?: boolean | null;
+  max_duration?: number | null;
+  job_offer?: boolean | null;
+  comp_type?: string[] | null;
+  registration?: string | null;
+  deadline_within?: number | null;
+  organiser_type?: string[] | null;
+  mode?: string[] | null;
+  prize_min?: number | null;
+  status?: "open" | "closed" | null;
 }
 
 export interface SavedSearchCreate {

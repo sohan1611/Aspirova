@@ -1,6 +1,8 @@
 """Lightweight cumulative opportunity view tracking and discovery."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from datetime import UTC, datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 from sqlalchemy import func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
@@ -76,6 +78,48 @@ def record_opportunity_view(slug: str, db: Session = Depends(get_db)) -> dict[st
         raise
     except SQLAlchemyError:
         # A counter outage must not affect a visitor opening an opportunity.
+        db.rollback()
+
+    return {"ok": True}
+
+
+@router.post(
+    "/opportunities/{slug}/actions/{action}",
+    dependencies=[Depends(enforce_view_rate_limit)],
+)
+def record_opportunity_action(
+    slug: str,
+    action: str = Path(pattern="^(apply|gate)$"),
+    db: Session = Depends(get_db),
+) -> dict[str, bool]:
+    try:
+        opportunity_id = db.scalar(
+            select(models.Opportunity.id).where(models.Opportunity.slug == slug)
+        )
+        if opportunity_id is None:
+            raise HTTPException(status_code=404, detail="Opportunity not found")
+
+        statement = insert(models.OpportunityActionCount).values(
+            opportunity_id=opportunity_id,
+            action=action,
+            day=datetime.now(UTC).date(),
+            count=1,
+            updated_at=func.now(),
+        )
+        statement = statement.on_conflict_do_update(
+            index_elements=[
+                models.OpportunityActionCount.opportunity_id,
+                models.OpportunityActionCount.action,
+                models.OpportunityActionCount.day,
+            ],
+            set_={"count": models.OpportunityActionCount.count + 1, "updated_at": func.now()},
+        )
+        db.execute(statement)
+        db.commit()
+    except HTTPException:
+        raise
+    except SQLAlchemyError:
+        # A counter outage must not affect a visitor applying.
         db.rollback()
 
     return {"ok": True}
