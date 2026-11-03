@@ -41,12 +41,44 @@ def _filter_summary(params: dict) -> str:
     if country:
         parts.append(str(country).upper())
 
+    if not country and params.get("scope") in {"abroad", "domestic"}:
+        parts.append(params["scope"])
+    for key in ("role", "status"):
+        if params.get(key):
+            parts.append(params[key])
+    for key in ("location", "comp_type", "organiser_type", "mode"):
+        parts.extend(value.replace("_", " ") for value in params.get(key, []) or [])
+    if params.get("paid") is True:
+        parts.append("paid")
+    elif params.get("paid") is False:
+        parts.append("unpaid or pay not stated")
+    if params.get("min_stipend") is not None:
+        parts.append(f"at least ₹{params['min_stipend']:,}/month")
+    if params.get("part_time") is True:
+        parts.append("part-time")
+    if params.get("max_duration") is not None:
+        parts.append(f"up to {params['max_duration']} months")
+    if params.get("job_offer") is True:
+        parts.append("job offer possible")
+    if params.get("registration"):
+        parts.append(f"{params['registration']} registration")
+    if params.get("deadline_within") is not None:
+        parts.append(f"closing within {params['deadline_within']} days")
+    if params.get("prize_min") is not None:
+        parts.append(f"prize at least ₹{params['prize_min']:,}")
+
     return " · ".join(parts) or "your saved filters"
 
 
 def _saved_search_url(params: dict) -> str:
-    base_url = f"{get_settings().site_url.rstrip('/')}/"
-    query = urlencode([(key, value) for key, value in params.items() if value is not None])
+    path = "/competitions" if params.get("kind") == "competitions" else "/"
+    base_url = f"{get_settings().site_url.rstrip('/')}{path}"
+    values = [
+        (key, str(value).lower() if isinstance(value, bool) else value)
+        for key, value in params.items()
+        if value is not None
+    ]
+    query = urlencode(values, doseq=True)
     return f"{base_url}?{query}" if query else base_url
 
 

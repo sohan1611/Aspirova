@@ -842,3 +842,49 @@ def test_closing_soon_failed_send_records_failed_status(
     assert result["failed"] >= 1
     assert notification.status == "failed"
     assert notification.sent_at is None
+
+
+@pytest.mark.parametrize("status", ["applied", "interviewing", "offer", "archived"])
+def test_closing_soon_sends_saved_and_skips_other_stages(
+    db_session, sent_emails, source_and_company, status
+) -> None:
+    _source, company = source_and_company
+    now = datetime.now(timezone.utc)
+    user = _make_user(db_session)
+    saved = _make_opportunity(
+        db_session,
+        company,
+        first_seen_at=now,
+        deadline=now + timedelta(days=2),
+        title="Still saved",
+    )
+    progressed = _make_opportunity(
+        db_session,
+        company,
+        first_seen_at=now,
+        deadline=now + timedelta(days=1),
+        title="Already handled",
+    )
+    db_session.add_all(
+        [
+            models.Bookmark(user_id=user.id, opportunity_id=saved.id, status="saved"),
+            models.Bookmark(user_id=user.id, opportunity_id=progressed.id, status=status),
+        ]
+    )
+    db_session.flush()
+
+    send_closing_soon_alerts(db_session, now=now)
+
+    emails = [email for email in sent_emails if email["to"] == user.email]
+    assert len(emails) == 1
+    assert saved.title in emails[0]["text"]
+    assert progressed.title not in emails[0]["text"]
+    notified_ids = set(
+        db_session.scalars(
+            select(models.Notification.opportunity_id).where(
+                models.Notification.user_id == user.id,
+                models.Notification.type == "closing_soon",
+            )
+        )
+    )
+    assert notified_ids == {saved.id}

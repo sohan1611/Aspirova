@@ -196,3 +196,78 @@ def test_invalid_saved_search_params_return_422(client, params) -> None:
     response = client.post("/saved-searches", json={"params": params})
 
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("location", ["Bangalore", "Bengaluru"]),
+        ("role", "software"),
+        ("paid", True),
+        ("paid", False),
+        ("min_stipend", 10000),
+        ("part_time", True),
+        ("part_time", False),
+        ("max_duration", 6),
+        ("job_offer", True),
+        ("job_offer", False),
+        ("comp_type", ["case_competition", "hiring_challenge"]),
+        ("registration", "free"),
+        ("deadline_within", 7),
+        ("organiser_type", ["iit", "other"]),
+        ("mode", ["online", "hybrid"]),
+        ("prize_min", 0),
+        ("status", "open"),
+        ("status", "closed"),
+    ],
+)
+def test_new_saved_search_params_round_trip(client, db_session, key, value) -> None:
+    params = {key: value}
+    response = client.post("/saved-searches", json={"params": params})
+    assert response.status_code == 200
+    item = response.json()
+    assert item["params"] == params
+    stored = db_session.get(models.SavedSearch, item["id"])
+    assert stored.params == params
+    loaded = next(row for row in client.get("/saved-searches").json() if row["id"] == item["id"])
+    assert loaded["params"] == params
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"location": ["x"] * 6},
+        {"location": ["x" * 81]},
+        {"location": "Bangalore"},
+        {"role": "unknown"},
+        {"paid": "maybe"},
+        {"part_time": "maybe"},
+        {"job_offer": "maybe"},
+        {"min_stipend": -1},
+        {"max_duration": 0},
+        {"max_duration": 25},
+        {"comp_type": ["unknown"]},
+        {"comp_type": ["case_competition", "unknown"]},
+        {"registration": "unknown"},
+        {"deadline_within": 2},
+        {"organiser_type": ["unknown"]},
+        {"mode": ["unknown"]},
+        {"prize_min": -1},
+        {"status": "active"},
+    ],
+)
+def test_new_saved_search_params_are_validated(client, params) -> None:
+    assert client.post("/saved-searches", json={"params": params}).status_code == 422
+
+
+def test_existing_saved_search_rows_still_load(client, db_session, seeded) -> None:
+    row = models.SavedSearch(
+        user_id=seeded["user"].id,
+        params={"q": "software", "category": "internship", "remote": False},
+    )
+    db_session.add(row)
+    db_session.flush()
+    response = client.get("/saved-searches")
+    assert response.status_code == 200
+    loaded = next(item for item in response.json() if item["id"] == row.id)
+    assert loaded["params"] == row.params

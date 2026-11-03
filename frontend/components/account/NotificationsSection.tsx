@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   Card,
@@ -9,8 +10,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { updateAccount } from "@/lib/api";
-import type { AccountMe } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { getDreamCompanies, removeDreamCompany, updateAccount } from "@/lib/api";
+import type { AccountMe, DreamCompanyItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const NOTIFICATIONS = [
@@ -21,8 +23,8 @@ const NOTIFICATIONS = [
   },
   {
     key: "instant_alerts",
-    label: "Instant alerts for dream companies",
-    description: "Hear as soon as a tracked company publishes a relevant opportunity.",
+    label: "Instant alerts for followed companies",
+    description: "Hear as soon as a company you follow publishes a relevant opportunity.",
   },
   {
     key: "daily_digest",
@@ -40,6 +42,38 @@ export default function NotificationsSection({
   accessToken: string;
   onAccountChange: (account: AccountMe) => void;
 }) {
+  const [followed, setFollowed] = useState<{
+    token: string | null; items: DreamCompanyItem[]; error: boolean;
+  }>({ token: null, items: [], error: false });
+  const [followRetry, setFollowRetry] = useState(0);
+  const [removingSlug, setRemovingSlug] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getDreamCompanies(accessToken).then((items) => {
+      if (!cancelled) setFollowed({ token: accessToken, items, error: false });
+    }).catch(() => {
+      if (!cancelled) setFollowed({ token: accessToken, items: [], error: true });
+    });
+    return () => { cancelled = true; };
+  }, [accessToken, followRetry]);
+
+  async function handleUnfollow(slug: string) {
+    if (removingSlug) return;
+    setRemovingSlug(slug);
+    try {
+      await removeDreamCompany(slug, accessToken);
+      setFollowed((current) => current.token !== accessToken ? current : {
+        ...current, items: current.items.filter((item) => item.company.slug !== slug),
+      });
+      toast.success("Company unfollowed");
+    } catch {
+      toast.error("Couldn't unfollow this company. Please try again.");
+    } finally {
+      setRemovingSlug(null);
+    }
+  }
+
   const [pendingKey, setPendingKey] = useState<string | null>(null);
   // Older/stale account payloads can omit these nested JSON objects. Keep the
   // settings UI usable while the next account refresh restores the full shape.
@@ -127,6 +161,32 @@ export default function NotificationsSection({
             </div>
           );
         })}
+        <div className="py-5">
+          <p className="font-medium text-foreground">Followed companies</p>
+          <p className="mt-1 text-sm text-muted-foreground">New roles from companies you follow can appear in your emails.</p>
+          {followed.token !== accessToken ? (
+            <p className="mt-3 text-sm text-muted-foreground">Loading followed companies…</p>
+          ) : followed.error ? (
+            <div className="mt-3 space-y-2">
+              <p role="alert" className="text-sm text-destructive">Couldn&apos;t load followed companies.</p>
+              <Button variant="outline" size="sm" onClick={() => setFollowRetry((value) => value + 1)}>Retry</Button>
+            </div>
+          ) : followed.items.length === 0 ? (
+            <p className="mt-3 text-sm text-muted-foreground">You aren&apos;t following any companies yet.</p>
+          ) : (
+            <ul className="mt-3 divide-y divide-border">
+              {followed.items.map(({ company }) => (
+                <li key={company.slug} className="flex items-center justify-between gap-3 py-3">
+                  <Link href={`/companies/${encodeURIComponent(company.slug)}`} className="text-sm underline underline-offset-4">{company.name}</Link>
+                  <Button type="button" variant="outline" size="sm" disabled={removingSlug !== null}
+                    onClick={() => void handleUnfollow(company.slug)}>
+                    {removingSlug === company.slug ? "Removing…" : "Remove"}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

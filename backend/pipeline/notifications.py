@@ -586,6 +586,7 @@ def send_closing_soon_alerts(
                     )
                     .where(
                         models.Bookmark.user_id == user.id,
+                        models.Bookmark.status == "saved",
                         models.Opportunity.status == "active",
                         exclude_stale_opportunities(now),
                         models.Opportunity.deadline.is_not(None),

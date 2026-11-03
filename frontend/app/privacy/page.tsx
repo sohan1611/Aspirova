@@ -77,8 +77,8 @@ export default function PrivacyPage() {
           <li>Your bookmarks and their application stage.</li>
           <li>Your notification preferences.</li>
           <li>
-            Per-opportunity view counts. These are aggregate counters, not a
-            record of your individual browsing history.
+            Per-opportunity counts of views and Apply button taps. These are
+            aggregate counters, not a record of your individual browsing history.
           </li>
           <li>
             Bug reports you send us, including the message, an optional
@@ -112,8 +112,9 @@ export default function PrivacyPage() {
           Information stored on your device
         </h3>
         <p className="mt-3 text-base leading-7 text-muted-foreground">
-          Your chosen country, interest fields, recently viewed list and
-          onboarding state are stored in your browser&apos;s local storage. If
+          Your chosen country, interest fields, recently viewed list, onboarding
+          state and a short-lived note of the listing you opened to apply are
+          stored in your browser&apos;s local storage. If
           you&apos;re signed in, your field, interests and skills are also saved to
           your account so they follow you across devices. Your browser sends your
           interests or country to our servers only when needed to show results,

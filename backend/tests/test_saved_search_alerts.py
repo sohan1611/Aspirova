@@ -349,3 +349,113 @@ def test_saved_search_alert_html_escapes_opportunity_title(db_session, sent_emai
     email = next(email for email in sent_emails if email["to"] == user.email)
     assert "Research &lt;script&gt; &amp; Development" in email["html"]
     assert "Research <script>" not in email["html"]
+
+
+@pytest.mark.parametrize(
+    ("params", "matching", "nonmatching"),
+    [
+        ({"role": "software"}, {"title": "Software developer"}, {"title": "Mechanical engineer"}),
+        (
+            {"paid": True},
+            {
+                "meta": {
+                    "compensation": {
+                        "unpaid": False,
+                        "currency": "INR",
+                        "max": 20000,
+                        "period": "month",
+                    }
+                }
+            },
+            {"meta": {"compensation": {"unpaid": True}}},
+        ),
+        (
+            {"location": ["Bangalore", "Bengaluru"]},
+            {"location": "Bengaluru"},
+            {"location": "Mumbai"},
+        ),
+        ({"status": "open"}, {"closed_at": None}, {"closed_at": "closed"}),
+        ({"status": "closed"}, {"closed_at": "closed"}, {"closed_at": None}),
+    ],
+)
+def test_saved_search_alert_matches_new_filters_and_excludes_nonmatches(
+    db_session, sent_emails, params, matching, nonmatching
+) -> None:
+    now = datetime.now(timezone.utc)
+    user = _make_user(db_session)
+    company = _make_company(db_session)
+    token = f"filtermatch{uuid.uuid4().hex}"
+    _make_saved_search(
+        db_session,
+        user,
+        created_at=now - timedelta(days=2),
+        last_alerted_at=now - timedelta(days=1),
+        params={"q": token, **params},
+    )
+
+    def seed(values, marker):
+        values = dict(values)
+        title = values.pop("title", "Internship")
+        opportunity = _make_opportunity(
+            db_session,
+            company,
+            first_seen_at=now - timedelta(hours=1),
+            title=f"{title} {token} {marker}",
+        )
+        for key, value in values.items():
+            if key == "closed_at" and value == "closed":
+                value = now - timedelta(hours=1)
+            setattr(opportunity, key, value)
+        db_session.flush()
+        return opportunity
+
+    excluded = seed(nonmatching, "excluded")
+    send_saved_search_alerts(db_session, now=now)
+    assert not any(email["to"] == user.email for email in sent_emails)
+
+    included = seed(matching, "included")
+    send_saved_search_alerts(db_session, now=now)
+    emails = [email for email in sent_emails if email["to"] == user.email]
+    assert len(emails) == 1
+    assert included.title in emails[0]["text"]
+    assert excluded.title not in emails[0]["text"]
+
+
+@pytest.mark.parametrize("kind", [None, "competitions"])
+def test_saved_search_url_preserves_lists_and_competition_route(kind, monkeypatch) -> None:
+    from types import SimpleNamespace
+    from urllib.parse import parse_qs, urlparse
+
+    monkeypatch.setattr(
+        saved_search_alerts_module,
+        "get_settings",
+        lambda: SimpleNamespace(site_url="https://example.com"),
+    )
+    params = {
+        "location": ["Bangalore", "New Delhi"],
+        "comp_type": ["case_competition", "events"],
+        "organiser_type": ["iit", "nit"],
+        "mode": ["online", "hybrid"],
+        "paid": False,
+    }
+    if kind:
+        params["kind"] = kind
+    url = urlparse(saved_search_alerts_module._saved_search_url(params))
+    assert url.path == ("/competitions" if kind else "/")
+    query = parse_qs(url.query)
+    for key in ("location", "comp_type", "organiser_type", "mode"):
+        assert query[key] == params[key]
+    assert query["paid"] == ["false"]
+
+
+def test_saved_search_filter_summary_reads_new_filters() -> None:
+    summary = saved_search_alerts_module._filter_summary(
+        {
+            "category": "internship",
+            "role": "software",
+            "paid": True,
+            "location": ["Bangalore"],
+            "status": "open",
+        }
+    )
+    assert summary == "internship · software · open · Bangalore · paid"

@@ -1,5 +1,6 @@
 import { ExternalLink, SearchX } from "lucide-react";
 import HoverPrefetchLink from "@/components/HoverPrefetchLink";
+import FollowCompanyButton from "@/components/FollowCompanyButton";
 import CompanyFavicon from "@/components/CompanyFavicon";
 import OpportunityCard from "@/components/OpportunityCard";
 import { Button } from "@/components/ui/button";
@@ -56,6 +57,7 @@ export default function CompanyOpportunities({
             <h1 className="mt-2 break-words font-serif text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl">
               {data.company.name}
             </h1>
+            <FollowCompanyButton slug={data.company.slug} />
             {domain && (
               <a
                 href={companyWebsite(domain)}
