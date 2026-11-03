@@ -43,7 +43,7 @@ export default function FaqPage() {
             Do you apply for me?
           </h2>
           <p className="mt-4 text-base leading-7 text-muted-foreground">
-            No. Apply takes you to the company&apos;s or organiser&apos;s own page, and you apply there.
+            No. Apply takes you to the original listing, and you apply there.
           </p>
         </section>
 
@@ -52,7 +52,7 @@ export default function FaqPage() {
             Where do the listings come from?
           </h2>
           <p className="mt-4 text-base leading-7 text-muted-foreground">
-            Public sources such as company career pages and competition platforms. Companies don&apos;t post here directly.
+            Public sources such as company career pages, job boards and competition platforms. Companies don&apos;t post here directly.
           </p>
         </section>
 

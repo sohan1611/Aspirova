@@ -78,7 +78,7 @@ export function parseFeedRequest(sp: URLSearchParams): FeedRequest {
     category: category as "internship" | "job" | undefined,
     kind: kindParam as "roles" | "competitions" | undefined,
     source: get("source") as "direct" | "unstop" | "remoteok" | "devpost" | undefined,
-    experience: get("experience") as "early" | undefined,
+    experience: get("experience") as "early" | "new_grad" | undefined,
     remote: remote === "true" ? true : remote === "false" ? false : undefined,
     location: location.length > 0 ? location : undefined,
     company: company.length > 0 ? company : undefined,

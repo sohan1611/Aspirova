@@ -24,10 +24,10 @@ export interface LandingConfig {
 export const JOBS_LANDING: LandingConfig = {
   title: "Jobs",
   description:
-    "Student-friendly jobs auto-discovered from public company career pages, " +
+    "Student-friendly jobs auto-discovered from public career pages and job boards, " +
     "with each listing linking back to the original source.",
   intro:
-    "Jobs, auto-discovered from public company career pages; " +
+    "Jobs, auto-discovered from public career pages and job boards; " +
     "Aspirova links out to the original source.",
   basePath: "/jobs",
   query: { category: "job" },
@@ -36,10 +36,10 @@ export const JOBS_LANDING: LandingConfig = {
 export const INTERNSHIPS_LANDING: LandingConfig = {
   title: "Internships",
   description:
-    "Student internships auto-discovered from public company career pages, " +
+    "Student internships auto-discovered from public career pages and job boards, " +
     "with each listing linking back to the original source.",
   intro:
-    "Student internships, auto-discovered from public company career pages; " +
+    "Student internships, auto-discovered from public career pages and job boards; " +
     "Aspirova links out to the original source.",
   basePath: "/internships",
   query: { category: "internship" },
@@ -48,10 +48,10 @@ export const INTERNSHIPS_LANDING: LandingConfig = {
 export const REMOTE_LANDING: LandingConfig = {
   title: "Remote opportunities",
   description:
-    "Remote opportunities auto-discovered from public company career pages, " +
+    "Remote opportunities auto-discovered from public career pages and job boards, " +
     "with each listing linking back to the original source.",
   intro:
-    "Remote opportunities, auto-discovered from public company career pages; " +
+    "Remote opportunities, auto-discovered from public career pages and job boards; " +
     "Aspirova links out to the original source.",
   basePath: "/remote",
   query: { remote: true },

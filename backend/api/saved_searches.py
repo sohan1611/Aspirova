@@ -32,7 +32,7 @@ _ALLOWED_CATEGORIES = {"internship", "job", "hackathon", "competition", "scholar
 _ALLOWED_KINDS = {"roles", "competitions"}
 _ALLOWED_SCOPES = {"abroad", "domestic", "both"}
 _ALLOWED_SOURCES = {"direct", "unstop", "remoteok", "devpost"}
-_ALLOWED_EXPERIENCE = {"early"}
+_ALLOWED_EXPERIENCE = {"early", "new_grad"}
 _MAX_SAVED_SEARCHES_PER_USER = 25
 
 

@@ -131,3 +131,22 @@ def test_parse_maps_original_url_category_and_remote_flag(
         "tags": ["Graduate"],
         "job_types": ["Trainee"],
     }
+
+
+@pytest.mark.parametrize(
+    "title", ["2027 US AI Engineering – New College Graduate", "Graduate Data Analyst"]
+)
+def test_fetch_keeps_graduate_roles_and_parse_classifies_them_as_jobs(
+    adapter: ArbeitnowAdapter, fixture_payload: dict, monkeypatch, title: str
+) -> None:
+    job = {**fixture_payload["data"][0], "title": title, "job_types": ["Full-time"]}
+
+    def fake_get(url: str, *, params: dict) -> httpx.Response:
+        return httpx.Response(
+            200, json={"data": [job], "links": {"next": None}}, request=httpx.Request("GET", url)
+        )
+
+    monkeypatch.setattr(adapter._client, "get", fake_get)
+    listings = adapter.fetch()
+    assert len(listings) == 1
+    assert adapter.parse(listings[0]).category == "job"

@@ -61,6 +61,7 @@ export function savedSearchSummary(params: SavedSearchParams): string {
   else if (params.scope) parts.push(params.scope);
   if (params.source) parts.push(params.source);
   if (params.experience === "early") parts.push("early career");
+  if (params.experience === "new_grad") parts.push("new grad roles");
   if (params.min_stipend != null) parts.push(`at least ₹${params.min_stipend.toLocaleString("en-IN")}/month`);
   if (params.part_time === true) parts.push("part-time");
   if (params.max_duration != null) parts.push(`up to ${params.max_duration} months`);
