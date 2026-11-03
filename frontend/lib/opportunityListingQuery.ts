@@ -55,6 +55,7 @@ export const OPPORTUNITY_SOURCE_OPTIONS = [
 
 export const OPPORTUNITY_EXPERIENCE_OPTIONS = [
   { value: "early", label: "Early career" },
+  { value: "new_grad", label: "New grad roles" },
 ] as const;
 
 const FILTER_PARAM_KEYS = [
@@ -127,7 +128,7 @@ function parseSource(value: string | null): FeedParams["source"] | undefined {
 }
 
 function parseExperience(value: string | null): FeedParams["experience"] | undefined {
-  return value === "early" ? "early" : undefined;
+  return value === "early" || value === "new_grad" ? value : undefined;
 }
 
 function hasRawValue(sp: URLSearchParams, key: string): boolean {

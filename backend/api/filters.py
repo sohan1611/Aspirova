@@ -9,6 +9,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from core import models
 from core.eligibility import ELIGIBLE_EXPERIENCED_ONLY_META_KEY
 from core.organisers import ORGANISER_TYPE_LABELS, organiser_type_expression
+from pipeline.normalize import NEW_GRAD_TITLE_PATTERN
 
 SOURCE_GROUPS = {
     "direct": ["greenhouse", "lever", "ashby", "smartrecruiters", "amazon"],
@@ -165,6 +166,11 @@ def open_opportunity_filters() -> list:
 
 
 def experience_filters(experience: str | None) -> list:
+    if experience == "new_grad":
+        return [
+            models.Opportunity.category == "job",
+            func.coalesce(models.Opportunity.title_normalized, "").op("~*")(NEW_GRAD_TITLE_PATTERN),
+        ]
     if experience == "early":
         return [
             not_(

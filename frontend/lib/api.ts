@@ -94,7 +94,7 @@ export interface FeedParams extends RoleSignalParams {
   category?: "internship" | "job" | "hackathon" | "competition" | "scholarship";
   kind?: "roles" | "competitions";
   source?: "direct" | "unstop" | "remoteok" | "devpost";
-  experience?: "early";
+  experience?: "early" | "new_grad";
   remote?: boolean;
   location?: string | string[];
   company?: string | string[];

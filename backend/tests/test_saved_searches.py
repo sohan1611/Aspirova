@@ -201,6 +201,7 @@ def test_invalid_saved_search_params_return_422(client, params) -> None:
 @pytest.mark.parametrize(
     ("key", "value"),
     [
+        ("experience", "new_grad"),
         ("location", ["Bangalore", "Bengaluru"]),
         ("role", "software"),
         ("paid", True),

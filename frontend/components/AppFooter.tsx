@@ -12,8 +12,8 @@ export default function AppFooter() {
           <div>
             <Wordmark />
             <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground">
-              Aspirova indexes opportunities directly from company career pages and links
-              every application to its original source.
+              Aspirova indexes opportunities from company career pages and other public sources,
+              and links every application to its original listing.
             </p>
           </div>
 
@@ -142,8 +142,8 @@ export default function AppFooter() {
         </div>
 
         <p className="mt-10 border-t border-border pt-5 text-xs leading-relaxed text-muted-foreground">
-          Source-first, always: every opportunity is indexed from a company career page,
-          and every Apply link takes you back to the company.
+          Source-first, always: every opportunity is indexed from a public source, usually the
+          company&apos;s own careers page, and every Apply link takes you to the original listing.
         </p>
 
         <div className="mt-5 flex flex-col gap-3 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">

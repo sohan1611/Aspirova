@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import OpportunityCard from "@/components/OpportunityCard";
 import { getOpportunity, getSimilarOpportunities } from "@/lib/api";
 import { formatDate } from "@/lib/date";
+import { describeApply, describeVerification } from "@/lib/applyDestination";
 import {
   competitionMode,
   eligibilityText,
@@ -227,19 +228,19 @@ export default async function OpportunityPage({ params }: PageProps) {
     ? estimatedClosedDeadlineLabel(opportunity.category)
     : closedDeadlineLabel(opportunity.category);
   const staleStatusLabel = estimatedClosedDeadlineLabel(opportunity.category);
-  const verifyLabel = opportunity.company?.name
-    ? `Verify on ${opportunity.company.name} →`
-    : "Verify at the source →";
+  const apply = describeApply(opportunity.destination, opportunity.company?.name);
+  const verification = describeVerification(opportunity.destination, opportunity.company?.name);
+  const verifyLabel = verification.buttonLabel;
   const closedCaption = opportunity.closed_at
-    ? "The source listing appears to be closed. Open the company's listing to confirm — the source may still be accepting entries."
+    ? `The source listing appears to be closed. ${verification.closedCaption}`
     : estimated
-      ? "This estimated deadline may be wrong. Open the company's listing to confirm — the source may still be accepting entries."
-      : "This deadline has passed. Open the company's listing to confirm — the source may still be accepting entries.";
+      ? `This estimated deadline may be wrong. ${verification.closedCaption}`
+      : `This deadline has passed. ${verification.closedCaption}`;
   // Never invents a posted date: when posted_at is missing, this says only
   // when we first found the listing, not when it went up.
   const staleCaption = opportunity.posted_at
-    ? `This was posted ${formatDate(opportunity.posted_at, "long")} — over 10 months ago — and Aspirova can't confirm it's still open. Open the company's listing to check its current status.`
-    : `Aspirova first found this listing on ${formatDate(opportunity.first_seen_at, "long")}, over 10 months ago; its original posting date isn't available. We can't confirm it's still open — open the company's listing to check its current status.`;
+    ? `This was posted ${formatDate(opportunity.posted_at, "long")} — over 10 months ago — and Aspirova can't confirm it's still open. ${verification.statusCaption}`
+    : `Aspirova first found this listing on ${formatDate(opportunity.first_seen_at, "long")}, over 10 months ago; its original posting date isn't available. We can't confirm it's still open. ${verification.statusCaption}`;
   const locationSummary = summarizeLocation(opportunity.location);
   const isRole = opportunity.category === "internship" || opportunity.category === "job";
   const payText = isRole ? formatCompensation(opportunity.meta) : null;
@@ -420,8 +421,7 @@ export default async function OpportunityPage({ params }: PageProps) {
                   </ApplyLink>
                 </div>
                 <p className="mt-2 max-w-lg text-xs leading-5 text-muted-foreground">
-                  Opens the company&apos;s own listing so you can check whether it is
-                  still open — Aspirova never mirrors applications.
+                  {verification.caption}
                 </p>
               </>
             ) : (
@@ -429,12 +429,10 @@ export default async function OpportunityPage({ params }: PageProps) {
                 {/* Always links to the real source - we index and link out, we
                     never mirror (Doc 01 sec 7 R1, Doc 04 sec 10). */}
                 <ApplyLink slug={opportunity.slug} href={opportunity.apply_url} size="lg" className={SOURCE_LINK_CLASSES}>
-                  {opportunity.company?.name
-                    ? `Apply on ${opportunity.company.name} →`
-                    : "Apply at the source →"}
+                  {apply.buttonLabel}
                 </ApplyLink>
                 <p className="mt-2 max-w-lg text-xs leading-5 text-muted-foreground">
-                  Opens the company&apos;s own listing — Aspirova never mirrors applications.
+                  {apply.caption}
                 </p>
               </>
             )}

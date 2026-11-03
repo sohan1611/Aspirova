@@ -50,7 +50,7 @@ def get_feed(
     remote_abroad: bool = Query(False),
     prefer_country: str | None = Query(None, pattern="^[A-Za-z]{2}$"),
     source: str | None = Query(None, pattern="^(direct|unstop|remoteok|devpost)$"),
-    experience: str | None = Query(None, pattern="^(early)$"),
+    experience: str | None = Query(None, pattern="^(early|new_grad)$"),
     comp_type: list[str] | None = Query(None),
     registration: str | None = Query(None),
     deadline_within: int | None = Query(None),

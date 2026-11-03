@@ -10,8 +10,20 @@ import re
 # correctly (verified against real Greenhouse titles like "Internal Audit
 # Lead" and "International Strategic Finance", which must NOT match).
 _INTERNSHIP_PATTERN = re.compile(
-    r"\b(intern(s|ship|ships)?|co-?op|trainee|apprentice(ship)?|campus|new grad(uate)?)\b",
+    r"\b(intern(s|ship|ships)?|co-?op|trainee|apprentice(ship)?|"
+    r"campus\s+(ambassador|intern(ship)?|programme|program)|graduate\s+student)\b",
     re.IGNORECASE,
+)
+
+
+# Shared by Python re (IGNORECASE) and PostgreSQL ~*; neither uses \b here.
+NEW_GRAD_TITLE_PATTERN = (
+    r"^graduate[ -]+(?![ -]*(recruit|admission|medical|student|loan|school|teaching|"
+    r"research[ -]+assistant))|"
+    r"(^|[^a-z])(new[ -]+(grads?|graduates?|college[ -]+grad(uate)?s?)|"
+    r"(recent|university)[ -]+grad(uate)?s?|campus[ -]+(hire|hiring)|"
+    r"[0-9]{4}[ -]+graduates?|phd[ -]+graduates?|"
+    r"graduate[ -]+(program(me)?s?|schemes?))([^a-z]|$)"
 )
 
 

@@ -27,8 +27,8 @@ _STUDENT_TITLE_SIGNAL_RE = re.compile(
 _SOURCE_ENTRY_LEVEL_RE = re.compile(r"\b(entry|junior)\b", re.IGNORECASE)
 _STUDENT_CATEGORY_RE = re.compile(
     r"\b(intern(s|ship|ships)?|co-?op|trainee|apprentice(ship)?|"
-    r"graduate|new grad(uate)?|"
-    r"campus\s+(ambassador|hire|hiring|intern(ship)?|programme|program))\b",
+    r"graduate\s+student|"
+    r"campus\s+(ambassador|intern(ship)?|programme|program))\b",
     re.IGNORECASE,
 )
 
