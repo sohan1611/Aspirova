@@ -721,6 +721,132 @@ def _alert_rows(session, user):
     )
 
 
+@pytest.mark.parametrize("roles", [["software"], []], ids=["software", "all-domains"])
+@pytest.mark.parametrize(
+    "title,expected",
+    [
+        ("Senior Software Engineer", False),
+        ("Sr. Software Engineer", False),
+        ("Staff Software Engineer", False),
+        ("Staff+ Software Engineer, Backend", False),
+        ("Principal Software Engineer", False),
+        ("Director of Software Engineering", False),
+        ("Software VP", False),
+        ("Head of Software", False),
+        ("Software Engineer - New Grad (2027 Start)", True),
+        ("Member of Technical Staff - New Grad (2027 Start)", True),
+        ("Member of Technical Staff", True),
+        ("Senior Software Engineer, Master's New Graduate | 0-2 Years Experience", True),
+        ("Software Engineering Manager", True),
+        ("Lead Software Engineer", True),
+    ],
+)
+def test_company_alert_clearly_senior_job_rule(
+    db_session, sent_emails, free_plan, source_and_company, roles, title, expected
+):
+    now = datetime.now(timezone.utc)
+    _, company = source_and_company
+    user = _make_user(db_session)
+    _follow(db_session, user, company, now, roles)
+    opportunity = _make_opportunity(
+        db_session, company, first_seen_at=now - timedelta(hours=1), title=title, category="job"
+    )
+    assert opportunity.title_normalized is None
+
+    send_company_alerts(db_session, now=now)
+
+    emails = [email for email in sent_emails if email["to"] == user.email]
+    rows = _alert_rows(db_session, user)
+    assert len(emails) == int(expected)
+    assert {row.opportunity_id for row in rows} == ({opportunity.id} if expected else set())
+    assert all(row.status == "sent" for row in rows)
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "Associate Product Manager",
+        "Marketing Executive",
+        "Staff Accountant",
+        "Staff Auditor",
+        "Staff Writer",
+        "Staff Nurse",
+    ],
+)
+def test_all_domain_company_alert_keeps_entry_level_job_titles(
+    db_session, sent_emails, free_plan, source_and_company, title
+):
+    now = datetime.now(timezone.utc)
+    _, company = source_and_company
+    user = _make_user(db_session)
+    _follow(db_session, user, company, now)
+    opportunity = _make_opportunity(
+        db_session, company, first_seen_at=now - timedelta(hours=1), title=title, category="job"
+    )
+
+    send_company_alerts(db_session, now=now)
+
+    assert len([email for email in sent_emails if email["to"] == user.email]) == 1
+    assert {row.opportunity_id for row in _alert_rows(db_session, user)} == {opportunity.id}
+
+
+@pytest.mark.parametrize("roles", [["software"], []], ids=["software", "all-domains"])
+@pytest.mark.parametrize("category", ["internship", "scholarship", None])
+def test_company_alert_senior_title_is_kept_outside_job_category(
+    db_session, sent_emails, free_plan, source_and_company, roles, category
+):
+    now = datetime.now(timezone.utc)
+    _, company = source_and_company
+    user = _make_user(db_session)
+    _follow(db_session, user, company, now, roles)
+    opportunity = _make_opportunity(
+        db_session,
+        company,
+        first_seen_at=now - timedelta(hours=1),
+        title="Senior Software Engineer",
+        category=category,
+    )
+
+    send_company_alerts(db_session, now=now)
+
+    assert opportunity.category == category
+    assert len([email for email in sent_emails if email["to"] == user.email]) == 1
+    assert {row.opportunity_id for row in _alert_rows(db_session, user)} == {opportunity.id}
+
+
+@pytest.mark.parametrize("roles", [["software"], []], ids=["software", "all-domains"])
+def test_digest_and_weekly_follow_matches_exclude_clearly_senior_jobs(
+    db_session, source_and_company, roles
+):
+    from pipeline.weekly_report import _recent_dream_company_matches
+
+    now = datetime.now(timezone.utc)
+    _, company = source_and_company
+    user = _make_user(db_session)
+    _follow(db_session, user, company, now, roles)
+    _make_opportunity(
+        db_session,
+        company,
+        first_seen_at=now - timedelta(hours=1),
+        title="Senior Software Engineer",
+        category="job",
+    )
+    early_career = _make_opportunity(
+        db_session,
+        company,
+        first_seen_at=now - timedelta(hours=2),
+        title="Software Engineer - New Grad",
+        category="job",
+    )
+    since = now - timedelta(days=1)
+
+    digest = notifications_module._dream_company_opportunities(db_session, user.id, since, now)
+    weekly = _recent_dream_company_matches(db_session, user.id, since, now)
+
+    assert [opportunity.id for opportunity in digest] == [early_career.id]
+    assert [opportunity.id for opportunity in weekly] == [early_career.id]
+
+
 @pytest.mark.parametrize(
     "roles,expected",
     [

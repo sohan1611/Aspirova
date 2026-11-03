@@ -41,6 +41,23 @@ SENIOR_TITLE_PATTERN = (
     r"fellow|executive|counsel)([^a-z]|$)"
 )
 
+CLEARLY_SENIOR_TITLE_PATTERN = (
+    r"(^|[^a-z])(senior|sr|staff|principal|director|vp|vice president|president|"
+    r"chief|cto|ceo|coo|cfo|cxo|head of|distinguished)([^a-z]|$)"
+)
+# A title matching this is kept even when it also matches the senior pattern. Checked against
+# 1,216 live titles: "Member of Technical Staff - New Grad" and "Senior Engineer ... (Master's
+# New Graduate | 0-2 Years Experience)" are real entry-level roles. Staff Accountant and
+# Staff Writer are entry-level titles too. A wrongly kept role costs one noisy card; a wrongly
+# dropped one is an alert the student never gets, so this errs towards keeping.
+NOT_SENIOR_TITLE_PATTERN = (
+    r"(^|[^a-z])(intern|interns|internship|internships|trainee|trainees|apprentice|"
+    r"apprentices|apprenticeship|new grad|new grads|new graduate|new graduates|graduate|"
+    r"graduates|campus|fresher|freshers|entry level|entry-level|co-op|coop|working student|"
+    r"werkstudent|technical staff|staff accountant|staff auditor|staff writer|staff nurse)"
+    r"([^a-z]|$)"
+)
+
 # False (default) -> exclude only rows whose eligibility is School Students and nothing
 #                    else. A competition open to school students AND undergraduates is
 #                    still relevant to Aspirova's audience.
@@ -437,13 +454,25 @@ def role_match_expression(role: str):
     )
 
 
+def exclude_clearly_senior_jobs():
+    return and_(
+        func.coalesce(models.Opportunity.category, "") == "job",
+        models.Opportunity.title.op("~*")(CLEARLY_SENIOR_TITLE_PATTERN),
+        not_(models.Opportunity.title.op("~*")(NOT_SENIOR_TITLE_PATTERN)),
+    ).is_not(True)
+
+
 def followed_company_match():
-    return or_(
-        func.cardinality(models.DreamCompany.roles) == 0,
-        *[
-            and_(models.DreamCompany.roles.any(role), role_match_expression(role))
-            for role in ROLE_TERMS
-        ],
+    """Match followed-company domains and apply the clearly senior job rule."""
+    return and_(
+        exclude_clearly_senior_jobs(),
+        or_(
+            func.cardinality(models.DreamCompany.roles) == 0,
+            *[
+                and_(models.DreamCompany.roles.any(role), role_match_expression(role))
+                for role in ROLE_TERMS
+            ],
+        ),
     )
 
 

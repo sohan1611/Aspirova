@@ -105,7 +105,7 @@ function CompanyAlertButton({ slug, companyName, accessToken, open, setOpen }: {
             <DialogTitle className="break-words [overflow-wrap:anywhere]">{accessToken
               ? state.following ? `Your alert for ${companyName}` : `Get alerts from ${companyName}`
               : "Sign in to follow this company"}</DialogTitle>
-            <DialogDescription>We email you the full details when this company posts a role in the domains you pick.</DialogDescription>
+            <DialogDescription>We email you the full details when this company posts a role in the domains you pick, skipping clearly senior ones.</DialogDescription>
           </DialogHeader>
           {accessToken ? (
             <div className="min-w-0 space-y-4">

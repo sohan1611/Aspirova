@@ -234,7 +234,7 @@ function CompanyAlerts({ accessToken, limit, alertsEnabled }: { accessToken: str
   return (
     <div className="min-w-0 py-5">
       <h3 className="font-medium text-foreground">Company alerts</h3>
-      <p className="mt-1 text-sm text-muted-foreground">Pick companies and domains. We email you the full details when one of them posts a matching role.</p>
+      <p className="mt-1 text-sm text-muted-foreground">Pick companies and domains. We email you the full details when one of them posts a matching role, skipping clearly senior ones like Senior, Staff and Director.</p>
       {!alertsEnabled && <p className="mt-2 text-sm text-muted-foreground">Alerts are turned off above, so these won&apos;t email you until you turn them back on.</p>}
       {limit !== null && !loading && !error && (
         <p className="mt-3 text-sm text-muted-foreground">
