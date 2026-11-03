@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/select";
 import { getBookmarks, updateBookmarkStatus } from "@/lib/api";
 import type { BookmarkStage, SavedOpportunityItem } from "@/lib/types";
-import { useSession } from "@/lib/useSession";
+import { useSessionState } from "@/lib/useSession";
 import { cn } from "@/lib/utils";
 
 const STAGES = [
@@ -88,7 +88,7 @@ function StageControl({
 
 export default function SavedPage() {
   const { syncStatus } = useBookmarks();
-  const session = useSession();
+  const { session, resolved } = useSessionState();
   const accessToken = session?.access_token ?? null;
   const [retryKey, setRetryKey] = useState(0);
   const [activeStage, setActiveStage] = useState<StageFilter>("all");
@@ -209,8 +209,9 @@ export default function SavedPage() {
   }
 
   const loading =
-    accessToken !== null &&
-    (loadState.accessToken !== accessToken || loadState.requestKey !== retryKey);
+    !resolved ||
+    (accessToken !== null &&
+      (loadState.accessToken !== accessToken || loadState.requestKey !== retryKey));
 
   return (
     <main className="mx-auto w-full max-w-[1680px] px-4 py-10 sm:px-6 sm:py-14 lg:px-10 xl:px-12">
@@ -224,7 +225,7 @@ export default function SavedPage() {
         </p>
       </header>
 
-      {!session ? (
+      {resolved && !session ? (
         <Card className="mx-auto mt-10 max-w-xl text-center shadow-soft">
           <CardHeader>
             <Bookmark className="mx-auto size-9 text-primary" aria-hidden="true" />

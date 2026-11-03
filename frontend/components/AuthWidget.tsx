@@ -1,6 +1,7 @@
 "use client";
 
-import { Loader2, MailCheck, UserCheck } from "lucide-react";
+import { isAuthRetryableFetchError } from "@supabase/supabase-js";
+import { Loader2, MailCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { PasswordInput } from "@/components/PasswordInput";
 import { Button } from "@/components/ui/button";
@@ -11,10 +12,15 @@ import { createClient } from "@/lib/supabase/client";
 import { useSession } from "@/lib/useSession";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const AUTH_CONNECTION_ERROR = "We couldn't reach the sign-in service. Check your connection and try again.";
 type OAuthProvider = "google" | "github";
 
 /** A terminal message that replaces the form once an action succeeds. */
-type AuthNotice = "check-email" | "already-registered" | "reset-sent";
+type AuthNotice = "check-email" | "reset-sent";
+
+function authErrorMessage(error: Error): string {
+  return isAuthRetryableFetchError(error) ? AUTH_CONNECTION_ERROR : error.message;
+}
 
 function getAuthRedirectTo(): string | undefined {
   return typeof window !== "undefined"
@@ -108,6 +114,7 @@ export default function AuthWidget() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return;
     setTouched(true);
     setFormError(null);
 
@@ -125,12 +132,12 @@ export default function AuthWidget() {
       if (mode === "signin") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
-          setFormError(error.message);
+          setFormError(authErrorMessage(error));
         }
         return;
       }
 
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -138,24 +145,15 @@ export default function AuthWidget() {
         },
       });
 
-      if (error) {
-        setFormError(error.message);
+      if (error && !/already\s+(registered|exists)/i.test(error.message)) {
+        setFormError(authErrorMessage(error));
         return;
       }
 
-      // Supabase answers an already-registered address with success and a decoy
-      // user so signup cannot be used to enumerate accounts — but it sends no
-      // email, so claiming we did would be a lie. The empty identities array is
-      // what distinguishes that case.
-      const identities = data.user?.identities;
-      if (Array.isArray(identities) && identities.length === 0) {
-        setNotice("already-registered");
-        return;
-      }
-
-      // Unrecognised shape: fall back rather than guess. A wrong "already
-      // registered" would block a genuine signup.
+      // Checking identities would let signup test whether an address has an account.
       setNotice("check-email");
+    } catch {
+      setFormError(AUTH_CONNECTION_ERROR);
     } finally {
       setLoading(false);
     }
@@ -179,14 +177,12 @@ export default function AuthWidget() {
       });
 
       if (error) {
-        setFormError(error.message);
+        setFormError(authErrorMessage(error));
       } else {
         setNotice("reset-sent");
       }
-    } catch (error) {
-      setFormError(
-        error instanceof Error ? error.message : "Unable to send the reset link.",
-      );
+    } catch {
+      setFormError(AUTH_CONNECTION_ERROR);
     } finally {
       setResetLoading(false);
     }
@@ -205,42 +201,13 @@ export default function AuthWidget() {
       });
 
       if (error) {
-        setFormError(error.message);
+        setFormError(authErrorMessage(error));
         setOauthLoadingProvider(null);
       }
-    } catch (error) {
-      setFormError(error instanceof Error ? error.message : "Unable to start social sign-in.");
+    } catch {
+      setFormError(AUTH_CONNECTION_ERROR);
       setOauthLoadingProvider(null);
     }
-  }
-
-  if (notice === "already-registered") {
-    return (
-      <div className="flex flex-col items-center gap-2 py-4 text-center">
-        <UserCheck className="h-8 w-8 text-primary" aria-hidden="true" />
-        <p className="font-medium text-foreground">That email already has an account</p>
-        {/* Built as one expression: JSX drops the space between {email} and
-            adjacent text here, which renders "…@gmail.comis already". */}
-        <p className="text-sm text-muted-foreground">
-          {`${email} is already registered, so we didn't send a new confirmation link. Sign in instead, or reset your password if you've forgotten it.`}
-        </p>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="mt-2"
-          onClick={() => {
-            setNotice(null);
-            setMode("signin");
-            setPassword("");
-            setTouched(false);
-            setFormError(null);
-          }}
-        >
-          Sign in instead
-        </Button>
-      </div>
-    );
   }
 
   if (notice === "reset-sent") {
@@ -261,8 +228,23 @@ export default function AuthWidget() {
         <MailCheck className="h-8 w-8 text-primary" aria-hidden="true" />
         <p className="font-medium text-foreground">Check your email</p>
         <p className="text-sm text-muted-foreground">
-          {`We sent a confirmation link to ${email}.`}
+          {`If ${email} can be used for a new account, a confirmation link is on its way. Already have an account? We won't send a new link, so sign in or reset your password instead.`}
         </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-2"
+          onClick={() => {
+            setNotice(null);
+            setMode("signin");
+            setPassword("");
+            setTouched(false);
+            setFormError(null);
+          }}
+        >
+          Back to sign in
+        </Button>
       </div>
     );
   }

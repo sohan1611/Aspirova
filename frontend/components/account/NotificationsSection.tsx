@@ -79,6 +79,7 @@ export default function NotificationsSection({
   // settings UI usable while the next account refresh restores the full shape.
   const notificationPrefs = account.notification_prefs ?? {};
   const planFeatures = account.plan?.features ?? {};
+  const entitlementKnown = account.plan?.features != null;
 
   async function handleToggle(key: (typeof NOTIFICATIONS)[number]["key"]) {
     const previous = account;
@@ -115,8 +116,8 @@ export default function NotificationsSection({
       </CardHeader>
       <CardContent className="divide-y divide-border">
         {NOTIFICATIONS.map((notification) => {
-          const enabled = notificationPrefs[notification.key] !== false;
-          const includedWithPlan = planFeatures[notification.key] === true;
+          const locked = entitlementKnown && planFeatures[notification.key] !== true;
+          const enabled = !locked && notificationPrefs[notification.key] !== false;
 
           return (
             <div
@@ -133,9 +134,12 @@ export default function NotificationsSection({
                 <p className="mt-1 text-sm text-muted-foreground">
                   {notification.description}
                 </p>
-                {!includedWithPlan && (
+                {locked && (
                   <p className="mt-1.5 text-xs font-medium text-primary">
-                    Included with a paid plan
+                    Included with a paid plan{" "}
+                    <Link href="/pricing" className="underline underline-offset-4">
+                      See plans
+                    </Link>
                   </p>
                 )}
               </div>
@@ -144,8 +148,10 @@ export default function NotificationsSection({
                 role="switch"
                 aria-checked={enabled}
                 aria-labelledby={`${notification.key}-label`}
-                disabled={pendingKey !== null}
-                onClick={() => void handleToggle(notification.key)}
+                disabled={locked || pendingKey !== null}
+                onClick={() => {
+                  if (!locked) void handleToggle(notification.key);
+                }}
                 className={cn(
                   "relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full border border-transparent transition-colors duration-200 ease-premium outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-60",
                   enabled ? "bg-primary" : "bg-muted-foreground/35",

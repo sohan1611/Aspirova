@@ -108,14 +108,14 @@ def test_dead_connection_twice_raises_503(supabase_request, db, error_type) -> N
 
 
 def test_missing_user_is_mirrored(supabase_request, db) -> None:
-    db.get.return_value = None
+    mirrored = models.User(id=USER_ID, email=AUTH_USER["email"])
+    db.get.side_effect = [None, mirrored]
 
     user = auth.get_current_user(authorization="Bearer test-token", db=db)
 
-    assert isinstance(user, models.User)
-    assert user.id == USER_ID
-    assert user.email == AUTH_USER["email"]
-    db.get.assert_called_once_with(models.User, USER_ID)
-    db.add.assert_called_once_with(user)
+    assert user is mirrored
+    assert db.get.call_count == 2
+    db.execute.assert_called_once()
+    db.add.assert_not_called()
     db.commit.assert_called_once_with()
     assert supabase_request.call_count == 1

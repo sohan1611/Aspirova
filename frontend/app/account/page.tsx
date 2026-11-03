@@ -43,7 +43,7 @@ import {
 } from "@/lib/profileCompleteness";
 import type { FieldProfile } from "@/lib/taxonomy";
 import type { AccountMe } from "@/lib/types";
-import { useSession } from "@/lib/useSession";
+import { useSessionState } from "@/lib/useSession";
 
 function planName(key: string): string {
   if (key === "free") return "Free";
@@ -78,7 +78,7 @@ export default function AccountPage() {
 }
 
 function AccountPageContent() {
-  const session = useSession();
+  const { session, resolved } = useSessionState();
   const accessToken = session?.access_token;
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -195,6 +195,8 @@ function AccountPageContent() {
     nextParams.set("section", section);
     router.replace(`/account?${nextParams.toString()}`, { scroll: false });
   }
+
+  if (!resolved) return <AccountLoadingSkeleton />;
 
   if (!session) {
     return (
