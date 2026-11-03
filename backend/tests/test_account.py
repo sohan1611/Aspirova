@@ -238,6 +238,43 @@ def test_patch_account_persists_and_round_trips_resume_metadata(client) -> None:
     assert read_back.json()["resume"] == resume
 
 
+def test_patch_account_clears_resume_without_removing_skills(
+    client, db_session: Session, user: models.User
+) -> None:
+    resume = {
+        "path": f"{user.id}/resume.pdf",
+        "filename": "resume.pdf",
+        "uploaded_at": "2026-11-03T12:00:00.000Z",
+        "ats": {"score": 82, "checks": []},
+    }
+    skills = [
+        {"name": "Python", "source": "resume"},
+        {"name": "Figma", "source": "manual"},
+    ]
+    saved = client.patch("/account/me", json={"resume": resume, "skills": skills})
+    assert saved.status_code == 200
+    assert saved.json()["resume"] == resume
+
+    unchanged = client.patch("/account/me", json={"display_name": "Ada"})
+    assert unchanged.status_code == 200
+    assert unchanged.json()["resume"] == resume
+
+    response = client.patch("/account/me", json={"resume": None})
+
+    assert response.status_code == 200
+    assert response.json()["resume"] is None
+    assert response.json()["skills"] == skills
+
+    db_session.refresh(user)
+    assert user.resume is None
+    assert user.skills == skills
+
+    read_back = client.get("/account/me")
+    assert read_back.status_code == 200
+    assert read_back.json()["resume"] is None
+    assert read_back.json()["skills"] == skills
+
+
 def test_patch_account_normalizes_smart_profile_data(client) -> None:
     response = client.patch(
         "/account/me",
