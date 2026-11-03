@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { signOutWithFeedback } from "@/lib/signOut";
 import { createClient } from "@/lib/supabase/client";
 
 function avatarUrlFor(user: User): string | null {
@@ -69,7 +70,7 @@ export default function AccountMenu({ user }: { user: User }) {
             Account
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => void supabase.auth.signOut()}>
+        <DropdownMenuItem onSelect={() => void signOutWithFeedback(supabase)}>
           <LogOut aria-hidden="true" />
           Sign out
         </DropdownMenuItem>

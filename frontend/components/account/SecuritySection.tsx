@@ -2,6 +2,7 @@
 
 import type { User } from "@supabase/supabase-js";
 import { Loader2, LogOut, ShieldCheck, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import { PasswordInput } from "@/components/PasswordInput";
@@ -26,6 +27,8 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { exportAccountData } from "@/lib/api";
+import { signOutWithFeedback } from "@/lib/signOut";
 import { MIN_PASSWORD_LENGTH } from "@/lib/password";
 import { createClient } from "@/lib/supabase/client";
 
@@ -59,14 +62,52 @@ function providerLabel(provider: string): string {
 
 export default function SecuritySection({
   user,
+  accessToken,
 }: {
   user: User | null | undefined;
+  accessToken: string;
 }) {
   const supabase = createClient();
   const providers = providersFor(user);
   const canChangePassword = providers.includes("email");
   const [password, setPassword] = useState("");
   const [updatingPassword, setUpdatingPassword] = useState(false);
+
+  const [signingOut, setSigningOut] = useState<"local" | "global" | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const deletionHref = "mailto:support@aspirova.org?subject=" +
+    encodeURIComponent("Account deletion request") + "&body=" +
+    encodeURIComponent("Please delete my Aspirova account.\nAccount email: " + (user?.email ?? ""));
+
+  async function handleSignOut(scope?: "global") {
+    if (signingOut) return;
+    setSigningOut(scope ?? "local");
+    try {
+      await signOutWithFeedback(supabase, scope);
+    } finally {
+      setSigningOut(null);
+    }
+  }
+
+  async function handleDownload() {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const data = await exportAccountData(accessToken);
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "aspirova-data-" + new Date().toISOString().slice(0, 10) + ".json";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    } catch {
+      toast.error("We couldn't download your data. Please try again.");
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   async function handlePasswordSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -100,6 +141,16 @@ export default function SecuritySection({
           <CardDescription>Sign-in and password.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-6">
+          <section aria-labelledby="account-your-data" className="grid gap-3">
+            <h3 id="account-your-data" className="font-medium text-foreground">Your data</h3>
+            <div>
+              <Button variant="outline" disabled={downloading} onClick={() => void handleDownload()}>
+                {downloading && <Loader2 className="animate-spin" aria-hidden="true" />}
+                {downloading ? "Downloading…" : "Download my data"}
+              </Button>
+            </div>
+          </section>
+          <Separator />
           {canChangePassword && (
             <>
               <form onSubmit={handlePasswordSubmit} className="grid gap-4">
@@ -159,19 +210,19 @@ export default function SecuritySection({
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={() => void supabase.auth.signOut()}>
+              <Button variant="outline" disabled={signingOut !== null} onClick={() => void handleSignOut()}>
                 <LogOut aria-hidden="true" />
-                Sign out
+                {signingOut === "local" ? "Signing out…" : "Sign out"}
               </Button>
               <Dialog>
                 <DialogTrigger asChild>
-                  <Button variant="outline">Sign out of all devices</Button>
+                  <Button variant="outline" disabled={signingOut !== null}>Sign out of all devices</Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Sign out of all devices?</DialogTitle>
                     <DialogDescription>
-                      This ends your session on every device, including this one.
+                      This ends your session on every device, including this one. Other devices may take a short time to sign out.
                     </DialogDescription>
                   </DialogHeader>
                   <DialogFooter>
@@ -179,11 +230,10 @@ export default function SecuritySection({
                       <Button variant="outline">Cancel</Button>
                     </DialogClose>
                     <Button
-                      onClick={() =>
-                        void supabase.auth.signOut({ scope: "global" })
-                      }
+                      disabled={signingOut !== null}
+                      onClick={() => void handleSignOut("global")}
                     >
-                      Sign out of all devices
+                      {signingOut === "global" ? "Signing out…" : "Sign out of all devices"}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -207,27 +257,22 @@ export default function SecuritySection({
             <DialogTrigger asChild>
               <Button variant="destructive">
                 <Trash2 aria-hidden="true" />
-                Delete account
+                Request account deletion
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Delete your account</DialogTitle>
+                <DialogTitle>Request account deletion</DialogTitle>
                 <DialogDescription>
-                  Account deletion isn&apos;t self-serve yet. Email{" "}
-                  <a
-                    href="mailto:support@aspirova.org"
-                    className="font-medium text-foreground underline underline-offset-4"
-                  >
-                    support@aspirova.org
-                  </a>{" "}
-                  and we&apos;ll remove your account and data.
+                  Account deletion isn&apos;t self-serve yet. Email us from the address on your account and we&apos;ll remove your profile, saved data and resume. If you&apos;re on a paid plan, cancel it first under Subscription so it doesn&apos;t renew. Encrypted backup copies are kept for a limited time, as described in our{" "}
+                  <Link href="/privacy" className="font-medium text-foreground underline underline-offset-4">Privacy Policy</Link>.
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
                 <DialogClose asChild>
                   <Button variant="outline">Close</Button>
                 </DialogClose>
+                <Button asChild><a href={deletionHref}>Email deletion request</a></Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>

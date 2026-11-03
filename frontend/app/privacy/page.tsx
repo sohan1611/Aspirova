@@ -219,7 +219,7 @@ export default function PrivacyPage() {
             your account
           </Link>{" "}
           and turn off emails in your notification preferences. To request
-          access to or deletion of your information, email <ContactEmail />.
+          access to or deletion of your information, email <ContactEmail />. You can download a copy of your account data any time from Account, under Security.
         </p>
 
         <h2 className="mt-12 scroll-mt-24 font-serif text-2xl font-semibold tracking-tight text-foreground">

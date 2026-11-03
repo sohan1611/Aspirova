@@ -318,7 +318,8 @@ export default function SearchFilters() {
   }
 
   function clearFilters() {
-    navigate("/");
+    const editSearch = searchParams.get("editSearch");
+    navigate(editSearch === null ? "/" : "/?" + new URLSearchParams({ editSearch }).toString());
   }
 
   return (

@@ -252,8 +252,12 @@ class SavedSearchItem(BaseModel):
         return params.model_dump(exclude_none=True)
 
 
-class SavedSearchAlertsUpdate(BaseModel):
-    alerts_enabled: bool
+class SavedSearchUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, max_length=80)
+    params: SavedSearchParams | None = None
+    alerts_enabled: bool | None = None
 
 
 class ResumeUploadRequest(BaseModel):
