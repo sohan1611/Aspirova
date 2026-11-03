@@ -79,7 +79,11 @@ that drove real decisions:
 backend/    FastAPI API, crawler adapters, ingestion pipeline, AI workers  (Python 3.12, uv)
 frontend/   Next.js app — feed, search, SSR opportunity + programme pages  (Next 16, pnpm)
 docs/       Architecture canon: strategy, data, crawler, AI, pricing, governance
+  audits/   Dated outside audits and the backlogs they produced
+  handoffs/ Work orders and phase reports
+infra/      Database droplet runbook and provisioning
 .github/    CI, scheduled crawls, backups, notification workers
+.agents/    Running log of work delegated between agents
 ```
 
 ## How this is built

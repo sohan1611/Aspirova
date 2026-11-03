@@ -27,6 +27,7 @@
 - **Frontend:** Node + `pnpm`. `cd frontend && pnpm install`, then `pnpm dev`.
 - **Secrets (NOT in git — must be present locally):** `backend/.env` (`DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`, `CORS_ORIGINS`) and `frontend/.env.local` (`NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`). Templates: `backend/.env.example`, `frontend/.env.local.example`.
 - **Also needed:** `git`, `gh` (GitHub CLI — used for crawl workflow triggers + PRs). Never commit `.venv/`, `node_modules/`, or any `.env*` (except the `.example` files).
+- **Keep the folder tidy:** new worktrees go under `.claude/worktrees/`, never beside the repo in Downloads. `_local/` is git-ignored and holds the founder's private PDFs and reports; the repo is public, so never move anything out of it into a tracked path. Dated outside audits live in `docs/audits/`.
 
 ## Git conventions (strict — user preference)
 - Commit as **`sohan1611`** (`sohanmandal1611@gmail.com`). **Never** add a `Co-Authored-By: Codex` trailer. **Never** add Dependabot. Only `sohan1611` should appear as a contributor.

@@ -32,3 +32,11 @@ Thumbs.db
 
 # Claude Code harness artifacts
 .claude/
+
+# Local tool caches and test scratch
+.uv-cache/
+.codex-uv-cache/
+.pytest-tmp/
+
+# Founder's private files (PDFs, reports, leftovers). Never published.
+_local/

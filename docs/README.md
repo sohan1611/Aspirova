@@ -22,6 +22,8 @@
 
 Each document ends with a **HANDOFF TO ENGINEERING** block — the only part the coding agent is required to act on directly.
 
+**Audits:** [`audits/`](audits/) holds dated outside reviews. They are inputs, not canon: a finding binds only once it is fixed or ruled on in the Decision log below. Current: [bug audit](audits/Aspirova_Bug_Audit_and_Fixes.md) and [feature and competitor gap](audits/Aspirova_Expected_Features_and_Competitor_Gap.md), both 2026-11-04.
+
 ---
 
 ## The five things you must internalize before reading further
