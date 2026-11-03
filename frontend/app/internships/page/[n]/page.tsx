@@ -47,6 +47,7 @@ export default async function InternshipsPaginatedPage({ params }: PageProps) {
       intro={INTERNSHIPS_LANDING.intro}
       items={data.items}
       total={data.total}
+      openTotal={data.open_total}
       page={page}
       limit={LANDING_LIMIT}
       basePath={INTERNSHIPS_LANDING.basePath}

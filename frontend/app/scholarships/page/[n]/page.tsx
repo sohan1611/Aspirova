@@ -47,6 +47,7 @@ export default async function ScholarshipsPaginatedPage({ params }: PageProps) {
       intro={SCHOLARSHIPS_LANDING.intro}
       items={data.items}
       total={data.total}
+      openTotal={data.open_total}
       page={page}
       limit={LANDING_LIMIT}
       basePath={SCHOLARSHIPS_LANDING.basePath}

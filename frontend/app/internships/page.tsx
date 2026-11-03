@@ -23,6 +23,7 @@ export default async function InternshipsPage() {
       intro={INTERNSHIPS_LANDING.intro}
       items={data.items}
       total={data.total}
+      openTotal={data.open_total}
       page={1}
       limit={LANDING_LIMIT}
       basePath={INTERNSHIPS_LANDING.basePath}

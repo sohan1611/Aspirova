@@ -462,7 +462,7 @@ def test_hackathon_meta_round_trips_and_role_meta_defaults_to_null(db_session, s
     db_session.expire(hackathon, ["category", "meta", "deadline"])
     assert is_new_v1 is True
     assert hackathon.category == "hackathon"
-    assert hackathon.meta == meta
+    assert hackathon.meta == {**meta, "prize_inr": 100000, "prize_text": "INR 100,000"}
     assert hackathon.deadline == deadline
 
     updated_deadline = datetime(2026, 8, 17, 23, 59, tzinfo=UTC)
@@ -483,7 +483,11 @@ def test_hackathon_meta_round_trips_and_role_meta_defaults_to_null(db_session, s
 
     assert is_new_v2 is False
     assert updated_hackathon.id == hackathon_id
-    assert updated_hackathon.meta == updated_meta
+    assert updated_hackathon.meta == {
+        **updated_meta,
+        "prize_inr": 150000,
+        "prize_text": "INR 150,000",
+    }
     assert updated_hackathon.deadline == updated_deadline
 
     role_raw = _raw("job-meta-null", "https://acme.example/jobs/meta-null")

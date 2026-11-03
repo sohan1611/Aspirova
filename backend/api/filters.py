@@ -31,10 +31,9 @@ REGISTRATION_LABELS = {"free": "Free", "paid": "Paid"}
 DEADLINE_WITHIN_DAYS = (1, 3, 7, 30)
 COMPETITION_MODE_LABELS = {
     "online": "Online",
-    "offline": "Offline",
+    "offline": "In person",
     "hybrid": "Hybrid",
 }
-INR_PRIZE_CURRENCY_TOKENS = ("fa-rupee", "fa-inr", "fa-rupee-sign", "INR", "inr")
 
 SENIOR_TITLE_PATTERN = (
     r"(^|[^a-z])(senior|sr|staff|principal|director|vp|vice president|president|"
@@ -261,6 +260,10 @@ def competition_mode_expression():
         (mode_value == "online", "online"),
         (mode_value == "offline", "offline"),
         (mode_value == "hybrid", "hybrid"),
+        (models.Opportunity.meta["is_online"].as_boolean().is_(True), "online"),
+        (models.Opportunity.meta["is_online"].as_boolean().is_(False), "offline"),
+        (and_(models.Opportunity.primary_source == "devpost", mode_value != ""), "offline"),
+        (models.Opportunity.is_remote.is_(True), "online"),
         else_="unknown",
     )
 
@@ -301,25 +304,20 @@ def _mode_values(values: list[str] | None) -> list[str]:
     return selected
 
 
+def competition_open_expression():
+    return and_(
+        models.Opportunity.closed_at.is_(None),
+        or_(models.Opportunity.deadline.is_(None), models.Opportunity.deadline >= func.now()),
+    )
+
+
+def competition_prize_expression():
+    prize = models.Opportunity.meta["prize_inr"]
+    return case((func.jsonb_typeof(prize) == "number", prize.as_float()), else_=None)
+
+
 def _prize_min_filter(prize_min: int):
-    # Unstop stores currency as font-awesome tokens, not ISO 4217. Until there
-    # is a real FX normalisation layer, compare only INR-token prize entries.
-    currency_values = ", ".join(f"'{token}'" for token in INR_PRIZE_CURRENCY_TOKENS)
-    return text(f"""
-        exists (
-            select 1
-            from jsonb_array_elements(
-                case
-                    when jsonb_typeof(opportunities.meta->'prizes') = 'array'
-                    then opportunities.meta->'prizes'
-                    else '[]'::jsonb
-                end
-            ) as prize
-            where prize->>'currency' in ({currency_values})
-            and prize->>'cash' ~ '^[0-9]+(\\.[0-9]+)?$'
-            and (prize->>'cash')::numeric >= :prize_min
-        )
-        """).bindparams(prize_min=prize_min)
+    return competition_prize_expression() >= prize_min
 
 
 def competition_filters(
@@ -329,6 +327,7 @@ def competition_filters(
     organiser_type: list[str] | None,
     mode: list[str] | None,
     prize_min: int | None,
+    status: str | None = None,
 ) -> list:
     filters = []
 
@@ -381,6 +380,11 @@ def competition_filters(
 
     if prize_min is not None:
         filters.append(_prize_min_filter(prize_min))
+
+    if status == "open":
+        filters.append(competition_open_expression())
+    elif status == "closed":
+        filters.append(not_(competition_open_expression()))
 
     return filters
 

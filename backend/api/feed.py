@@ -17,6 +17,7 @@ from api.deps import get_db
 from api.filters import (
     SOURCE_GROUPS,
     competition_filters,
+    competition_prize_expression,
     exclude_closed_competitions,
     exclude_experienced_only_opportunities,
     exclude_school_only_opportunities,
@@ -56,6 +57,7 @@ def get_feed(
     organiser_type: list[str] | None = Query(None),
     mode: list[str] | None = Query(None),
     prize_min: int | None = Query(None, ge=0),
+    status: str | None = Query(None, pattern="^(open|closed)$"),
     paid: bool | None = Query(None),
     min_stipend: int | None = Query(None, ge=0),
     part_time: bool | None = Query(None),
@@ -67,7 +69,7 @@ def get_feed(
         pattern="^(software|data|design|marketing|finance|hr|sales|product|operations|content)$",
     ),
     top: int | None = Query(None, gt=0),
-    sort: str = Query("student", pattern="^(recent|deadline|student)$"),
+    sort: str = Query("student", pattern="^(recent|deadline|student|prize)$"),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -91,6 +93,7 @@ def get_feed(
             organiser_type,
             mode,
             prize_min,
+            status,
         ),
     ]
     base_filters.extend(kind_filters(kind))
@@ -112,19 +115,21 @@ def get_feed(
     )
     total_count = func.count().over().label("total_count")
     open_count = func.count().filter(is_closed == 0).over().label("open_count")
-    source_rank = (
-        func.row_number()
-        .over(
-            partition_by=func.coalesce(models.Opportunity.primary_source, ""),
-            order_by=[
-                models.Opportunity.last_seen_at.desc(),
-                models.Opportunity.id.desc(),
-            ],
+    source_rank = None
+    if sort not in {"deadline", "prize"}:
+        source_rank = (
+            func.row_number()
+            .over(
+                partition_by=func.coalesce(models.Opportunity.primary_source, ""),
+                order_by=[
+                    models.Opportunity.last_seen_at.desc(),
+                    models.Opportunity.id.desc(),
+                ],
+            )
+            .label("source_rank")
         )
-        .label("source_rank")
-    )
     selected_columns = [models.Opportunity, total_count, open_count]
-    if sort != "deadline":
+    if source_rank is not None:
         selected_columns.append(source_rank)
     query = select(*selected_columns).options(*opportunity_list_load_options()).where(*base_filters)
     # id is a required tie-breaker, not cosmetic: many rows share the exact
@@ -133,7 +138,7 @@ def get_feed(
     # paginated queries - confirmed live, page 1 and page 2 returned
     # overlapping rows without this.
     ordering = [is_closed.asc()]
-    if kind == "roles":
+    if kind == "roles" and sort != "prize":
         roles_first = case(
             (models.Opportunity.category.in_(["internship", "job"]), 0),
             else_=1,
@@ -156,7 +161,15 @@ def get_feed(
 
     student_rank = student_rank_expression()
 
-    if sort == "deadline":
+    if sort == "prize":
+        ordering.extend(
+            [
+                competition_prize_expression().desc().nullslast(),
+                models.Opportunity.deadline.asc().nullslast(),
+                models.Opportunity.id.asc(),
+            ]
+        )
+    elif sort == "deadline":
         open_deadline = case(
             (is_closed == 0, models.Opportunity.deadline),
             else_=None,

@@ -66,7 +66,7 @@ export default function CompetitionsResults({ initialData }: CompetitionsResults
         <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
           <p className="eyebrow">Open arena</p>
           <p className="tnum text-sm text-muted-foreground">
-            {opportunityCountLabel(data.total)}
+            {opportunityCountLabel(data.total, data.open_total)}
           </p>
         </div>
 

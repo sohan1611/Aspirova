@@ -343,6 +343,8 @@ class UnstopAdapter:
 
         if role_fields:
             meta.update(role_fields["meta"])
+        elif category in {"competition", "hackathon", "scholarship"}:
+            meta.update(unstop_team_fields(opportunity))
 
         return NormalizedListing(
             source_slug=self.source_slug,
@@ -540,6 +542,17 @@ def _range_end_year(start_year: int, end_year_text: str) -> int:
     if end_year < start_year:
         end_year += 100
     return end_year
+
+
+def unstop_team_fields(opportunity: dict[str, Any]) -> dict[str, int]:
+    requirements = opportunity.get("regnRequirements")
+    if not isinstance(requirements, dict):
+        return {}
+    return {
+        key: value
+        for key, field in (("team_min", "min_team_size"), ("team_size", "max_team_size"))
+        if type(value := requirements.get(field)) is int and value > 0
+    }
 
 
 def unstop_role_fields(opportunity: dict[str, Any]) -> dict[str, Any]:

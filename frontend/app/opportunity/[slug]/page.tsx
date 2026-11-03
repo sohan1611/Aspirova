@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ApplyLink from "@/components/ApplyLink";
+import AddToCalendar from "@/components/AddToCalendar";
 import BookmarkButton from "@/components/BookmarkButton";
 import CompanyFavicon from "@/components/CompanyFavicon";
 import RecordOpportunityView from "@/components/RecordOpportunityView";
@@ -13,6 +14,15 @@ import { Button } from "@/components/ui/button";
 import OpportunityCard from "@/components/OpportunityCard";
 import { getOpportunity, getSimilarOpportunities } from "@/lib/api";
 import { formatDate } from "@/lib/date";
+import {
+  competitionMode,
+  eligibilityText,
+  eventDatesText,
+  formatPrizePool,
+  participantCount,
+  prizeBreakdown,
+  teamSizeText,
+} from "@/lib/competition";
 import {
   closedDeadlineLabel,
   estimatedClosedDeadlineLabel,
@@ -42,6 +52,9 @@ export async function generateStaticParams(): Promise<{ slug: string }[]> {
 const CATEGORY_LABEL: Record<string, string> = {
   internship: "Internship",
   job: "Job",
+  hackathon: "Hackathon",
+  competition: "Competition",
+  scholarship: "Scholarship",
 };
 const SITE_URL = "https://www.aspirova.org";
 
@@ -229,6 +242,19 @@ export default async function OpportunityPage({ params }: PageProps) {
   const isRole = opportunity.category === "internship" || opportunity.category === "job";
   const payText = isRole ? formatCompensation(opportunity.meta) : null;
   const duration = opportunity.meta?.duration_months;
+  const isCompetition = ["hackathon", "competition", "scholarship"].includes(opportunity.category ?? "");
+  const prizes = prizeBreakdown(opportunity.meta);
+  const registered = participantCount(opportunity.meta);
+  const competitionDetails = isCompetition ? [
+    ["Prize pool", formatPrizePool(opportunity.meta)],
+    ["Prizes", prizes.length > 1 ? prizes.map(({ rank, amount }) => `${rank ? `${rank}: ` : ""}${amount}`).join(" · ") : null],
+    ["Format", competitionMode(opportunity)],
+    ["Team size", teamSizeText(opportunity.meta)],
+    ["Registered", registered !== null ? registered.toLocaleString("en-US") : null],
+    ["Open to", eligibilityText(opportunity.meta)],
+    ["Entry", typeof opportunity.meta?.is_paid === "boolean" ? opportunity.meta.is_paid ? "Paid" : "Free" : null],
+    ["Event dates", eventDatesText(opportunity.meta)],
+  ].filter(([, value]) => value !== null) : [];
   let similarOpportunities: OpportunityListItem[] = [];
 
   try {
@@ -419,22 +445,49 @@ export default async function OpportunityPage({ params }: PageProps) {
         </section>
 
         {opportunity.deadline && (
-          <div
-            className={
-              closed
-                ? "mt-8 inline-flex items-center gap-2 rounded-md border border-border bg-secondary/50 px-3 py-2 text-sm font-medium text-muted-foreground"
-                : "mt-8 inline-flex items-center gap-2 rounded-md border border-warning/25 bg-warning/15 px-3 py-2 text-sm font-medium text-warning-foreground dark:text-warning"
-            }
-          >
-            <Clock className="size-4 shrink-0" aria-hidden="true" />
-            <span>
-              {closed ? `${closedStatusLabel}:` : "Deadline:"}{" "}
-              <span className="tnum">
-                {formatDate(opportunity.deadline, "numeric")}
+          <div className="mt-8 flex max-w-3xl flex-wrap items-center gap-3">
+            <div
+              className={
+                closed
+                  ? "inline-flex max-w-full items-center gap-2 rounded-md border border-border bg-secondary/50 px-3 py-2 text-sm font-medium text-muted-foreground"
+                  : "inline-flex max-w-full items-center gap-2 rounded-md border border-warning/25 bg-warning/15 px-3 py-2 text-sm font-medium text-warning-foreground dark:text-warning"
+              }
+            >
+              <Clock className="size-4 shrink-0" aria-hidden="true" />
+              <span>
+                {closed ? `${closedStatusLabel}:` : "Deadline:"}{" "}
+                <span className="tnum">
+                  {formatDate(opportunity.deadline, "numeric")}
+                </span>
+                {opportunity.deadline_confidence !== "explicit" ? " (estimated)" : ""}
               </span>
-              {opportunity.deadline_confidence !== "explicit" ? " (estimated)" : ""}
-            </span>
+            </div>
+            {!closed && (
+              <AddToCalendar
+                event={{
+                  slug: opportunity.slug,
+                  title: opportunity.title,
+                  deadline: opportunity.deadline,
+                  url: canonicalUrl,
+                  estimated: opportunity.deadline_confidence !== "explicit",
+                }}
+              />
+            )}
           </div>
+        )}
+
+        {competitionDetails.length > 0 && (
+          <section className="mt-8 max-w-3xl" aria-labelledby="competition-details-heading">
+            <p id="competition-details-heading" className="eyebrow">Details</p>
+            <dl className="mt-4 divide-y divide-border text-sm">
+              {competitionDetails.map(([label, value]) => (
+                <div key={label} className="grid min-w-0 gap-1 py-3 sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-4">
+                  <dt className="text-muted-foreground">{label}</dt>
+                  <dd className="min-w-0 break-words [overflow-wrap:anywhere]">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
         )}
 
         {opportunity.skills.length > 0 && (

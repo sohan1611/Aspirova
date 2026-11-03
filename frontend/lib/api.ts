@@ -108,7 +108,8 @@ export interface FeedParams extends RoleSignalParams {
   organiser_type?: string | string[];
   mode?: string | string[];
   prize_min?: number;
-  sort?: "student" | "recent" | "deadline";
+  status?: "open" | "closed";
+  sort?: "student" | "recent" | "deadline" | "prize";
   page?: number;
   limit?: number;
 }
@@ -157,6 +158,7 @@ type SearchFilterParams = Pick<
   | "organiser_type"
   | "mode"
   | "prize_min"
+  | "status"
   | "sort"
 >;
 
@@ -213,10 +215,12 @@ export async function getFeed(
   }
   appendRepeatedParam(search, "organiser_type", params.organiser_type);
   appendRepeatedParam(search, "mode", params.mode);
+  if (params.status) search.set("status", params.status);
   if (params.prize_min !== undefined) search.set("prize_min", String(params.prize_min));
   if (
     params.sort === "recent" ||
     params.sort === "deadline" ||
+    params.sort === "prize" ||
     params.sort === "student"
   ) {
     search.set("sort", params.sort);
@@ -332,6 +336,7 @@ export async function searchOpportunities(
   }
   appendRepeatedParam(search, "organiser_type", filters.organiser_type);
   appendRepeatedParam(search, "mode", filters.mode);
+  if (filters.status) search.set("status", filters.status);
   if (filters.prize_min !== undefined) search.set("prize_min", String(filters.prize_min));
   if (filters.sort) search.set("sort", filters.sort);
   // No `next: { revalidate }` here: searchOpportunities is only ever called from
@@ -359,6 +364,7 @@ export async function getOpportunity(slug: string): Promise<OpportunityDetail | 
 
 export async function getProgrammes(
   params: ProgrammeParams = {},
+  revalidateSeconds = 21600,
 ): Promise<ProgrammeListResponse> {
   const search = new URLSearchParams();
   appendStringParams(search, "category", params.category);
@@ -374,7 +380,7 @@ export async function getProgrammes(
 
   const query = search.toString();
   const res = await fetch(`${API_URL}/programmes${query ? `?${query}` : ""}`, {
-    next: { revalidate: 21600 },
+    next: { revalidate: revalidateSeconds },
   });
   if (!res.ok) throw new Error(`Failed to load programmes: ${res.status}`);
   return res.json();

@@ -91,7 +91,7 @@ export default function OpportunityLandingResults({
         <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
           <p className="eyebrow">Open opportunities</p>
           <p className="tnum text-sm text-muted-foreground">
-            {opportunityCountLabel(data.total)}
+            {opportunityCountLabel(data.total, data.open_total)}
             {preferenceApplies && (
               <FeedCountryPreference countryCode={countryCode} preferredCountry={preference} />
             )}

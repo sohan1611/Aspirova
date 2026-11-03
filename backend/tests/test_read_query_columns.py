@@ -1,5 +1,6 @@
 from typing import Any
 
+import pytest
 from fastapi.routing import APIRoute
 from sqlalchemy import select
 from sqlalchemy.dialects import postgresql
@@ -35,7 +36,8 @@ def _compiled_sql(statement) -> str:
     ).lower()
 
 
-def test_feed_list_query_does_not_select_heavy_opportunity_columns() -> None:
+@pytest.mark.parametrize("sort", ["student", "deadline", "prize"])
+def test_feed_list_query_does_not_select_heavy_opportunity_columns(sort: str) -> None:
     db = _CaptureSession()
 
     response = get_feed(
@@ -60,6 +62,7 @@ def test_feed_list_query_does_not_select_heavy_opportunity_columns() -> None:
         organiser_type=None,
         mode=None,
         prize_min=None,
+        status=None,
         paid=None,
         min_stipend=None,
         part_time=None,
@@ -68,7 +71,7 @@ def test_feed_list_query_does_not_select_heavy_opportunity_columns() -> None:
         posted_within=None,
         role=None,
         top=None,
-        sort="student",
+        sort=sort,
         page=1,
         limit=20,
         db=db,
@@ -89,6 +92,7 @@ def test_feed_list_query_does_not_select_heavy_opportunity_columns() -> None:
     assert "opportunities.slug" in compiled
     assert "opportunities.title" in compiled
     assert "opportunities.location" in compiled
+    assert ("source_rank" in compiled) is (sort == "student")
 
 
 def test_full_opportunity_entity_select_defers_search_tsv_only() -> None:

@@ -51,6 +51,7 @@ export default async function JobsPaginatedPage({ params }: PageProps) {
       intro={JOBS_LANDING.intro}
       items={data.items}
       total={data.total}
+      openTotal={data.open_total}
       page={page}
       limit={LANDING_LIMIT}
       basePath={JOBS_LANDING.basePath}

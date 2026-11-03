@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from api.deps import get_db
 from api.filters import (
     SOURCE_GROUPS,
+    competition_filters,
     exclude_closed_competitions,
     exclude_experienced_only_opportunities,
     exclude_school_only_opportunities,
@@ -64,6 +65,13 @@ def search_opportunities(
     remote_abroad: bool = Query(False),
     source: str | None = Query(None, pattern="^(direct|unstop|remoteok|devpost)$"),
     experience: str | None = Query(None, pattern="^(early)$"),
+    comp_type: list[str] | None = Query(None),
+    registration: str | None = Query(None),
+    deadline_within: int | None = Query(None),
+    organiser_type: list[str] | None = Query(None),
+    mode: list[str] | None = Query(None),
+    prize_min: int | None = Query(None, ge=0),
+    status: str | None = Query(None, pattern="^(open|closed)$"),
     paid: bool | None = Query(None),
     min_stipend: int | None = Query(None, ge=0),
     part_time: bool | None = Query(None),
@@ -76,7 +84,7 @@ def search_opportunities(
     ),
     top: int | None = Query(None, gt=0),
     # Search stays relevance-ranked, but accepts the feed control's sort values.
-    sort: str = Query("student", pattern="^(recent|deadline|student)$"),
+    sort: str = Query("student", pattern="^(recent|deadline|student|prize)$"),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -94,6 +102,9 @@ def search_opportunities(
             paid, min_stipend, part_time, max_duration, job_offer, posted_within, role
         ),
         *location_scope_filters(scope, country, remote_abroad),
+        *competition_filters(
+            comp_type, registration, deadline_within, organiser_type, mode, prize_min, status
+        ),
     ]
     if kind == "competitions":
         base_filters.append(models.Opportunity.category.in_(["hackathon", "competition"]))

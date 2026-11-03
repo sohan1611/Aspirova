@@ -11,6 +11,7 @@ from api.filters import (
     DEADLINE_WITHIN_DAYS,
     REGISTRATION_LABELS,
     competition_mode_expression,
+    competition_open_expression,
     exclude_closed_competitions,
     exclude_experienced_only_opportunities,
     exclude_school_only_opportunities,
@@ -134,12 +135,14 @@ def get_facets(
     deadline_within: list[FacetOption] = []
     organiser_types: list[FacetOption] = []
     modes: list[FacetOption] = []
+    statuses: list[FacetOption] = []
     if competition_scope:
         comp_types = _comp_type_facets(db, base_filters)
         registrations = _registration_facets(db, base_filters)
         deadline_within = _deadline_within_facets(db, base_filters)
         organiser_types = _organiser_type_facets(db, base_filters)
         modes = _mode_facets(db, base_filters)
+        statuses = _status_facets(db, base_filters)
 
     return FacetsResponse(
         # Deduplicated, order preserved. The counted facet groups by slug so each
@@ -155,6 +158,7 @@ def get_facets(
         deadline_within=deadline_within,
         organiser_types=organiser_types,
         modes=modes,
+        statuses=statuses,
     )
 
 
@@ -390,3 +394,13 @@ def _mode_facets(db: Session, base_filters: list) -> list[FacetOption]:
         .group_by(mode)
     ).all()
     return _ordered_options(rows, COMPETITION_MODE_LABELS)
+
+
+def _status_facets(db: Session, base_filters: list) -> list[FacetOption]:
+    status = case((competition_open_expression(), "open"), else_="closed")
+    rows = db.execute(
+        select(status.label("value"), func.count(models.Opportunity.id).label("count"))
+        .where(*base_filters)
+        .group_by(status)
+    ).all()
+    return _ordered_options(rows, {"open": "Open now", "closed": "Closed"})

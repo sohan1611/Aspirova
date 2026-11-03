@@ -35,7 +35,7 @@ const DEBOUNCE_MS = 300;
 
 export type CompetitionFacetsStatus = CountedFacetsStatus;
 type MultiFilterKey = "comp_type" | "organiser_type" | "mode";
-type SingleFilterKey = "registration" | "deadline_within";
+type SingleFilterKey = "registration" | "deadline_within" | "status";
 
 interface CompetitionFacetsState {
   facets: Facets | null;
@@ -83,6 +83,7 @@ export function useCompetitionFacets(): CompetitionFacetsState {
             deadline_within: [],
             organiser_types: [],
             modes: [],
+            statuses: [],
           });
           setFacetsStatus("error");
         }
@@ -124,6 +125,7 @@ export function getCompetitionActiveFilterCount(searchParams: SearchParamReader)
     activeValues(searchParams, "mode").length +
     (activeSingleValue(searchParams, "registration") ? 1 : 0) +
     (activeSingleValue(searchParams, "deadline_within") ? 1 : 0) +
+    (activeSingleValue(searchParams, "status") ? 1 : 0) +
     (activeSingleValue(searchParams, "prize_min") ? 1 : 0)
   );
 }
@@ -248,6 +250,17 @@ function CompetitionFiltersPanel({
         />
       </FilterPanelSection>
 
+      <FilterPanelSection title="Status">
+        <CountedSingleSelectGroup
+          label="Status"
+          options={countedOptions(facets?.statuses)}
+          value={activeSingleValue(searchParams, "status")}
+          onSelect={(value) => setSingleParam("status", value)}
+          disabled={isPending || facetsStatus !== "loaded"}
+          emptyLabel={emptyLabel}
+        />
+      </FilterPanelSection>
+
       <FilterPanelSection title="Deadline">
         <CountedSingleSelectGroup
           label="Registration deadline"
@@ -281,10 +294,10 @@ function CompetitionFiltersPanel({
         />
       </FilterPanelSection>
 
-      <FilterPanelSection title="Prize">
+      <FilterPanelSection title="Minimum prize pool in INR">
         <div className="grid gap-2">
           <Label htmlFor={`${idPrefix}-prize-min`} className="sr-only">
-            Minimum prize in INR
+            Minimum prize pool in INR
           </Label>
           <div className="relative">
             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -296,14 +309,17 @@ function CompetitionFiltersPanel({
               min={0}
               step={1000}
               inputMode="numeric"
-              placeholder="Any prize"
+              placeholder="Any prize pool"
               value={prizeInput}
               disabled={isPending}
-              aria-label="Minimum prize in INR"
+              aria-label="Minimum prize pool in INR"
               onChange={(event) => setPrizeInput(event.target.value)}
               className="pl-12"
             />
           </div>
+          <p className="text-xs text-muted-foreground">
+            Prizes in other currencies are compared at approximate rates.
+          </p>
         </div>
       </FilterPanelSection>
 
@@ -456,14 +472,25 @@ export function CompetitionsActiveFilterChips({ facets }: { facets: Facets | nul
   if (prizeMin) {
     const label = (
       <>
-        Prize at least INR <span className="tnum">{formatPrize(prizeMin)}</span>
+        Prize pool at least INR <span className="tnum">{formatPrize(prizeMin)}</span>
       </>
     );
     filters.push({
       id: "prize_min",
       label,
-      humanLabel: `Prize at least INR ${formatPrize(prizeMin)}`,
+      humanLabel: `Prize pool at least INR ${formatPrize(prizeMin)}`,
       onRemove: () => removeSingleParam("prize_min"),
+    });
+  }
+
+  const status = activeSingleValue(searchParams, "status");
+  if (status) {
+    const label = optionLabel(facets?.statuses, status);
+    filters.push({
+      id: "status",
+      label,
+      humanLabel: `Status: ${label}`,
+      onRemove: () => removeSingleParam("status"),
     });
   }
 

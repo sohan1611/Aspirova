@@ -6,7 +6,7 @@ export default function Loading() {
   return (
     <main aria-busy="true" className="mx-auto max-w-3xl px-4 py-8">
       <span className="sr-only" role="status">
-        Loading internships…
+        Loading scholarships…
       </span>
 
       <BrandLoading />

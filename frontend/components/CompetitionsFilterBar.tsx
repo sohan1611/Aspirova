@@ -9,10 +9,10 @@ import {
 import { useFeedNavigation } from "@/components/FeedNavigation";
 import ListingSearchInput from "@/components/ListingSearchInput";
 import { Badge } from "@/components/ui/badge";
+import type { CompetitionSort } from "@/lib/competitionsQuery";
 import type { Facets } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-type CompetitionSort = "recent" | "deadline";
 type LocationScope = "abroad" | "domestic" | "both";
 type CompetitionLocation = "all" | "online" | "india" | "abroad";
 type SearchParamReader = Pick<URLSearchParams, "get">;
@@ -35,7 +35,7 @@ function isScope(value: string | null): value is LocationScope {
 }
 
 function getSort(value: string | null): CompetitionSort {
-  return value === "recent" ? "recent" : "deadline";
+  return value === "prize" ? "prize" : value === "recent" ? "recent" : "deadline";
 }
 
 function getLocation(searchParams: SearchParamReader): CompetitionLocation {
@@ -101,8 +101,8 @@ export default function CompetitionsFilterBar({
 
   function setSort(nextSort: CompetitionSort) {
     const params = new URLSearchParams(searchParams.toString());
-    if (nextSort === "recent") {
-      params.set("sort", "recent");
+    if (nextSort !== "deadline") {
+      params.set("sort", nextSort);
     } else {
       params.delete("sort");
     }
@@ -120,6 +120,7 @@ export default function CompetitionsFilterBar({
   const sortOptions: { value: CompetitionSort; label: string }[] = [
     { value: "recent", label: "Newest" },
     { value: "deadline", label: "Closing soon" },
+    { value: "prize", label: "Biggest prize" },
   ];
 
   return (
@@ -174,35 +175,37 @@ export default function CompetitionsFilterBar({
         })}
       </div>
 
-      <div
-        className="flex min-w-0 flex-wrap items-center justify-end gap-2"
-        role="group"
-        aria-label="Sort competitions"
-      >
-        <span className="eyebrow mr-1">Sort</span>
-        {sortOptions.map((option) => {
-          const isActive = option.value === sort;
+      {!searchParams.get("q")?.trim() && (
+        <div
+          className="flex min-w-0 flex-wrap items-center justify-end gap-2"
+          role="group"
+          aria-label="Sort competitions"
+        >
+          <span className="eyebrow mr-1">Sort</span>
+          {sortOptions.map((option) => {
+            const isActive = option.value === sort;
 
-          return (
-            <Badge
-              key={option.value}
-              asChild
-              variant={isActive ? "heritage" : "outline"}
-              className="px-2.5 py-1"
-            >
-              <button
-                type="button"
-                aria-pressed={isActive}
-                disabled={isPending}
-                onClick={() => setSort(option.value)}
-                className="disabled:cursor-wait"
+            return (
+              <Badge
+                key={option.value}
+                asChild
+                variant={isActive ? "heritage" : "outline"}
+                className="px-2.5 py-1"
               >
-                {option.label}
-              </button>
-            </Badge>
-          );
-        })}
-      </div>
+                <button
+                  type="button"
+                  aria-pressed={isActive}
+                  disabled={isPending}
+                  onClick={() => setSort(option.value)}
+                  className="disabled:cursor-wait"
+                >
+                  {option.label}
+                </button>
+              </Badge>
+            );
+          })}
+        </div>
+      )}
 
       {isPending && (
         <Loader2

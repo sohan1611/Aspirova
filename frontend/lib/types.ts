@@ -196,6 +196,7 @@ export interface Facets {
   deadline_within?: FacetOption[];
   organiser_types?: FacetOption[];
   modes?: FacetOption[];
+  statuses?: FacetOption[];
   programme_categories?: FacetOption[];
   programme_fields?: FacetOption[];
   programme_organisers?: FacetOption[];
