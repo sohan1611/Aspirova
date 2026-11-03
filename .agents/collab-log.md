@@ -804,3 +804,18 @@ RESULT (source expansion, live): SmartRecruiters seeded to production and the Ti
 - Task: show pay, add the filters comparable sites offer (paid, minimum stipend, duration, part-time, job offer, posted within, role chips), and stop listing pages making 10 requests on load. Deterministic only, spec built from real production text.
 - Codex: role_signals parser, ingest wiring, backfill, API filters, pay formatting, filter UI, lazy facets, tests.
 - Review: one correction round from reading real results by hand ("Unpaid initially" read as Paid, "between X and Y" losing its top, "CAD $" read as USD, incentive chosen over fixed pay, "up to" programme total shown as monthly). Direct edits: "Paid/Unpaid internship?" and "unpaid leave" no longer read as unpaid, and role chips check exact title words, because stemming matched "Business Development" as developer and company names shared the title's weight. Verified: full suite, 45 of 45 fresh amounts correct, backfill dry run, apply and re-run on real rows, real DOM at desktop and 375 px.
+
+## 2026-11-04 — Work order (Claude → Codex, gpt-6.1-sol high): Audit Batch 1, privacy and accounts
+- Task: from the 2026-11-04 audit. Close the signup account oracle, make first requests race-safe, keep the provider's name for new social users, lock paid notification switches on the free plan, stop the signed-out flash on /account and /saved, show readable auth errors.
+- Codex: all six, plus a concurrency test file. No blockers.
+- Review: one correction round. A real browser showed supabase-js returns network failures rather than throwing, so "Failed to fetch" still appeared. One direct edit: name cleanup collapsed a newline into nothing. Verified: race on old code 49 of 80 requests failed, new code 0; 28 of 28 real-page checks; ruff, black, 1642 tests, eslint, tsc, build, ISR check. PR #144.
+
+## 2026-11-04 — Work order (Claude → Codex, gpt-6.1-sol high): Audit Batch 2, listing truth
+- Task: new-grad roles are jobs, with a filter and backfill; Apply says where it really goes, from the link's own host; correct sitewide claims.
+- Codex: all parts. Bundled the 150 KB Public Suffix List to recognise one job board, and flagged a Recruitee fallback URL.
+- Review: two correction rounds. First: drop the suffix list, fix awkward job-board copy, allow plurals. Second, from reading real data by hand: UK "Graduate X" titles missed by the filter, HackerEarth called a careers site, and a root cause found in ingest where a secondary source overwrote canonical fields, including direct Apply links. Direct edit: removed a backfill Codex wrote for that, because the next crawl repairs those rows. Verified: old code overwrote a real Lever link and new code keeps it; 72 of 73 real-page checks on real listings (the one failure was rows loaded without payloads, by design), every named audit page correct; 1843 tests, eslint, tsc, build, ISR check. PR #147.
+
+## 2026-11-04 — Work order (Claude → Codex, gpt-6.1-sol high): Audit Batch 3, account trust
+- Task: unsaved edits survive navigation, country and college stay consistent, honest progress labels, saved search rename, edit and safe delete, deletion request wording, data export, resume failure recovery, sign-out feedback, bookmark race.
+- Codex: all ten. Reported the upload handler has a different name and that the alert baseline already worked as specified.
+- Review: one correction round. It had allowed updating a saved search to no filters, which would email every new listing. One direct edit: a repeated "Optional". Verified: 44 of 44 real-page checks, 1658 tests, eslint, tsc, build, ISR check. PR #146.
