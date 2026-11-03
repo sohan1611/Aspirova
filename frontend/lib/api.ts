@@ -1,3 +1,4 @@
+import { appendRoleSignalParams, type RoleSignalParams } from "./roleSignalQuery";
 import type {
   AccountMe,
   AccountUpdate,
@@ -88,7 +89,7 @@ function throwResumeApiError(res: Response, action: string): never {
   throw new Error(`${action}: ${res.status}`);
 }
 
-export interface FeedParams {
+export interface FeedParams extends RoleSignalParams {
   category?: "internship" | "job" | "hackathon" | "competition" | "scholarship";
   kind?: "roles" | "competitions";
   source?: "direct" | "unstop" | "remoteok" | "devpost";
@@ -138,6 +139,7 @@ export interface ProgrammeParams {
 
 type SearchFilterParams = Pick<
   FeedParams,
+  | keyof RoleSignalParams
   | "category"
   | "kind"
   | "source"
@@ -195,6 +197,7 @@ export async function getFeed(
   if (params.kind) search.set("kind", params.kind);
   if (params.source) search.set("source", params.source);
   if (params.experience) search.set("experience", params.experience);
+  appendRoleSignalParams(search, params);
   if (params.remote !== undefined) search.set("remote", String(params.remote));
   appendRepeatedParam(search, "location", params.location);
   appendRepeatedParam(search, "company", params.company);
@@ -314,6 +317,7 @@ export async function searchOpportunities(
   if (filters.kind) search.set("kind", filters.kind);
   if (filters.source) search.set("source", filters.source);
   if (filters.experience) search.set("experience", filters.experience);
+  appendRoleSignalParams(search, filters);
   if (filters.remote !== undefined) search.set("remote", String(filters.remote));
   appendRepeatedParam(search, "location", filters.location);
   appendRepeatedParam(search, "company", filters.company);

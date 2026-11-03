@@ -792,3 +792,89 @@ def test_ingest_prefers_explicit_normalized_country(db_session: Session, seeded)
     )
     opportunity, _ = _ingest(db_session, source.id, company.id, raw, normalized)
     assert opportunity.country == "IN"
+
+
+@pytest.mark.parametrize("category", ["internship", "job", "hackathon"])
+def test_ingest_merges_role_signals_only_for_roles_and_skips_unchanged(
+    db_session, seeded, monkeypatch, category
+):
+    source, _other, company = seeded
+    raw = _raw("signals-role", "https://acme.example/jobs/signals", "signals-v1")
+    normalized = _normalized(
+        "Part-time Platform Intern",
+        raw.source_url,
+        "Stipend ₹10,000/month\nDuration: 6 months\nPPO",
+    ).model_copy(update={"category": category, "country": "IN", "meta": {"custom": "keep"}})
+    opportunity, _ = _ingest(db_session, source.id, company.id, raw, normalized)
+    if category == "hackathon":
+        assert opportunity.meta == {"custom": "keep"}
+        return
+    assert opportunity.meta["compensation"]["max"] == 10000
+    assert opportunity.meta["part_time"] is True
+    assert opportunity.meta["custom"] == "keep"
+    assert opportunity.meta.get("duration_months") == (6 if category == "internship" else None)
+    monkeypatch.setattr(
+        "pipeline.ingest.merge_role_signals", lambda *_args: pytest.fail("parsed unchanged content")
+    )
+    changed = set()
+    repeated, is_new = _ingest(
+        db_session, source.id, company.id, raw, normalized, changed_slugs=changed
+    )
+    assert repeated.id == opportunity.id and not is_new and not changed
+
+
+def test_ingest_preserves_unstop_pay_on_update_and_revalidates_visible_signals(db_session, seeded):
+    source, _other, company = seeded
+    raw = _raw("signals-update", "https://acme.example/jobs/signals-update", "signals-v1")
+    normalized = _normalized("Platform Intern", raw.source_url, "Stipend ₹10,000/month").model_copy(
+        update={"country": "IN", "meta": {"compensation": {"unpaid": True, "source": "unstop"}}}
+    )
+    opportunity, _ = _ingest(db_session, source.id, company.id, raw, normalized)
+    assert opportunity.meta["compensation"] == {"unpaid": True, "source": "unstop"}
+    changed = set()
+    updated, _ = _ingest(
+        db_session,
+        source.id,
+        company.id,
+        raw.model_copy(update={"content_hash": "signals-v2"}),
+        normalized.model_copy(update={"meta": {"timing": "part_time"}}),
+        changed_slugs=changed,
+    )
+    assert updated.meta["compensation"] == {"unpaid": True, "source": "unstop"}
+    assert updated.meta["timing"] == "part_time"
+    assert changed == {opportunity.slug}
+
+
+def test_ingest_refreshes_text_pay_and_accepts_new_structured_unstop_pay(db_session, seeded):
+    source, _other, company = seeded
+    raw = _raw("signals-refresh", "https://acme.example/jobs/signals-refresh", "signals-v1")
+    normalized = _normalized("Platform Intern", raw.source_url, "Stipend ₹10,000/month")
+    opportunity, _ = _ingest(db_session, source.id, company.id, raw, normalized)
+    assert opportunity.meta["compensation"]["max"] == 10000
+    changed = set()
+    updated, _ = _ingest(
+        db_session,
+        source.id,
+        company.id,
+        raw.model_copy(update={"content_hash": "signals-v2"}),
+        normalized.model_copy(update={"description_raw": "Stipend ₹20,000/month"}),
+        changed_slugs=changed,
+    )
+    assert updated.meta["compensation"]["max"] == 20000
+    assert changed == {opportunity.slug}
+    for version, maximum in ((3, 30000), (4, 40000)):
+        structured = {
+            "min": maximum,
+            "max": maximum,
+            "period": "month",
+            "currency": "INR",
+            "source": "unstop",
+        }
+        updated, _ = _ingest(
+            db_session,
+            source.id,
+            company.id,
+            raw.model_copy(update={"content_hash": f"signals-v{version}"}),
+            normalized.model_copy(update={"meta": {"compensation": structured}}),
+        )
+        assert updated.meta["compensation"] == structured

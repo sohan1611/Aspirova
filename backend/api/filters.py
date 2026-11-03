@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime, timedelta
 
+from fastapi import HTTPException
 from sqlalchemy import and_, case, false, func, literal, not_, or_, text
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -381,6 +382,113 @@ def competition_filters(
     if prize_min is not None:
         filters.append(_prize_min_filter(prize_min))
 
+    return filters
+
+
+# Matched against the title as exact words (the "simple" config): English stemming
+# makes "developer" match "Business Development", and search_tsv also weights the
+# company name as A, so neither can decide this alone. search_tsv stays as the
+# indexed first pass. "engineer" is left out so a mechanical role stays out of Software.
+ROLE_TERMS = {
+    "software": (
+        "software | developer | developers | programmer | programming | coding | backend | "
+        "frontend | fullstack | android | ios | sde | devops | web | cloud"
+    ),
+    "data": "data | analytics | analyst | analysts | scientist | ml | ai | machine <-> learning",
+    "design": "design | designer | designers | designing | ux | ui | graphic",
+    "marketing": "marketing | growth | seo | brand | branding | social <-> media",
+    "finance": "finance | financial | accounting | accountant | accounts | investment | audit",
+    "hr": "hr | recruitment | recruiter | recruiting | talent | human <-> resources",
+    "sales": "sales | business <-> development | bd | bde | account <-> executive",
+    "product": "product",
+    "operations": "operations | ops | logistics | supply <-> chain",
+    "content": "content | copywriter | copywriting | writer | writing | editorial | editor",
+}
+
+
+def role_signal_filters(
+    paid: bool | None = None,
+    min_stipend: int | None = None,
+    part_time: bool | None = None,
+    max_duration: int | None = None,
+    job_offer: bool | None = None,
+    posted_within: int | None = None,
+    role: str | None = None,
+) -> list:
+    filters = []
+    meta = models.Opportunity.meta
+    compensation = meta["compensation"]
+    # CASE must return a non-null boolean: NOT(NULL) would otherwise discard
+    # listings with missing metadata when paid=false. Guard numeric casts too.
+    is_paid = case(
+        (
+            func.jsonb_typeof(compensation) == "object",
+            compensation["unpaid"].as_boolean().is_not(True),
+        ),
+        else_=False,
+    )
+    if paid is not None:
+        filters.append(is_paid if paid else not_(is_paid))
+    if min_stipend is not None:
+        maximum = case(
+            (
+                func.jsonb_typeof(compensation["max"]) == "number",
+                compensation["max"].as_float(),
+            ),
+            else_=None,
+        )
+        filters.append(
+            and_(
+                compensation["currency"].as_string() == "INR",
+                or_(
+                    and_(compensation["period"].as_string() == "month", maximum >= min_stipend),
+                    and_(compensation["period"].as_string() == "year", maximum / 12 >= min_stipend),
+                ),
+            )
+        )
+    if part_time is True:
+        filters.append(
+            or_(
+                meta["part_time"].as_boolean().is_(True),
+                meta["timing"].as_string() == "part_time",
+            )
+        )
+    if max_duration is not None:
+        duration = case(
+            (
+                func.jsonb_typeof(meta["duration_months"]) == "number",
+                meta["duration_months"].as_float(),
+            ),
+            else_=None,
+        )
+        filters.append(duration <= max_duration)
+    if job_offer is True:
+        filters.append(
+            or_(
+                meta["job_offer"].as_boolean().is_(True),
+                meta["offers_ppo"].as_boolean().is_(True),
+            )
+        )
+    if posted_within is not None:
+        if posted_within not in (1, 3, 7, 30):
+            raise HTTPException(status_code=422, detail="posted_within must be 1, 3, 7 or 30")
+        filters.append(
+            func.coalesce(models.Opportunity.posted_at, models.Opportunity.first_seen_at)
+            >= func.now() - timedelta(days=posted_within)
+        )
+    if role is not None:
+        terms = ROLE_TERMS.get(role)
+        if terms:
+            filters.append(
+                models.Opportunity.search_tsv.op("@@")(func.to_tsquery("english", terms))
+            )
+            filters.append(
+                func.to_tsvector("simple", models.Opportunity.title).op("@@")(
+                    func.to_tsquery("simple", terms)
+                )
+            )
+        else:
+            filters.append(false())
     return filters
 
 

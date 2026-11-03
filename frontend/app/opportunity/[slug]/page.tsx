@@ -25,6 +25,7 @@ import {
   parseDescriptionBlocks,
   type DescriptionBlock,
 } from "@/lib/descriptionBlocks";
+import { formatCompensation } from "@/lib/compensation";
 import { summarizeLocation } from "@/lib/location";
 import { getSourceLabel } from "@/lib/sourceLabel";
 import type { OpportunityDetail, OpportunityListItem } from "@/lib/types";
@@ -225,6 +226,9 @@ export default async function OpportunityPage({ params }: PageProps) {
     ? `This was posted ${formatDate(opportunity.posted_at, "long")} — over 10 months ago — and Aspirova can't confirm it's still open. Open the company's listing to check its current status.`
     : `Aspirova first found this listing on ${formatDate(opportunity.first_seen_at, "long")}, over 10 months ago; its original posting date isn't available. We can't confirm it's still open — open the company's listing to check its current status.`;
   const locationSummary = summarizeLocation(opportunity.location);
+  const isRole = opportunity.category === "internship" || opportunity.category === "job";
+  const payText = isRole ? formatCompensation(opportunity.meta) : null;
+  const duration = opportunity.meta?.duration_months;
   let similarOpportunities: OpportunityListItem[] = [];
 
   try {
@@ -314,12 +318,26 @@ export default async function OpportunityPage({ params }: PageProps) {
                 )}
               </>
             )}
+            {isRole && (opportunity.meta?.part_time === true || opportunity.meta?.timing === "part_time") && (
+              <Badge variant="outline">Part-time</Badge>
+            )}
+            {isRole && typeof duration === "number" && Number.isInteger(duration) && duration >= 1 && duration <= 24 && (
+              <Badge variant="outline">{duration} months</Badge>
+            )}
+            {isRole && opportunity.meta?.job_offer === true && <Badge variant="heritage">Job offer possible</Badge>}
             {sourceLabel && (
               <Badge variant="outline" className="eyebrow rounded-full px-2.5 py-1">
                 via {sourceLabel}
               </Badge>
             )}
           </div>
+
+          {payText && (
+            <p className="mt-3 flex min-w-0 items-start gap-2 text-sm text-foreground/80">
+              <span className="eyebrow shrink-0 pt-0.5 !text-heritage">Pay</span>
+              <span className="min-w-0 break-words font-medium">{payText}</span>
+            </p>
+          )}
 
           {opportunity.posted_at && (
             <p className="mt-3 text-sm text-muted-foreground">

@@ -137,6 +137,7 @@ export function CountedAdvancedFilterShell({
   panelLabel,
   mobileDescription,
   idPrefixBase,
+  onOpenChange,
   children,
 }: {
   activeFilterCount: number;
@@ -145,6 +146,7 @@ export function CountedAdvancedFilterShell({
   panelLabel: string;
   mobileDescription: string;
   idPrefixBase: string;
+  onOpenChange?: (open: boolean) => void;
   children: (props: { idPrefix: string; onClose?: () => void }) => ReactNode;
 }) {
   const [desktopOpen, setDesktopOpen] = useState(false);
@@ -159,7 +161,7 @@ export function CountedAdvancedFilterShell({
       </span>
 
       <div className="hidden md:block">
-        <Popover modal open={desktopOpen} onOpenChange={setDesktopOpen}>
+        <Popover modal open={desktopOpen} onOpenChange={(open) => { setDesktopOpen(open); onOpenChange?.(open); }}>
           <PopoverTrigger asChild>
             <FilterTriggerButton
               activeFilterCount={activeFilterCount}
@@ -181,7 +183,7 @@ export function CountedAdvancedFilterShell({
       </div>
 
       <div className="md:hidden">
-        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <Sheet open={mobileOpen} onOpenChange={(open) => { setMobileOpen(open); onOpenChange?.(open); }}>
           <SheetTrigger asChild>
             <FilterTriggerButton
               activeFilterCount={activeFilterCount}

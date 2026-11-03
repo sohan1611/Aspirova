@@ -60,6 +60,13 @@ def test_feed_list_query_does_not_select_heavy_opportunity_columns() -> None:
         organiser_type=None,
         mode=None,
         prize_min=None,
+        paid=None,
+        min_stipend=None,
+        part_time=None,
+        max_duration=None,
+        job_offer=None,
+        posted_within=None,
+        role=None,
         top=None,
         sort="student",
         page=1,
@@ -102,3 +109,23 @@ def test_preferred_country_is_part_of_feed_response_cache_key() -> None:
     india_key = build_cache_key("/feed", [("prefer_country", "IN")], declared)
     us_key = build_cache_key("/feed", [("prefer_country", "US")], declared)
     assert len({global_key, india_key, us_key}) == 3
+
+
+def test_role_filters_are_part_of_feed_response_cache_key() -> None:
+    route = next(
+        route for route in router.routes if isinstance(route, APIRoute) and route.path == "/feed"
+    )
+    declared = _declared_query_param_names(route)
+    assert declared is not None
+    base = build_cache_key("/feed", [], declared)
+    for key, value in {
+        "paid": "true",
+        "min_stipend": "10000",
+        "part_time": "true",
+        "max_duration": "6",
+        "job_offer": "true",
+        "posted_within": "7",
+        "role": "software",
+    }.items():
+        assert key in declared
+        assert build_cache_key("/feed", [(key, value)], declared) != base

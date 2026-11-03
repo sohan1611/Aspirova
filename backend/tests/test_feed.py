@@ -264,3 +264,237 @@ def test_prefer_country_reorders_without_filtering_or_promoting_closed_rows(
 @pytest.mark.parametrize("country", ["IND", "I", "1N", "", "India"])
 def test_prefer_country_rejects_invalid_values(client: TestClient, country: str) -> None:
     assert client.get("/feed", params={"prefer_country": country}).status_code == 422
+
+
+@pytest.fixture
+def role_listings(db_session):
+    suffix = uuid.uuid4().hex
+    location = f"RoleSignals-{suffix}"
+    now = datetime.now(UTC)
+    definitions = {
+        "missing": ({}, None, 2),
+        "unpaid": ({"compensation": {"unpaid": True, "source": "unstop"}}, None, 2),
+        "paid": ({"compensation": {"paid": True, "source": "text"}}, None, 2),
+        "monthly": (
+            {
+                "compensation": {"min": 5000, "max": 15000, "currency": "INR", "period": "month"},
+                "part_time": True,
+                "duration_months": 3,
+                "job_offer": True,
+            },
+            None,
+            2,
+        ),
+        "yearly": (
+            {
+                "compensation": {"min": 120000, "max": 240000, "currency": "INR", "period": "year"},
+                "timing": "part_time",
+                "duration_months": 6,
+                "offers_ppo": True,
+            },
+            None,
+            5,
+        ),
+        "foreign": (
+            {
+                "compensation": {"min": 10000, "max": 20000, "currency": "USD", "period": "month"},
+                "duration_months": 12,
+            },
+            None,
+            20,
+        ),
+        "hourly": ({"compensation": {"max": 500, "currency": "INR", "period": "hour"}}, None, 2),
+        "malformed": (
+            {
+                "compensation": {"max": "unknown", "currency": "INR", "period": "month"},
+                "duration_months": "unknown",
+            },
+            None,
+            2,
+        ),
+        "old-posted": ({}, now - timedelta(days=40), 0),
+        "fresh-posted": ({}, now - timedelta(hours=12), 40),
+    }
+    rows = {}
+    for name, (meta, posted_at, first_seen_days) in definitions.items():
+        row = models.Opportunity(
+            slug=f"role-signals-{name}-{suffix}",
+            title="Software Developer Intern",
+            title_normalized="software developer intern",
+            category="internship",
+            location=location,
+            country="IN",
+            meta=meta,
+            posted_at=posted_at,
+            apply_url=f"https://example.com/role-signals/{name}/{suffix}",
+            status="active",
+            first_seen_at=now - timedelta(days=first_seen_days),
+            last_seen_at=now,
+        )
+        db_session.add(row)
+        rows[name] = row
+    db_session.flush()
+    return location, rows
+
+
+@pytest.mark.parametrize(
+    "params,expected",
+    [
+        ({"paid": "true"}, {"paid", "monthly", "yearly", "foreign", "hourly", "malformed"}),
+        ({"paid": "false"}, {"missing", "unpaid", "old-posted", "fresh-posted"}),
+        ({"min_stipend": 15000}, {"monthly", "yearly"}),
+        ({"min_stipend": 20000}, {"yearly"}),
+        ({"min_stipend": 0}, {"monthly", "yearly"}),
+        ({"part_time": "true"}, {"monthly", "yearly"}),
+        ({"max_duration": 3}, {"monthly"}),
+        ({"max_duration": 6}, {"monthly", "yearly"}),
+        ({"job_offer": "true"}, {"monthly", "yearly"}),
+        ({"posted_within": 1}, {"fresh-posted"}),
+        (
+            {"posted_within": 3},
+            {"missing", "unpaid", "paid", "monthly", "hourly", "malformed", "fresh-posted"},
+        ),
+        (
+            {"posted_within": 7},
+            {
+                "missing",
+                "unpaid",
+                "paid",
+                "monthly",
+                "yearly",
+                "hourly",
+                "malformed",
+                "fresh-posted",
+            },
+        ),
+        (
+            {"posted_within": 30},
+            {
+                "missing",
+                "unpaid",
+                "paid",
+                "monthly",
+                "yearly",
+                "foreign",
+                "hourly",
+                "malformed",
+                "fresh-posted",
+            },
+        ),
+        ({"paid": "true", "part_time": "true", "max_duration": 3}, {"monthly"}),
+    ],
+)
+def test_feed_role_signal_filters(client, role_listings, params, expected):
+    location, rows = role_listings
+    response = client.get("/feed", params={"location": location, "limit": 100, **params})
+    assert response.status_code == 200
+    assert {item["slug"] for item in response.json()["items"]} == {
+        rows[name].slug for name in expected
+    }
+
+
+def test_absent_pay_filter_includes_unknown_pay_and_false_only_flags_do_not_filter(
+    client, role_listings
+):
+    location, rows = role_listings
+    for params in ({}, {"part_time": "false", "job_offer": "false"}):
+        response = client.get("/feed", params={"location": location, "limit": 100, **params})
+        assert response.status_code == 200
+        assert {item["slug"] for item in response.json()["items"]} == {
+            row.slug for row in rows.values()
+        }
+
+
+@pytest.mark.parametrize(
+    "role,title",
+    [
+        ("software", "Software Developer"),
+        ("data", "Data Scientist"),
+        ("design", "UX Designer"),
+        ("marketing", "Marketing Intern"),
+        ("finance", "Finance Intern"),
+        ("hr", "Recruiter"),
+        ("sales", "Sales Intern"),
+        ("product", "Product Intern"),
+        ("operations", "Operations Intern"),
+        ("content", "Content Writer"),
+    ],
+)
+def test_feed_role_uses_full_text_index(client, db_session, role, title):
+    suffix = uuid.uuid4().hex
+    now = datetime.now(UTC)
+    rows = []
+    for index, value in enumerate((title, "Unrelated opportunity")):
+        row = models.Opportunity(
+            slug=f"role-fts-{index}-{suffix}",
+            title=value,
+            title_normalized=value.lower(),
+            category="internship",
+            location=suffix,
+            apply_url=f"https://example.com/{suffix}/{index}",
+            status="active",
+            first_seen_at=now,
+            last_seen_at=now,
+        )
+        db_session.add(row)
+        rows.append(row)
+    db_session.flush()
+    response = client.get("/feed", params={"location": suffix, "role": role})
+    assert response.status_code == 200
+    assert [item["slug"] for item in response.json()["items"]] == [rows[0].slug]
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"posted_within": 2},
+        {"posted_within": 0},
+        {"posted_within": 31},
+        {"role": "unknown"},
+        {"role": "software | sales"},
+        {"min_stipend": -1},
+        {"max_duration": 0},
+        {"max_duration": 25},
+    ],
+)
+def test_feed_rejects_invalid_role_filters(client, params):
+    assert client.get("/feed", params=params).status_code == 422
+
+
+def test_search_applies_shared_role_filters(client, role_listings):
+    location, rows = role_listings
+    response = client.get(
+        "/search",
+        params={"q": "software", "location": location, "part_time": "true", "max_duration": 3},
+    )
+    assert response.status_code == 200
+    assert [item["slug"] for item in response.json()["items"]] == [rows["monthly"].slug]
+
+
+@pytest.mark.parametrize("also_paid", [False, True])
+def test_paid_filter_excludes_explicit_text_unpaid(client, db_session, also_paid):
+    suffix = uuid.uuid4().hex
+    now = datetime.now(UTC)
+    compensation = {"unpaid": True, "source": "text"}
+    if also_paid:
+        compensation["paid"] = True
+    row = models.Opportunity(
+        slug=f"text-unpaid-{suffix}",
+        title="Software Intern",
+        category="internship",
+        location=suffix,
+        country="IN",
+        meta={"compensation": compensation},
+        apply_url=f"https://example.com/text-unpaid/{suffix}",
+        status="active",
+        first_seen_at=now,
+        last_seen_at=now,
+    )
+    db_session.add(row)
+    db_session.flush()
+    unfiltered = client.get("/feed", params={"location": suffix})
+    paid_only = client.get("/feed", params={"location": suffix, "paid": "true"})
+    assert unfiltered.status_code == paid_only.status_code == 200
+    assert [item["slug"] for item in unfiltered.json()["items"]] == [row.slug]
+    assert paid_only.json()["items"] == []
+    assert paid_only.json()["total"] == 0
