@@ -122,6 +122,14 @@ export default async function Image({ params }: { params: Promise<{ slug: string
         </div>
       </div>
     </div>,
-    size,
+    {
+      ...size,
+      // ImageResponse defaults to max-age=0, which live on Vercel went stale within
+      // seconds, so a request could re-render the image. Keep it at the CDN for a day.
+      headers: {
+        "Cache-Control": "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800",
+        "Vercel-CDN-Cache-Control": "max-age=86400, stale-while-revalidate=604800",
+      },
+    },
   );
 }
