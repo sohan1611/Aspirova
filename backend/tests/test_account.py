@@ -438,3 +438,183 @@ def test_wants_defaults_on_and_only_respects_explicit_false() -> None:
 
     user.notification_prefs = None
     assert wants(user, "daily_digest") is True
+
+
+def test_account_export_requires_auth() -> None:
+    app.dependency_overrides[get_db] = lambda: None
+    try:
+        with TestClient(app) as unauthenticated_client:
+            response = unauthenticated_client.get("/account/export")
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+    assert response.status_code == 401
+
+
+def test_account_export_without_optional_data(client, user) -> None:
+    response = client.get("/account/export")
+
+    assert response.status_code == 200
+    assert response.headers["Cache-Control"] == "no-store"
+    payload = response.json()
+    assert datetime.fromisoformat(payload["exported_at"].replace("Z", "+00:00"))
+    assert payload["account"]["email"] == user.email
+    assert payload["resume"] is None
+    assert payload["tracked_opportunities"] == []
+    assert payload["saved_searches"] == []
+    assert payload["followed_companies"] == []
+    assert payload["subscription"] == {
+        "plan_key": "free",
+        "status": "free",
+        "current_period_end": None,
+    }
+
+
+def test_account_exports_are_user_scoped_and_omit_internal_fields(
+    client, db_session: Session, user: models.User, free_plan: models.Plan
+) -> None:
+    other_user = models.User(email=f"export-other-{uuid.uuid4()}@example.com")
+    db_session.add(other_user)
+    db_session.flush()
+    user.referred_by = other_user.id
+    users = [user, other_user]
+    company_names = []
+    company_slugs = []
+    opportunity_slugs = []
+    saved_names = []
+    for index, owner in enumerate(users):
+        suffix = uuid.uuid4().hex
+        company = models.Company(slug=f"export-company-{suffix}", name=f"Export company {index}")
+        db_session.add(company)
+        db_session.flush()
+        opportunity = models.Opportunity(
+            slug=f"export-opportunity-{suffix}",
+            company_id=company.id,
+            title=f"Export opportunity {index}",
+            apply_url="https://example.com/apply",
+        )
+        db_session.add(opportunity)
+        db_session.flush()
+        owner.display_name = f"Export user {index}"
+        owner.college = f"College {index}"
+        owner.graduation_year = 2030 + index
+        owner.field_profile = {"stream": "engineering", "divisions": [], "interests": []}
+        owner.skills = [{"name": f"Skill {index}", "source": "manual"}]
+        owner.exposure = {"notes": f"Experience {index}"}
+        owner.notification_prefs = {"daily_digest": False}
+        owner.resume = {
+            "path": f"{owner.id}/private-resume.pdf",
+            "filename": f"resume-{index}.pdf",
+            "uploaded_at": "2026-11-01T12:00:00Z",
+            "ats": {"score": 70 + index, "checks": []},
+        }
+        search_name = f"Export search {index}"
+        db_session.add_all(
+            [
+                models.Bookmark(user_id=owner.id, opportunity_id=opportunity.id, status="applied"),
+                models.SavedSearch(
+                    user_id=owner.id, name=search_name, params={"q": f"Query {index}"}
+                ),
+                models.DreamCompany(user_id=owner.id, company_id=company.id),
+                models.Subscription(
+                    user_id=owner.id,
+                    plan_id=free_plan.id,
+                    status="canceled",
+                    razorpay_sub_id=f"sub_export_test_{suffix}",
+                    current_period_end=datetime(2026, 12, 1, tzinfo=timezone.utc),
+                ),
+            ]
+        )
+        company_names.append(company.name)
+        company_slugs.append(company.slug)
+        opportunity_slugs.append(opportunity.slug)
+        saved_names.append(search_name)
+    db_session.flush()
+
+    def assert_no_internal_fields(value):
+        if isinstance(value, dict):
+            for key, item in value.items():
+                assert key not in {"path", "storage_path", "referred_by"}
+                assert "razorpay" not in key
+                assert "provider" not in key
+                assert_no_internal_fields(item)
+        elif isinstance(value, list):
+            for item in value:
+                assert_no_internal_fields(item)
+
+    for index, owner in enumerate(users):
+        app.dependency_overrides[get_current_user] = lambda: owner
+        response = client.get("/account/export")
+        assert response.status_code == 200
+        assert response.headers["Cache-Control"] == "no-store"
+        payload = response.json()
+        assert payload["account"] == {
+            key: getattr(owner, key)
+            for key in (
+                "email",
+                "display_name",
+                "college",
+                "graduation_year",
+                "field_profile",
+                "skills",
+                "exposure",
+                "notification_prefs",
+            )
+        } | {"created_at": payload["account"]["created_at"]}
+        assert payload["account"]["created_at"]
+        assert payload["resume"] == {
+            key: owner.resume[key] for key in ("filename", "uploaded_at", "ats")
+        }
+        tracked = payload["tracked_opportunities"]
+        assert len(tracked) == 1
+        assert tracked[0] == {
+            "slug": opportunity_slugs[index],
+            "title": f"Export opportunity {index}",
+            "company": company_names[index],
+            "status": "applied",
+            "saved_at": tracked[0]["saved_at"],
+        }
+        assert tracked[0]["saved_at"]
+        assert len(payload["saved_searches"]) == 1
+        assert payload["saved_searches"][0]["name"] == saved_names[index]
+        assert payload["saved_searches"][0]["params"] == {"q": f"Query {index}"}
+        assert payload["saved_searches"][0]["alerts_enabled"] is True
+        assert payload["saved_searches"][0]["created_at"]
+        assert payload["followed_companies"] == [
+            {"name": company_names[index], "slug": company_slugs[index], "domains": []},
+        ]
+        assert payload["subscription"]["status"] == "canceled"
+        assert payload["subscription"]["plan_key"] == free_plan.key
+        assert payload["subscription"]["current_period_end"]
+        assert users[1 - index].email not in response.text
+        assert opportunity_slugs[1 - index] not in response.text
+        assert saved_names[1 - index] not in response.text
+        assert "private-resume.pdf" not in response.text
+        assert "sub_export_test_" not in response.text
+        assert_no_internal_fields(payload)
+
+
+def test_account_export_rate_limit_uses_authenticated_user(
+    client, user: models.User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from core.ratelimit import RateLimitResult
+
+    calls = []
+
+    async def deny_export(redis, **kwargs):
+        calls.append(kwargs)
+        return RateLimitResult(allowed=False, retry_after_seconds=30)
+
+    monkeypatch.setattr(account_module, "check_rate_limit", deny_export)
+    response = client.get("/account/export")
+
+    assert response.status_code == 429
+    assert response.headers["Retry-After"] == "30"
+    assert calls == [
+        {
+            "bucket": "account_export",
+            "identifier": str(user.id),
+            "max_requests": 5,
+            "window_seconds": 60,
+        }
+    ]

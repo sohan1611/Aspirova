@@ -177,7 +177,7 @@ export default function StylePage() {
                 <Mail /> Notifications
               </DropdownMenuItem>
               <DropdownMenuItem variant="destructive">
-                <Trash2 /> Delete account
+                <Trash2 /> Request account deletion
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

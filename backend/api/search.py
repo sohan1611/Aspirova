@@ -65,7 +65,7 @@ def search_opportunities(
     country: str | None = Query(None, min_length=2, max_length=2),
     remote_abroad: bool = Query(False),
     source: str | None = Query(None, pattern="^(direct|unstop|remoteok|devpost)$"),
-    experience: str | None = Query(None, pattern="^(early)$"),
+    experience: str | None = Query(None, pattern="^(early|new_grad)$"),
     comp_type: list[str] | None = Query(None),
     registration: str | None = Query(None),
     deadline_within: int | None = Query(None),

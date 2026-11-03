@@ -450,3 +450,22 @@ def test_pacing_sleep_alone_does_not_beat_the_watchdog(
     adapter.fetch()
 
     assert beats == []
+
+
+@pytest.mark.parametrize(
+    "title", ["2027 US AI Engineering – New College Graduate", "Graduate Data Analyst"]
+)
+def test_fetch_keeps_graduate_roles_and_parse_classifies_them_as_jobs(
+    adapter: HimalayasAdapter, fixture_payload: dict, monkeypatch, title: str
+) -> None:
+    job = {**fixture_payload["jobs"][0], "title": title, "seniority": "Entry-level"}
+
+    def fake_get(url: str, *, params: dict) -> httpx.Response:
+        return httpx.Response(
+            200, json={"jobs": [job], "totalCount": 1}, request=httpx.Request("GET", url)
+        )
+
+    monkeypatch.setattr(adapter._client, "get", fake_get)
+    listings = adapter.fetch()
+    assert len(listings) == 1
+    assert adapter.parse(listings[0]).category == "job"

@@ -1,5 +1,7 @@
 """Authenticated CRUD endpoints for reusable feed searches."""
 
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -14,10 +16,10 @@ from api.filters import (
     _organiser_type_values,
 )
 from api.schemas import (
-    SavedSearchAlertsUpdate,
     SavedSearchCreate,
     SavedSearchItem,
     SavedSearchParams,
+    SavedSearchUpdate,
 )
 from core import models
 from core.config import get_settings
@@ -30,7 +32,7 @@ _ALLOWED_CATEGORIES = {"internship", "job", "hackathon", "competition", "scholar
 _ALLOWED_KINDS = {"roles", "competitions"}
 _ALLOWED_SCOPES = {"abroad", "domestic", "both"}
 _ALLOWED_SOURCES = {"direct", "unstop", "remoteok", "devpost"}
-_ALLOWED_EXPERIENCE = {"early"}
+_ALLOWED_EXPERIENCE = {"early", "new_grad"}
 _MAX_SAVED_SEARCHES_PER_USER = 25
 
 
@@ -186,14 +188,31 @@ def delete_saved_search(
 
 
 @router.patch("/saved-searches/{saved_search_id}", response_model=SavedSearchItem)
-def update_saved_search_alerts(
+def update_saved_search(
     saved_search_id: int,
-    payload: SavedSearchAlertsUpdate,
+    payload: SavedSearchUpdate,
     db: Session = Depends(get_db),
     user: models.User = Depends(enforce_saved_search_write_limit),
 ) -> SavedSearchItem:
     saved_search = _get_owned_saved_search_or_404(db, user, saved_search_id)
-    saved_search.alerts_enabled = payload.alerts_enabled
+    fields = payload.model_fields_set
+    if not fields:
+        raise HTTPException(status_code=422, detail="At least one field is required")
+    if "alerts_enabled" in fields and payload.alerts_enabled is None:
+        raise HTTPException(status_code=422, detail="alerts_enabled must not be null")
+    if "params" in fields:
+        if payload.params is None:
+            raise HTTPException(status_code=422, detail="params must not be null")
+        params = _validated_params(payload.params)
+        if not params:
+            raise HTTPException(status_code=422, detail="A saved search needs at least one filter")
+        if params != saved_search.params:
+            saved_search.params = params
+            saved_search.last_alerted_at = datetime.now(UTC)
+    if "name" in fields:
+        saved_search.name = (payload.name.strip() or None) if payload.name is not None else None
+    if "alerts_enabled" in fields:
+        saved_search.alerts_enabled = payload.alerts_enabled
     db.commit()
     db.refresh(saved_search)
     return _item(saved_search)

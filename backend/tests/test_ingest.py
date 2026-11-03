@@ -882,3 +882,304 @@ def test_ingest_refreshes_text_pay_and_accepts_new_structured_unstop_pay(db_sess
             normalized.model_copy(update={"meta": {"compensation": structured}}),
         )
         assert updated.meta["compensation"] == structured
+
+
+def _source_role(
+    source_slug: str, external_id: str, url: str, description: str = "Build products."
+) -> tuple[RawListing, NormalizedListing]:
+    raw = _raw(external_id, url).model_copy(update={"source_slug": source_slug})
+    normalized = _normalized("Software Engineer, New Grad", url, description).model_copy(
+        update={"source_slug": source_slug, "external_id": external_id, "category": "job"}
+    )
+    return raw, normalized
+
+
+@pytest.mark.parametrize("longer_description", [False, True])
+def test_secondary_content_change_preserves_primary_fields_and_enrichment(
+    db_session, seeded, longer_description
+):
+    direct, board, company = seeded
+    deadline = datetime(2027, 8, 31, tzinfo=UTC)
+    direct_raw, direct_norm = _source_role("lever", "direct-role", "https://jobs.lever.co/acme/1")
+    direct_norm = direct_norm.model_copy(
+        update={
+            "location": "London",
+            "country": "GB",
+            "is_remote": False,
+            "posted_at": datetime(2026, 11, 1, tzinfo=UTC),
+            "deadline": deadline,
+            "deadline_confidence": "explicit",
+            "meta": {"primary": True},
+        }
+    )
+    opportunity, _ = _ingest(db_session, direct.id, company.id, direct_raw, direct_norm)
+    board_raw, board_norm = _source_role("arbeitnow", "board-role", "https://arbeitnow.co.uk/1")
+    board_norm = board_norm.model_copy(update={"location": "London", "country": "GB"})
+    merged, is_new = _ingest(db_session, board.id, company.id, board_raw, board_norm)
+    assert merged.id == opportunity.id and not is_new
+
+    fields = (
+        "apply_url",
+        "primary_source",
+        "title",
+        "title_normalized",
+        "category",
+        "location",
+        "country",
+        "is_remote",
+        "posted_at",
+        "deadline",
+        "deadline_confidence",
+    )
+    before = {field: getattr(opportunity, field) for field in fields}
+    previous_meta = dict(opportunity.meta or {})
+    previous_summary = opportunity.summary
+    previous_skills = list(opportunity.skills)
+    opportunity.embedding = [0.1] * 1536
+    opportunity.embedding_model = "test-secondary-preserves-embedding"
+    tag = models.Tag(slug="test-secondary-content-preserves-tag-x")
+    db_session.add(tag)
+    db_session.flush()
+    db_session.add(models.OpportunityTag(opportunity_id=opportunity.id, tag_id=tag.id))
+    db_session.flush()
+    description = (
+        "As a software engineer, you will build reliable Python and SQL services "
+        "for our customers."
+        if longer_description
+        else "Short."
+    )
+    changed = set()
+    seen = set()
+    changed_raw = board_raw.model_copy(
+        update={"content_hash": "changed-board-role", "raw_payload": {"version": 2}}
+    )
+    changed_norm = board_norm.model_copy(
+        update={
+            "title": "Campus Engineering Internship",
+            "category": "internship",
+            "location": "New York",
+            "country": "US",
+            "is_remote": True,
+            "apply_url": "https://himalayas.app/jobs/other",
+            "description_raw": description,
+            "deadline": datetime(2028, 1, 1, tzinfo=UTC),
+            "posted_at": datetime(2027, 1, 1, tzinfo=UTC),
+            "deadline_confidence": "inferred",
+            "meta": {"secondary": True, "job_offer": True},
+        }
+    )
+    updated, is_new = _ingest(
+        db_session,
+        board.id,
+        company.id,
+        changed_raw,
+        changed_norm,
+        seen_opportunity_ids=seen,
+        changed_slugs=changed,
+    )
+    db_session.flush()
+    assert not is_new
+    assert {field: getattr(updated, field) for field in fields} == before
+    assert updated.meta == {
+        **previous_meta,
+        **({"summary_source": "extracted"} if longer_description else {}),
+    }
+    assert updated.embedding is not None
+    assert updated.embedding_model == "test-secondary-preserves-embedding"
+    assert db_session.get(models.OpportunityTag, (updated.id, tag.id)) is not None
+    assert seen == {updated.id}
+    assert changed == ({updated.slug} if longer_description else set())
+    if longer_description:
+        assert updated.description_raw == description
+        assert "Python" in updated.skills
+        assert updated.summary != previous_summary
+    else:
+        assert updated.description_raw == direct_norm.description_raw
+        assert updated.skills == previous_skills
+        assert updated.summary == previous_summary
+    stored_raw = db_session.scalar(
+        select(models.RawListing).where(
+            models.RawListing.source_id == board.id,
+            models.RawListing.external_id == board_raw.external_id,
+        )
+    )
+    assert stored_raw.content_hash == changed_raw.content_hash
+    assert stored_raw.raw_payload == {"version": 2}
+    assert stored_raw.processed is True
+    assert (
+        db_session.scalar(
+            select(func.count())
+            .select_from(models.OpportunitySource)
+            .where(models.OpportunitySource.opportunity_id == updated.id)
+        )
+        == 2
+    )
+
+
+@pytest.mark.parametrize("primary_source", [None, "lever"])
+def test_primary_content_change_still_refreshes_canonical_fields(
+    db_session, seeded, primary_source
+):
+    direct, _board, company = seeded
+    raw, normalized = _source_role("lever", "primary-role", "https://jobs.lever.co/acme/primary")
+    opportunity, _ = _ingest(db_session, direct.id, company.id, raw, normalized)
+    opportunity.primary_source = primary_source
+    opportunity.embedding = [0.1] * 1536
+    opportunity.embedding_model = "test-primary-refresh"
+    tag = models.Tag(slug="test-primary-content-clears-tag-x")
+    db_session.add(tag)
+    db_session.flush()
+    db_session.add(models.OpportunityTag(opportunity_id=opportunity.id, tag_id=tag.id))
+    db_session.flush()
+    updates = {
+        "title": "Software Engineer Intern",
+        "location": "Toronto",
+        "country": "CA",
+        "category": "internship",
+        "is_remote": True,
+        "deadline": datetime(2027, 9, 1, tzinfo=UTC),
+        "apply_url": "https://jobs.lever.co/acme/primary/apply",
+        "posted_at": datetime(2026, 11, 2, tzinfo=UTC),
+        "deadline_confidence": "explicit",
+    }
+    changed = set()
+    updated, is_new = _ingest(
+        db_session,
+        direct.id,
+        company.id,
+        raw.model_copy(update={"content_hash": "primary-v2"}),
+        normalized.model_copy(update=updates),
+        changed_slugs=changed,
+    )
+    db_session.flush()
+    assert not is_new and updated.id == opportunity.id
+    assert {field: getattr(updated, field) for field in updates} == updates
+    assert updated.embedding is None
+    assert updated.embedding_model is None
+    assert (
+        db_session.scalar(
+            select(func.count())
+            .select_from(models.OpportunityTag)
+            .where(models.OpportunityTag.opportunity_id == updated.id)
+        )
+        == 0
+    )
+    assert changed == {updated.slug}
+
+
+def test_direct_dedup_merge_upgrades_board_link_and_later_board_change_cannot_undo_it(
+    db_session, seeded
+):
+    board, direct, company = seeded
+    board_raw, board_norm = _source_role("arbeitnow", "board-role", "https://arbeitnow.com/1")
+    opportunity, _ = _ingest(db_session, board.id, company.id, board_raw, board_norm)
+    direct_raw, direct_norm = _source_role(
+        "ashby", "direct-role", "https://jobs.ashbyhq.com/acme/1"
+    )
+    changed = set()
+    upgraded, is_new = _ingest(
+        db_session, direct.id, company.id, direct_raw, direct_norm, changed_slugs=changed
+    )
+    db_session.flush()
+    assert not is_new and upgraded.id == opportunity.id
+    assert upgraded.apply_url == direct_norm.apply_url
+    assert upgraded.primary_source == "ashby"
+    assert changed == {upgraded.slug}
+    changed.clear()
+    repeated, is_new = _ingest(
+        db_session,
+        board.id,
+        company.id,
+        board_raw.model_copy(update={"content_hash": "board-v2"}),
+        board_norm.model_copy(
+            update={
+                "title": "New Graduate Internship",
+                "category": "internship",
+                "location": "Elsewhere",
+                "deadline": datetime(2028, 1, 1, tzinfo=UTC),
+            }
+        ),
+        changed_slugs=changed,
+    )
+    assert not is_new and repeated.id == upgraded.id
+    assert repeated.apply_url == direct_norm.apply_url
+    assert repeated.primary_source == "ashby"
+    assert repeated.title == direct_norm.title
+    assert repeated.category == "job"
+    assert repeated.location is None and repeated.deadline is None
+    assert changed == set()
+
+
+def test_another_job_board_does_not_replace_the_canonical_link(db_session, seeded):
+    first, second, company = seeded
+    raw, normalized = _source_role("arbeitnow", "first-board", "https://arbeitnow.com/1")
+    opportunity, _ = _ingest(db_session, first.id, company.id, raw, normalized)
+    other_raw, other_norm = _source_role(
+        "himalayas", "second-board", "https://himalayas.app/jobs/1"
+    )
+    changed = set()
+    merged, is_new = _ingest(
+        db_session, second.id, company.id, other_raw, other_norm, changed_slugs=changed
+    )
+    assert not is_new and merged.id == opportunity.id
+    assert merged.apply_url == normalized.apply_url
+    assert merged.primary_source == "arbeitnow"
+    assert changed == set()
+
+
+@pytest.mark.parametrize("content_changed", [False, True])
+def test_direct_identity_path_upgrades_a_board_link_even_with_unchanged_raw(
+    db_session, seeded, content_changed
+):
+    direct, _board, company = seeded
+    raw, normalized = _source_role("lever", "identity-role", "https://jobs.lever.co/acme/identity")
+    opportunity, _ = _ingest(db_session, direct.id, company.id, raw, normalized)
+    opportunity.apply_url = "https://arbeitnow.co.uk/identity"
+    opportunity.primary_source = "arbeitnow"
+    db_session.flush()
+    changed = set()
+    updated, is_new = _ingest(
+        db_session,
+        direct.id,
+        company.id,
+        raw.model_copy(update={"content_hash": "identity-v2"}) if content_changed else raw,
+        normalized,
+        changed_slugs=changed,
+    )
+    assert not is_new and updated.id == opportunity.id
+    assert updated.apply_url == normalized.apply_url
+    assert updated.primary_source == "lever"
+    assert changed == {updated.slug}
+
+
+def test_direct_slug_soft_merge_upgrades_a_board_link(db_session, seeded):
+    direct, _board, company = seeded
+    raw, normalized = _source_role("lever", "pruned-direct", "https://jobs.lever.co/acme/pruned")
+    opportunity, _ = _ingest(db_session, direct.id, company.id, raw, normalized)
+    opportunity.apply_url = "https://arbeitnow.com/pruned"
+    opportunity.primary_source = "arbeitnow"
+    db_session.execute(
+        models.OpportunitySource.__table__.update()
+        .where(models.OpportunitySource.opportunity_id == opportunity.id)
+        .values(raw_listing_id=None)
+    )
+    db_session.execute(
+        models.RawListing.__table__.delete().where(
+            models.RawListing.source_id == direct.id,
+            models.RawListing.external_id == raw.external_id,
+        )
+    )
+    db_session.flush()
+    changed = set()
+    updated, is_new = _ingest(
+        db_session,
+        direct.id,
+        company.id,
+        raw.model_copy(update={"content_hash": "pruned-v2"}),
+        normalized.model_copy(update={"location": "London"}),
+        changed_slugs=changed,
+    )
+    assert not is_new and updated.id == opportunity.id
+    assert updated.apply_url == normalized.apply_url
+    assert updated.primary_source == "lever"
+    assert changed == {updated.slug}

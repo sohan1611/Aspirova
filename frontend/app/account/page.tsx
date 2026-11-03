@@ -36,14 +36,14 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAccount, getBookmarks } from "@/lib/api";
 import { formatDate } from "@/lib/date";
-import { readStoredFieldProfile, storeFieldProfile } from "@/lib/fieldProfile";
+import { hasFieldProfileSelections, readStoredFieldProfile, storeFieldProfile } from "@/lib/fieldProfile";
 import {
   getProfileCompleteness,
   PROFILE_COMPLETENESS_TOTAL,
 } from "@/lib/profileCompleteness";
 import type { FieldProfile } from "@/lib/taxonomy";
 import type { AccountMe } from "@/lib/types";
-import { useSession } from "@/lib/useSession";
+import { useSessionState } from "@/lib/useSession";
 
 function planName(key: string): string {
   if (key === "free") return "Free";
@@ -53,10 +53,6 @@ function planName(key: string): string {
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
-}
-
-function hasFieldProfileSelections(profile: FieldProfile | null): profile is FieldProfile {
-  return Boolean(profile?.stream || profile?.divisions.length || profile?.interests.length);
 }
 
 function fieldProfilesMatch(left: FieldProfile, right: FieldProfile): boolean {
@@ -78,7 +74,7 @@ export default function AccountPage() {
 }
 
 function AccountPageContent() {
-  const session = useSession();
+  const { session, resolved } = useSessionState();
   const accessToken = session?.access_token;
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -195,6 +191,8 @@ function AccountPageContent() {
     nextParams.set("section", section);
     router.replace(`/account?${nextParams.toString()}`, { scroll: false });
   }
+
+  if (!resolved) return <AccountLoadingSkeleton />;
 
   if (!session) {
     return (
@@ -322,7 +320,7 @@ function AccountPageContent() {
                   {bookmarkStats.saved.toLocaleString()}
                 </span>
                 <span className="mt-1 block text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                  Saved
+                  Tracked
                 </span>
               </Link>
               <Link
@@ -356,17 +354,17 @@ function AccountPageContent() {
               className="block rounded-lg border border-border bg-muted/30 px-4 py-3 transition-colors duration-200 ease-premium hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <p className="text-sm font-medium text-foreground">
-                Profile {completedFields} of {PROFILE_COMPLETENESS_TOTAL}{" "}
-                <span aria-hidden="true">·</span> Finish your profile
+                Academic basics {completedFields} of {PROFILE_COMPLETENESS_TOTAL}{" "}
+                <span aria-hidden="true">·</span> Add the rest
               </p>
               <div
                 className="mt-2 h-1 overflow-hidden rounded-full bg-border/70"
                 role="progressbar"
-                aria-label="Profile completeness"
+                aria-label="Academic basics"
                 aria-valuemin={0}
                 aria-valuemax={PROFILE_COMPLETENESS_TOTAL}
                 aria-valuenow={completedFields}
-                aria-valuetext={`${completedFields} of ${PROFILE_COMPLETENESS_TOTAL} profile details complete`}
+                aria-valuetext={`${completedFields} of ${PROFILE_COMPLETENESS_TOTAL} academic details complete`}
               >
                 <div
                   className="h-full rounded-full bg-muted-foreground/45"
@@ -410,7 +408,7 @@ function AccountPageContent() {
             {activeSection === "saved" && (
               <SavedSearchesSection accessToken={authenticatedAccessToken} />
             )}
-            {activeSection === "security" && <SecuritySection user={session.user} />}
+            {activeSection === "security" && <SecuritySection user={session.user} accessToken={authenticatedAccessToken} />}
           </AccountSectionErrorBoundary>
         </section>
       </div>

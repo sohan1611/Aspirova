@@ -1239,3 +1239,51 @@ def test_is_stale_opportunity_falls_back_to_first_seen_at() -> None:
     assert is_stale_opportunity(undated_old_with_future_deadline, now) is False
     assert is_stale_opportunity(dated_recent_seen_long_ago, now) is False
     assert is_stale_opportunity(dated_old, now) is True
+
+
+@pytest.mark.parametrize("endpoint", ["/feed", "/search"])
+def test_new_grad_experience_requires_a_matching_job_title(
+    client: TestClient, db_session: Session, endpoint: str
+) -> None:
+    suffix = uuid.uuid4().hex
+    company = models.Company(slug=f"new-grad-filter-{suffix}", name=f"New Grad Filter {suffix}")
+    fixtures = [
+        ("Software Engineer, New Grad", "job"),
+        ("2027 US AI Engineering – New College Graduate", "job"),
+        ("Campus Hiring Program 2027", "job"),
+        ("New Graduate Internship", "internship"),
+        ("Software Engineer", "job"),
+        ("Graduate Data Analyst", "job"),
+    ]
+    rows = [
+        models.Opportunity(
+            slug=f"new-grad-filter-{index}-{suffix}",
+            title=title,
+            title_normalized=title.lower(),
+            company=company,
+            category=category,
+            location=f"NewGradFilterville-{suffix}",
+            description_raw="auditlistingtruth",
+            apply_url=f"https://example.com/new-grad-filter/{index}/{suffix}",
+            status="active",
+            last_seen_at=datetime.now(UTC),
+        )
+        for index, (title, category) in enumerate(fixtures)
+    ]
+    db_session.add_all([company, *rows])
+    db_session.flush()
+
+    response = client.get(
+        endpoint,
+        params={
+            "q": "auditlistingtruth",
+            "experience": "new_grad",
+            "company": company.slug,
+            "limit": 100,
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["total"] == 4
+    assert {item["slug"] for item in response.json()["items"]} == {
+        row.slug for row in [*rows[:3], rows[5]]
+    }

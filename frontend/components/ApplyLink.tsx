@@ -165,7 +165,7 @@ export default function ApplyLink({ slug, href, children, size, variant, classNa
             <DialogTitle>{session ? "You're signed in" : "Sign in to apply"}</DialogTitle>
             <DialogDescription>
               {session
-                ? "Continue to the company's site to apply."
+                ? "Continue to the original listing to apply."
                 : "It's free and takes a few seconds. We'll bring you straight back to this job."}
             </DialogDescription>
           </DialogHeader>

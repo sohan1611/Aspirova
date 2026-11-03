@@ -1,6 +1,7 @@
 """Integration tests for authenticated saved-search endpoints."""
 
 import uuid
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -201,6 +202,7 @@ def test_invalid_saved_search_params_return_422(client, params) -> None:
 @pytest.mark.parametrize(
     ("key", "value"),
     [
+        ("experience", "new_grad"),
         ("location", ["Bangalore", "Bengaluru"]),
         ("role", "software"),
         ("paid", True),
@@ -271,3 +273,166 @@ def test_existing_saved_search_rows_still_load(client, db_session, seeded) -> No
     assert response.status_code == 200
     loaded = next(item for item in response.json() if item["id"] == row.id)
     assert loaded["params"] == row.params
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"), [("  New name  ", "New name"), (None, None), ("   ", None)]
+)
+def test_patch_saved_search_name(client, db_session, seeded, name, expected) -> None:
+    row = models.SavedSearch(user_id=seeded["user"].id, name="Old name", params={"q": "python"})
+    db_session.add(row)
+    db_session.flush()
+
+    response = client.patch(f"/saved-searches/{row.id}", json={"name": name})
+
+    assert response.status_code == 200
+    assert response.json()["name"] == expected
+    assert response.json()["params"] == {"q": "python"}
+    db_session.refresh(row)
+    assert row.name == expected
+
+
+@pytest.mark.parametrize(
+    "patch",
+    [
+        {},
+        {"unknown": True},
+        {"name": "x" * 81},
+        {"params": None},
+        {"params": {"category": "invalid"}},
+        {"params": {"country": "IND"}},
+        {"params": {"role": "unknown"}},
+        {"params": {"editSearch": "1"}},
+        {"params": {"min_stipend": -1}},
+        {"alerts_enabled": None},
+    ],
+)
+def test_invalid_saved_search_patch_returns_422(client, db_session, seeded, patch) -> None:
+    row = models.SavedSearch(user_id=seeded["user"].id, params={"q": "python"})
+    db_session.add(row)
+    db_session.flush()
+
+    assert client.patch(f"/saved-searches/{row.id}", json=patch).status_code == 422
+    db_session.refresh(row)
+    assert row.params == {"q": "python"}
+
+
+@pytest.mark.parametrize(
+    "patch",
+    [
+        {"name": "Renamed"},
+        {"name": None},
+        {"name": "   "},
+        {"params": {"q": "python"}},
+        {"alerts_enabled": False},
+        {"name": "Combined", "params": {"q": "python"}, "alerts_enabled": True},
+        {"params": {}},
+        {"params": None},
+    ],
+)
+def test_each_saved_search_patch_is_user_scoped(client, db_session, seeded, patch) -> None:
+    row = models.SavedSearch(
+        user_id=seeded["other_user"].id,
+        name="Private search",
+        params={"q": "private"},
+    )
+    db_session.add(row)
+    db_session.flush()
+
+    assert client.patch(f"/saved-searches/{row.id}", json=patch).status_code == 404
+    db_session.refresh(row)
+    assert row.name == "Private search"
+    assert row.params == {"q": "private"}
+    assert row.alerts_enabled is True
+
+
+@pytest.mark.parametrize("previously_alerted", [False, True])
+def test_filter_edit_resets_alert_baseline(client, db_session, seeded, previously_alerted) -> None:
+    old = datetime.now(timezone.utc) - timedelta(days=7)
+    row = models.SavedSearch(
+        user_id=seeded["user"].id,
+        name="Keep my name",
+        params={"q": "python"},
+        created_at=old,
+        last_alerted_at=old if previously_alerted else None,
+    )
+    db_session.add(row)
+    db_session.flush()
+    before = datetime.now(timezone.utc)
+
+    response = client.patch(
+        f"/saved-searches/{row.id}",
+        json={"params": {"q": "design", "registration": " FREE "}},
+    )
+    after = datetime.now(timezone.utc)
+
+    assert response.status_code == 200
+    db_session.refresh(row)
+    assert before <= row.last_alerted_at <= after
+    assert row.params == {"q": "design", "registration": "free"}
+    assert row.name == "Keep my name"
+    assert row.created_at == old
+
+
+@pytest.mark.parametrize("previously_alerted", [False, True])
+@pytest.mark.parametrize(
+    "patch",
+    [
+        {"params": {"registration": " FREE ", "q": "python"}},
+        {"name": "New name"},
+        {"alerts_enabled": False},
+    ],
+)
+def test_non_filter_edits_preserve_alert_baseline(
+    client,
+    db_session,
+    seeded,
+    patch,
+    previously_alerted,
+) -> None:
+    old = datetime.now(timezone.utc) - timedelta(days=7)
+    baseline = old if previously_alerted else None
+    row = models.SavedSearch(
+        user_id=seeded["user"].id,
+        name="Original name",
+        params={"q": "python", "registration": "free"},
+        last_alerted_at=baseline,
+    )
+    db_session.add(row)
+    db_session.flush()
+
+    response = client.patch(f"/saved-searches/{row.id}", json=patch)
+
+    assert response.status_code == 200
+    db_session.refresh(row)
+    assert row.last_alerted_at == baseline
+    assert row.params == {"q": "python", "registration": "free"}
+    if "name" not in patch:
+        assert row.name == "Original name"
+
+
+@pytest.mark.parametrize("params", [{}, {"q": None}])
+def test_patch_saved_search_requires_at_least_one_filter(
+    client, db_session, seeded, params
+) -> None:
+    baseline = datetime.now(timezone.utc) - timedelta(days=7)
+    row = models.SavedSearch(
+        user_id=seeded["user"].id,
+        name="Original name",
+        params={"q": "python"},
+        last_alerted_at=baseline,
+    )
+    db_session.add(row)
+    db_session.flush()
+
+    response = client.patch(
+        f"/saved-searches/{row.id}",
+        json={"name": "Should not save", "params": params},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "A saved search needs at least one filter"
+    db_session.refresh(row)
+    assert row.name == "Original name"
+    assert row.params == {"q": "python"}
+    assert row.last_alerted_at == baseline

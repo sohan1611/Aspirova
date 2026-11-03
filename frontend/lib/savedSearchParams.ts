@@ -61,6 +61,7 @@ export function savedSearchSummary(params: SavedSearchParams): string {
   else if (params.scope) parts.push(params.scope);
   if (params.source) parts.push(params.source);
   if (params.experience === "early") parts.push("early career");
+  if (params.experience === "new_grad") parts.push("new grad roles");
   if (params.min_stipend != null) parts.push(`at least ₹${params.min_stipend.toLocaleString("en-IN")}/month`);
   if (params.part_time === true) parts.push("part-time");
   if (params.max_duration != null) parts.push(`up to ${params.max_duration} months`);
@@ -82,4 +83,20 @@ export function savedSearchHref(params: SavedSearchParams): string {
   const path = params.kind === "competitions" ? "/competitions" : "/";
   const query = search.toString();
   return query ? `${path}?${query}` : path;
+}
+
+export function canonicalSavedSearchParams(params: SavedSearchParams): string {
+  const normalized = savedSearchParamsFromQuery(params);
+  return JSON.stringify(Object.fromEntries(
+    Object.entries(normalized).sort(([left], [right]) => left.localeCompare(right)).map(
+      ([key, value]) => [key, Array.isArray(value) ? [...value].sort() : value],
+    ),
+  ));
+}
+
+export function savedSearchEditHref(params: SavedSearchParams, id: number): string {
+  const [pathname, query] = savedSearchHref(params).split("?");
+  const search = new URLSearchParams(query);
+  search.set("editSearch", String(id));
+  return pathname + "?" + search.toString();
 }

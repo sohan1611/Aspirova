@@ -48,6 +48,7 @@ from sqlalchemy.orm import Session
 
 from core import models
 from core.adapters import NormalizedListing, RawListing
+from core.destination import DIRECT_SOURCE_SLUGS, classify_destination
 from core.summarise import summarise_description
 from core.textclean import fix_multiline_text, fix_text
 from pipeline.competition_signals import merge_competition_signals
@@ -259,6 +260,22 @@ def _ensure_provenance(
         existing_link.raw_listing_id = raw_row.id
 
 
+def _upgrade_direct_apply_url(
+    opportunity: models.Opportunity,
+    raw: RawListing,
+    normalized: NormalizedListing,
+    changed_slugs: set[str] | None,
+) -> None:
+    if (
+        raw.source_slug in DIRECT_SOURCE_SLUGS
+        and classify_destination(opportunity.apply_url, None).kind == "job_board"
+    ):
+        opportunity.apply_url = normalized.apply_url
+        opportunity.primary_source = raw.source_slug
+        if changed_slugs is not None:
+            changed_slugs.add(opportunity.slug)
+
+
 def ingest_one(
     session: Session,
     board_state: BoardState,
@@ -315,6 +332,7 @@ def ingest_one(
             # opportunity for this company, so this should not happen in
             # practice; a direct lookup keeps correctness if it ever does.
             opportunity = session.get(models.Opportunity, raw_row.opportunity_id)
+        _upgrade_direct_apply_url(opportunity, raw, normalized, changed_slugs)
         content_changed = raw_row.content_hash != raw.content_hash
 
         if content_changed:
@@ -336,33 +354,42 @@ def ingest_one(
             # (the upstream can re-timestamp it without a listing change).
             raw_row.content_hash = raw.content_hash
             raw_row.raw_payload = raw.raw_payload
-            if len(normalized.description_raw or "") > len(opportunity.description_raw or ""):
-                opportunity.description_raw = normalized.description_raw
-            opportunity.title = normalized.title
-            opportunity.title_normalized = normalize_title(normalized.title)
-            opportunity.location = normalized.location
-            opportunity.country = country
-            opportunity.is_remote = normalized.is_remote
-            opportunity.apply_url = normalized.apply_url
-            opportunity.category = normalized.category
-            opportunity.posted_at = normalized.posted_at
-            opportunity.deadline = normalized.deadline
-            opportunity.deadline_confidence = normalized.deadline_confidence
-            opportunity.skills = extract_opportunity_skills(
-                normalized.title,
-                opportunity.description_raw or "",
-                company_name=normalized.company_name,
-            )
-            opportunity.embedding = None
-            opportunity.embedding_model = None
-            _refresh_extracted_summary(
-                opportunity, meta=_listing_meta(normalized, country, opportunity.meta)
-            )
-            session.execute(
-                delete(models.OpportunityTag).where(
-                    models.OpportunityTag.opportunity_id == opportunity.id
+            if opportunity.primary_source is None or opportunity.primary_source == raw.source_slug:
+                if len(normalized.description_raw or "") > len(opportunity.description_raw or ""):
+                    opportunity.description_raw = normalized.description_raw
+                opportunity.title = normalized.title
+                opportunity.title_normalized = normalize_title(normalized.title)
+                opportunity.location = normalized.location
+                opportunity.country = country
+                opportunity.is_remote = normalized.is_remote
+                opportunity.apply_url = normalized.apply_url
+                opportunity.category = normalized.category
+                opportunity.posted_at = normalized.posted_at
+                opportunity.deadline = normalized.deadline
+                opportunity.deadline_confidence = normalized.deadline_confidence
+                opportunity.skills = extract_opportunity_skills(
+                    normalized.title,
+                    opportunity.description_raw or "",
+                    company_name=normalized.company_name,
                 )
-            )
+                opportunity.embedding = None
+                opportunity.embedding_model = None
+                _refresh_extracted_summary(
+                    opportunity, meta=_listing_meta(normalized, country, opportunity.meta)
+                )
+                session.execute(
+                    delete(models.OpportunityTag).where(
+                        models.OpportunityTag.opportunity_id == opportunity.id
+                    )
+                )
+            elif len(normalized.description_raw or "") > len(opportunity.description_raw or ""):
+                opportunity.description_raw = normalized.description_raw
+                opportunity.skills = extract_opportunity_skills(
+                    opportunity.title,
+                    opportunity.description_raw or "",
+                    company_name=normalized.company_name,
+                )
+                _refresh_extracted_summary(opportunity, meta=opportunity.meta)
             current_user_visible_fields = {
                 "title": opportunity.title,
                 "location": opportunity.location,
@@ -414,6 +441,7 @@ def ingest_one(
     )
 
     if match is not None:
+        _upgrade_direct_apply_url(match, raw, normalized, changed_slugs)
         if len(normalized.description_raw or "") > len(match.description_raw or ""):
             match.description_raw = normalized.description_raw
             match.skills = extract_opportunity_skills(
@@ -435,6 +463,7 @@ def ingest_one(
             # still a reliable merge key. Soft-merge instead of a hard
             # INSERT failure.
             opportunity = existing_by_slug
+            _upgrade_direct_apply_url(opportunity, raw, normalized, changed_slugs)
             if len(normalized.description_raw or "") > len(opportunity.description_raw or ""):
                 opportunity.description_raw = normalized.description_raw
                 opportunity.skills = extract_opportunity_skills(

@@ -58,6 +58,7 @@ const SOURCE_OPTIONS = [
 const EXPERIENCE_OPTIONS = [
   { value: null, label: "All levels" },
   { value: "early", label: "Early career" },
+  { value: "new_grad", label: "New grad roles" },
 ];
 
 const REMOTE_OPTIONS = [
@@ -318,7 +319,8 @@ export default function SearchFilters() {
   }
 
   function clearFilters() {
-    navigate("/");
+    const editSearch = searchParams.get("editSearch");
+    navigate(editSearch === null ? "/" : "/?" + new URLSearchParams({ editSearch }).toString());
   }
 
   return (

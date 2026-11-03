@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_valid
 
 from api.filters import ROLE_TERMS
 from core import models
+from core.destination import DestinationKind, classify_destination
 
 
 class CompanySummary(BaseModel):
@@ -253,8 +254,12 @@ class SavedSearchItem(BaseModel):
         return params.model_dump(exclude_none=True)
 
 
-class SavedSearchAlertsUpdate(BaseModel):
-    alerts_enabled: bool
+class SavedSearchUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, max_length=80)
+    params: SavedSearchParams | None = None
+    alerts_enabled: bool | None = None
 
 
 class ResumeUploadRequest(BaseModel):
@@ -319,7 +324,16 @@ class ReopenEstimateSchema(BaseModel):
     note: str
 
 
+class ApplyDestinationSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    kind: DestinationKind
+    host: str | None
+    label: str | None
+
+
 class OpportunityDetail(OpportunityListItem):
+    destination: ApplyDestinationSchema
     description_raw: str
     apply_url: str
     skills: list[str] = []
@@ -356,6 +370,9 @@ class OpportunityDetail(OpportunityListItem):
             description_raw=o.description_raw or "",
             summary=o.summary,
             apply_url=o.apply_url,
+            destination=ApplyDestinationSchema.model_validate(
+                classify_destination(o.apply_url, o.company.domain if o.company else None)
+            ),
             skills=list(o.skills or []),
             reopen_estimate=reopen_estimate,
             is_stale=is_stale,

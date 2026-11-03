@@ -74,7 +74,7 @@ export interface SavedSearchParams {
   scope?: "abroad" | "domestic" | "both" | null;
   country?: string | null;
   source?: "direct" | "unstop" | "remoteok" | "devpost" | null;
-  experience?: "early" | null;
+  experience?: "early" | "new_grad" | null;
   location?: string[] | null;
   role?: Role | null;
   paid?: boolean | null;
@@ -111,7 +111,14 @@ export interface MatchItem {
   score: number;
 }
 
+export interface ApplyDestination {
+  kind: "company" | "ats" | "job_board" | "event_platform" | "unverified";
+  host: string | null;
+  label: string | null;
+}
+
 export interface OpportunityDetail extends OpportunityListItem {
+  destination?: ApplyDestination;
   description_raw: string;
   apply_url: string;
   skills: string[];

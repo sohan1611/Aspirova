@@ -142,6 +142,10 @@ export function storeFieldProfile(profile: FieldProfile): void {
   window.dispatchEvent(new Event(FIELD_PROFILE_EVENT));
 }
 
+export function hasFieldProfileSelections(profile: FieldProfile | null): profile is FieldProfile {
+  return Boolean(profile?.stream || profile?.divisions.length || profile?.interests.length);
+}
+
 /** Opens the globally mounted field-profile dialog from any client component. */
 export function requestOnboarding(): void {
   if (typeof window === "undefined") return;

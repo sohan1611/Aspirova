@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { toast } from "sonner";
@@ -36,6 +37,7 @@ interface BookmarkState {
 }
 
 export function BookmarksProvider({ children }: { children: React.ReactNode }) {
+  const pendingSlugs = useRef(new Set<string>());
   const session = useSession();
   const accessToken = session?.access_token ?? null;
   const [bookmarkState, setBookmarkState] = useState<BookmarkState>({
@@ -89,7 +91,8 @@ export function BookmarksProvider({ children }: { children: React.ReactNode }) {
         toast("Sign in to save opportunities");
         return;
       }
-      if (!ready) return;
+      if (!ready || pendingSlugs.current.has(slug)) return;
+      pendingSlugs.current.add(slug);
 
       const wasSaved = savedSlugs.has(slug);
       const previousStatus = bookmarkState.statuses.get(slug);
@@ -119,6 +122,8 @@ export function BookmarksProvider({ children }: { children: React.ReactNode }) {
           return { ...current, accessToken, savedSlugs: reverted, statuses };
         });
         toast.error("Couldn't update your saved list");
+      } finally {
+        pendingSlugs.current.delete(slug);
       }
     },
     [accessToken, bookmarkState.statuses, ready, savedSlugs],

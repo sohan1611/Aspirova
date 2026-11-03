@@ -22,6 +22,7 @@ import type {
   ReferralMe,
   SavedSearchCreate,
   SavedSearchItem,
+  SavedSearchParams,
   SavedOpportunityItem,
   SearchResponse,
   StatsResponse,
@@ -94,7 +95,7 @@ export interface FeedParams extends RoleSignalParams {
   category?: "internship" | "job" | "hackathon" | "competition" | "scholarship";
   kind?: "roles" | "competitions";
   source?: "direct" | "unstop" | "remoteok" | "devpost";
-  experience?: "early";
+  experience?: "early" | "new_grad";
   remote?: boolean;
   location?: string | string[];
   company?: string | string[];
@@ -509,10 +510,10 @@ export async function deleteSavedSearch(accessToken: string, id: number): Promis
   if (!res.ok) throw new Error(`Failed to delete saved search: ${res.status}`);
 }
 
-export async function setSavedSearchAlerts(
+export async function updateSavedSearch(
   accessToken: string,
   id: number,
-  enabled: boolean,
+  patch: { name?: string | null; params?: SavedSearchParams; alerts_enabled?: boolean },
 ): Promise<SavedSearchItem> {
   const res = await fetch(`${API_URL}/saved-searches/${encodeURIComponent(String(id))}`, {
     method: "PATCH",
@@ -520,10 +521,18 @@ export async function setSavedSearchAlerts(
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ alerts_enabled: enabled }),
+    body: JSON.stringify(patch),
   });
-  if (!res.ok) throw new Error(`Failed to update saved search alerts: ${res.status}`);
+  if (!res.ok) throw new Error("We couldn't update this search. Please try again.");
   return res.json();
+}
+
+export async function setSavedSearchAlerts(
+  accessToken: string,
+  id: number,
+  enabled: boolean,
+): Promise<SavedSearchItem> {
+  return updateSavedSearch(accessToken, id, { alerts_enabled: enabled });
 }
 
 export async function getNotifications(accessToken: string): Promise<NotificationsResponse> {
@@ -801,4 +810,13 @@ export async function removeDreamCompany(slug: string, accessToken: string): Pro
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok) throw new Error("Couldn't unfollow this company");
+}
+
+export async function exportAccountData(accessToken: string): Promise<Record<string, unknown>> {
+  const res = await fetch(`${API_URL}/account/export`, {
+    headers: { Authorization: "Bearer " + accessToken },
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error("We couldn't download your data. Please try again.");
+  return res.json();
 }

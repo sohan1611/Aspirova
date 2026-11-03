@@ -57,7 +57,9 @@ export default function PrivacyPage() {
         <p className="mt-3 text-base leading-7 text-muted-foreground">
           When you create an account, Supabase authentication handles your
           email address and display name, whether you sign in with email or a
-          social sign-in method. You can also choose to add your college and graduation year in{" "}
+          social sign-in method. If you sign in with Google or GitHub and the provider
+          shares your name, we use it as your starting display name, and you can
+          change it in your account. You can also choose to add your college and graduation year in{" "}
           <Link
             className="font-medium text-foreground underline decoration-primary/40 underline-offset-4 transition-colors hover:decoration-primary"
             href="/account"
@@ -219,7 +221,7 @@ export default function PrivacyPage() {
             your account
           </Link>{" "}
           and turn off emails in your notification preferences. To request
-          access to or deletion of your information, email <ContactEmail />.
+          access to or deletion of your information, email <ContactEmail />. You can download a copy of your account data any time from Account, under Security.
         </p>
 
         <h2 className="mt-12 scroll-mt-24 font-serif text-2xl font-semibold tracking-tight text-foreground">

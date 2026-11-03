@@ -28,7 +28,7 @@ export default function AboutPage() {
             How it works
           </h2>
           <p className="mt-4 text-base leading-7 text-muted-foreground">
-            We gather listings from public sources such as company career pages and competition platforms. When you apply, you always go to the original listing. Aspirova never handles your application.
+            We gather listings from public sources such as company career pages, job boards and competition platforms. When you apply, you always go to the original listing. Aspirova never handles your application.
           </p>
         </section>
 
