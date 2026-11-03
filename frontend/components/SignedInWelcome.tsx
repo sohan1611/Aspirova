@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 const QUICK_LINKS = [
   { href: "/saved", label: "Saved" },
-  { href: "/resume", label: "Matches" },
+  { href: "/resume", label: "Resume check" },
   { href: "/competitions", label: "Competitions" },
 ] as const;
 

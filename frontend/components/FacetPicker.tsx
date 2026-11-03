@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { summarizeLocation } from "@/lib/location";
 import { cn } from "@/lib/utils";
 
 const MAX_RENDERED_OPTIONS = 240;
@@ -179,6 +180,7 @@ export default function FacetPicker({
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3 lg:grid-cols-4">
                 {visibleOptions.map((option) => {
                   const isSelected = draftValues.has(option);
+                  const location = labelText === "location" ? summarizeLocation(option) : null;
                   return (
                     <button
                       key={option}
@@ -204,7 +206,11 @@ export default function FacetPicker({
                       >
                         <Check className="h-3 w-3" />
                       </span>
-                      <span className="min-w-0 truncate">{option}</span>
+                      <span className="min-w-0 truncate" title={location?.full ?? undefined}>
+                        {location ? (
+                          <>{location.short}{location.hiddenCount > 0 && ` +${location.hiddenCount} more`}</>
+                        ) : option}
+                      </span>
                     </button>
                   );
                 })}

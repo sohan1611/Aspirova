@@ -70,7 +70,8 @@ const FALLBACK_PLANS: PlanPublic[] = [
 
 export const metadata: Metadata = {
   title: "Pricing",
-  description: "Aspirova pricing - Free, Pro Lite, and Pro plans. Pro launches soon.",
+  description:
+    "Aspirova pricing - Free, Pro Lite, and Pro plans. Optional instant alerts, a weekly report and more room to track companies.",
 };
 
 export default async function PricingPage() {
@@ -93,8 +94,8 @@ export default async function PricingPage() {
           Simple, honest pricing
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
-          The free feed is genuinely useful today. Pro is launching soon -
-          join the waitlist to be first in line.
+          The free feed is genuinely useful. Pro adds instant alerts, a weekly report
+          and more room to track companies.
         </p>
       </header>
 

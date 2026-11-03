@@ -359,6 +359,7 @@ class DreamCompanyItem(BaseModel):
 class FeedResponse(BaseModel):
     items: list[OpportunityListItem]
     total: int
+    open_total: int | None = None
     page: int
     limit: int
 

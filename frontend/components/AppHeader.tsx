@@ -15,23 +15,14 @@ export default function AppHeader() {
           <Wordmark className="[&>span]:hidden [&>span]:tracking-[-0.01em] sm:[&>span]:inline" />
           <MobileNav />
           <nav className="hidden min-w-0 items-center gap-3 overflow-x-auto whitespace-nowrap text-sm font-medium [scrollbar-width:none] sm:gap-4 md:flex [&::-webkit-scrollbar]:hidden">
-            <HoverPrefetchLink href="/saved" className={NAV_LINK_CLASSES}>
-              Saved
-            </HoverPrefetchLink>
-            <HoverPrefetchLink href="/resume" className={NAV_LINK_CLASSES}>
-              Matches
-            </HoverPrefetchLink>
-            <HoverPrefetchLink href="/referral" className={NAV_LINK_CLASSES}>
-              Invite
-            </HoverPrefetchLink>
-            <HoverPrefetchLink href="/copilot" className={NAV_LINK_CLASSES}>
-              Copilot
-            </HoverPrefetchLink>
             <HoverPrefetchLink href="/jobs" className={NAV_LINK_CLASSES}>
               Jobs
             </HoverPrefetchLink>
             <HoverPrefetchLink href="/internships" className={NAV_LINK_CLASSES}>
               Internships
+            </HoverPrefetchLink>
+            <HoverPrefetchLink href="/remote" className={NAV_LINK_CLASSES}>
+              Remote
             </HoverPrefetchLink>
             <HoverPrefetchLink href="/competitions" className={NAV_LINK_CLASSES}>
               Competitions
@@ -42,6 +33,9 @@ export default function AppHeader() {
             {/* Scholarships intentionally unlinked - see MobileNav for why. */}
             <HoverPrefetchLink href="/programmes" className={NAV_LINK_CLASSES}>
               Programmes
+            </HoverPrefetchLink>
+            <HoverPrefetchLink href="/companies" className={NAV_LINK_CLASSES}>
+              Companies
             </HoverPrefetchLink>
             <HoverPrefetchLink href="/pricing" className={NAV_LINK_CLASSES}>
               Pricing

@@ -82,27 +82,6 @@ def get_feed(
     if source is not None:
         base_filters.append(models.Opportunity.primary_source.in_(SOURCE_GROUPS[source]))
 
-    total_count = func.count().over().label("total_count")
-    source_rank = (
-        func.row_number()
-        .over(
-            partition_by=func.coalesce(models.Opportunity.primary_source, ""),
-            order_by=[
-                models.Opportunity.last_seen_at.desc(),
-                models.Opportunity.id.desc(),
-            ],
-        )
-        .label("source_rank")
-    )
-    selected_columns = [models.Opportunity, total_count]
-    if sort != "deadline":
-        selected_columns.append(source_rank)
-    query = select(*selected_columns).options(*opportunity_list_load_options()).where(*base_filters)
-    # id is a required tie-breaker, not cosmetic: many rows share the exact
-    # same last_seen_at (same crawl batch) or deadline (often null), and
-    # Postgres gives no ordering guarantee among tied rows across separate
-    # paginated queries - confirmed live, page 1 and page 2 returned
-    # overlapping rows without this.
     is_closed = case(
         (
             or_(
@@ -116,6 +95,28 @@ def get_feed(
         ),
         else_=0,
     )
+    total_count = func.count().over().label("total_count")
+    open_count = func.count().filter(is_closed == 0).over().label("open_count")
+    source_rank = (
+        func.row_number()
+        .over(
+            partition_by=func.coalesce(models.Opportunity.primary_source, ""),
+            order_by=[
+                models.Opportunity.last_seen_at.desc(),
+                models.Opportunity.id.desc(),
+            ],
+        )
+        .label("source_rank")
+    )
+    selected_columns = [models.Opportunity, total_count, open_count]
+    if sort != "deadline":
+        selected_columns.append(source_rank)
+    query = select(*selected_columns).options(*opportunity_list_load_options()).where(*base_filters)
+    # id is a required tie-breaker, not cosmetic: many rows share the exact
+    # same last_seen_at (same crawl batch) or deadline (often null), and
+    # Postgres gives no ordering guarantee among tied rows across separate
+    # paginated queries - confirmed live, page 1 and page 2 returned
+    # overlapping rows without this.
     ordering = [is_closed.asc()]
     if kind == "roles":
         roles_first = case(
@@ -161,5 +162,6 @@ def get_feed(
 
     items = [OpportunityListItem.from_model(row.Opportunity) for row in rows]
     total = rows[0].total_count if rows else 0
+    open_total = rows[0].open_count if rows else 0
 
-    return FeedResponse(items=items, total=total, page=page, limit=limit)
+    return FeedResponse(items=items, total=total, open_total=open_total, page=page, limit=limit)

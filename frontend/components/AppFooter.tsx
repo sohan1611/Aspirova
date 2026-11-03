@@ -83,13 +83,23 @@ export default function AppFooter() {
                 </HoverPrefetchLink>
               </li>
               <li>
-                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/copilot">
-                  Copilot
+                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/resume">
+                  Resume check
                 </HoverPrefetchLink>
               </li>
               <li>
-                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/resume">
-                  Matches
+                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/saved">
+                  Saved
+                </HoverPrefetchLink>
+              </li>
+              <li>
+                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/about">
+                  About
+                </HoverPrefetchLink>
+              </li>
+              <li>
+                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/faq">
+                  FAQ
                 </HoverPrefetchLink>
               </li>
               <li>

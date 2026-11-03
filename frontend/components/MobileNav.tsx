@@ -14,12 +14,9 @@ import {
 } from "@/components/ui/sheet";
 
 const NAV_LINKS = [
-  { href: "/saved", label: "Saved" },
-  { href: "/resume", label: "Matches" },
-  { href: "/referral", label: "Invite" },
-  { href: "/copilot", label: "Copilot" },
   { href: "/jobs", label: "Jobs" },
   { href: "/internships", label: "Internships" },
+  { href: "/remote", label: "Remote" },
   { href: "/competitions", label: "Competitions" },
   { href: "/research", label: "Research" },
   // Scholarships is deliberately NOT linked here yet. The route, its ISR
@@ -28,7 +25,14 @@ const NAV_LINKS = [
   // count - the adapter sends oppstatus=open). Restore this link when the
   // page carries enough to be worth a nav slot.
   { href: "/programmes", label: "Programmes" },
+  { href: "/companies", label: "Companies" },
   { href: "/pricing", label: "Pricing" },
+] as const;
+
+const PERSONAL_LINKS = [
+  { href: "/saved", label: "Saved" },
+  { href: "/resume", label: "Resume check" },
+  { href: "/referral", label: "Invite" },
 ] as const;
 
 const MOBILE_NAV_LINK_CLASSES =
@@ -57,7 +61,7 @@ export default function MobileNav() {
             Navigate to another section of Aspirova.
           </SheetDescription>
         </SheetHeader>
-        <nav className="flex flex-col gap-1 px-4" aria-label="Mobile navigation">
+        <nav className="flex min-h-0 flex-col gap-1 overflow-y-auto px-4 pb-4" aria-label="Mobile navigation">
           {NAV_LINKS.map((link) => (
             <HoverPrefetchLink
               key={link.href}
@@ -68,6 +72,18 @@ export default function MobileNav() {
               {link.label}
             </HoverPrefetchLink>
           ))}
+          <div className="mt-3 flex flex-col gap-1 border-t border-border pt-3">
+            {PERSONAL_LINKS.map((link) => (
+              <HoverPrefetchLink
+                key={link.href}
+                href={link.href}
+                className={MOBILE_NAV_LINK_CLASSES}
+                onClick={() => setOpen(false)}
+              >
+                {link.label}
+              </HoverPrefetchLink>
+            ))}
+          </div>
         </nav>
       </SheetContent>
     </Sheet>

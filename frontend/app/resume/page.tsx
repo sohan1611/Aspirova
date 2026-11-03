@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import ResumeMatchPage from "@/components/ResumeMatchPage";
 
 export const metadata: Metadata = {
-  title: "Resume Match",
+  title: "Resume check",
   description:
-    "Paste your resume and discover Aspirova opportunities ranked by fit.",
+    "Store your private resume, review suggested skills and check an ATS readiness estimate.",
 };
 
 export default function ResumePage() {

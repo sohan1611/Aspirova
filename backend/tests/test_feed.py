@@ -135,3 +135,61 @@ def test_promoted_surfaces_exclude_stale_rows_but_detail_remains_reachable(
     assert current_detail.json()["is_stale"] is False
     assert null_posted_at_detail.status_code == 200
     assert null_posted_at_detail.json()["is_stale"] is False
+
+
+@pytest.mark.parametrize("sort", ["student", "recent", "deadline"])
+def test_feed_total_includes_closed_rows_but_open_total_does_not(
+    client: TestClient, db_session: Session, sort: str
+) -> None:
+    suffix = uuid.uuid4().hex
+    location_token = f"OpenCountville-{suffix}"
+    now = datetime.now(UTC)
+    listings = []
+    for state, fields in [
+        ("open", {}),
+        ("future-deadline", {"deadline": now + timedelta(days=5)}),
+        ("closed", {"closed_at": now - timedelta(days=1)}),
+        ("past-deadline", {"deadline": now - timedelta(days=1)}),
+    ]:
+        listings.append(
+            models.Opportunity(
+                slug=f"feed-open-count-{state}-{suffix}",
+                title=f"Open count {state} role",
+                category="job",
+                location=location_token,
+                apply_url=f"https://example.com/feed-open-count/{state}/{suffix}",
+                status="active",
+                first_seen_at=now,
+                last_seen_at=now,
+                **fields,
+            )
+        )
+    db_session.add_all(listings)
+    db_session.flush()
+
+    slugs = []
+    for page in range(1, 5):
+        response = client.get(
+            "/feed",
+            params={"location": location_token, "sort": sort, "limit": 1, "page": page},
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["total"] == 4
+        assert body["open_total"] == 2
+        assert body["page"] == page
+        assert body["limit"] == 1
+        assert len(body["items"]) == 1
+        slugs.append(body["items"][0]["slug"])
+
+    assert set(slugs[:2]) == {listing.slug for listing in listings[:2]}
+    assert set(slugs[2:]) == {listing.slug for listing in listings[2:]}
+
+    empty = client.get(
+        "/feed",
+        params={"location": location_token, "sort": sort, "limit": 1, "page": 5},
+    )
+    assert empty.status_code == 200
+    assert empty.json()["items"] == []
+    assert empty.json()["total"] == 0
+    assert empty.json()["open_total"] == 0

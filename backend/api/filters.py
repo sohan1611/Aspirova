@@ -147,6 +147,23 @@ def exclude_closed_competitions():
     return or_(expired_deadline, detected_closed).is_not(True)
 
 
+def open_opportunity_filters() -> list:
+    """Return the shared definition of an open, student-facing listing."""
+    return [
+        models.Opportunity.status == "active",
+        exclude_stale_opportunities(),
+        exclude_experienced_only_opportunities(),
+        exclude_school_only_opportunities(),
+        exclude_closed_competitions(),
+        models.Opportunity.closed_at.is_(None),
+        models.Opportunity.is_hidden.is_not(True),
+        or_(
+            models.Opportunity.deadline.is_(None),
+            models.Opportunity.deadline > func.now(),
+        ),
+    ]
+
+
 def experience_filters(experience: str | None) -> list:
     if experience == "early":
         return [

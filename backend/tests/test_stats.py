@@ -8,10 +8,11 @@ from sqlalchemy.orm import Session
 
 from api import middleware
 from api.deps import get_db
-from api.filters import STALE_AFTER_DAYS, exclude_stale_opportunities
+from api.filters import STALE_AFTER_DAYS, open_opportunity_filters
 from api.main import app
 from core import models
 from core.config import get_settings
+from core.eligibility import ELIGIBLE_EXPERIENCED_ONLY_META_KEY
 
 
 @pytest.fixture
@@ -37,17 +38,14 @@ def client(db_session: Session, monkeypatch):
         app.dependency_overrides.pop(get_db, None)
 
 
-def test_stats_returns_active_counts_and_shape(client: TestClient, db_session: Session) -> None:
+def test_stats_returns_open_counts_and_shape(client: TestClient, db_session: Session) -> None:
     baseline = db_session.execute(
         select(
             func.count(models.Opportunity.id).label("opportunities"),
             func.count(func.distinct(models.Opportunity.company_id)).label("companies"),
             func.count(func.distinct(models.Opportunity.primary_source)).label("sources"),
             func.max(models.Opportunity.last_seen_at).label("updated_at"),
-        ).where(
-            models.Opportunity.status == "active",
-            exclude_stale_opportunities(),
-        )
+        ).where(*open_opportunity_filters())
     ).one()
 
     suffix = uuid.uuid4().hex
@@ -117,6 +115,29 @@ def test_stats_returns_active_counts_and_shape(client: TestClient, db_session: S
             last_seen_at=inactive_at,
         ),
     ]
+    excluded_fields = {
+        "closed": {"closed_at": datetime.now(UTC) - timedelta(days=1)},
+        "past-deadline": {"deadline": datetime.now(UTC) - timedelta(days=1)},
+        "experienced-only": {"meta": {ELIGIBLE_EXPERIENCED_ONLY_META_KEY: True}},
+        "school-only": {"meta": {"eligibility": ["School Students"]}},
+        "hidden": {"is_hidden": True},
+    }
+    for reason, fields in excluded_fields.items():
+        opportunities.append(
+            models.Opportunity(
+                slug=f"stats-{reason}-{suffix}",
+                title=f"Stats {reason}",
+                company=models.Company(
+                    slug=f"stats-company-{reason}-{suffix}", name=f"Stats {reason}"
+                ),
+                primary_source=f"stats-source-{reason}-{suffix}",
+                apply_url=f"https://example.com/stats/{reason}/{suffix}",
+                status="active",
+                first_seen_at=datetime.now(UTC),
+                last_seen_at=inactive_at,
+                **fields,
+            )
+        )
     db_session.add_all([company_a, company_b, inactive_company, stale_company, *opportunities])
     db_session.flush()
 

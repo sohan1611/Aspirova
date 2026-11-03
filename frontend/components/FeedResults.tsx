@@ -7,6 +7,7 @@ import { FeedNavigationProvider } from "@/components/FeedNavigation";
 import FeedViewControls from "@/components/FeedViewControls";
 import ForYouControl from "@/components/ForYouControl";
 import MostViewed from "@/components/MostViewed";
+import PersonalisePrompt from "@/components/PersonalisePrompt";
 import SearchFilters from "@/components/SearchFilters";
 import SourceCompanyCard from "@/components/SourceCompanyCard";
 import TopCompanies from "@/components/TopCompanies";
@@ -68,6 +69,7 @@ export default function FeedResults({ initialData, trendingItems }: FeedResultsP
 
       <FeedNavigationProvider>
         <div id="feed-search" className="mb-6 scroll-mt-20 pt-10">
+          <PersonalisePrompt />
           <ForYouControl />
           <div className="mt-3">
             <SearchFilters />
@@ -75,7 +77,11 @@ export default function FeedResults({ initialData, trendingItems }: FeedResultsP
         </div>
 
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">{data.total} opportunities</p>
+          <p className="text-sm text-muted-foreground">
+            {!request.q && !request.isForYou && typeof data.open_total === "number"
+              ? `${data.open_total.toLocaleString("en-IN")} open opportunities`
+              : `${data.total.toLocaleString("en-IN")} opportunities`}
+          </p>
           <FeedViewControls cols={request.cols} rows={request.rows} />
         </div>
 

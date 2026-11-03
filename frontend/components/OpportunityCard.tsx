@@ -11,6 +11,7 @@ import {
   isCompetitionCategory,
   isListingClosed,
 } from "@/lib/deadline";
+import { isSinglePlace, summarizeLocation } from "@/lib/location";
 import { getSourceLabel } from "@/lib/sourceLabel";
 import type { OpportunityListItem } from "@/lib/types";
 
@@ -105,8 +106,8 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
     : "apply_url" in item && typeof item.apply_url === "string"
       ? getSourceLabel(item.apply_url)
       : null;
-  const location = item.location?.replace(/\s+/g, " ").trim() || null;
-  const countryFlag = getCountry(item.country)?.flag;
+  const { short: location, hiddenCount, full } = summarizeLocation(item.location);
+  const countryFlag = isSinglePlace(item.location) ? getCountry(item.country)?.flag : null;
   const postedAgeInDays = getAgeInDays(item.posted_at);
   const isNew =
     postedAgeInDays !== null && postedAgeInDays >= 0 && postedAgeInDays < 7;
@@ -185,7 +186,9 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
                 {location && (
                   <>
                     <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                    <span className="min-w-0 break-words">{location}</span>
+                    <span className="min-w-0 break-words" title={full ?? undefined}>
+                      {location}{hiddenCount > 0 && ` +${hiddenCount} more`}
+                    </span>
                   </>
                 )}
               </span>

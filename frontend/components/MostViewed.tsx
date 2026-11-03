@@ -1,6 +1,7 @@
 import HoverPrefetchLink from "@/components/HoverPrefetchLink";
 import CompanyFavicon from "@/components/CompanyFavicon";
 import { getCountry } from "@/lib/countries";
+import { isSinglePlace } from "@/lib/location";
 import type { OpportunityListItem } from "@/lib/types";
 
 interface MostViewedProps {
@@ -19,7 +20,7 @@ export default function MostViewed({ items }: MostViewedProps) {
       <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2">
         {items.slice(0, 8).map((item) => {
           const companyName = item.company?.name ?? "Independent listing";
-          const countryFlag = getCountry(item.country)?.flag;
+          const countryFlag = isSinglePlace(item.location) ? getCountry(item.country)?.flag : null;
 
           return (
             <HoverPrefetchLink

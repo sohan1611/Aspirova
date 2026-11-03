@@ -94,7 +94,7 @@ function BrandCard() {
               letterSpacing: 0,
             }}
           >
-            AI-powered career discovery for students
+            Career discovery for students
           </div>
         </div>
 

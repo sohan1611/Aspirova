@@ -43,6 +43,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { createSavedSearch, getFacets } from "@/lib/api";
 import { getCountry } from "@/lib/countries";
+import { summarizeLocation } from "@/lib/location";
 import type { Facets, SavedSearchParams } from "@/lib/types";
 import { useSession } from "@/lib/useSession";
 import { cn } from "@/lib/utils";
@@ -166,12 +167,17 @@ function savedSearchNamePlaceholder(params: SavedSearchParams): string {
   return parts.join(" · ") || "My saved search";
 }
 
+function locationLabel(raw: string): string {
+  const { short, hiddenCount } = summarizeLocation(raw);
+  return `${short ?? ""}${hiddenCount > 0 ? ` +${hiddenCount} more` : ""}`;
+}
+
 function multiFacetButtonLabel(
   label: "company" | "location",
   values: string[],
 ): string {
   if (values.length === 0) return `Any ${label}`;
-  if (values.length === 1) return values[0];
+  if (values.length === 1) return label === "location" ? locationLabel(values[0]) : values[0];
   return `${values.length} ${label === "company" ? "companies" : "locations"}`;
 }
 
@@ -272,7 +278,7 @@ export default function SearchFilters() {
 
         return values.map((value, index) => ({
           id: `${key}:${index}:${value}`,
-          label: value,
+          label: key === "location" ? locationLabel(value) : value,
           humanLabel: `${key === "company" ? "Company" : "Location"}: ${value}`,
           onRemove: () =>
             commitMultiParam(
@@ -564,7 +570,10 @@ export default function SearchFilters() {
                         aria-label="Choose location filter"
                         className="w-full justify-between"
                       >
-                        <span className="min-w-0 truncate text-left">
+                        <span
+                          className="min-w-0 truncate text-left"
+                          title={selectedLocations.length === 1 ? summarizeLocation(selectedLocations[0]).full ?? undefined : undefined}
+                        >
                           {multiFacetButtonLabel("location", selectedLocations)}
                         </span>
                         <ChevronDown
@@ -748,7 +757,7 @@ export default function SearchFilters() {
               variant="secondary"
               className="max-w-full gap-1 py-0.5 pr-0.5 pl-2 text-sm font-medium tracking-normal normal-case"
             >
-              <span className="min-w-0 truncate">{label}</span>
+              <span className="min-w-0 truncate" title={humanLabel}>{label}</span>
               <button
                 type="button"
                 aria-label={`Remove ${humanLabel} filter`}
