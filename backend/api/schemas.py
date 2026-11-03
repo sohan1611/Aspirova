@@ -398,6 +398,7 @@ class FacetsResponse(BaseModel):
     deadline_within: list[FacetOption] = []
     organiser_types: list[FacetOption] = []
     modes: list[FacetOption] = []
+    statuses: list[FacetOption] = []
     programme_categories: list[FacetOption] = []
     programme_fields: list[FacetOption] = []
     programme_organisers: list[FacetOption] = []

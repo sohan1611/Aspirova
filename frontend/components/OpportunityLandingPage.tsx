@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 import FeedGrid from "@/components/FeedGrid";
 import { FeedNavigationProvider } from "@/components/FeedNavigation";
 import OpportunityLandingResults from "@/components/OpportunityLandingResults";
@@ -18,22 +18,26 @@ interface OpportunityLandingPageProps {
   intro: string;
   items: OpportunityListItem[];
   total: number;
+  openTotal?: number | null;
   page: number;
   limit: number;
   basePath: OpportunityListingPath;
   query: FeedParams;
   defaultSort?: OpportunityListingSort;
+  children?: ReactNode;
 }
 
 function DefaultOpportunityLanding({
   items,
   total,
+  openTotal,
   page,
   limit,
   basePath,
 }: {
   items: OpportunityListItem[];
   total: number;
+  openTotal?: number | null;
   page: number;
   limit: number;
   basePath: OpportunityListingPath;
@@ -46,7 +50,7 @@ function DefaultOpportunityLanding({
         <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
           <p className="eyebrow">Open opportunities</p>
           <p className="tnum text-sm text-muted-foreground">
-            {opportunityCountLabel(total)}
+            {opportunityCountLabel(total, openTotal)}
           </p>
         </div>
       </div>
@@ -103,13 +107,15 @@ export default function OpportunityLandingPage({
   intro,
   items,
   total,
+  openTotal,
   page,
   limit,
   basePath,
   query,
   defaultSort = "student",
+  children,
 }: OpportunityLandingPageProps) {
-  const initialData = { items, total };
+  const initialData = { items, total, open_total: openTotal };
 
   return (
     <main className="mx-auto w-full max-w-[1680px] px-4 py-10 sm:px-6 sm:py-14 lg:px-10 xl:px-12">
@@ -127,6 +133,7 @@ export default function OpportunityLandingPage({
           <DefaultOpportunityLanding
             items={items}
             total={total}
+            openTotal={openTotal}
             page={page}
             limit={limit}
             basePath={basePath}
@@ -142,6 +149,7 @@ export default function OpportunityLandingPage({
           defaultSort={defaultSort}
         />
       </Suspense>
+      {children}
     </main>
   );
 }

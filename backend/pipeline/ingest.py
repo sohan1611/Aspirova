@@ -50,6 +50,7 @@ from core import models
 from core.adapters import NormalizedListing, RawListing
 from core.summarise import summarise_description
 from core.textclean import fix_multiline_text, fix_text
+from pipeline.competition_signals import merge_competition_signals
 from pipeline.dedup import find_matching_opportunity
 from pipeline.location_country import derive_country
 from pipeline.normalize import normalize_title
@@ -64,7 +65,7 @@ def _listing_meta(
     normalized: NormalizedListing, country: str | None, existing: dict | None = None
 ) -> dict | None:
     if normalized.category not in {"internship", "job"}:
-        return normalized.meta
+        return merge_competition_signals(normalized.meta, normalized.category) or None
     meta = {**_copy_meta(existing), **_copy_meta(normalized.meta)}
     old_pay = (existing or {}).get("compensation")
     incoming_pay = meta.get("compensation")

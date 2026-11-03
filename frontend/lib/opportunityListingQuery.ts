@@ -384,6 +384,7 @@ export async function loadOpportunityListingControlCounts(
   };
 }
 
-export function opportunityCountLabel(count: number): string {
+export function opportunityCountLabel(count: number, openTotal?: number | null): string {
+  if (openTotal != null) return `${openTotal.toLocaleString("en-US")} open of ${count.toLocaleString("en-US")}`;
   return `${count} ${count === 1 ? "opportunity" : "opportunities"}`;
 }

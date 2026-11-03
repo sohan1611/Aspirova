@@ -51,11 +51,15 @@ export default function AppFooter() {
                 </HoverPrefetchLink>
               </li>
               <li>
+                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/scholarships">
+                  Scholarships
+                </HoverPrefetchLink>
+              </li>
+              <li>
                 <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/research">
                   Research
                 </HoverPrefetchLink>
               </li>
-              {/* Scholarships intentionally unlinked - see MobileNav for why. */}
               <li>
                 <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/programmes">
                   Programmes

@@ -14,7 +14,7 @@ export default function AppHeader() {
         <div className="flex min-w-0 items-center gap-3 sm:gap-6">
           <Wordmark className="[&>span]:hidden [&>span]:tracking-[-0.01em] sm:[&>span]:inline" />
           <MobileNav />
-          <nav className="hidden min-w-0 items-center gap-3 overflow-x-auto whitespace-nowrap text-sm font-medium [scrollbar-width:none] sm:gap-4 md:flex [&::-webkit-scrollbar]:hidden">
+          <nav className="hidden min-w-0 items-center gap-3 overflow-x-auto whitespace-nowrap text-sm font-medium [scrollbar-width:none] md:flex xl:gap-4 [&::-webkit-scrollbar]:hidden">
             <HoverPrefetchLink href="/jobs" className={NAV_LINK_CLASSES}>
               Jobs
             </HoverPrefetchLink>
@@ -27,10 +27,12 @@ export default function AppHeader() {
             <HoverPrefetchLink href="/competitions" className={NAV_LINK_CLASSES}>
               Competitions
             </HoverPrefetchLink>
+            <HoverPrefetchLink href="/scholarships" className={NAV_LINK_CLASSES}>
+              Scholarships
+            </HoverPrefetchLink>
             <HoverPrefetchLink href="/research" className={NAV_LINK_CLASSES}>
               Research
             </HoverPrefetchLink>
-            {/* Scholarships intentionally unlinked - see MobileNav for why. */}
             <HoverPrefetchLink href="/programmes" className={NAV_LINK_CLASSES}>
               Programmes
             </HoverPrefetchLink>

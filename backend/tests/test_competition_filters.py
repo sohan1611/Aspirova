@@ -3,13 +3,15 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from api import middleware
 from api.deps import get_db
-from api.filters import normalize_competition_mode
+from api.filters import competition_mode_expression, normalize_competition_mode
 from api.main import app
 from core import models
+from pipeline.competition_signals import merge_competition_signals
 
 
 @pytest.fixture
@@ -165,6 +167,9 @@ def competition_rows(db_session: Session):
         last_seen_at=now,
         status="active",
     )
+
+    for row in (online_iit, offline_company):
+        row.meta = merge_competition_signals(row.meta, row.category)
 
     db_session.add_all(
         [
@@ -393,10 +398,10 @@ def test_mode_filter_normalises_storage_and_never_matches_unknown_rows(
     assert invalid["total"] == 0
 
 
-def test_prize_min_filters_only_inr_prizes_and_excludes_missing_prizes(
+def test_prize_min_filters_across_currencies_and_excludes_missing_prizes(
     client: TestClient, competition_rows
 ) -> None:
-    """Cash cannot be compared across currency tokens, so only INR-token prizes count."""
+    """Compare stored pools in INR while leaving missing prizes out."""
     body = client.get(
         "/feed",
         params={
@@ -407,9 +412,11 @@ def test_prize_min_filters_only_inr_prizes_and_excludes_missing_prizes(
         },
     ).json()
 
-    assert body["total"] == 1
-    assert _slugs(body) == {competition_rows["online_iit"].slug}
-    assert competition_rows["offline_company"].slug not in _slugs(body)
+    assert body["total"] == 2
+    assert _slugs(body) == {
+        competition_rows["online_iit"].slug,
+        competition_rows["offline_company"].slug,
+    }
     assert competition_rows["hybrid_university"].slug not in _slugs(body)
 
 
@@ -492,3 +499,164 @@ def test_facets_respect_category_inside_competition_scope(
     assert university["count"] == 1
     assert _facet_by_label(body["company_counts"], competition_rows["iit"].name) is None
     assert _facet_by_label(body["company_counts"], competition_rows["role_company"].name) is None
+
+
+@pytest.mark.parametrize(
+    "source, meta, remote, expected",
+    [
+        ("unstop", {"mode": " Online "}, False, "online"),
+        ("unstop", {"mode": " OFFLINE "}, True, "offline"),
+        ("unstop", {"mode": "Hybrid", "is_online": True}, True, "hybrid"),
+        ("devfolio", {"is_online": True}, False, "online"),
+        ("devfolio", {"is_online": False}, True, "offline"),
+        ("devpost", {"mode": "Online"}, False, "online"),
+        ("devpost", {"mode": "Amy Gutman Hall"}, True, "offline"),
+        ("devpost", {"mode": "Fiji"}, False, "offline"),
+        ("devpost", {"mode": "Davie, FL, USA"}, False, "offline"),
+        ("devpost", {"mode": "Fiji", "is_online": True}, False, "online"),
+        ("hackerearth", {}, True, "online"),
+        ("devpost", {"mode": " "}, None, "unknown"),
+        ("unstop", {"mode": "Jaipur"}, False, "unknown"),
+        (None, None, None, "unknown"),
+    ],
+)
+def test_mode_expression_handles_source_shapes(
+    db_session, competition_rows, source, meta, remote, expected
+):
+    row = competition_rows["online_iit"]
+    row.primary_source = source
+    row.meta = meta
+    row.is_remote = remote
+    db_session.flush()
+    assert (
+        db_session.scalar(
+            select(competition_mode_expression()).where(models.Opportunity.id == row.id)
+        )
+        == expected
+    )
+
+
+@pytest.mark.parametrize("endpoint", ["/feed", "/search"])
+def test_status_filter_open_closed_and_validation(client, db_session, competition_rows, endpoint):
+    now = datetime.now(UTC)
+    competition_rows["offline_company"].closed_at = now
+    competition_rows["hybrid_university"].deadline = now - timedelta(days=1)
+    for key in (
+        "online_iit",
+        "offline_company",
+        "hybrid_university",
+        "unknown_mode",
+        "no_deadline",
+    ):
+        competition_rows[key].title = "Batchsignal competition"
+        competition_rows[key].title_normalized = "batchsignal competition"
+    db_session.flush()
+    params = {"kind": "competitions", "location": competition_rows["location"], "limit": 10}
+    if endpoint == "/search":
+        params["q"] = "batchsignal"
+    opened = client.get(endpoint, params={**params, "status": "open", "sort": "prize"})
+    closed = client.get(endpoint, params={**params, "status": "closed"})
+    assert opened.status_code == closed.status_code == 200
+    assert _slugs(opened.json()) == {
+        competition_rows[key].slug for key in ("online_iit", "unknown_mode", "no_deadline")
+    }
+    assert _slugs(closed.json()) == {
+        competition_rows[key].slug for key in ("offline_company", "hybrid_university")
+    }
+    assert client.get(endpoint, params={**params, "status": "upcoming"}).status_code == 422
+
+
+def test_search_applies_competition_prize_and_mode_filters(client, db_session, competition_rows):
+    for key in ("online_iit", "offline_company"):
+        competition_rows[key].title = "Batchsignal competition"
+        competition_rows[key].title_normalized = "batchsignal competition"
+    db_session.flush()
+    response = client.get(
+        "/search",
+        params={
+            "q": "batchsignal",
+            "kind": "competitions",
+            "location": competition_rows["location"],
+            "prize_min": 1000000,
+            "mode": "offline",
+            "sort": "prize",
+        },
+    )
+    assert response.status_code == 200
+    assert _slugs(response.json()) == {competition_rows["offline_company"].slug}
+
+
+def test_prize_sort_keeps_closed_and_missing_prizes_last(client, db_session, competition_rows):
+    online = competition_rows["online_iit"]
+    offline = competition_rows["offline_company"]
+    hybrid = competition_rows["hybrid_university"]
+    undated = competition_rows["no_deadline"]
+    closed = competition_rows["unknown_mode"]
+    hybrid.meta = {**hybrid.meta, "prize_inr": 150000}
+    hybrid.deadline = online.deadline
+    undated.meta = {**undated.meta, "prize_inr": 150000}
+    closed.closed_at = datetime.now(UTC)
+    closed.meta = {**closed.meta, "prize_inr": 999999999}
+    missing = models.Opportunity(
+        slug=f"missing-prize-{uuid.uuid4().hex}",
+        title="Missing prize",
+        category="hackathon",
+        location=competition_rows["location"],
+        apply_url="https://example.com/missing-prize",
+        status="active",
+        deadline=datetime.now(UTC) + timedelta(days=1),
+        meta={"prize": "$0"},
+    )
+    db_session.add(missing)
+    db_session.flush()
+    response = client.get(
+        "/feed",
+        params={"kind": "competitions", "location": competition_rows["location"], "sort": "prize"},
+    )
+    assert response.status_code == 200
+    tied = sorted([online, hybrid], key=lambda row: row.id)
+    assert [item["slug"] for item in response.json()["items"]] == [
+        offline.slug,
+        *[row.slug for row in tied],
+        undated.slug,
+        missing.slug,
+        closed.slug,
+    ]
+    assert response.json()["open_total"] == 5
+
+
+def test_status_facets_share_filter_rule(client, db_session, competition_rows):
+    competition_rows["offline_company"].closed_at = datetime.now(UTC)
+    competition_rows["hybrid_university"].deadline = datetime.now(UTC) - timedelta(days=1)
+    db_session.flush()
+    body = client.get("/facets", params={"kind": "competitions"}).json()
+    assert _facet_by_value(body["statuses"], "open")["label"] == "Open now"
+    assert _facet_by_value(body["statuses"], "open")["count"] >= 3
+    assert _facet_by_value(body["statuses"], "closed")["label"] == "Closed"
+    assert _facet_by_value(body["statuses"], "closed")["count"] >= 2
+    assert _facet_by_value(body["modes"], "offline")["label"] == "In person"
+    assert client.get("/facets", params={"kind": "roles"}).json()["statuses"] == []
+
+
+@pytest.mark.parametrize(
+    "meta, expected",
+    [
+        ({"prize": "$50,000"}, True),
+        ({"prize": "€8,000"}, True),
+        ({"prize": "₹20,000"}, True),
+        ({"prize": "CA$500"}, True),
+        ({"prize": "$0"}, False),
+        ({"prize": "$100"}, False),
+        ({"prizes": [{"cash": 6000, "currency": "INR"}] * 2}, True),
+    ],
+)
+def test_prize_min_uses_normalized_total_pool(client, db_session, competition_rows, meta, expected):
+    row = competition_rows["online_iit"]
+    row.meta = merge_competition_signals(meta, row.category)
+    db_session.flush()
+    response = client.get(
+        "/feed",
+        params={"company": competition_rows["iit"].slug, "prize_min": 10000},
+    )
+    assert response.status_code == 200
+    assert (row.slug in _slugs(response.json())) is expected

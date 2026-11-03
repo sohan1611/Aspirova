@@ -13,7 +13,7 @@ export const COMPETITIONS_LIMIT = 20;
 // from the crawl's revalidation push; this is the safety net.
 export const COMPETITIONS_REVALIDATE = 21600;
 
-export type CompetitionSort = "recent" | "deadline";
+export type CompetitionSort = "recent" | "deadline" | "prize";
 export type LocationScope = "abroad" | "domestic" | "both";
 
 export const COMPETITION_FILTER_PARAM_KEYS = [
@@ -23,6 +23,7 @@ export const COMPETITION_FILTER_PARAM_KEYS = [
   "organiser_type",
   "mode",
   "prize_min",
+  "status",
 ] as const;
 
 export interface CompetitionsRequest {
@@ -38,6 +39,7 @@ export interface CompetitionsRequest {
   organiser_type: string[];
   mode: string[];
   prize_min: number | undefined;
+  status: "open" | "closed" | undefined;
   canReusePrerendered: boolean;
 }
 
@@ -90,7 +92,8 @@ export function parseCompetitionsRequest(sp: URLSearchParams): CompetitionsReque
   const q = parseSingle(sp.get("q"));
   const page = Math.max(1, Number(sp.get("page") ?? "1") || 1);
   // "deadline" is the default sort, so ?sort=deadline is still the default view.
-  const sort: CompetitionSort = sp.get("sort") === "recent" ? "recent" : "deadline";
+  const sortParam = sp.get("sort");
+  const sort: CompetitionSort = sortParam === "prize" || sortParam === "recent" ? sortParam : "deadline";
   const scope = parseScope(sp.get("scope"));
   const country = parseCountry(sp.get("country"));
   const remote = parseRemote(sp.get("remote"));
@@ -100,6 +103,8 @@ export function parseCompetitionsRequest(sp: URLSearchParams): CompetitionsReque
   const organiser_type = parseRepeated(sp, "organiser_type");
   const mode = parseRepeated(sp, "mode");
   const prize_min = parsePositiveInteger(sp.get("prize_min"));
+  const statusParam = sp.get("status");
+  const status = statusParam === "open" || statusParam === "closed" ? statusParam : undefined;
   const hasActiveCompetitionFilter = hasCompetitionFilterParam(sp);
 
   const canReusePrerendered =
@@ -124,6 +129,7 @@ export function parseCompetitionsRequest(sp: URLSearchParams): CompetitionsReque
     organiser_type,
     mode,
     prize_min,
+    status,
     canReusePrerendered,
   };
 }
@@ -146,6 +152,7 @@ export function loadCompetitions(
         organiser_type: request.organiser_type,
         mode: request.mode,
         prize_min: request.prize_min,
+        status: request.status,
         sort: request.sort,
       },
       request.page,
@@ -165,6 +172,7 @@ export function loadCompetitions(
       organiser_type: request.organiser_type,
       mode: request.mode,
       prize_min: request.prize_min,
+      status: request.status,
       sort: request.sort,
       page: request.page,
       limit: COMPETITIONS_LIMIT,
@@ -182,6 +190,7 @@ export function competitionsTotalPages(total: number): number {
   return Math.max(1, Math.ceil(total / COMPETITIONS_LIMIT));
 }
 
-export function opportunityCountLabel(count: number): string {
+export function opportunityCountLabel(count: number, openTotal?: number | null): string {
+  if (openTotal != null) return `${openTotal.toLocaleString("en-US")} open of ${count.toLocaleString("en-US")}`;
   return `${count} ${count === 1 ? "opportunity" : "opportunities"}`;
 }

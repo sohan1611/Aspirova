@@ -3,6 +3,7 @@ import HoverPrefetchLink from "@/components/HoverPrefetchLink";
 import { Badge } from "@/components/ui/badge";
 import CompanyFavicon from "@/components/CompanyFavicon";
 import SaveButton from "@/components/SaveButton";
+import { competitionMode, formatPrizePool, participantCount } from "@/lib/competition";
 import { formatCompensation } from "@/lib/compensation";
 import { getCountry } from "@/lib/countries";
 import { formatDate } from "@/lib/date";
@@ -21,6 +22,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   job: "Job",
   hackathon: "Hackathon",
   competition: "Competition",
+  scholarship: "Scholarship",
 };
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -35,7 +37,6 @@ const SOURCE_LABEL: Record<string, string> = {
 };
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
-const COMPETITION_MODES = new Set(["online", "offline", "hybrid"]);
 
 function getAgeInDays(value: string | null): number | null {
   if (!value) return null;
@@ -55,41 +56,6 @@ function formatRelativeTime(value: string): string {
   if (ageInDays < 365) return `· ${Math.floor(ageInDays / 30)}mo ago`;
 
   return `· ${Math.floor(ageInDays / 365)}y ago`;
-}
-
-function getPrizeText(
-  meta: Record<string, unknown> | null | undefined,
-): string | null {
-  if (!meta) return null;
-
-  if (typeof meta.prize === "string" && meta.prize.trim()) {
-    return meta.prize.trim();
-  }
-
-  if (!Array.isArray(meta.prizes)) return null;
-
-  const cashValues = meta.prizes.flatMap((prize) => {
-    if (!prize || typeof prize !== "object" || Array.isArray(prize)) return [];
-
-    const cash = (prize as Record<string, unknown>).cash;
-    return typeof cash === "number" && Number.isFinite(cash) && cash > 0
-      ? [cash]
-      : [];
-  });
-  if (cashValues.length === 0) return null;
-
-  return `₹${Math.max(...cashValues).toLocaleString("en-IN")}`;
-}
-
-function getCompetitionMode(
-  meta: Record<string, unknown> | null | undefined,
-): string | null {
-  if (typeof meta?.mode !== "string") return null;
-
-  const mode = meta.mode.trim().toLowerCase();
-  if (!COMPETITION_MODES.has(mode)) return null;
-
-  return `${mode.charAt(0).toUpperCase()}${mode.slice(1)}`;
 }
 
 function isDeadlineUrgent(value: string): boolean {
@@ -116,16 +82,17 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
   const categoryLabel = item.category
     ? CATEGORY_LABEL[item.category] ?? item.category
     : null;
-  const isCompetition = isCompetitionCategory(item.category);
+  const isCompetition = isCompetitionCategory(item.category) || item.category === "scholarship";
   const isInternship = item.category === "internship";
   const isRole = isInternship || item.category === "job";
   const payText = isRole ? formatCompensation(item.meta) : null;
   const duration = item.meta?.duration_months;
   const deadlineExpires = hasExpiringDeadline(item.category);
-  const prizeText = isCompetition ? getPrizeText(item.meta) : null;
-  const competitionMode = isCompetition
-    ? getCompetitionMode(item.meta)
+  const prizeText = isCompetition ? formatPrizePool(item.meta) : null;
+  const mode = isCompetition
+    ? competitionMode(item)
     : null;
+  const registered = isCompetition ? participantCount(item.meta) : null;
   const offersPpi = isCompetition && item.meta?.offers_ppi === true;
   const offersPpo = isCompetition && item.meta?.offers_ppo === true;
   const urgentDeadline =
@@ -216,11 +183,15 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
 
         {prizeText && (
           <p className="flex min-w-0 items-start gap-2 text-xs text-foreground/80">
-            <span className="eyebrow shrink-0 pt-0.5 !text-heritage">Prize</span>
+            <span className="eyebrow shrink-0 pt-0.5 !text-heritage">Prize pool</span>
             <span className="line-clamp-2 min-w-0 break-words font-medium">
               {prizeText}
             </span>
           </p>
+        )}
+
+        {registered !== null && (
+          <p className="tnum text-xs text-muted-foreground">{registered.toLocaleString("en-US")} registered</p>
         )}
 
         <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-1">
@@ -250,8 +221,8 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
               <Badge variant="outline">{duration} months</Badge>
             )}
             {isRole && item.meta?.job_offer === true && <Badge variant="heritage">Job offer possible</Badge>}
-            {competitionMode && (
-              <Badge variant="outline">{competitionMode}</Badge>
+            {mode && (
+              <Badge variant="outline">{mode}</Badge>
             )}
             {offersPpi && <Badge variant="heritage">Offers internship</Badge>}
             {offersPpo && <Badge variant="heritage">Offers PPO</Badge>}

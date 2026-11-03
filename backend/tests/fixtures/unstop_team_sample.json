@@ -1,0 +1,6 @@
+{
+  "regnRequirements": {
+    "min_team_size": 1,
+    "max_team_size": 4
+  }
+}

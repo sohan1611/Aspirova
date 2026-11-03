@@ -12,10 +12,46 @@ from core.eligibility import ELIGIBLE_EXPERIENCED_ONLY_META_KEY
 from crawlers import unstop
 from crawlers import runner
 from crawlers.common import content_hash
-from crawlers.unstop import UnstopAdapter
+from crawlers.unstop import UnstopAdapter, unstop_team_fields
 from pipeline.location_country import derive_country
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "unstop_sample.json"
+
+
+def test_unstop_team_fields_from_fixture():
+    payload = json.loads(
+        (FIXTURE_PATH.parent / "unstop_team_sample.json").read_text(encoding="utf-8")
+    )
+    assert unstop_team_fields(payload) == {"team_min": 1, "team_size": 4}
+
+
+@pytest.mark.parametrize("value", [None, 0, -1, True, False, "4", 1.5, 4.0])
+def test_unstop_team_fields_reject_invalid_sizes(value):
+    assert (
+        unstop_team_fields({"regnRequirements": {"min_team_size": value, "max_team_size": value}})
+        == {}
+    )
+
+
+@pytest.mark.parametrize(
+    "search_type, expected",
+    [
+        ("competitions", True),
+        ("hackathons", True),
+        ("scholarships", True),
+        ("internships", False),
+        ("jobs", False),
+    ],
+)
+def test_parse_team_fields_only_for_non_roles(adapter, fixture_payload, search_type, expected):
+    payload = {
+        **_fixture_items(fixture_payload)[0],
+        "_aspirova_opportunity": search_type,
+        "regnRequirements": {"min_team_size": 1, "max_team_size": 4},
+    }
+    parsed = adapter.parse(_raw_listing_for(payload))
+    assert ("team_min" in parsed.meta) is expected
+    assert ("team_size" in parsed.meta) is expected
 
 
 def _load_fixture() -> dict:
