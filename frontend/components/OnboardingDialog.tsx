@@ -28,6 +28,7 @@ import {
   storeFieldProfile,
   useFieldProfile,
 } from "@/lib/fieldProfile";
+import { markOnboardingComplete } from "@/lib/onboarding";
 import { readStoredSkillNames } from "@/lib/personalizationSkills";
 import {
   buildFeedTerms,
@@ -42,8 +43,6 @@ import { cn } from "@/lib/utils";
 
 const COUNTRY_STORAGE_KEY = "aspirova.country";
 const COUNTRY_EVENT = "aspirova:country-change";
-const ONBOARDED_STORAGE_KEY = "aspirova.onboarded";
-const ONBOARDED_EVENT = "aspirova:onboarded-change";
 
 type OnboardingStep = "stream" | "division" | "interests";
 
@@ -60,7 +59,6 @@ const EMPTY_FIELD_PROFILE_DRAFT: FieldProfileDraft = {
 };
 
 let inMemoryCountryCode: string | null = null;
-let inMemoryOnboardingComplete = false;
 
 function readStoredCountryCode(): string | null {
   try {
@@ -91,41 +89,8 @@ function subscribeToCountry(onStoreChange: () => void): () => void {
   };
 }
 
-function hasCompletedOnboarding(): boolean {
-  try {
-    return window.localStorage.getItem(ONBOARDED_STORAGE_KEY) === "true";
-  } catch {
-    return inMemoryOnboardingComplete;
-  }
-}
-
-function subscribeToOnboarding(onStoreChange: () => void): () => void {
-  window.addEventListener(ONBOARDED_EVENT, onStoreChange);
-  window.addEventListener("storage", onStoreChange);
-
-  return () => {
-    window.removeEventListener(ONBOARDED_EVENT, onStoreChange);
-    window.removeEventListener("storage", onStoreChange);
-  };
-}
-
-function markOnboardingComplete(): void {
-  inMemoryOnboardingComplete = true;
-
-  try {
-    window.localStorage.setItem(ONBOARDED_STORAGE_KEY, "true");
-  } catch {
-    // A later visit can ask again if storage is unavailable.
-  }
-  window.dispatchEvent(new Event(ONBOARDED_EVENT));
-}
-
 function getServerCountryCode(): string | null {
   return null;
-}
-
-function getServerOnboardingState(): boolean {
-  return false;
 }
 
 function draftFromProfile(profile: FieldProfile): FieldProfileDraft {
@@ -173,16 +138,11 @@ export default function OnboardingDialog() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const session = useSession();
-  const { profile: storedProfile, hasStoredProfile, hydrated } = useFieldProfile();
+  const { profile: storedProfile, hydrated } = useFieldProfile();
   const storedCountryCode = useSyncExternalStore(
     subscribeToCountry,
     readStoredCountryCode,
     getServerCountryCode,
-  );
-  const onboarded = useSyncExternalStore(
-    subscribeToOnboarding,
-    hasCompletedOnboarding,
-    getServerOnboardingState,
   );
   const [requestedOpen, setRequestedOpen] = useState(false);
   const [draft, setDraft] = useState<FieldProfileDraft | null>(null);
@@ -201,8 +161,7 @@ export default function OnboardingDialog() {
     : undefined;
   const selectedCountryCode = draftCountryCode ?? storedCountryCode;
   const selectedCountry = getCountry(selectedCountryCode);
-  const isFirstRun = hydrated && !hasStoredProfile && !onboarded;
-  const open = hydrated && (isFirstRun || requestedOpen);
+  const open = hydrated && requestedOpen;
   const isBusy = isSaving || isPending;
 
   useEffect(() => {
@@ -241,7 +200,7 @@ export default function OnboardingDialog() {
     setRequestedOpen(false);
     resetDraft();
 
-    if (isFirstRun) markOnboardingComplete();
+    markOnboardingComplete();
   }
 
   function handleStreamSelect(streamKey: string) {

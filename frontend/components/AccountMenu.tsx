@@ -1,7 +1,7 @@
 "use client";
 
 import type { User } from "@supabase/supabase-js";
-import { LogOut, Settings } from "lucide-react";
+import { Bookmark, FileSearch, Gift, LogOut, Settings } from "lucide-react";
 import Link from "next/link";
 import AccountAvatar from "@/components/account/AccountAvatar";
 import {
@@ -45,6 +45,24 @@ export default function AccountMenu({ user }: { user: User }) {
           </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/saved">
+            <Bookmark aria-hidden="true" />
+            Saved
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/resume">
+            <FileSearch aria-hidden="true" />
+            Resume check
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/referral">
+            <Gift aria-hidden="true" />
+            Invite
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link href="/account">
             <Settings aria-hidden="true" />

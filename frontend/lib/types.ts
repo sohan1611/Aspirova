@@ -156,6 +156,7 @@ export interface CopilotResponse {
 export interface FeedResponse {
   items: OpportunityListItem[];
   total: number;
+  open_total?: number | null;
   page: number;
   limit: number;
 }

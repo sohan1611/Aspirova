@@ -61,6 +61,9 @@ import type { AccountMe, MatchItem, ResumeMeta } from "@/lib/types";
 import { useSession } from "@/lib/useSession";
 import { cn } from "@/lib/utils";
 
+// Embeddings are not generated while AI is deferred.
+const RESUME_MATCHES_ENABLED = false;
+
 type ProfileSkill = NonNullable<AccountMe["skills"]>[number];
 
 type ExposureValues = {
@@ -197,9 +200,9 @@ export default function ResumeMatchPage() {
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
       <header className="mx-auto max-w-3xl text-center">
-        <p className="eyebrow">Career intelligence</p>
+        <p className="eyebrow">Your resume</p>
         <h1 className="mt-4 text-3xl font-semibold text-foreground sm:text-4xl">
-          Resume Match
+          Resume check
         </h1>
         <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
           Store one private resume, review suggested skills, and check an ATS readiness estimate.
@@ -586,15 +589,17 @@ function SignedInResumeWorkspace({
         )}
       </section>
 
-      <ProMatchesSection
-        resumeReady={Boolean(resumeText.trim())}
-        findingMatches={findingMatches}
-        matchesUpsell={matchesUpsell}
-        submissionError={submissionError}
-        matches={matches}
-        formRef={matchFormRef}
-        onSubmit={handleFindMatches}
-      />
+      {RESUME_MATCHES_ENABLED && (
+        <ProMatchesSection
+          resumeReady={Boolean(resumeText.trim())}
+          findingMatches={findingMatches}
+          matchesUpsell={matchesUpsell}
+          submissionError={submissionError}
+          matches={matches}
+          formRef={matchFormRef}
+          onSubmit={handleFindMatches}
+        />
+      )}
     </div>
   );
 }
@@ -1160,7 +1165,7 @@ function ProMatchesSection({
     <section aria-labelledby="pro-matches-heading" className="grid gap-6">
       <div className="mx-auto flex w-full max-w-3xl flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-          <p className="eyebrow">Personal matching</p>
+          <p className="eyebrow">Resume workspace</p>
           <h2 id="pro-matches-heading" className="mt-2 text-2xl font-semibold text-foreground sm:text-3xl">
             Find your opportunity matches
           </h2>
@@ -1231,12 +1236,12 @@ function SignedOutCard() {
         <div className="mb-1 rounded-xl border border-primary/20 bg-primary/10 p-3">
           <FileSearch className="size-6 text-primary" aria-hidden="true" />
         </div>
-        <p className="eyebrow">Personal matching</p>
+        <p className="eyebrow">Resume workspace</p>
         <CardTitle className="font-serif text-2xl leading-tight sm:text-3xl">
-          Sign in to match your resume
+          Sign in to check your resume
         </CardTitle>
         <CardDescription className="max-w-lg leading-6">
-          Use your Aspirova account to save your resume profile and see personalized matches.
+          Use your Aspirova account to save your resume, review skills and check an ATS readiness estimate.
         </CardDescription>
       </CardHeader>
       <CardFooter className="justify-center px-5 sm:px-8">

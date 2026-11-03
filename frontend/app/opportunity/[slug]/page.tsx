@@ -25,6 +25,7 @@ import {
   parseDescriptionBlocks,
   type DescriptionBlock,
 } from "@/lib/descriptionBlocks";
+import { summarizeLocation } from "@/lib/location";
 import { getSourceLabel } from "@/lib/sourceLabel";
 import type { OpportunityDetail, OpportunityListItem } from "@/lib/types";
 
@@ -223,6 +224,7 @@ export default async function OpportunityPage({ params }: PageProps) {
   const staleCaption = opportunity.posted_at
     ? `This was posted ${formatDate(opportunity.posted_at, "long")} — over 10 months ago — and Aspirova can't confirm it's still open. Open the company's listing to check its current status.`
     : `Aspirova first found this listing on ${formatDate(opportunity.first_seen_at, "long")}, over 10 months ago; its original posting date isn't available. We can't confirm it's still open — open the company's listing to check its current status.`;
+  const locationSummary = summarizeLocation(opportunity.location);
   let similarOpportunities: OpportunityListItem[] = [];
 
   try {
@@ -294,14 +296,23 @@ export default async function OpportunityPage({ params }: PageProps) {
                 Hidden gem
               </Badge>
             )}
-            {opportunity.location && (
-              <Badge
-                variant="outline"
-                className="eyebrow gap-1 rounded-full px-2.5 py-1"
-              >
-                <MapPin className="size-3" aria-hidden="true" />
-                {opportunity.location}
-              </Badge>
+            {locationSummary.short && (
+              <>
+                <Badge
+                  variant="outline"
+                  className="eyebrow max-w-full gap-1 rounded-full px-2.5 py-1 whitespace-normal break-words"
+                  title={locationSummary.full ?? undefined}
+                >
+                  <MapPin className="size-3 shrink-0" aria-hidden="true" />
+                  {locationSummary.short}
+                </Badge>
+                {locationSummary.hiddenCount > 0 && (
+                  <details className="max-w-full text-sm text-muted-foreground">
+                    <summary className="cursor-pointer">+{locationSummary.hiddenCount} more</summary>
+                    <p className="mt-2 max-w-prose break-words leading-6">{locationSummary.full}</p>
+                  </details>
+                )}
+              </>
             )}
             {sourceLabel && (
               <Badge variant="outline" className="eyebrow rounded-full px-2.5 py-1">

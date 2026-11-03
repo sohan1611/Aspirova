@@ -9,29 +9,12 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAccount } from "@/lib/api";
 import { useCurrency } from "@/lib/country";
+import { FEATURE_LABELS } from "@/lib/planFeatures";
 import type { PlanPublic, PlanState } from "@/lib/types";
 import { useSession } from "@/lib/useSession";
 import { cn } from "@/lib/utils";
 import SubscribeButton from "./SubscribeButton";
 import WaitlistForm from "./WaitlistForm";
-
-const FEATURE_LABELS: [string, (v: unknown) => string | null][] = [
-  [
-    "dream_companies_limit",
-    (v) => (v === null ? "Unlimited dream companies" : `Track ${v} dream ${v === 1 ? "company" : "companies"}`),
-  ],
-  ["daily_digest", (v) => (v ? "Daily digest email" : null)],
-  ["instant_alerts", (v) => (v ? "Instant alerts for dream companies" : null)],
-  ["unlimited_bookmarks", (v) => (v ? "Unlimited bookmarks" : null)],
-  ["weekly_report", (v) => (v ? "Weekly career report" : null)],
-  [
-    "hidden_opps",
-    (v) => (v === true ? "Hidden opportunities" : v === "limited" ? "Limited hidden opportunities" : null),
-  ],
-  ["resume_match", (v) => (v ? "AI Resume Match" : null)],
-  ["copilot", (v) => (v ? "AI Career Copilot" : null)],
-  ["prediction", (v) => (v ? "Reopen prediction" : null)],
-];
 
 function featureLines(features: PlanPublic["features"]): string[] {
   return FEATURE_LABELS.map(([key, label]) => label(features[key])).filter(
@@ -269,7 +252,7 @@ export default function PricingPlans({
                 </Badge>
               ) : tier.highlight ? (
                 <Badge variant="heritage" className={EDGE_BADGE_CLASS_NAME}>
-                  Most popular
+                  Recommended
                 </Badge>
               ) : null}
               <CardHeader>

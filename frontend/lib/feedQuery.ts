@@ -8,6 +8,7 @@ import type { OpportunityListItem } from "@/lib/types";
 export interface FeedResultData {
   items: OpportunityListItem[];
   total: number;
+  open_total?: number | null;
 }
 
 // Single source of truth for reading the homepage's query string. The static

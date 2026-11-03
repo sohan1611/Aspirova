@@ -26,38 +26,8 @@ import {
 } from "@/components/ui/dialog";
 import { cancelSubscription } from "@/lib/api";
 import { formatDate } from "@/lib/date";
+import { FEATURE_LABELS } from "@/lib/planFeatures";
 import type { AccountMe, PlanState } from "@/lib/types";
-
-const FEATURE_LABELS: Array<[string, (value: unknown) => string | null]> = [
-  [
-    "dream_companies_limit",
-    (value) =>
-      typeof value === "number"
-        ? `Track ${value} dream ${value === 1 ? "company" : "companies"}`
-        : value === null
-          ? "Unlimited dream companies"
-          : null,
-  ],
-  ["daily_digest", (value) => (value === true ? "Daily digest email" : null)],
-  [
-    "instant_alerts",
-    (value) => (value === true ? "Instant alerts for dream companies" : null),
-  ],
-  ["unlimited_bookmarks", (value) => (value === true ? "Unlimited bookmarks" : null)],
-  ["weekly_report", (value) => (value === true ? "Weekly career report" : null)],
-  [
-    "hidden_opps",
-    (value) =>
-      value === true
-        ? "Hidden opportunities"
-        : value === "limited"
-          ? "Limited hidden opportunities"
-          : null,
-  ],
-  ["resume_match", (value) => (value === true ? "AI Resume Match" : null)],
-  ["copilot", (value) => (value === true ? "AI Career Copilot" : null)],
-  ["prediction", (value) => (value === true ? "Reopen prediction" : null)],
-];
 
 function featureLines(features: PlanState["features"]): string[] {
   return FEATURE_LABELS.map(([key, label]) => label(features[key])).filter(

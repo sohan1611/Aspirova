@@ -26,7 +26,7 @@ export default function SignedOutHero() {
           Every opportunity. One place.
         </h1>
         <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
-          An almanac of internships, jobs, fellowships and hidden roles, indexed daily from
+          An almanac of internships, jobs, fellowships and research programmes, indexed daily from
           across the web — so you never miss the one that mattered.
         </p>
 

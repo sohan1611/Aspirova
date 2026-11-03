@@ -63,7 +63,13 @@ def test_feed_list_query_does_not_select_heavy_opportunity_columns() -> None:
         db=db,
     )
 
-    assert response.model_dump() == {"items": [], "total": 0, "page": 1, "limit": 20}
+    assert response.model_dump() == {
+        "items": [],
+        "total": 0,
+        "open_total": 0,
+        "page": 1,
+        "limit": 20,
+    }
     assert db.statement is not None
     compiled = _compiled_sql(db.statement)
     assert "description_raw" not in compiled

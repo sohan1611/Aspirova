@@ -784,3 +784,8 @@ RESULT (source expansion, live): SmartRecruiters seeded to production and the Ti
 - Task: founder ruling that a signed-out visitor must sign in before applying. Keep pages public and the real outbound link in the HTML, for Google's job-posting policy and Doc 04.
 - Codex: ApplyLink client component with a dialog, applied to open and possibly-expired listings; closed listings untouched; email sign-up returns to the current page.
 - Review: one correction round (dialog copy contradicted itself after signing in). Verified: eslint, tsc, build, ISR check; real DOM for click, Ctrl-click, middle-click, signed-in, closed and possibly-expired listings, sign-in during the dialog; raw server HTML keeps the link and JSON-LD.
+
+## 2026-11-03 — Work order (Claude → Codex, gpt-6.1-sol high): Batch 1, honesty and first impression
+- Task: first batch of the site audit. Pricing lists only what runs, no first-visit pop-up, browse-first navigation, honest listing counts, readable card locations, About and FAQ pages.
+- Codex: all six parts, including a shared planFeatures list, onboarding helpers moved to lib/onboarding.ts, open_opportunity_filters and open_total, summarizeLocation, and new tests.
+- Review: two correction rounds (one exact-dict test; the prompt pushed visible content, and the old total could be labelled "open" before the backend deployed). Two copy leftovers fixed directly. Verified: ruff, black, full backend suite, eslint, tsc, build, ISR check; real DOM at desktop and 375 px, signed out and with a fake session; raw job HTML keeps the text, JobPosting and outbound link.

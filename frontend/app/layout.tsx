@@ -31,7 +31,7 @@ const fraunces = Fraunces({
 const SITE_URL = "https://www.aspirova.org";
 const TITLE = "Aspirova - Every opportunity. One place.";
 const DESCRIPTION =
-  "AI-powered career intelligence for students. Aspirova discovers internships, jobs, and hidden opportunities from across the web and brings them to one place.";
+  "Internships, jobs, hackathons and research programmes for students, gathered daily from company career pages and public sources. Always links to the original listing.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
