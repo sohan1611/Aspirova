@@ -94,6 +94,20 @@ def test_internships_paid_first_then_newest(db_session: Session, company):
     ]
 
 
+def test_internships_stating_an_amount_come_before_paid_without_one(db_session: Session, company):
+    newer_paid = _opportunity(db_session, company, age=1, meta={"compensation": {"paid": True}})
+    older_amount = _opportunity(
+        db_session,
+        company,
+        age=3,
+        meta={"compensation": {"min": 10000, "max": 10000, "currency": "INR", "period": "month"}},
+    )
+    assert [row.id for row in telegram.select_candidates(db_session)] == [
+        older_amount.id,
+        newer_paid.id,
+    ]
+
+
 def test_competitions_prize_then_deadline_nulls_last(db_session: Session, company):
     now = datetime.now(timezone.utc)
     unknown = _opportunity(
