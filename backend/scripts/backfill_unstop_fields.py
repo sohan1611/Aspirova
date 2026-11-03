@@ -26,9 +26,14 @@ def transform_row(current: dict[str, Any], payload: dict[str, Any]) -> dict[str,
     """Recompute only the role fields, preserving unrelated metadata."""
     fields = unstop_role_fields(payload)
     meta = dict(current.get("meta") or {})
+    old_pay = meta.get("compensation")
     for key in ROLE_META_KEYS:
         meta.pop(key, None)
     meta.update(fields["meta"])
+    # Pay parsed from the listing's text isn't in Unstop's fields, so recomputing
+    # those fields must not erase it.
+    if "compensation" not in meta and isinstance(old_pay, dict) and old_pay.get("source") == "text":
+        meta["compensation"] = old_pay
     return {
         "location": fields["location"],
         "country": fields["country"] or derive_country(fields["location"]),
