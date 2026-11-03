@@ -14,7 +14,7 @@
 ## The canon is law
 `docs/` is the single source of truth. `docs/README.md` is the index + append-only **Decision log** (never contradict a **Binding** row without an architect amendment). Docs 01-08 cover product/architecture/data/crawler/AI/pricing/roadmap/governance. Phase handoffs + reports live in `docs/handoffs/`. **Doc 08 §3 HARD RULES are the merge gate.**
 
-## Where things stand (2026-09-04)
+## Where things stand (2026-11-03)
 *Phases 1 and 2 are long done. This section drifted two months out of date and was rewritten;
 keep it current, because it is the first thing every session reads.*
 
@@ -29,12 +29,19 @@ keep it current, because it is the first thing every session reads.*
   superuser) over TLS; operate the box over SSH as root. Everything is in
   `infra/db/RUNBOOK.md`: provisioning, rollback, disaster recovery. **Never run tests or write
   scripts against it. It is production.**
-- **Scale:** ~25,800 visible opportunities across **16 sources** and 5,638 companies. Auth is live
-  (Google, GitHub, email). Application tracking, listing filters/sort/search, and both digests all
-  ship and work.
-- **The binding constraint is DISTRIBUTION, not engineering.** 12 registered users, 1 bookmark all
-  time, 0 saved searches. Features are not the bottleneck and have not been for months — see the
-  2026-09-04 audit. Weigh any proposed supply-side work against that.
+- **Scale:** 24,628 open opportunities across **16 sources** and 4,400 companies with an open
+  listing (public `/stats`, 2026-11-03; it counts open listings only since #133, so older totals
+  are not comparable). Auth is live (Google, GitHub, email). Application tracking, listing
+  filters/sort/search, and both digests all ship and work.
+- **The 6-batch site audit shipped: PRs #133 to #139 in `sohan1611/Aspirova`.** Pro sells only what
+  runs (#133, with privacy corrections in #134), India first (#135), pay and filters (#136),
+  competitions and scholarships (#137), sharing and browse pages (#138), follow companies and email
+  matches (#139). Details are in those PRs and the Decision log in `docs/README.md`. #135 to #139
+  each have an "After merge" section listing founder-run steps.
+- **The binding constraint is DISTRIBUTION, not engineering.** Features are not the bottleneck and
+  have not been for months — see the 2026-09-04 audit. Weigh any proposed supply-side work against
+  that. Usage numbers stay out of this file because the repo is public; the founder supplies
+  current user counts when a decision needs them.
 
 ### Rulings that still bind day-to-day
 - **Lever-2 (moving the DB *for latency*) stays CLOSED.** Re-measured 2026-09-04: the variance
