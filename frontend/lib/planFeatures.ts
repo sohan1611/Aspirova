@@ -12,7 +12,7 @@ export const FEATURE_LABELS: Array<[string, (value: unknown) => string | null]> 
   ["daily_digest", (value) => (value === true ? "Daily digest email" : null)],
   [
     "instant_alerts",
-    (value) => (value === true ? "Instant alerts for followed companies" : null),
+    (value) => (value === true ? "Instant alerts for followed companies" : "Daily alert email for followed companies"),
   ],
   ["unlimited_bookmarks", (value) => (value === true ? "Unlimited bookmarks" : null)],
   ["weekly_report", (value) => (value === true ? "Weekly career report" : null)],

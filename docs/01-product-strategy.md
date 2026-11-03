@@ -124,7 +124,7 @@ The 3-year vision: Aspirova becomes the **default career operating system** a st
 
 ## 10. Monetization (strategy; numbers in Doc 06)
 
-- **Freemium with a sharp value wall.** Free is genuinely useful (acquisition + SEO + referral fuel) but deliberately *incomplete* on the two things power-users crave: **instant dream-company alerts** and **personalization (Match/Copilot)**.
+- **Freemium with a sharp value wall.** Free is genuinely useful (acquisition + SEO + referral fuel) but deliberately *incomplete* on the two things power-users crave: **instant company + domain alerts** and **personalization (Match/Copilot)**. Every plan gets grouped company alerts with listing details within its follow limit (Free 1, Pro Lite 5, Pro unlimited); paid plans get them after each crawl, while Free gets at most one email per UTC day.
 - **Decoy pricing.** Pro Lite (₹39) exists to make Pro (₹49) look obviously correct — ₹10 more buys the AI features. Expect most payers on Pro. Don't over-invest in Pro Lite.
 - **Annual plans (₹399 Pro Lite / ₹499 Pro, ~15% off)** are the default offer — better cash, lower churn (Doc 06).
 - **Annual prepay as the default offer** (Doc 06) — better cash, lower churn, lower transaction cost.

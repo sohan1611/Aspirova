@@ -9,7 +9,22 @@ export const ROLE_OPTIONS = [
   { value: "product", label: "Product" },
   { value: "operations", label: "Operations" },
   { value: "content", label: "Content" },
+  { value: "engineering", label: "Engineering" },
+  { value: "research", label: "Research" },
 ] as const;
+
+export function formatDomains(roles: string[]): string {
+  const labels = ROLE_OPTIONS.filter((option) => roles.includes(option.value)).map((option) => option.label);
+  if (labels.length === 0) return "All domains";
+  if (labels.length === 1) return labels[0];
+  return `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}`;
+}
+
+export function companyAlertSavedMessage(roles: string[], target: string): string {
+  return roles.length === 0
+    ? `We'll email you about new roles at ${target}`
+    : `We'll email you about new ${formatDomains(roles)} roles at ${target}`;
+}
 
 export type Role = typeof ROLE_OPTIONS[number]["value"];
 export interface RoleSignalParams {

@@ -92,7 +92,7 @@ Even though the new pricing makes B2C viable on its own, these stack on top:
 
 - **Change detection (Doc 04 §6):** unchanged pages skip parse + dedup + AI — keeps the AI line flat as crawl frequency rises.
 - **Lean AI (Doc 05):** cheapest model, short outputs, extractive fallback, enrich once per *canonical* opp after dedup. Embeddings are ~free; LLM summaries are the cost.
-- **Email discipline:** one daily digest (not per-opportunity), instant alerts bounded to Pro + dream companies, suppress inactive recipients, Resend → SES at scale. Halving the active-recipient rate halves the email line.
+- **Email discipline:** one daily digest (not per-opportunity), company + domain alerts grouped per user within follow limits (Free 1, Pro Lite 5, Pro unlimited); paid plans get crawl-time alerts and Free gets at most one per UTC day, suppress inactive recipients, Resend → SES at scale. Halving the active-recipient rate halves the email line.
 - **Free tiers everywhere:** Vercel, GitHub Actions, Supabase-free (≤1k), Upstash-free early.
 - **Render stays light:** never run crawlers/Playwright on the paid dyno.
 

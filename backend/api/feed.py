@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from api.deps import get_db
 from api.filters import (
+    ROLE_QUERY_PATTERN,
     SOURCE_GROUPS,
     competition_filters,
     competition_prize_expression,
@@ -64,10 +65,7 @@ def get_feed(
     max_duration: int | None = Query(None, ge=1, le=24),
     job_offer: bool | None = Query(None),
     posted_within: int | None = Query(None),
-    role: str | None = Query(
-        None,
-        pattern="^(software|data|design|marketing|finance|hr|sales|product|operations|content)$",
-    ),
+    role: str | None = Query(None, pattern=ROLE_QUERY_PATTERN),
     top: int | None = Query(None, gt=0),
     sort: str = Query("student", pattern="^(recent|deadline|student|prize)$"),
     page: int = Query(1, ge=1),

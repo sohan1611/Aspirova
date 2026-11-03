@@ -1,60 +1,75 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import AuthWidget from "@/components/AuthWidget";
+import DomainPicker from "@/components/DomainPicker";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { addDreamCompany, FollowLimitError, getDreamCompanies, removeDreamCompany } from "@/lib/api";
+import { companyAlertLimitMessage, FollowLimitError, getDreamCompanies, removeDreamCompany, saveCompanyAlerts } from "@/lib/api";
+import { companyAlertSavedMessage, formatDomains } from "@/lib/roleSignalQuery";
 import { useSession } from "@/lib/useSession";
 
-export default function FollowCompanyButton({ slug }: { slug: string }) {
+export default function FollowCompanyButton({ slug, companyName }: { slug: string; companyName: string }) {
+  const [open, setOpen] = useState(false);
   const session = useSession();
   const accessToken = session?.access_token ?? null;
-  const [open, setOpen] = useState(false);
+  return <CompanyAlertButton key={`${slug}:${accessToken}`} slug={slug} companyName={companyName} accessToken={accessToken} open={open} setOpen={setOpen} />;
+}
+
+function CompanyAlertButton({ slug, companyName, accessToken, open, setOpen }: {
+  slug: string; companyName: string; accessToken: string | null;
+  open: boolean; setOpen: (open: boolean) => void;
+}) {
+  const domainsId = useId();
   const [pending, setPending] = useState(false);
   const [retry, setRetry] = useState(0);
   const [limitMessage, setLimitMessage] = useState<string | null>(null);
+  const [roles, setRoles] = useState<string[]>([]);
   const [state, setState] = useState<{
-    token: string | null; slug: string; following: boolean; error: boolean;
-  }>({ token: null, slug, following: false, error: false });
+    loaded: boolean; following: boolean; roles: string[]; error: boolean;
+  }>({ loaded: false, following: false, roles: [], error: false });
 
   useEffect(() => {
     if (!accessToken) return;
     let cancelled = false;
     getDreamCompanies(accessToken).then((items) => {
-      if (!cancelled) setState({
-        token: accessToken, slug, following: items.some((item) => item.company.slug === slug), error: false,
-      });
+      const item = items.find((item) => item.company.slug === slug);
+      if (!cancelled) {
+        const savedRoles = item?.roles ?? [];
+        setState({ loaded: true, following: Boolean(item), roles: savedRoles, error: false });
+        setRoles([...savedRoles]);
+      }
     }).catch(() => {
-      if (!cancelled) setState({ token: accessToken, slug, following: false, error: true });
+      if (!cancelled) setState({ loaded: true, following: false, roles: [], error: true });
     });
     return () => { cancelled = true; };
   }, [accessToken, retry, slug]);
 
-  const loaded = state.token === accessToken && state.slug === slug;
-  const following = Boolean(accessToken && loaded && state.following);
+  function changeOpen(next: boolean) {
+    if (pending) return;
+    setRoles([...state.roles]);
+    if (next) setLimitMessage(null);
+    setOpen(next);
+  }
 
-  async function handleFollow() {
-    if (!accessToken) { setOpen(true); return; }
-    if (pending || !loaded || state.error) return;
+  async function save(remove = false) {
+    if (!accessToken || pending || !state.loaded || state.error) return;
     setPending(true);
     setLimitMessage(null);
     try {
-      if (following) await removeDreamCompany(slug, accessToken);
-      else await addDreamCompany(slug, accessToken);
-      setState({ token: accessToken, slug, following: !following, error: false });
+      if (remove) await removeDreamCompany(slug, accessToken);
+      else await saveCompanyAlerts([slug], roles, accessToken);
+      setState({ loaded: true, following: !remove, roles: remove ? [] : [...roles], error: false });
       setOpen(false);
+      toast.success(remove ? "Company unfollowed" : companyAlertSavedMessage(roles, companyName));
     } catch (error) {
       if (error instanceof FollowLimitError) {
         setOpen(false);
-        const limit = error.detail.match(/\((\d+)\)/)?.[1];
-        setLimitMessage(limit === "1"
-          ? "Free accounts can follow 1 company. Remove one in settings, or see plans."
-          : `Your plan's company follow limit${limit ? ` of ${limit}` : ""} is reached. Remove one in settings, or see plans.`);
+        setLimitMessage(companyAlertLimitMessage(error));
       } else {
         toast.error("Couldn't update this company. Please try again.");
       }
@@ -64,20 +79,18 @@ export default function FollowCompanyButton({ slug }: { slug: string }) {
   }
 
   return (
-    <div className="mt-4 space-y-2">
-      {accessToken && loaded && state.error ? (
+    <div className="mt-4 min-w-0 space-y-2">
+      {accessToken && state.error ? (
         <Button type="button" variant="outline" size="sm" onClick={() => setRetry((value) => value + 1)}>
           Retry loading followed companies
         </Button>
       ) : (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" size="sm"
-            disabled={pending || Boolean(accessToken && !loaded)} aria-pressed={following}
-            onClick={() => void handleFollow()}>
-            {following ? "Following" : "Email me new roles"}
-          </Button>
-          {following && <span className="text-xs text-muted-foreground">Click Following to unfollow</span>}
-        </div>
+        <Button type="button" variant="outline" size="sm"
+          className="h-auto min-h-10 max-w-full whitespace-normal text-left [overflow-wrap:anywhere]"
+          disabled={pending || Boolean(accessToken && !state.loaded)} aria-pressed={state.following}
+          onClick={() => changeOpen(true)}>
+          {state.following ? `Following · ${formatDomains(state.roles)}` : "Email me new roles"}
+        </Button>
       )}
       {limitMessage && (
         <p role="alert" className="max-w-md text-sm text-muted-foreground">
@@ -86,13 +99,26 @@ export default function FollowCompanyButton({ slug }: { slug: string }) {
           <Link href="/pricing" className="underline underline-offset-4">See plans</Link>
         </p>
       )}
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={changeOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{accessToken ? "Follow this company" : "Sign in to follow this company"}</DialogTitle>
-            <DialogDescription>Receive new roles from this company by email.</DialogDescription>
+            <DialogTitle className="break-words [overflow-wrap:anywhere]">{accessToken
+              ? state.following ? `Your alert for ${companyName}` : `Get alerts from ${companyName}`
+              : "Sign in to follow this company"}</DialogTitle>
+            <DialogDescription>We email you the full details when this company posts a role in the domains you pick.</DialogDescription>
           </DialogHeader>
-          {accessToken ? <Button disabled={pending || !loaded || state.error} onClick={() => void handleFollow()}>Email me new roles</Button> : <AuthWidget />}
+          {accessToken ? (
+            <div className="min-w-0 space-y-4">
+              <p id={domainsId} className="text-sm font-medium">Domains</p>
+              <DomainPicker aria-labelledby={domainsId} value={roles} onChange={setRoles} disabled={pending || !state.loaded || state.error} />
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" disabled={pending || !state.loaded || state.error} onClick={() => void save()}>
+                  {pending ? "Saving…" : state.following ? "Save changes" : "Create alert"}
+                </Button>
+                {state.following && <Button type="button" variant="outline" disabled={pending} onClick={() => void save(true)}>Stop following</Button>}
+              </div>
+            </div>
+          ) : <AuthWidget />}
         </DialogContent>
       </Dialog>
     </div>

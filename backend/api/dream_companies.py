@@ -1,4 +1,4 @@
-"""POST/DELETE/GET /dream-companies - Pro/Pro-Lite feature (Doc 01 sec 10,
+"""Company and domain follows for every plan (Doc 01 sec 10,
 Doc 03 sec 4.2). Per-plan limits are enforced entirely through can()
 (Doc 08 sec 1 hard rule) - no scattered `if plan == ...` anywhere here.
 """
@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from api.auth import get_current_user
 from api.deps import get_db
-from api.schemas import DreamCompanyItem
+from api.schemas import DreamCompaniesUpdate, DreamCompanyItem
 from core import models
 from core.config import get_settings
 from core.gating import can
@@ -68,6 +68,7 @@ def add_dream_company(
     db: Session = Depends(get_db),
     user: models.User = Depends(enforce_dream_company_write_limit),
 ) -> None:
+    db.scalar(select(models.User).where(models.User.id == user.id).with_for_update())
     company = _get_company_or_404(db, company_slug)
     existing = _get_existing(db, user.id, company.id)
     if existing is not None:
@@ -90,12 +91,45 @@ def add_dream_company(
     db.commit()
 
 
+@router.put("/dream-companies", status_code=204)
+def update_dream_companies(
+    body: DreamCompaniesUpdate,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(enforce_dream_company_write_limit),
+) -> None:
+    # Serialise writes for one user so concurrent additions cannot bypass the cap.
+    db.scalar(select(models.User).where(models.User.id == user.id).with_for_update())
+    slugs = set(body.company_slugs)
+    companies = db.scalars(select(models.Company).where(models.Company.slug.in_(slugs))).all()
+    if len(companies) != len(slugs):
+        raise HTTPException(status_code=404, detail="Company not found")
+    follows = db.scalars(
+        select(models.DreamCompany).where(models.DreamCompany.user_id == user.id)
+    ).all()
+    by_company = {follow.company_id: follow for follow in follows}
+    added_count = sum(company.id not in by_company for company in companies)
+    limit = can(db, user, "dream_companies_limit")
+    if added_count and limit is not None and len(follows) + added_count > limit:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Dream company limit reached for your plan ({limit}). Upgrade for more.",
+        )
+    for company in companies:
+        follow = by_company.get(company.id)
+        if follow is None:
+            follow = models.DreamCompany(user_id=user.id, company_id=company.id)
+            db.add(follow)
+        follow.roles = body.roles
+    db.commit()
+
+
 @router.delete("/dream-companies/{company_slug}", status_code=204)
 def remove_dream_company(
     company_slug: str,
     db: Session = Depends(get_db),
     user: models.User = Depends(enforce_dream_company_write_limit),
 ) -> None:
+    db.scalar(select(models.User).where(models.User.id == user.id).with_for_update())
     company = _get_company_or_404(db, company_slug)
     existing = _get_existing(db, user.id, company.id)
     if existing is not None:
@@ -108,10 +142,10 @@ def list_dream_companies(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ) -> list[DreamCompanyItem]:
-    companies = db.scalars(
-        select(models.Company)
+    rows = db.execute(
+        select(models.Company, models.DreamCompany)
         .join(models.DreamCompany, models.DreamCompany.company_id == models.Company.id)
         .where(models.DreamCompany.user_id == user.id)
-        .order_by(models.DreamCompany.created_at.desc())
+        .order_by(models.DreamCompany.created_at.desc(), models.DreamCompany.id.desc())
     ).all()
-    return [DreamCompanyItem.from_company(c) for c in companies]
+    return [DreamCompanyItem.from_models(company, follow) for company, follow in rows]

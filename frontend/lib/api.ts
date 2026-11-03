@@ -754,6 +754,35 @@ export class FollowLimitError extends Error {
   }
 }
 
+export function companyAlertLimitMessage(error: FollowLimitError): string {
+  const limit = error.detail.match(/\((\d+)\)/)?.[1];
+  return limit === "1"
+    ? "Free accounts can follow 1 company. Remove one in settings, or see plans."
+    : `Your plan's company follow limit${limit ? ` of ${limit}` : ""} is reached. Remove one in settings, or see plans.`;
+}
+
+export async function saveCompanyAlerts(slugs: string[], roles: string[], accessToken: string): Promise<void> {
+  const res = await fetch(`${API_URL}/dream-companies`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ company_slugs: slugs, roles }),
+  });
+  if (res.status === 403) {
+    const payload = await res.json();
+    throw new FollowLimitError(payload.detail);
+  }
+  if (!res.ok) throw new Error("Couldn't save company alerts");
+}
+
+export async function searchCompanies(query: string, signal?: AbortSignal): Promise<CompanyListItem[]> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const search = new URLSearchParams({ q, limit: "20" });
+  const res = await fetch(`${API_URL}/companies/search?${search.toString()}`, { signal });
+  if (!res.ok) throw new Error("Couldn't search companies");
+  return res.json();
+}
+
 export async function addDreamCompany(slug: string, accessToken: string): Promise<void> {
   const res = await fetch(`${API_URL}/dream-companies/${encodeURIComponent(slug)}`, {
     method: "POST",

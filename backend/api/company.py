@@ -1,7 +1,7 @@
 """Company landing-page endpoint for SSR company opportunity pages."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import desc, func, select
+from sqlalchemy import case, desc, func, select
 from sqlalchemy.orm import Session
 
 from api.deps import get_db
@@ -20,6 +20,44 @@ from api.schemas import (
 from core import models
 
 router = APIRouter()
+
+
+@router.get("/companies/search", response_model=list[CompanyListItem])
+def search_companies(
+    q: str = Query(...),
+    limit: int = Query(8, ge=1, le=20),
+    db: Session = Depends(get_db),
+) -> list[CompanyListItem]:
+    q = q.strip()
+    if not 2 <= len(q) <= 80:
+        raise HTTPException(status_code=422, detail="q must be 2 to 80 characters after trimming")
+    escaped = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    rows = db.execute(
+        select(
+            models.Company.slug,
+            models.Company.name,
+            models.Company.domain,
+            models.Company.logo_url,
+            func.count(models.Opportunity.id).label("active_count"),
+        )
+        .outerjoin(
+            models.Opportunity,
+            (models.Opportunity.company_id == models.Company.id)
+            & (models.Opportunity.status == "active")
+            & exclude_stale_opportunities()
+            & exclude_experienced_only_opportunities()
+            & exclude_school_only_opportunities(),
+        )
+        .where(models.Company.name.ilike(f"%{escaped}%", escape="\\"))
+        .group_by(models.Company.id)
+        .order_by(
+            case((models.Company.name.ilike(f"{escaped}%", escape="\\"), 0), else_=1),
+            desc("active_count"),
+            models.Company.name.asc(),
+        )
+        .limit(limit)
+    ).all()
+    return [CompanyListItem(**row._mapping) for row in rows]
 
 
 @router.get("/companies/top", response_model=list[CompanyListItem])

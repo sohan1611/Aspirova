@@ -24,7 +24,7 @@ from sqlalchemy import (
     text,
 )
 from pgvector.sqlalchemy import Vector
-from sqlalchemy.dialects.postgresql import CITEXT, JSONB, TSVECTOR, UUID
+from sqlalchemy.dialects.postgresql import ARRAY, CITEXT, JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -502,6 +502,9 @@ class DreamCompany(Base):
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
     )
     company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), nullable=False)
+    roles: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, server_default=text("'{}'")
+    )
     created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
 
     __table_args__ = (

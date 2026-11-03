@@ -396,7 +396,12 @@ def competition_filters(
 ROLE_TERMS = {
     "software": (
         "software | developer | developers | programmer | programming | coding | backend | "
-        "frontend | fullstack | android | ios | sde | devops | web | cloud"
+        "frontend | fullstack | android | ios | sde | devops | web | cloud | "
+        "swe | sdet | qa | sre | site <-> reliability | full <-> stack | front <-> end | "
+        "back <-> end | react | kernel | database | infrastructure | cybersecurity | "
+        "security <-> engineer | information <-> security | network <-> engineer | "
+        "solutions <-> engineer | systems <-> engineer | support <-> engineer | "
+        "technical <-> staff | it <-> support | it <-> administrator | systems <-> administrator"
     ),
     "data": "data | analytics | analyst | analysts | scientist | ml | ai | machine <-> learning",
     "design": "design | designer | designers | designing | ux | ui | graphic",
@@ -407,7 +412,39 @@ ROLE_TERMS = {
     "product": "product",
     "operations": "operations | ops | logistics | supply <-> chain",
     "content": "content | copywriter | copywriting | writer | writing | editorial | editor",
+    "engineering": (
+        "mechanical | electrical | electronics | civil | manufacturing | hardware | embedded | "
+        "automotive | aerospace | chemical | industrial | instrumentation | robotics | vlsi | "
+        "firmware | mechatronics | engineer <-> trainee | graduate <-> engineer | "
+        "engineering <-> intern | engineering <-> internship | process <-> engineer | "
+        "quality <-> engineer | project <-> engineer"
+    ),
+    "research": "research | researcher | researchers",
 }
+
+ROLE_QUERY_PATTERN = "^(" + "|".join(ROLE_TERMS) + ")$"
+
+
+def role_match_expression(role: str):
+    terms = ROLE_TERMS.get(role)
+    if not terms:
+        return false()
+    return and_(
+        models.Opportunity.search_tsv.op("@@")(func.to_tsquery("english", terms)),
+        func.to_tsvector("simple", models.Opportunity.title).op("@@")(
+            func.to_tsquery("simple", terms)
+        ),
+    )
+
+
+def followed_company_match():
+    return or_(
+        func.cardinality(models.DreamCompany.roles) == 0,
+        *[
+            and_(models.DreamCompany.roles.any(role), role_match_expression(role))
+            for role in ROLE_TERMS
+        ],
+    )
 
 
 def role_signal_filters(
@@ -481,18 +518,7 @@ def role_signal_filters(
             >= func.now() - timedelta(days=posted_within)
         )
     if role is not None:
-        terms = ROLE_TERMS.get(role)
-        if terms:
-            filters.append(
-                models.Opportunity.search_tsv.op("@@")(func.to_tsquery("english", terms))
-            )
-            filters.append(
-                func.to_tsvector("simple", models.Opportunity.title).op("@@")(
-                    func.to_tsquery("simple", terms)
-                )
-            )
-        else:
-            filters.append(false())
+        filters.append(role_match_expression(role))
     return filters
 
 

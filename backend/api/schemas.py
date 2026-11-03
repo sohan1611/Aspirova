@@ -7,6 +7,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
+from api.filters import ROLE_TERMS
 from core import models
 
 
@@ -364,10 +365,25 @@ class OpportunityDetail(OpportunityListItem):
 
 class DreamCompanyItem(BaseModel):
     company: CompanySummary
+    roles: list[str]
 
     @classmethod
-    def from_company(cls, company: "models.Company") -> "DreamCompanyItem":
-        return cls(company=CompanySummary.model_validate(company))
+    def from_models(
+        cls, company: "models.Company", follow: "models.DreamCompany"
+    ) -> "DreamCompanyItem":
+        return cls(company=CompanySummary.model_validate(company), roles=list(follow.roles or []))
+
+
+class DreamCompaniesUpdate(BaseModel):
+    company_slugs: list[str] = Field(min_length=1, max_length=20)
+    roles: list[str] = Field(max_length=12)
+
+    @field_validator("roles")
+    @classmethod
+    def validate_roles(cls, values: list[str]) -> list[str]:
+        if any(value not in ROLE_TERMS for value in values):
+            raise ValueError("roles must be keys of ROLE_TERMS")
+        return sorted(set(values))
 
 
 class FeedResponse(BaseModel):
