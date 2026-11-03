@@ -353,9 +353,12 @@ export async function searchOpportunities(
 }
 
 // This fetch revalidate caps its route's ISR window; lowering it silently shortens page cache lifetime.
-export async function getOpportunity(slug: string): Promise<OpportunityDetail | null> {
+export async function getOpportunity(
+  slug: string,
+  revalidateSeconds = 604800,
+): Promise<OpportunityDetail | null> {
   const res = await fetch(`${API_URL}/opportunity/${encodeURIComponent(slug)}`, {
-    next: { revalidate: 604800 },
+    next: { revalidate: revalidateSeconds },
   });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Failed to load opportunity: ${res.status}`);

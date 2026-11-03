@@ -205,6 +205,24 @@ class GoogleIndexingNotification(Base):
     )
 
 
+class TelegramPost(Base):
+    """A listing included in a successfully sent Telegram channel post."""
+
+    __tablename__ = "telegram_posts"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    opportunity_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("opportunities.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
+    message_id: Mapped[int | None] = mapped_column(BigInteger)
+    posted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+
 class OpportunityViewCount(Base):
     """Hot cumulative view counters kept off the wide opportunities row."""
 

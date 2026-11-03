@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { BROWSE_PAGES } from "@/lib/browse";
 import { sitemapApiUrl, sitemapSiteUrl } from "@/lib/sitemap";
 
 const STATIC_ROUTES = [
@@ -18,6 +19,7 @@ const STATIC_ROUTES = [
   "/programmes",
   "/competitions",
   "/research",
+  "/scholarships",
 ] as const;
 
 export const revalidate = 86400;
@@ -40,7 +42,7 @@ interface SitemapProgrammeListResponse {
 type SitemapEntry = MetadataRoute.Sitemap[number];
 
 function staticEntries(): MetadataRoute.Sitemap {
-  return STATIC_ROUTES.map((route) => ({
+  return [...STATIC_ROUTES, ...BROWSE_PAGES.map((page) => page.path)].map((route) => ({
     url: sitemapSiteUrl(route),
   }));
 }

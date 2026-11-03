@@ -18,9 +18,10 @@ interface ApplyLinkProps {
   children: React.ReactNode;
   size?: ComponentProps<typeof Button>["size"];
   variant?: ComponentProps<typeof Button>["variant"];
+  className?: string;
 }
 
-export default function ApplyLink({ href, children, size, variant }: ApplyLinkProps) {
+export default function ApplyLink({ href, children, size, variant, className }: ApplyLinkProps) {
   const { session, resolved } = useSessionState();
   const [open, setOpen] = useState(false);
 
@@ -34,7 +35,7 @@ export default function ApplyLink({ href, children, size, variant }: ApplyLinkPr
   return (
     <>
       {/* Keep Doc 04's real source link while gating clicks; Google's policy requires public job details. */}
-      <Button size={size} variant={variant} asChild>
+      <Button size={size} variant={variant} className={className} asChild>
         <a
           href={href}
           target="_blank"

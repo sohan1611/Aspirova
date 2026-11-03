@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import OpportunityLandingPage from "@/components/OpportunityLandingPage";
+import { BrowseLinks } from "@/components/BrowsePage";
 import {
   INTERNSHIPS_LANDING,
   LANDING_LIMIT,
@@ -28,6 +29,8 @@ export default async function InternshipsPage() {
       limit={LANDING_LIMIT}
       basePath={INTERNSHIPS_LANDING.basePath}
       query={INTERNSHIPS_LANDING.query}
-    />
+    >
+      <BrowseLinks category="internship" />
+    </OpportunityLandingPage>
   );
 }
