@@ -66,4 +66,4 @@ match `CLAUDE.md`; keep both current, because it is the first thing every sessio
 - Branch for changes; commit/push when the work for a part is done and green (ruff + black + pytest for backend; eslint + tsc for frontend).
 
 ## Cloud infra (all under the user's accounts; secrets already configured)
-Supabase (Mumbai) · Render (Singapore, $7 Starter, `render.yaml` blueprint) · Vercel (Hobby) · GitHub Actions (crawler + CI). `DATABASE_URL` is set as a GitHub Actions secret. Phase 2 will add: Razorpay, Resend, Upstash, and R2/B2 (user creates these when prompted).
+DigitalOcean (Singapore droplet, the app database, daily backups) · Supabase (Mumbai, Auth + Storage only) · Render (Singapore, $7 Starter, `render.yaml` blueprint) · Vercel (Hobby) · GitHub Actions (crawler + CI). `DATABASE_URL` (the droplet) and `SUPABASE_DB_URL` (Supabase, used only for the nightly Auth backup) are GitHub Actions secrets. The code also integrates Resend (email), Upstash (cache and rate limits), Razorpay (payments) and R2 (backups).
