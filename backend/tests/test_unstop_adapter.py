@@ -1209,8 +1209,17 @@ def test_role_without_job_detail_keeps_region_remote_behavior() -> None:
         ({"pay_in": "weekly"}, None),
         ({"max_salary": 0}, None),
         (
-            {"pay_in": "annually", "min_salary": 0},
-            {"min": 15000, "max": 15000, "currency": "INR", "period": "year", "source": "unstop"},
+            {"pay_in": "annually", "min_salary": 0, "max_salary": 300000},
+            {"min": 300000, "max": 300000, "currency": "INR", "period": "year", "source": "unstop"},
+        ),
+        # Real rows: ₹4,000 "annually", and exactly a lakh still counts as a salary.
+        (
+            {"pay_in": "annually", "min_salary": 4000, "max_salary": 4000},
+            {"paid": True, "source": "unstop"},
+        ),
+        (
+            {"pay_in": "annually", "min_salary": 100000, "max_salary": 100000},
+            {"min": 100000, "max": 100000, "currency": "INR", "period": "year", "source": "unstop"},
         ),
     ],
 )
@@ -1234,6 +1243,35 @@ def test_role_compensation_uses_only_disclosed_rupee_pay(
     meta = unstop.unstop_role_fields({"jobDetail": detail})["meta"]
     assert meta.get("compensation") == expected
     assert ("compensation" in meta) is (expected is not None)
+
+
+@pytest.mark.parametrize(
+    ("payload", "maximum", "expected"),
+    [
+        # Real row: "stipend of up to ₹75,000" for a 75-day programme, entered as monthly.
+        ({"subtype": "internships", "title": "Intern with the Indian Army"}, 75000, None),
+        ({"subtype": "jobs", "title": "Business Development Internship"}, 60000, None),
+        ({"subtype": "internships", "title": "Data Intern"}, 59999, 59999),
+        ({"subtype": "jobs", "title": "Chartered Accountant"}, 100000, 100000),
+    ],
+)
+def test_implausible_internship_monthly_pay_shows_as_paid(
+    payload: dict, maximum: int, expected: int | None
+) -> None:
+    detail = {
+        "paid_unpaid": "paid",
+        "pay_in": "monthly",
+        "currency": "fa-rupee",
+        "max_salary": maximum,
+        "show_salary": 1,
+    }
+    compensation = unstop.unstop_role_fields({**payload, "jobDetail": detail})["meta"][
+        "compensation"
+    ]
+    if expected is None:
+        assert compensation == {"paid": True, "source": "unstop"}
+    else:
+        assert compensation["max"] == expected
 
 
 def test_competition_keeps_online_behavior_even_with_job_detail(

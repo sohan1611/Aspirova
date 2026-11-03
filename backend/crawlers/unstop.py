@@ -568,7 +568,13 @@ def unstop_role_fields(opportunity: dict[str, Any]) -> dict[str, Any]:
             if has_detail
             else _as_text(opportunity.get("region")).lower() == "online"
         ),
-        "meta": _role_meta(detail),
+        "meta": _role_meta(
+            detail,
+            internship=(
+                opportunity.get("subtype") == "internships"
+                or _title_says_internship(_as_text(opportunity.get("title")))
+            ),
+        ),
     }
 
 
@@ -614,19 +620,26 @@ def _role_country(opportunity: dict[str, Any]) -> str | None:
     return "IN"
 
 
-def _role_meta(detail: dict[str, Any]) -> dict[str, Any]:
+def _role_meta(detail: dict[str, Any], *, internship: bool) -> dict[str, Any]:
     meta = {
         key: detail[field]
         for key, field in (("work_mode", "type"), ("timing", "timing"))
         if detail.get(field)
     }
-    compensation = _role_compensation(detail)
+    compensation = _role_compensation(detail, internship=internship)
     if compensation is not None:
         meta["compensation"] = compensation
     return meta
 
 
-def _role_compensation(detail: dict[str, Any]) -> dict[str, Any] | None:
+# Employers type these fields by hand. A yearly figure under a lakh is a slip (₹4,000
+# "annually"), and an internship at this monthly level has been a whole-programme stipend
+# ("up to ₹75,000" for 75 days). Say it's paid rather than print a wrong amount.
+_MIN_PLAUSIBLE_YEARLY_INR = 100_000
+_MIN_IMPLAUSIBLE_INTERN_MONTHLY_INR = 60_000
+
+
+def _role_compensation(detail: dict[str, Any], *, internship: bool) -> dict[str, Any] | None:
     if detail.get("paid_unpaid") == "unpaid":
         return {"unpaid": True, "source": "unstop"}
     period = {"monthly": "month", "annually": "year"}.get(detail.get("pay_in"))
@@ -641,6 +654,10 @@ def _role_compensation(detail: dict[str, Any]) -> dict[str, Any] | None:
         or period is None
     ):
         return None
+    if (period == "year" and maximum < _MIN_PLAUSIBLE_YEARLY_INR) or (
+        internship and period == "month" and maximum >= _MIN_IMPLAUSIBLE_INTERN_MONTHLY_INR
+    ):
+        return {"paid": True, "source": "unstop"}
     return {
         "min": detail.get("min_salary") or maximum,
         "max": maximum,

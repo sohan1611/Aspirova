@@ -79,11 +79,12 @@ def select_candidates(session: Session) -> list[models.Opportunity]:
         func.jsonb_typeof(compensation) == "object",
         compensation["unpaid"].as_boolean().is_not(True),
     )
+    states_amount = and_(paid, func.jsonb_typeof(compensation["max"]) == "number")
     internships = session.scalars(
         _candidate_query()
         .where(models.Opportunity.category == "internship", not_(unpaid))
         .order_by(
-            case((paid, 0), else_=1),
+            case((states_amount, 0), (paid, 1), else_=2),
             models.Opportunity.first_seen_at.desc(),
             models.Opportunity.id.desc(),
         )
