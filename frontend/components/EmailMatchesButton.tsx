@@ -1,6 +1,7 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import AuthWidget from "@/components/AuthWidget";
 import { Button } from "@/components/ui/button";
@@ -9,12 +10,16 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createSavedSearch } from "@/lib/api";
-import { savedSearchSummary } from "@/lib/savedSearchParams";
-import type { SavedSearchParams } from "@/lib/types";
+import { createSavedSearch, getSavedSearches, updateSavedSearch } from "@/lib/api";
+import { canonicalSavedSearchParams, savedSearchSummary } from "@/lib/savedSearchParams";
+import type { SavedSearchItem, SavedSearchParams } from "@/lib/types";
 import { useSession } from "@/lib/useSession";
 
-export default function EmailMatchesButton({
+export default function EmailMatchesButton(props: { params: SavedSearchParams; disabled?: boolean }) {
+  return <Suspense fallback={null}><EmailMatchesButtonContent {...props} /></Suspense>;
+}
+
+function EmailMatchesButtonContent({
   params,
   disabled = false,
 }: {
@@ -23,6 +28,9 @@ export default function EmailMatchesButton({
 }) {
   const session = useSession();
   const accessToken = session?.access_token;
+  const searchParams = useSearchParams();
+  const editSearch = searchParams.get("editSearch");
+  const editing = editSearch !== null && /^[0-9]+$/.test(editSearch) && Boolean(accessToken);
   const id = useId();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -30,20 +38,42 @@ export default function EmailMatchesButton({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const [loadedSearches, setLoadedSearches] = useState<SavedSearchItem[]>([]);
+
+  useEffect(() => {
+    if (!open || !accessToken || !editing) return;
+    let cancelled = false;
+    getSavedSearches(accessToken).then((items) => {
+      if (!cancelled) setLoadedSearches(items);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [accessToken, editing, open]);
+
+  const duplicateFilters = editing && loadedSearches.some((item) =>
+    item.id !== Number(editSearch) &&
+    canonicalSavedSearchParams(item.params) === canonicalSavedSearchParams(params));
+
   async function handleSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!accessToken || saving) return;
     setSaving(true);
     setError(null);
     try {
-      await createSavedSearch(accessToken, {
-        name: name.trim() || null,
-        params,
-        alerts_enabled: alertsEnabled,
-      });
-      toast.success(alertsEnabled ? "We'll email you new matches" : "Search saved", {
-        action: { label: "Settings", onClick: () => { window.location.href = "/account?section=saved"; } },
-      });
+      if (editing) {
+        await updateSavedSearch(accessToken, Number(editSearch), { params });
+        toast.success("Saved search updated", {
+          action: { label: "Saved searches", onClick: () => { window.location.href = "/account?section=saved"; } },
+        });
+      } else {
+        await createSavedSearch(accessToken, {
+          name: name.trim() || null,
+          params,
+          alerts_enabled: alertsEnabled,
+        });
+        toast.success(alertsEnabled ? "We'll email you new matches" : "Search saved", {
+          action: { label: "Settings", onClick: () => { window.location.href = "/account?section=saved"; } },
+        });
+      }
       setOpen(false);
     } catch (error) {
       setError(error instanceof Error ? error.message : "We couldn't save this search. Please try again.");
@@ -57,21 +87,23 @@ export default function EmailMatchesButton({
   return (
     <>
       <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => {
+        setLoadedSearches([]);
         setName("");
         setAlertsEnabled(true);
         setError(null);
         setOpen(true);
       }}>
-        Email me new matches
+        {editing ? "Update saved search" : "Email me new matches"}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
           {accessToken ? (
             <form onSubmit={handleSave} className="grid gap-5">
               <DialogHeader>
-                <DialogTitle className="font-serif text-2xl">Save this search</DialogTitle>
-                <DialogDescription>Save these filters and receive new matches by email.</DialogDescription>
+                <DialogTitle className="font-serif text-2xl">{editing ? "Update saved search" : "Save this search"}</DialogTitle>
+                <DialogDescription>{editing ? "Replace the filters for this saved search." : "Save these filters and receive new matches by email."}</DialogDescription>
               </DialogHeader>
+              {!editing && <>
               <div className="grid gap-2.5">
                 <Label className="eyebrow" htmlFor={id + "-name"}>
                   Name <span className="normal-case text-muted-foreground">(optional)</span>
@@ -88,10 +120,12 @@ export default function EmailMatchesButton({
                   <p className="mt-0.5 text-sm text-muted-foreground">We&apos;ll email you new matches.</p>
                 </div>
               </div>
+              </>}
+              {duplicateFilters && <p role="status" className="text-xs text-muted-foreground">Another saved search already uses these filters.</p>}
               {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
               <DialogFooter>
                 <Button type="button" variant="outline" disabled={saving} onClick={() => setOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={saving}>{saving ? "Saving…" : "Save search"}</Button>
+                <Button type="submit" disabled={saving}>{saving ? "Saving…" : editing ? "Update saved search" : "Save search"}</Button>
               </DialogFooter>
             </form>
           ) : (

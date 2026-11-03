@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MIN_PASSWORD_LENGTH } from "@/lib/password";
+import { signOutWithFeedback } from "@/lib/signOut";
 import { createClient } from "@/lib/supabase/client";
 import { useSession } from "@/lib/useSession";
 
@@ -99,7 +100,7 @@ export default function AuthWidget() {
         <span className="hidden max-w-48 truncate text-muted-foreground md:inline">
           {session.user.email}
         </span>
-        <Button variant="outline" size="sm" onClick={() => supabase.auth.signOut()}>
+        <Button variant="outline" size="sm" onClick={() => signOutWithFeedback(supabase)}>
           Sign out
         </Button>
       </div>

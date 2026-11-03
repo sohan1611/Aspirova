@@ -83,3 +83,19 @@ export function savedSearchHref(params: SavedSearchParams): string {
   const query = search.toString();
   return query ? `${path}?${query}` : path;
 }
+
+export function canonicalSavedSearchParams(params: SavedSearchParams): string {
+  const normalized = savedSearchParamsFromQuery(params);
+  return JSON.stringify(Object.fromEntries(
+    Object.entries(normalized).sort(([left], [right]) => left.localeCompare(right)).map(
+      ([key, value]) => [key, Array.isArray(value) ? [...value].sort() : value],
+    ),
+  ));
+}
+
+export function savedSearchEditHref(params: SavedSearchParams, id: number): string {
+  const [pathname, query] = savedSearchHref(params).split("?");
+  const search = new URLSearchParams(query);
+  search.set("editSearch", String(id));
+  return pathname + "?" + search.toString();
+}

@@ -252,6 +252,8 @@ function SignedInResumeWorkspace({
   const [exposure, setExposure] = useState<ExposureValues>(EMPTY_EXPOSURE);
   const [savedExposure, setSavedExposure] = useState<ExposureValues>(EMPTY_EXPOSURE);
   const [savedResume, setSavedResume] = useState<ResumeMeta | null>(null);
+  const [pendingResumeSave, setPendingResumeSave] = useState<{ meta: ResumeMeta; skills: ProfileSkill[] } | null>(null);
+  const [savingResumeDetails, setSavingResumeDetails] = useState(false);
   const [accountLoading, setAccountLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [openingResume, setOpeningResume] = useState(false);
@@ -329,18 +331,55 @@ function SignedInResumeWorkspace({
     setSkills((currentSkills) => mergeSkills(currentSkills, suggestedSkills));
   }
 
+  async function saveResumeDetails(meta: ResumeMeta, nextSkills: ProfileSkill[]) {
+    const account = await updateAccount(accessToken, {
+      skills: nextSkills,
+      resume: meta,
+    });
+    const persistedSkills = mergeSkills(account.skills ?? nextSkills);
+    const accountExposure = toExposureValues(account.exposure);
+
+    setSkills(persistedSkills);
+    setSavedSkills(persistedSkills);
+    storeSkillNames(persistedSkills.map((skill) => skill.name));
+    setSavedExposure(accountExposure);
+    setExposure((currentExposure) =>
+      exposureTouchedRef.current ? currentExposure : accountExposure,
+    );
+    setSavedResume(account.resume ?? meta);
+    setPendingResumeSave(null);
+  }
+
+  async function retryResumeSave() {
+    if (!pendingResumeSave || savingResumeDetails || readingPdf || removingResume) return;
+    setSavingResumeDetails(true);
+    try {
+      await saveResumeDetails(pendingResumeSave.meta, pendingResumeSave.skills);
+      toast.success("Resume saved");
+    } catch {
+      toast.error("We couldn't save your resume details. Please try again.");
+    } finally {
+      setSavingResumeDetails(false);
+    }
+  }
+
   async function handlePdfChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (!file || readingPdf || removingResume) return;
+    if (!file || readingPdf || removingResume || savingResumeDetails) return;
 
-    setShortPdfExtraction(false);
-    setHasPdfExtraction(false);
-
-    if (file.type !== "application/pdf") {
+    try {
+      if (await file.slice(0, 5).text() !== "%PDF-") {
+        toast.error("Choose a PDF resume to continue.");
+        return;
+      }
+    } catch {
       toast.error("Choose a PDF resume to continue.");
       return;
     }
+
+    setShortPdfExtraction(false);
+    setHasPdfExtraction(false);
     if (file.size > MAX_RESUME_PDF_BYTES) {
       toast.error("Resume PDFs must be 5 MB or smaller.");
       return;
@@ -352,6 +391,8 @@ function SignedInResumeWorkspace({
 
     setReadingPdf(true);
     let uploaded = false;
+    let uploadedMeta: ResumeMeta | null = null;
+    let uploadedSkills: ProfileSkill[] = [];
     try {
       const extractedText = await extractPdfText(file);
       const suggestedSkills = getSuggestedResumeSkills(extractedText);
@@ -382,21 +423,9 @@ function SignedInResumeWorkspace({
         uploaded_at: new Date().toISOString(),
         ats: nextAtsResult,
       };
-      const account = await updateAccount(accessToken, {
-        skills: nextSkills,
-        resume: resumeMeta,
-      });
-      const persistedSkills = mergeSkills(account.skills ?? nextSkills);
-      const accountExposure = toExposureValues(account.exposure);
-
-      setSkills(persistedSkills);
-      setSavedSkills(persistedSkills);
-      storeSkillNames(persistedSkills.map((skill) => skill.name));
-      setSavedExposure(accountExposure);
-      setExposure((currentExposure) =>
-        exposureTouchedRef.current ? currentExposure : accountExposure,
-      );
-      setSavedResume(account.resume ?? resumeMeta);
+      uploadedMeta = resumeMeta;
+      uploadedSkills = nextSkills;
+      await saveResumeDetails(resumeMeta, nextSkills);
       toast.success("Resume saved", {
         description: "Your private PDF, skills, and ATS estimate were updated.",
       });
@@ -405,10 +434,22 @@ function SignedInResumeWorkspace({
         toast.error("We couldn't read text from that PDF.", {
           description: "Try a text-based PDF or paste your resume text instead.",
         });
-      } else if (uploaded) {
-        toast.error("We stored the PDF but couldn't save its profile metadata.", {
-          description: "Try replacing the resume so your ATS score and skills update.",
-        });
+      } else if (uploaded && uploadedMeta) {
+        let removed = false;
+        if (!savedResume) {
+          try {
+            const { error: removeError } = await createClient().storage.from(RESUME_BUCKET).remove([uploadedMeta.path]);
+            removed = !removeError;
+          } catch {
+            // Keep a retry path if cleanup could not be confirmed.
+          }
+        }
+        if (removed) {
+          setPendingResumeSave(null);
+          toast.error("We couldn't save your resume, so we didn't keep the file. Please try again.");
+        } else {
+          setPendingResumeSave({ meta: uploadedMeta, skills: uploadedSkills });
+        }
       } else {
         toast.error("We couldn't store your resume PDF.", {
           description: "No resume metadata was saved. Try again in a moment.",
@@ -498,13 +539,14 @@ function SignedInResumeWorkspace({
   }
 
   async function handleViewSavedResume() {
-    if (!savedResume || openingResume || removingResume) return;
+    const resumeToView = pendingResumeSave?.meta ?? savedResume;
+    if (!resumeToView || openingResume || removingResume) return;
 
     setOpeningResume(true);
     try {
       const { data, error } = await createClient()
         .storage.from(RESUME_BUCKET)
-        .createSignedUrl(savedResume.path, 60);
+        .createSignedUrl(resumeToView.path, 60);
 
       if (error || !data?.signedUrl) {
         throw error ?? new Error("Missing signed URL");
@@ -519,17 +561,19 @@ function SignedInResumeWorkspace({
   }
 
   async function handleRemoveSavedResume() {
-    if (!savedResume || removingResume || readingPdf) return;
+    const resumeToRemove = pendingResumeSave?.meta ?? savedResume;
+    if (!resumeToRemove || removingResume || readingPdf || savingResumeDetails) return;
 
     setRemovingResume(true);
     let fileRemoved = false;
     try {
       const { error } = await createClient()
         .storage.from(RESUME_BUCKET)
-        .remove([savedResume.path]);
+        .remove([resumeToRemove.path]);
 
       if (error) throw error;
       fileRemoved = true;
+      setPendingResumeSave(null);
 
       await updateAccount(accessToken, { resume: null });
 
@@ -550,7 +594,7 @@ function SignedInResumeWorkspace({
   }
 
   function handleReplaceSavedResume() {
-    if (readingPdf || removingResume) return;
+    if (readingPdf || removingResume || savingResumeDetails) return;
 
     const input = document.getElementById(RESUME_PDF_INPUT_ID);
     if (input instanceof HTMLInputElement) {
@@ -596,11 +640,19 @@ function SignedInResumeWorkspace({
   return (
     <div className="grid gap-12 sm:gap-14">
       <section aria-label="Free resume workspace" className="grid gap-5">
-        {savedResume && (
+        {pendingResumeSave && (
+          <div role="alert" className="grid gap-3 rounded-lg border border-warning/40 bg-warning/5 p-4 text-sm">
+            <p>Your new PDF is stored, but its details didn&apos;t save, so your ATS estimate may be out of date.</p>
+            <Button type="button" variant="outline" className="w-fit" disabled={savingResumeDetails || readingPdf || removingResume} onClick={() => void retryResumeSave()}>
+              {savingResumeDetails ? "Saving…" : "Try again"}
+            </Button>
+          </div>
+        )}
+        {(savedResume || pendingResumeSave) && (
           <SavedResumeCard
-            resume={savedResume}
+            resume={(pendingResumeSave?.meta ?? savedResume)!}
             openingResume={openingResume}
-            replacingResume={readingPdf}
+            replacingResume={readingPdf || savingResumeDetails}
             removingResume={removingResume}
             onViewResume={handleViewSavedResume}
             onReplaceResume={handleReplaceSavedResume}
@@ -611,7 +663,7 @@ function SignedInResumeWorkspace({
         <ResumeInputCard
           hasSavedResume={Boolean(savedResume)}
           resumeText={resumeText}
-          readingPdf={readingPdf}
+          readingPdf={readingPdf || savingResumeDetails}
           removingResume={removingResume}
           shortPdfExtraction={shortPdfExtraction}
           onPdfChange={handlePdfChange}
@@ -690,7 +742,7 @@ function SavedResumeCard({
               variant="outline"
               className="tnum shrink-0 border-primary/25 bg-primary/10 text-primary"
             >
-              {resume.ats.score}/100 ATS
+              {resume.ats.score}/100 ATS readiness estimate
             </Badge>
           </div>
         </div>
@@ -808,7 +860,7 @@ function ResumeInputCard({
         <CardDescription className="max-w-2xl leading-6">
           Upload your resume PDF. It&apos;s stored privately in your account, only you can view
           it, and uploading another PDF replaces it. We read the text in your browser to
-          estimate your skills and ATS score.
+          estimate your skills and ATS readiness.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-6 px-5 sm:px-8">
@@ -882,7 +934,7 @@ function AtsChecksList({ result }: { result: AtsResult }) {
   return (
     <div className="grid gap-4">
       <div>
-        <p className="eyebrow">ATS score breakdown</p>
+        <p className="eyebrow">ATS readiness estimate breakdown</p>
         <p className="mt-1 text-sm leading-5 text-muted-foreground">
           Each check is a suggestion based on the text currently in your resume.
         </p>
@@ -928,9 +980,9 @@ function AtsScoreCard({ result }: { result: AtsResult }) {
     <Card className="h-full border-primary/20 shadow-soft-md">
       <CardHeader className="px-5 sm:px-6">
         <p className="eyebrow">Free ATS estimate</p>
-        <CardTitle className="font-serif text-2xl leading-tight">ATS readiness</CardTitle>
+        <CardTitle className="font-serif text-2xl leading-tight">ATS readiness estimate</CardTitle>
         <CardDescription className="leading-6">
-          A transparent estimate to help you improve — not a guarantee.
+          Checks formatting and content signals, not your odds of being hired.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-5 px-5 sm:px-6">

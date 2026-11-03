@@ -2,7 +2,7 @@
 
 import { AlertCircle, Bookmark, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,9 +13,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { deleteSavedSearch, getSavedSearches, setSavedSearchAlerts } from "@/lib/api";
-import { savedSearchHref, savedSearchParamsFromQuery, savedSearchSummary } from "@/lib/savedSearchParams";
+import { deleteSavedSearch, getSavedSearches, setSavedSearchAlerts, updateSavedSearch } from "@/lib/api";
+import { canonicalSavedSearchParams, savedSearchEditHref, savedSearchHref, savedSearchParamsFromQuery, savedSearchSummary } from "@/lib/savedSearchParams";
 import { formatDate } from "@/lib/date";
 import type { SavedSearchItem, SavedSearchParams } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -48,6 +51,13 @@ function isSavedSearchItem(value: unknown): value is SavedSearchItem {
 }
 
 export default function SavedSearchesSection({ accessToken }: { accessToken: string }) {
+  const headingRef = useRef<HTMLDivElement>(null);
+  const renameTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<SavedSearchItem | null>(null);
+  const [renameTarget, setRenameTarget] = useState<SavedSearchItem | null>(null);
+  const [nameDraft, setNameDraft] = useState("");
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const [pendingAlertIds, setPendingAlertIds] = useState<Set<number>>(new Set());
   const [pendingDeleteIds, setPendingDeleteIds] = useState<Set<number>>(new Set());
@@ -176,6 +186,32 @@ export default function SavedSearchesSection({ accessToken }: { accessToken: str
     }
   }
 
+  async function handleRename(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!renameTarget || renaming) return;
+    setRenaming(true);
+    setRenameError(null);
+    try {
+      const updated = await updateSavedSearch(accessToken, renameTarget.id, { name: nameDraft });
+      setLoadState((current) => current.accessToken !== accessToken ? current : {
+        ...current,
+        items: current.items.map((item) => item.id === updated.id ? updated : item),
+      });
+      setRenameTarget(null);
+      toast.success("Saved search renamed");
+    } catch {
+      setRenameError("We couldn't rename this search. Please try again.");
+    } finally {
+      setRenaming(false);
+    }
+  }
+
+  function hasDuplicateFilters(item: SavedSearchItem) {
+    const canonical = canonicalSavedSearchParams(safeSavedSearchParams(item.params));
+    return loadState.items.some((other) => other.id !== item.id &&
+      canonicalSavedSearchParams(safeSavedSearchParams(other.params)) === canonical);
+  }
+
   const loading =
     loadState.accessToken !== accessToken || loadState.requestKey !== retryKey;
 
@@ -227,37 +263,26 @@ export default function SavedSearchesSection({ accessToken }: { accessToken: str
     );
   }
 
-  if (loadState.items.length === 0) {
-    return (
-      <Card className="text-center">
-        <CardHeader>
-          <div className="mx-auto rounded-lg border border-border bg-secondary/40 p-3">
-            <Bookmark className="size-6 text-muted-foreground" aria-hidden="true" />
-          </div>
-          <CardTitle className="font-serif text-2xl">No saved searches yet.</CardTitle>
-          <CardDescription>
-            Save a search from the feed to return to the same filters whenever you need them.
-          </CardDescription>
-        </CardHeader>
-        <CardFooter className="justify-center">
-          <Button asChild>
-            <Link href="/">Browse opportunities</Link>
-          </Button>
-        </CardFooter>
-      </Card>
-    );
-  }
 
   return (
     <div className="grid gap-4">
       <Card>
         <CardHeader>
-          <CardTitle className="font-serif text-2xl">Saved searches</CardTitle>
+          <CardTitle ref={headingRef} tabIndex={-1} className="font-serif text-2xl">Saved searches</CardTitle>
+          <p className="text-xs text-muted-foreground">{loadState.items.length} of 25 saved searches</p>
           <CardDescription>
             Revisit your filters, or choose whether each search can send new-match alerts.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3">
+          {loadState.items.length === 0 && (
+            <div className="grid justify-items-center gap-3 py-4 text-center">
+              <Bookmark className="size-6 text-muted-foreground" aria-hidden="true" />
+              <p>No saved searches yet.</p>
+              <p className="text-sm text-muted-foreground">Save a search from the feed to return to the same filters whenever you need them.</p>
+              <Button asChild><Link href="/">Browse opportunities</Link></Button>
+            </div>
+          )}
           {loadState.items.map((item) => {
             const summary = savedSearchSummary(safeSavedSearchParams(item.params));
             const name = typeof item.name === "string" ? item.name.trim() : "";
@@ -326,7 +351,15 @@ export default function SavedSearchesSection({ accessToken }: { accessToken: str
                   </div>
                 </div>
 
+                {hasDuplicateFilters(item) && <p role="status" className="mt-3 text-xs text-muted-foreground">Another saved search already uses these filters.</p>}
                 <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-border pt-4">
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={savedSearchEditHref(safeSavedSearchParams(item.params), item.id)}>Edit filters</Link>
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" disabled={controlsDisabled} onClick={(event) => {
+                    renameTriggerRef.current = event.currentTarget;
+                    setNameDraft(item.name ?? ""); setRenameError(null); setRenameTarget(item);
+                  }}>Rename</Button>
                   <Button asChild variant="outline" size="sm">
                     <Link
                       href={savedSearchHref(safeSavedSearchParams(item.params))}
@@ -340,7 +373,7 @@ export default function SavedSearchesSection({ accessToken }: { accessToken: str
                     variant="destructive"
                     size="sm"
                     disabled={controlsDisabled}
-                    onClick={() => void handleDelete(item.id)}
+                    onClick={() => setDeleteTarget(item)}
                     aria-label={`Delete saved search: ${title}`}
                   >
                     <Trash2 aria-hidden="true" />
@@ -352,6 +385,43 @@ export default function SavedSearchesSection({ accessToken }: { accessToken: str
           })}
         </CardContent>
       </Card>
+      <Dialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <DialogContent onCloseAutoFocus={(event) => { event.preventDefault(); headingRef.current?.focus(); }}>
+          <DialogHeader>
+            <DialogTitle>Delete this saved search?</DialogTitle>
+            <DialogDescription>
+              Delete {deleteTarget?.name || savedSearchSummary(safeSavedSearchParams(deleteTarget?.params))}? Alerts for this search will stop. This can&apos;t be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => {
+              if (!deleteTarget) return;
+              const id = deleteTarget.id;
+              setDeleteTarget(null);
+              void handleDelete(id);
+            }}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={renameTarget !== null} onOpenChange={(open) => { if (!open && !renaming) setRenameTarget(null); }}>
+        <DialogContent onCloseAutoFocus={(event) => { event.preventDefault(); (renameTriggerRef.current ?? headingRef.current)?.focus(); }}>
+          <form onSubmit={handleRename} className="grid gap-4">
+            <DialogHeader>
+              <DialogTitle>Rename saved search</DialogTitle>
+              <DialogDescription>Choose a name to recognise these filters.</DialogDescription>
+            </DialogHeader>
+            <Label htmlFor="saved-search-name">Name</Label>
+            <Input id="saved-search-name" maxLength={80} value={nameDraft} disabled={renaming} onChange={(event) => setNameDraft(event.target.value)} />
+            {renameTarget && hasDuplicateFilters(renameTarget) && <p role="status" className="text-xs text-muted-foreground">Another saved search already uses these filters.</p>}
+            {renameError && <p role="alert" className="text-sm text-destructive">{renameError}</p>}
+            <DialogFooter>
+              <Button type="button" variant="outline" disabled={renaming} onClick={() => setRenameTarget(null)}>Cancel</Button>
+              <Button type="submit" disabled={renaming}>{renaming ? "Saving…" : "Save"}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

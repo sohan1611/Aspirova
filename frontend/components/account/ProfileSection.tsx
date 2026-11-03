@@ -1,9 +1,9 @@
 "use client";
 
 import type { User } from "@supabase/supabase-js";
-import { CalendarDays, ChevronDown, ExternalLink, Loader2, X } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, ExternalLink, Loader2, X } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import AccountAvatar from "@/components/account/AccountAvatar";
 import { CollegePicker } from "@/components/CollegePicker";
@@ -30,8 +30,9 @@ import { updateAccount } from "@/lib/api";
 import { storeCountryCode, useStoredCountryCode } from "@/lib/country";
 import { getCountry } from "@/lib/countries";
 import { formatDate } from "@/lib/date";
-import { requestOnboarding, useFieldProfile } from "@/lib/fieldProfile";
+import { hasFieldProfileSelections, requestOnboarding, useFieldProfile } from "@/lib/fieldProfile";
 import {
+  getProfileChecklist,
   getProfileCompleteness,
   PROFILE_COMPLETENESS_TOTAL,
 } from "@/lib/profileCompleteness";
@@ -71,18 +72,40 @@ function getProfilePatch(
   return patch;
 }
 
+type ProfileDraft = { displayName: string; college: string; graduationYear: string };
+
+function readProfileDraft(userId: string): ProfileDraft | null {
+  try {
+    const raw = sessionStorage.getItem(`aspirova:profile-draft:${userId}`);
+    if (!raw) return null;
+    const draft: unknown = JSON.parse(raw);
+    if (!draft || typeof draft !== "object") return null;
+    const value = draft as Partial<ProfileDraft>;
+    if (typeof value.displayName !== "string" || typeof value.college !== "string" ||
+      typeof value.graduationYear !== "string") return null;
+    return value as ProfileDraft;
+  } catch {
+    return null;
+  }
+}
+
 export default function ProfileSection({
   account,
   accessToken,
   user,
   onAccountChange,
 }: ProfileSectionProps) {
-  const [displayName, setDisplayName] = useState(account.display_name ?? "");
-  const [college, setCollege] = useState(account.college ?? "");
+  const [displayName, setDisplayName] = useState(
+    () => readProfileDraft(user.id)?.displayName ?? account.display_name ?? "",
+  );
+  const [college, setCollege] = useState(
+    () => readProfileDraft(user.id)?.college ?? account.college ?? "",
+  );
   const [collegeEntryMode, setCollegeEntryMode] = useState<"list" | "manual">("list");
   const [graduationYear, setGraduationYear] = useState(
-    account.graduation_year?.toString() ?? "",
+    () => readProfileDraft(user.id)?.graduationYear ?? account.graduation_year?.toString() ?? "",
   );
+  const [collegeCountryNotice, setCollegeCountryNotice] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [completionNudgeVisible, setCompletionNudgeVisible] = useState(true);
   const storedCountryCode = useStoredCountryCode();
@@ -114,7 +137,37 @@ export default function ProfileSection({
   );
   const isDirty = Object.keys(profilePatch).length > 0;
 
+  const checklist = getProfileChecklist(account, hasFieldProfileSelections(fieldProfile));
+
+  useEffect(() => {
+    try {
+      const key = `aspirova:profile-draft:${user.id}`;
+      if (isDirty) sessionStorage.setItem(key, JSON.stringify({ displayName, college, graduationYear }));
+      else sessionStorage.removeItem(key);
+    } catch {
+      // Draft storage is best effort when browser storage is unavailable.
+    }
+  }, [college, displayName, graduationYear, isDirty, user.id]);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => window.removeEventListener("beforeunload", beforeUnload);
+  }, [isDirty]);
+
+  function discardDraft() {
+    setDisplayName(account.display_name ?? "");
+    setCollege(account.college ?? "");
+    setGraduationYear(account.graduation_year?.toString() ?? "");
+    setCollegeCountryNotice(false);
+  }
+
   function handleCountrySelect(code: string) {
+    if (code !== storedCountryCode && college.trim()) setCollegeCountryNotice(true);
     storeCountryCode(code);
     setCollegeEntryMode("list");
   }
@@ -151,7 +204,7 @@ export default function ProfileSection({
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground">
-                  Complete your profile{" "}
+                  Finish your academic basics{" "}
                   <span className="tnum text-muted-foreground">
                     ({completedFields} of {PROFILE_COMPLETENESS_TOTAL})
                   </span>
@@ -174,11 +227,11 @@ export default function ProfileSection({
             <div
               className="mt-3 h-1.5 overflow-hidden rounded-full bg-border/70"
               role="progressbar"
-              aria-label="Profile completeness"
+              aria-label="Academic basics"
               aria-valuemin={0}
               aria-valuemax={PROFILE_COMPLETENESS_TOTAL}
               aria-valuenow={completedFields}
-              aria-valuetext={`${completedFields} of ${PROFILE_COMPLETENESS_TOTAL} profile details complete`}
+              aria-valuetext={`${completedFields} of ${PROFILE_COMPLETENESS_TOTAL} academic details complete`}
             >
               <div
                 className="h-full rounded-full bg-muted-foreground/45"
@@ -326,6 +379,16 @@ export default function ProfileSection({
                       Change
                     </Button>
                   </CountryPicker>
+                  <p className="basis-full">Your country is saved on this device only.</p>
+                </div>
+              )}
+              {collegeCountryNotice && selectedCountry && (
+                <div role="status" className="text-xs text-muted-foreground">
+                  <p>{college} is still selected. Keep it, or choose a college in {selectedCountry.name}.</p>
+                  <div className="mt-1 flex gap-2">
+                    <Button type="button" variant="link" size="xs" onClick={() => setCollegeCountryNotice(false)}>Keep it</Button>
+                    <Button type="button" variant="link" size="xs" onClick={() => { setCollege(""); setCollegeCountryNotice(false); }}>Choose a new college</Button>
+                  </div>
                 </div>
               )}
             </div>
@@ -409,13 +472,41 @@ export default function ProfileSection({
             )}
           </section>
 
-          <div className="flex justify-end border-t border-border pt-6">
+          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border pt-6">
+            {isDirty && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>You have unsaved changes.</span>
+                <Button type="button" variant="link" size="xs" disabled={submitting} onClick={discardDraft}>Discard</Button>
+              </div>
+            )}
             <Button type="submit" disabled={submitting || !isDirty}>
               {submitting && <Loader2 className="animate-spin" aria-hidden="true" />}
               {submitting ? "Saving…" : "Save changes"}
             </Button>
           </div>
         </form>
+
+        <section aria-labelledby="profile-checklist" className="grid gap-3">
+          <h3 id="profile-checklist" className="text-sm font-medium">Improve your recommendations</h3>
+          <ul className="grid gap-3 text-sm">
+            {checklist.map((item) => (
+              <li key={item.key} className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="flex items-center gap-2 font-medium">
+                    {item.done && <Check className="size-4 text-primary" aria-label="Done" />}
+                    {item.label}{item.optional && <span className="text-xs text-muted-foreground">Optional</span>}
+                  </p>
+                  {!item.done && <p className="mt-1 text-xs text-muted-foreground">{item.reason}</p>}
+                </div>
+                {!item.done && (item.key === "field" ? (
+                  <Button type="button" variant="outline" size="xs" onClick={requestOnboarding}>Add interests</Button>
+                ) : (
+                  <Button asChild variant="outline" size="xs"><Link href="/resume">{item.key === "skills" ? "Add skills" : "Add resume"}</Link></Button>
+                ))}
+              </li>
+            ))}
+          </ul>
+        </section>
 
         <Separator />
 

@@ -1,10 +1,10 @@
 """Authenticated account profile, plan state, and subscription management."""
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 
 import razorpay
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -14,6 +14,8 @@ from api.payments import _razorpay_client
 from api.schemas import AccountMe, AccountUpdate, PlanState
 from core import models
 from core.gating import active_subscription_filters, get_features
+from core.ratelimit import check_rate_limit
+from core.redis_client import get_redis
 
 router = APIRouter()
 
@@ -115,6 +117,110 @@ def get_account_me(
     user: models.User = Depends(get_current_user),
 ) -> AccountMe:
     return _build_account_me(db, user)
+
+
+async def enforce_account_export_limit(
+    user: models.User = Depends(get_current_user),
+) -> models.User:
+    result = await check_rate_limit(
+        get_redis(),
+        bucket="account_export",
+        identifier=str(user.id),
+        max_requests=5,
+        window_seconds=60,
+    )
+    if not result.allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many requests",
+            headers={"Retry-After": str(result.retry_after_seconds)},
+        )
+    return user
+
+
+@router.get("/account/export")
+def export_account(
+    response: Response,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(enforce_account_export_limit),
+) -> dict:
+    response.headers["Cache-Control"] = "no-store"
+    tracked = db.execute(
+        select(models.Bookmark, models.Opportunity, models.Company.name)
+        .select_from(models.Bookmark)
+        .join(models.Opportunity, models.Opportunity.id == models.Bookmark.opportunity_id)
+        .outerjoin(models.Company, models.Company.id == models.Opportunity.company_id)
+        .where(models.Bookmark.user_id == user.id)
+        .order_by(models.Bookmark.created_at, models.Bookmark.opportunity_id)
+    ).all()
+    searches = db.scalars(
+        select(models.SavedSearch)
+        .where(models.SavedSearch.user_id == user.id)
+        .order_by(models.SavedSearch.created_at, models.SavedSearch.id)
+    ).all()
+    followed = db.scalars(
+        select(models.Company)
+        .join(models.DreamCompany, models.DreamCompany.company_id == models.Company.id)
+        .where(models.DreamCompany.user_id == user.id)
+        .order_by(models.Company.slug)
+    ).all()
+    subscription = db.execute(
+        select(models.Subscription, models.Plan.key)
+        .join(models.Plan, models.Plan.id == models.Subscription.plan_id)
+        .where(models.Subscription.user_id == user.id)
+        .order_by(models.Subscription.created_at.desc(), models.Subscription.id.desc())
+        .limit(1)
+    ).first()
+    resume = user.resume if isinstance(user.resume, dict) else None
+    return {
+        "exported_at": datetime.now(UTC),
+        "account": {
+            key: getattr(user, key)
+            for key in (
+                "email",
+                "display_name",
+                "college",
+                "graduation_year",
+                "field_profile",
+                "skills",
+                "exposure",
+                "notification_prefs",
+                "created_at",
+            )
+        },
+        "resume": (
+            {key: resume.get(key) for key in ("filename", "uploaded_at", "ats")}
+            if resume is not None
+            else None
+        ),
+        "tracked_opportunities": [
+            {
+                "slug": opportunity.slug,
+                "title": opportunity.title,
+                "company": company_name,
+                "status": bookmark.status,
+                "saved_at": bookmark.created_at,
+            }
+            for bookmark, opportunity, company_name in tracked
+        ],
+        "saved_searches": [
+            {
+                "name": search.name,
+                "params": search.params,
+                "alerts_enabled": search.alerts_enabled,
+                "created_at": search.created_at,
+            }
+            for search in searches
+        ],
+        "followed_companies": [
+            {"name": company.name, "slug": company.slug} for company in followed
+        ],
+        "subscription": {
+            "plan_key": subscription[1] if subscription else "free",
+            "status": subscription[0].status if subscription else "free",
+            "current_period_end": subscription[0].current_period_end if subscription else None,
+        },
+    }
 
 
 @router.patch("/account/me", response_model=AccountMe)
