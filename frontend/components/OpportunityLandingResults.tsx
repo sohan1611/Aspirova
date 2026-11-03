@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import FeedCountryPreference from "@/components/FeedCountryPreference";
 import FeedGrid from "@/components/FeedGrid";
 import { FeedNavigationProvider } from "@/components/FeedNavigation";
 import {
@@ -11,6 +12,7 @@ import {
 } from "@/components/OpportunityListingFilters";
 import { Button } from "@/components/ui/button";
 import type { FeedParams } from "@/lib/api";
+import { useFeedCountry, usePreferredCountry } from "@/lib/feedPreference";
 import type { FeedResultData } from "@/lib/feedQuery";
 import { useListingResults } from "@/lib/listingResults";
 import {
@@ -49,7 +51,18 @@ export default function OpportunityLandingResults({
     limit,
   });
   const { data: facetsData, facetsStatus } = useOpportunityListingFacets(baseQuery);
-  const queryKey = query.toString();
+  const countryCode = useFeedCountry();
+  const preferredCountry = usePreferredCountry();
+  const preferenceApplies =
+    ["/jobs", "/internships", "/remote"].includes(basePath) &&
+    !request.q &&
+    !request.filters.scope &&
+    !request.filters.country &&
+    !query.has("scope") &&
+    !query.has("country") &&
+    request.sort !== "deadline";
+  const preference = preferenceApplies ? preferredCountry : null;
+  const queryKey = JSON.stringify([query.toString(), request.page, preference]);
 
   // Results are held outside React, keyed by the query string - see
   // lib/listingResults.ts for why component state could not hold them on these
@@ -57,10 +70,11 @@ export default function OpportunityLandingResults({
   const settled = useListingResults(
     basePath,
     queryKey,
-    !request.canReusePrerendered,
-    () => loadOpportunityListingData(request),
+    !request.canReusePrerendered || preference !== null,
+    () => loadOpportunityListingData({ ...request, prefer_country: preference ?? undefined }),
   );
 
+  // A preference-only fetch keeps the prerendered list visible while it settles.
   const isLoading = !request.canReusePrerendered && !settled;
   // On a failed fetch (`settled.data === null`) keep the prerendered listings
   // rather than blanking the grid; the empty state would otherwise claim nothing
@@ -75,6 +89,9 @@ export default function OpportunityLandingResults({
           <p className="eyebrow">Open opportunities</p>
           <p className="tnum text-sm text-muted-foreground">
             {opportunityCountLabel(data.total)}
+            {preferenceApplies && (
+              <FeedCountryPreference countryCode={countryCode} preferredCountry={preference} />
+            )}
           </p>
         </div>
 

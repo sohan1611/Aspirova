@@ -789,3 +789,13 @@ RESULT (source expansion, live): SmartRecruiters seeded to production and the Ti
 - Task: first batch of the site audit. Pricing lists only what runs, no first-visit pop-up, browse-first navigation, honest listing counts, readable card locations, About and FAQ pages.
 - Codex: all six parts, including a shared planFeatures list, onboarding helpers moved to lib/onboarding.ts, open_opportunity_filters and open_total, summarizeLocation, and new tests.
 - Review: two correction rounds (one exact-dict test; the prompt pushed visible content, and the old total could be labelled "open" before the backend deployed). Two copy leftovers fixed directly. Verified: ruff, black, full backend suite, eslint, tsc, build, ISR check; real DOM at desktop and 375 px, signed out and with a fake session; raw job HTML keeps the text, JobPosting and outbound link.
+
+## 2026-11-03 — Work order (Claude → Codex, gpt-6.1-sol high): Batch 2, repair Unstop and India first
+- Task: Unstop read only page 1 of each type and retired what fell off it, nothing reopened those rows, and every role was labelled "Online". Fix paging, block retirement on incomplete coverage, reopen seen rows, take real location and pay from jobDetail, add a backfill, more country aliases, and an India-first feed order.
+- Codex: all eight parts, with new tests. Reported that the existing backfill_country.py only fills blanks, and that Himalayas declares totalCount but is not a full-inventory source.
+- Review: no correction round. Two direct edits: location summary also splits on semicolons, and the home count says "open jobs and internships" because it counts roles only. Verified: real Unstop crawl into a throwaway database (2,018 found against production's 993), backfill dry run, apply and idempotent re-run on old-style rows, full suite on a clean database, real DOM for India-first, opt-out, saved country and explicit filters.
+
+## 2026-11-03 — Work order (Claude → Codex, gpt-6.1-sol high): make the privacy page true
+- Task: founder approved correcting the policy. It claimed resumes are not stored, that interests never reach servers, and named Supabase as database host. Add a Remove resume button so the new promise is real.
+- Codex: applied the copy exactly, added a privacy-only date, the Remove button with confirmation, and an account test.
+- Review: no corrections. Verified: lint, tsc, build, full suite, every new sentence present and every false one gone in the built page. The Remove button needs a real signed-in test by the founder.

@@ -6,7 +6,7 @@ export function summarizeLocation(
   if (!full) return { short: null, hiddenCount: 0, full: null };
   if (full.length <= maxChars) return { short: full, hiddenCount: 0, full };
 
-  const segments = full.split(",").map((segment) => segment.trim()).filter(Boolean);
+  const segments = full.split(/[,;]/).map((segment) => segment.trim()).filter(Boolean);
   const first = segments[0] ?? full;
   if (first.length > maxChars) {
     return {
@@ -29,5 +29,5 @@ export function summarizeLocation(
 }
 
 export function isSinglePlace(raw: string | null | undefined): boolean {
-  return (raw?.split(",").length ?? 0) <= 3;
+  return (raw?.split(/[,;]/).length ?? 0) <= 3;
 }

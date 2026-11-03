@@ -1,10 +1,13 @@
 from typing import Any
 
+from fastapi.routing import APIRoute
 from sqlalchemy import select
 from sqlalchemy.dialects import postgresql
 
-from api.feed import get_feed
+from api.feed import get_feed, router
+from api.middleware import _declared_query_param_names
 from core import models
+from core.cache import build_cache_key
 
 
 class _CaptureResult:
@@ -44,6 +47,7 @@ def test_feed_list_query_does_not_select_heavy_opportunity_columns() -> None:
         scope=None,
         country=None,
         remote_abroad=False,
+        prefer_country=None,
         source=None,
         experience=None,
         # Called as a plain function, not through FastAPI, so an omitted
@@ -86,3 +90,15 @@ def test_full_opportunity_entity_select_defers_search_tsv_only() -> None:
     assert "search_tsv" not in compiled
     assert "description_raw" in compiled
     assert "opportunities.embedding" in compiled
+
+
+def test_preferred_country_is_part_of_feed_response_cache_key() -> None:
+    route = next(
+        route for route in router.routes if isinstance(route, APIRoute) and route.path == "/feed"
+    )
+    declared = _declared_query_param_names(route)
+    assert declared is not None and "prefer_country" in declared
+    global_key = build_cache_key("/feed", [], declared)
+    india_key = build_cache_key("/feed", [("prefer_country", "IN")], declared)
+    us_key = build_cache_key("/feed", [("prefer_country", "US")], declared)
+    assert len({global_key, india_key, us_key}) == 3

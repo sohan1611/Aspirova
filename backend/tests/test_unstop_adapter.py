@@ -744,7 +744,8 @@ def test_parse_maps_internship_deadline_organizer_and_meta(
 
     assert normalized.category == "internship"
     assert normalized.company_name == opportunity["organisation"]["name"]
-    assert normalized.location == "Online"
+    assert normalized.location is None
+    assert normalized.country == "IN"
     assert normalized.deadline == datetime.fromisoformat(opportunity["end_date"])
     assert normalized.deadline_confidence == "explicit"
     assert normalized.meta == {
@@ -1060,3 +1061,157 @@ def test_title_says_internship_ignores_lookalikes(title: str) -> None:
 def test_title_says_internship_handles_missing_titles() -> None:
     for value in (None, "", "   "):
         assert unstop._title_says_internship(value) is False
+
+
+@pytest.mark.parametrize("second_page_size", [282, 200, 0])
+def test_short_page_with_declared_total_still_fetches_page_two(
+    adapter: UnstopAdapter,
+    fixture_payload: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    second_page_size: int,
+) -> None:
+    calls: list[tuple[str, int]] = []
+
+    def fake_get(url: str, *, params: dict) -> httpx.Response:
+        kind, page = params["opportunity"], params["page"]
+        calls.append((kind, page))
+        if kind == "internships":
+            count = 293 if page == 1 else second_page_size
+            items = [
+                _open_fixture_item(fixture_payload, kind, f"{page}-{index}")
+                for index in range(count)
+            ]
+            payload = _payload_for(items, total=592)
+        else:
+            payload = _payload_for([], total=0)
+        return httpx.Response(200, json=payload, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(adapter._client, "get", fake_get)
+    adapter.fetch()
+
+    assert calls[:2] == [("internships", 1), ("internships", 2)]
+    assert ("internships", 3) not in calls
+    coverage = adapter.coverage()
+    if second_page_size == 282:
+        assert coverage["status"] == "complete"
+        assert adapter.health() == "ok"
+    else:
+        assert coverage["status"] == "partial"
+        assert coverage["details"]["incomplete_type_reasons"] == {
+            "internships": "short_of_declared_total"
+        }
+
+
+@pytest.mark.parametrize(
+    ("detail", "locations", "expected_location", "expected_remote"),
+    [
+        (
+            {"type": "in_office", "locations": ["Bangalore", "Hyderabad", "Bangalore"]},
+            [],
+            "Bangalore; Hyderabad",
+            False,
+        ),
+        (
+            {"type": "hybrid", "locations": []},
+            [{"city": "Mohali", "state": "Punjab", "country": "India"}] * 2,
+            "Mohali, Punjab",
+            False,
+        ),
+        ({"type": "wfh", "locations": []}, [], "Work from home", True),
+        ({"type": "in_office", "locations": []}, [], None, False),
+        ({"type": "on_field", "locations": ["Delhi"]}, [], "Delhi", False),
+    ],
+)
+@pytest.mark.parametrize("search_type", ["internships", "jobs"])
+def test_role_location_and_remote_use_job_detail(
+    adapter: UnstopAdapter,
+    fixture_payload: dict,
+    detail: dict,
+    locations: list,
+    expected_location: str | None,
+    expected_remote: bool,
+    search_type: str,
+) -> None:
+    payload = {
+        **_fixture_items(fixture_payload)[0],
+        "_aspirova_opportunity": search_type,
+        "jobDetail": {**detail, "timing": "full_time"},
+        "locations": locations,
+    }
+    normalized = adapter.parse(_raw_listing_for(payload))
+    assert normalized.location == expected_location
+    assert normalized.country == "IN"
+    assert normalized.is_remote is expected_remote
+    assert normalized.meta["work_mode"] == detail["type"]
+    assert normalized.meta["timing"] == "full_time"
+
+
+def test_role_country_does_not_override_explicit_foreign_country() -> None:
+    fields = unstop.unstop_role_fields(
+        {
+            "jobDetail": {"type": "in_office", "locations": ["Berlin"]},
+            "locations": [{"city": "Berlin", "country": "Germany"}],
+        }
+    )
+    assert fields["country"] is None
+    assert derive_country(fields["location"]) == "DE"
+
+
+def test_role_without_job_detail_keeps_region_remote_behavior() -> None:
+    assert unstop.unstop_role_fields({"region": "online"})["is_remote"] is True
+    assert unstop.unstop_role_fields({"region": "offline"})["is_remote"] is False
+
+
+@pytest.mark.parametrize(
+    ("overrides", "expected"),
+    [
+        ({}, {"min": 5000, "max": 15000, "currency": "INR", "period": "month", "source": "unstop"}),
+        ({"paid_unpaid": "unpaid"}, {"unpaid": True, "source": "unstop"}),
+        ({"show_salary": 0}, None),
+        ({"not_disclosed": True}, None),
+        ({"currency": "USD"}, None),
+        ({"pay_in": "weekly"}, None),
+        ({"max_salary": 0}, None),
+        (
+            {"pay_in": "annually", "min_salary": 0},
+            {"min": 15000, "max": 15000, "currency": "INR", "period": "year", "source": "unstop"},
+        ),
+    ],
+)
+def test_role_compensation_uses_only_disclosed_rupee_pay(
+    overrides: dict,
+    expected: dict | None,
+) -> None:
+    detail = {
+        "type": "in_office",
+        "timing": "full_time",
+        "paid_unpaid": "paid",
+        "pay_in": "monthly",
+        "currency": "fa-rupee",
+        "min_salary": 5000,
+        "max_salary": 15000,
+        "show_salary": 1,
+        "not_disclosed": False,
+        "locations": ["Bangalore", "Hyderabad"],
+        **overrides,
+    }
+    meta = unstop.unstop_role_fields({"jobDetail": detail})["meta"]
+    assert meta.get("compensation") == expected
+    assert ("compensation" in meta) is (expected is not None)
+
+
+def test_competition_keeps_online_behavior_even_with_job_detail(
+    adapter: UnstopAdapter,
+    fixture_payload: dict,
+) -> None:
+    payload = {
+        **_fixture_items(fixture_payload)[0],
+        "_aspirova_opportunity": "competitions",
+        "jobDetail": {"type": "in_office", "locations": ["Delhi"], "paid_unpaid": "unpaid"},
+    }
+    normalized = adapter.parse(_raw_listing_for(payload))
+    assert normalized.location == "Online"
+    assert normalized.is_remote is True
+    assert normalized.country is None
+    assert "work_mode" not in normalized.meta
+    assert "compensation" not in normalized.meta

@@ -19,6 +19,9 @@ from core.models import Company, Source
 # (board_token, company_name, domain) - verified live against
 # https://boards-api.greenhouse.io/v1/boards/{token}/jobs?content=true
 GREENHOUSE_COMPANIES = [
+    ("zetaglobal", "Zeta Global", "zetaglobal.com"),
+    ("rubrik", "Rubrik", "rubrik.com"),
+    ("glance", "Glance", "glance.com"),
     ("stripe", "Stripe", "stripe.com"),
     ("airbnb", "Airbnb", "airbnb.com"),
     ("discord", "Discord", "discord.com"),
@@ -182,6 +185,8 @@ LEVER_COMPANIES = [
 
 # (board_token, company_name, domain) - verified live against
 # https://api.ashbyhq.com/posting-api/job-board/{token}
+# Tekion (board "tekion") is attached by a targeted update to the existing
+# tekion-b2390264 row; seeding the token here would create a duplicate.
 ASHBY_COMPANIES = [
     ("linear", "Linear", "linear.app"),
     ("notion", "Notion", "notion.so"),

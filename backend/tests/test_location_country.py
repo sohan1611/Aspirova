@@ -48,3 +48,77 @@ from pipeline.location_country import derive_country
 )
 def test_derive_country(location: str | None, expected: str | None) -> None:
     assert derive_country(location) == expected
+
+
+@pytest.mark.parametrize(
+    ("location", "expected"),
+    [
+        ("SF Office", "US"),
+        ("NYC", "US"),
+        ("NYC-Privy", "US"),
+        ("SGP", "SG"),
+        ("Luxembourg", "LU"),
+        ("Düsseldorf", "DE"),
+        ("Mannheim", "DE"),
+        ("Bonn", "DE"),
+        ("Heidelberg", "DE"),
+        ("Leipzig", "DE"),
+        ("Aachen", "DE"),
+        ("Belgrade", "RS"),
+        ("Lebanon", "LB"),
+        ("Macao", "MO"),
+        ("Bordeaux", "FR"),
+        ("Delft", "NL"),
+        ("Yerevan", "AM"),
+        ("Montevideo", "UY"),
+        ("Kazakhstan", "KZ"),
+        ("Korea", "KR"),
+        ("Reykjavík", "IS"),
+        ("Schlieren", "CH"),
+        ("Ramat Gan", "IL"),
+        ("Bratislava", "SK"),
+        ("Zaragoza", "ES"),
+        ("Ajmer", "IN"),
+        ("Anupgarh", "IN"),
+        ("Luxembourg, LUX", "LU"),
+        ("Bratislava, Bratislavský kraj, SVK", "SK"),
+        ("Zaragoza, Aragon, ESP", "ES"),
+        ("Cividate al Piano, Lombardy, ITA", "IT"),
+        ("Unknown town, LUX", "LU"),
+        ("Unknown town, lux", "LU"),
+        ("Luxford", None),
+        ("Example LUX Office", None),
+    ],
+)
+def test_additional_country_aliases_and_trailing_alpha3(
+    location: str,
+    expected: str | None,
+) -> None:
+    assert derive_country(location) == expected
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        "Online",
+        "Hybrid",
+        "Remote",
+        "Distributed",
+        "In-Office",
+        "N/A",
+        "Anywhere",
+        "Global",
+        "EMEA",
+        "Europe",
+        "APAC",
+        "Americas",
+        "LOCATION",
+        "Remote, AMER",
+        "Content,",
+        "Time,",
+        "Nassau,",
+        "Beverly,",
+    ],
+)
+def test_ambiguous_and_modality_locations_remain_unknown(location: str) -> None:
+    assert derive_country(location) is None

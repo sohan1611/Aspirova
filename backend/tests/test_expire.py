@@ -83,6 +83,7 @@ def _seed_aggregator_evidence(
     adapter_key: str,
     last_crawled_at: datetime | None,
     crawl_runs: list[tuple[datetime, int | None]],
+    coverage: dict | None = None,
 ) -> None:
     # Tests run transactionally against a real database that may already contain
     # production sources for allowlisted adapter keys. Insert the newest evidence
@@ -119,6 +120,7 @@ def _seed_aggregator_evidence(
                     status="success",
                     listings_found=listings_found,
                     errors=0,
+                    log={"coverage": coverage} if coverage is not None else None,
                 )
             )
     db_session.flush()
@@ -513,3 +515,38 @@ def test_expire_missing_opportunities_marks_past_deadline_rows_closed(
         original_closed_at,
     )
     assert _status_and_closed_at_for_slug(db_session, inactive.slug) == ("closed", None)
+
+
+@pytest.mark.parametrize(
+    "coverage",
+    [{"status": "partial"}, {"status": "unknown"}, {}, {"status": "complete"}],
+)
+def test_absence_retirement_requires_recorded_coverage_to_be_complete(
+    db_session: Session,
+    coverage: dict,
+) -> None:
+    now = datetime.now(timezone.utc)
+    suffix = uuid.uuid4().hex
+    opportunity = _seed_aggregator_opportunity(
+        db_session,
+        suffix,
+        "stored-coverage",
+        primary_source="unstop",
+        last_seen_at=now - timedelta(hours=12),
+    )
+    slug = opportunity.slug
+    _seed_aggregator_evidence(
+        db_session,
+        suffix,
+        "stored-coverage",
+        adapter_key="unstop",
+        last_crawled_at=now - timedelta(hours=1),
+        crawl_runs=[
+            (now - timedelta(hours=1), _good_coverage_for_primary_source(db_session, "unstop"))
+        ],
+        coverage=coverage,
+    )
+    expire_missing_opportunities(db_session)
+    status, closed_at = _status_and_closed_at_for_slug(db_session, slug)
+    assert status == "active"
+    assert (closed_at is not None) is (coverage.get("status") == "complete")

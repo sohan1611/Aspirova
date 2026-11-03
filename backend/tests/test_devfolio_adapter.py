@@ -312,3 +312,28 @@ def test_location_does_not_repeat_city_state_country_from_the_venue_address() ->
     assert location.lower().count("kerala") == 1
     assert location.lower().count("india") == 1
     assert "Road" not in location
+
+
+@pytest.mark.parametrize("pagination", [{"pages": 2}, {"count": 60}, {"pages": 2, "count": 60}])
+def test_short_page_respects_declared_pagination(
+    adapter: DevfolioAdapter,
+    fixture_payload: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    pagination: dict,
+) -> None:
+    calls: list[tuple[str, int]] = []
+
+    def fake_get(url: str, *, params: dict) -> httpx.Response:
+        kind, page = params["filter"], params["page"]
+        calls.append((kind, page))
+        payload = (
+            {"result": fixture_payload["result"], **pagination}
+            if kind == "application_open"
+            else _payload_for([], count=0)
+        )
+        return httpx.Response(200, json=payload, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(adapter._client, "get", fake_get)
+    monkeypatch.setattr(devfolio, "sleep", lambda _seconds: None)
+    adapter.fetch()
+    assert calls == [("application_open", 1), ("application_open", 2), ("upcoming", 1)]

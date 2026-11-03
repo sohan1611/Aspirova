@@ -54,7 +54,7 @@ function DefaultFeed({
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3 pt-10">
           <p className="text-sm text-muted-foreground">
             {typeof data.open_total === "number"
-              ? `${data.open_total.toLocaleString("en-IN")} open opportunities`
+              ? `${data.open_total.toLocaleString("en-IN")} open jobs and internships`
               : `${data.total.toLocaleString("en-IN")} opportunities`}
           </p>
         </div>

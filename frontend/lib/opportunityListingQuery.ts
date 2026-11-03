@@ -20,6 +20,7 @@ export interface OpportunityListingRequest {
   limit: number;
   sort: OpportunityListingSort;
   filters: FeedParams;
+  prefer_country?: string;
   canReusePrerendered: boolean;
   usesServerPagination: boolean;
 }
@@ -267,6 +268,7 @@ export function loadOpportunityListingData(
   return getFeed(
     {
       ...request.filters,
+      prefer_country: request.prefer_country ?? request.filters.prefer_country,
       sort: request.sort,
       page: request.page,
       limit: request.limit,

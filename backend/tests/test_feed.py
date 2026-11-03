@@ -193,3 +193,74 @@ def test_feed_total_includes_closed_rows_but_open_total_does_not(
     assert empty.json()["items"] == []
     assert empty.json()["total"] == 0
     assert empty.json()["open_total"] == 0
+
+
+@pytest.mark.parametrize("sort", ["student", "recent", "deadline"])
+def test_prefer_country_reorders_without_filtering_or_promoting_closed_rows(
+    client: TestClient,
+    db_session: Session,
+    sort: str,
+) -> None:
+    suffix = uuid.uuid4().hex
+    location = f"CountryPreference-{suffix}"
+    now = datetime.now(UTC)
+    rows = {}
+    for index, (name, country, remote, closed) in enumerate(
+        [
+            ("foreign-remote", "US", True, False),
+            ("foreign-office", "US", False, False),
+            ("global-null", None, True, False),
+            ("global-blank", "", True, False),
+            ("local", "IN", False, False),
+            ("closed-local", "IN", False, True),
+        ]
+    ):
+        row = models.Opportunity(
+            slug=f"preferred-{name}-{suffix}",
+            title="Software Engineer",
+            category="job",
+            location=location,
+            country=country,
+            is_remote=remote,
+            apply_url=f"https://example.com/preferred/{name}/{suffix}",
+            primary_source="greenhouse",
+            status="active",
+            first_seen_at=now,
+            last_seen_at=now - timedelta(minutes=index),
+            deadline=now + timedelta(days=index + 1),
+            closed_at=now - timedelta(days=1) if closed else None,
+        )
+        db_session.add(row)
+        rows[name] = row
+    db_session.flush()
+    params = {"location": location, "sort": sort, "limit": 20, "kind": "roles"}
+    global_response = client.get("/feed", params=params)
+    preferred_response = client.get("/feed", params={**params, "prefer_country": "in"})
+    assert global_response.status_code == preferred_response.status_code == 200
+    global_body, preferred_body = global_response.json(), preferred_response.json()
+    assert global_body["total"] == preferred_body["total"] == 6
+    assert global_body["open_total"] == preferred_body["open_total"] == 5
+    global_slugs = [item["slug"] for item in global_body["items"]]
+    preferred_slugs = [item["slug"] for item in preferred_body["items"]]
+    assert set(global_slugs) == set(preferred_slugs)
+    assert preferred_slugs[-1] == rows["closed-local"].slug
+    if sort == "deadline":
+        assert preferred_slugs == global_slugs
+    else:
+        assert preferred_slugs != global_slugs
+        assert preferred_slugs == [
+            rows[name].slug
+            for name in [
+                "local",
+                "global-null",
+                "global-blank",
+                "foreign-remote",
+                "foreign-office",
+                "closed-local",
+            ]
+        ]
+
+
+@pytest.mark.parametrize("country", ["IND", "I", "1N", "", "India"])
+def test_prefer_country_rejects_invalid_values(client: TestClient, country: str) -> None:
+    assert client.get("/feed", params={"prefer_country": country}).status_code == 422

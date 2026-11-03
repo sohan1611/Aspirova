@@ -9,7 +9,7 @@ truncated crawls fail safe: weak source evidence closes nothing rather than
 mass-retiring the catalogue.
 """
 
-from sqlalchemy import func, select, text, update
+from sqlalchemy import func, or_, select, text, update
 from sqlalchemy.orm import Session
 
 from core import models
@@ -77,6 +77,8 @@ def expire_missing_opportunities(session: Session) -> int:
             models.CrawlRun.source_id.label("source_id"),
             models.CrawlRun.started_at.label("started_at"),
             models.CrawlRun.listings_found.label("listings_found"),
+            models.CrawlRun.log["coverage"]["status"].astext.label("coverage_status"),
+            models.CrawlRun.log["coverage"].astext.label("coverage"),
             func.row_number()
             .over(
                 partition_by=models.CrawlRun.source_id,
@@ -123,6 +125,11 @@ def expire_missing_opportunities(session: Session) -> int:
             latest_crawl_run.c.run_rank == 1,
             latest_crawl_run.c.started_at > func.now() - text("interval '2 days'"),
             latest_crawl_run.c.listings_found.is_not(None),
+            # Recorded incomplete coverage cannot prove source-wide absence.
+            or_(
+                latest_crawl_run.c.coverage.is_(None),
+                latest_crawl_run.c.coverage_status == "complete",
+            ),
             currently_open_by_source.c.primary_source == models.Opportunity.primary_source,
             latest_crawl_run.c.listings_found
             >= currently_open_by_source.c.currently_open * RETIRE_MIN_COVERAGE,
