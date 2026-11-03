@@ -26,6 +26,7 @@ from api.filters import (
     experience_filters,
     location_scope_filters,
     opportunity_filters,
+    role_signal_filters,
 )
 from api.opportunity_loading import opportunity_list_load_options
 from api.schemas import OpportunityListItem, SearchResponse
@@ -63,6 +64,16 @@ def search_opportunities(
     remote_abroad: bool = Query(False),
     source: str | None = Query(None, pattern="^(direct|unstop|remoteok|devpost)$"),
     experience: str | None = Query(None, pattern="^(early)$"),
+    paid: bool | None = Query(None),
+    min_stipend: int | None = Query(None, ge=0),
+    part_time: bool | None = Query(None),
+    max_duration: int | None = Query(None, ge=1, le=24),
+    job_offer: bool | None = Query(None),
+    posted_within: int | None = Query(None),
+    role: str | None = Query(
+        None,
+        pattern="^(software|data|design|marketing|finance|hr|sales|product|operations|content)$",
+    ),
     top: int | None = Query(None, gt=0),
     # Search stays relevance-ranked, but accepts the feed control's sort values.
     sort: str = Query("student", pattern="^(recent|deadline|student)$"),
@@ -79,6 +90,9 @@ def search_opportunities(
         exclude_closed_competitions(),
         *extra_filters,
         *experience_filters(experience),
+        *role_signal_filters(
+            paid, min_stipend, part_time, max_duration, job_offer, posted_within, role
+        ),
         *location_scope_filters(scope, country, remote_abroad),
     ]
     if kind == "competitions":

@@ -799,3 +799,8 @@ RESULT (source expansion, live): SmartRecruiters seeded to production and the Ti
 - Task: founder approved correcting the policy. It claimed resumes are not stored, that interests never reach servers, and named Supabase as database host. Add a Remove resume button so the new promise is real.
 - Codex: applied the copy exactly, added a privacy-only date, the Remove button with confirmation, and an account test.
 - Review: no corrections. Verified: lint, tsc, build, full suite, every new sentence present and every false one gone in the built page. The Remove button needs a real signed-in test by the founder.
+
+## 2026-11-03 — Work order (Claude → Codex, gpt-6.1-sol high): Batch 3, pay, filters, lighter pages
+- Task: show pay, add the filters comparable sites offer (paid, minimum stipend, duration, part-time, job offer, posted within, role chips), and stop listing pages making 10 requests on load. Deterministic only, spec built from real production text.
+- Codex: role_signals parser, ingest wiring, backfill, API filters, pay formatting, filter UI, lazy facets, tests.
+- Review: one correction round from reading real results by hand ("Unpaid initially" read as Paid, "between X and Y" losing its top, "CAD $" read as USD, incentive chosen over fixed pay, "up to" programme total shown as monthly). Direct edits: "Paid/Unpaid internship?" and "unpaid leave" no longer read as unpaid, and role chips check exact title words, because stemming matched "Business Development" as developer and company names shared the title's weight. Verified: full suite, 45 of 45 fresh amounts correct, backfill dry run, apply and re-run on real rows, real DOM at desktop and 375 px.

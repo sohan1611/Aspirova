@@ -3,6 +3,8 @@
 import { ArrowUpDown, Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import RoleSignalFilters from "@/components/RoleSignalFilters";
+import { ROLE_FILTER_KEYS, ROLE_OPTIONS, roleFilterLabel } from "@/lib/roleSignalQuery";
 import ListingSearchInput from "@/components/ListingSearchInput";
 import {
   activeSingleValue,
@@ -61,8 +63,6 @@ export interface OpportunityListingFacetsState {
   data: OpportunityListingFacetsData | null;
   facetsStatus: OpportunityListingFacetsStatus;
 }
-
-type AdvancedFilterKey = "company" | "source" | "experience";
 
 const SOURCE_FILTER_OPTIONS = [
   { value: "direct", label: "Direct" },
@@ -126,6 +126,7 @@ function loadOpportunityListingFacetsOnce(
 
 export function useOpportunityListingFacets(
   baseQuery: FeedParams,
+  enabled = false,
 ): OpportunityListingFacetsState {
   const key = cacheKeyFor(baseQuery);
   const cached = listingFacetsCache.get(key) ?? null;
@@ -134,7 +135,7 @@ export function useOpportunityListingFacets(
     useState<OpportunityListingFacetsStatus>(cached ? "loaded" : "loading");
 
   useEffect(() => {
-    if (listingFacetsCache.has(key)) return;
+    if (!enabled || listingFacetsCache.has(key)) return;
 
     let cancelled = false;
     void loadOpportunityListingFacetsOnce(baseQuery)
@@ -165,9 +166,9 @@ export function useOpportunityListingFacets(
     return () => {
       cancelled = true;
     };
-  }, [baseQuery, key]);
+  }, [baseQuery, key, enabled]);
 
-  return { data, facetsStatus };
+  return { data: cached ?? data, facetsStatus: cached ? "loaded" : facetsStatus };
 }
 
 function getSort(
@@ -206,7 +207,8 @@ export function getOpportunityListingAdvancedFilterCount(
   return (
     activeValues(searchParams, "company").length +
     (activeSingleValue(searchParams, "source") ? 1 : 0) +
-    (activeSingleValue(searchParams, "experience") ? 1 : 0)
+    (activeSingleValue(searchParams, "experience") ? 1 : 0) +
+    ROLE_FILTER_KEYS.filter((key) => activeSingleValue(searchParams, key)).length
   );
 }
 
@@ -244,7 +246,7 @@ function OpportunityListingAdvancedPanel({
     commit(params);
   }
 
-  function setSingleParam(key: Exclude<AdvancedFilterKey, "company">, value: string | null) {
+  function setSingleParam(key: string, value: string | null) {
     const params = new URLSearchParams(searchParams.toString());
     if (value) params.set(key, value);
     else params.delete(key);
@@ -253,7 +255,7 @@ function OpportunityListingAdvancedPanel({
 
   function clearAdvancedFilters() {
     const params = new URLSearchParams(searchParams.toString());
-    for (const key of ["company", "source", "experience"] as const) {
+    for (const key of ["company", "source", "experience", ...ROLE_FILTER_KEYS] as const) {
       params.delete(key);
     }
     commit(params);
@@ -286,6 +288,16 @@ function OpportunityListingAdvancedPanel({
         <p className="text-sm text-muted-foreground" role="status">
           Counts unavailable.
         </p>
+      )}
+
+      {(basePath === "/jobs" || basePath === "/internships") && (
+        <RoleSignalFilters
+          searchParams={searchParams}
+          onChange={setSingleParam}
+          internships={basePath === "/internships"}
+          disabled={isPending}
+          idPrefix={idPrefix}
+        />
       )}
 
       <FilterPanelSection title="Company">
@@ -358,10 +370,12 @@ export function OpportunityListingAdvancedFilters({
   basePath,
   data,
   facetsStatus,
+  onRequestFacets,
 }: {
   basePath: OpportunityListingPath;
   data: OpportunityListingFacetsData | null;
   facetsStatus: OpportunityListingFacetsStatus;
+  onRequestFacets: () => void;
 }) {
   const searchParams = useSearchParams();
   const { isFeedPending: isPending } = useFeedNavigation();
@@ -375,6 +389,7 @@ export function OpportunityListingAdvancedFilters({
       panelLabel="Opportunity filters"
       mobileDescription="Counted opportunity filters"
       idPrefixBase="opportunity-filter"
+      onOpenChange={(open) => { if (open) onRequestFacets(); }}
     >
       {({ idPrefix, onClose }) => (
         <OpportunityListingAdvancedPanel
@@ -396,12 +411,14 @@ export function OpportunityListingFilterBar({
   defaultSort,
   data,
   facetsStatus,
+  onRequestFacets,
 }: {
   basePath: OpportunityListingPath;
   baseQuery: FeedParams;
   defaultSort: OpportunityListingSort;
   data: OpportunityListingFacetsData | null;
   facetsStatus: OpportunityListingFacetsStatus;
+  onRequestFacets: () => void;
 }) {
   const searchParams = useSearchParams();
   const query = new URLSearchParams(searchParams.toString());
@@ -456,6 +473,7 @@ export function OpportunityListingFilterBar({
         basePath={basePath}
         data={data}
         facetsStatus={facetsStatus}
+        onRequestFacets={onRequestFacets}
       />
 
       <div
@@ -482,13 +500,7 @@ export function OpportunityListingFilterBar({
                 className="gap-1.5 disabled:cursor-wait"
               >
                 <span>{option.label}</span>
-                {/* Counts arrive from a separate request, so `count` is 0 until
-                    they land. Rendering that 0 told the reader "India: 0" for
-                    several seconds on a page listing 22,438 jobs - a wrong number
-                    is worse than no number. Show it only once loaded. */}
-                {facetsStatus === "loaded" && (
-                  <span className="tnum text-muted-foreground">{option.count}</span>
-                )}
+
               </button>
             </Badge>
           );
@@ -538,7 +550,7 @@ export function OpportunityListingActiveFilterChips({
     navigate(opportunityListingHref(basePath, params));
   }
 
-  function removeSingleParam(key: "q" | "source" | "experience") {
+  function removeSingleParam(key: string) {
     const params = new URLSearchParams(searchParams.toString());
     params.delete(key);
     commit(params);
@@ -627,11 +639,19 @@ export function OpportunityListingActiveFilterChips({
     });
   }
 
+  for (const key of ROLE_FILTER_KEYS) {
+    const value = activeSingleValue(searchParams, key);
+    if (!value) continue;
+    const label = roleFilterLabel(key, value);
+    filters.push({ id: key, label, humanLabel: label, onRemove: () => removeSingleParam(key) });
+  }
+
   const clearableFilterCount =
     (hasLocationFilter ? 1 : 0) +
     activeValues(searchParams, "company").length +
     (source ? 1 : 0) +
-    (experience ? 1 : 0);
+    (experience ? 1 : 0) +
+    ROLE_FILTER_KEYS.filter((key) => activeSingleValue(searchParams, key)).length;
 
   return (
     <ActiveFilterChips
@@ -640,5 +660,41 @@ export function OpportunityListingActiveFilterChips({
       onClearAll={clearAllFilters}
       showClearAll={clearableFilterCount > 0}
     />
+  );
+}
+
+
+export function OpportunityListingRoleChips({ basePath }: { basePath: OpportunityListingPath }) {
+  const searchParams = useSearchParams();
+  const { navigate, isFeedPending } = useFeedNavigation();
+  if (basePath !== "/jobs" && basePath !== "/internships") return null;
+  const selected = searchParams.get("role");
+
+  function toggleRole(value: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (selected === value) params.delete("role");
+    else params.set("role", value);
+    params.delete("page");
+    navigate(opportunityListingHref(basePath, params));
+  }
+
+  return (
+    <div className="mb-5 w-full min-w-0 max-w-full overflow-x-auto pb-1" role="group" aria-label="Filter by role">
+      <div className="flex w-max gap-2">
+        {ROLE_OPTIONS.map((option) => (
+          <Badge key={option.value} asChild variant={selected === option.value ? "heritage" : "outline"}>
+            <button
+              type="button"
+              aria-pressed={selected === option.value}
+              disabled={isFeedPending}
+              onClick={() => toggleRole(option.value)}
+              className="shrink-0 whitespace-nowrap px-3 py-2"
+            >
+              {option.label}
+            </button>
+          </Badge>
+        ))}
+      </div>
+    </div>
   );
 }

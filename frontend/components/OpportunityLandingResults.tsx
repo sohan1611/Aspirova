@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import FeedCountryPreference from "@/components/FeedCountryPreference";
 import FeedGrid from "@/components/FeedGrid";
@@ -8,6 +9,7 @@ import { FeedNavigationProvider } from "@/components/FeedNavigation";
 import {
   OpportunityListingActiveFilterChips,
   OpportunityListingFilterBar,
+  OpportunityListingRoleChips,
   useOpportunityListingFacets,
 } from "@/components/OpportunityListingFilters";
 import { Button } from "@/components/ui/button";
@@ -50,7 +52,8 @@ export default function OpportunityLandingResults({
     initialPage,
     limit,
   });
-  const { data: facetsData, facetsStatus } = useOpportunityListingFacets(baseQuery);
+  const [facetsRequested, setFacetsRequested] = useState(false);
+  const { data: facetsData, facetsStatus } = useOpportunityListingFacets(baseQuery, facetsRequested);
   const countryCode = useFeedCountry();
   const preferredCountry = usePreferredCountry();
   const preferenceApplies =
@@ -101,6 +104,7 @@ export default function OpportunityLandingResults({
           defaultSort={defaultSort}
           data={facetsData}
           facetsStatus={facetsStatus}
+          onRequestFacets={() => setFacetsRequested(true)}
         />
       </div>
 
@@ -109,6 +113,8 @@ export default function OpportunityLandingResults({
         baseQuery={baseQuery}
         data={facetsData}
       />
+
+      <OpportunityListingRoleChips basePath={basePath} />
 
       <FeedGrid
         items={isLoading ? [] : data.items}

@@ -12,6 +12,8 @@ import {
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+import RoleSignalFilters from "@/components/RoleSignalFilters";
+import { ROLE_FILTER_KEYS, roleFilterLabel } from "@/lib/roleSignalQuery";
 import FacetPicker from "@/components/FacetPicker";
 import { useFeedNavigation } from "@/components/FeedNavigation";
 import { Badge } from "@/components/ui/badge";
@@ -85,6 +87,7 @@ const TOP_OPTIONS = [
 ];
 
 const FILTER_KEYS = [
+  ...ROLE_FILTER_KEYS,
   "q",
   "category",
   "source",
@@ -295,7 +298,10 @@ export default function SearchFilters() {
       let humanLabel = value;
       let label: React.ReactNode = value;
 
-      if (key === "q") {
+      if ((ROLE_FILTER_KEYS as readonly string[]).includes(key)) {
+        humanLabel = roleFilterLabel(key as typeof ROLE_FILTER_KEYS[number], value);
+        label = humanLabel;
+      } else if (key === "q") {
         humanLabel = `Search: "${value}"`;
         label = humanLabel;
       } else if (key === "category") {
@@ -504,6 +510,16 @@ export default function SearchFilters() {
                     disabled={isPending}
                   />
                 </div>
+
+                {(!searchParams.get("category") || ["internship", "job"].includes(searchParams.get("category") ?? "")) && (
+                  <RoleSignalFilters
+                    searchParams={searchParams}
+                    onChange={updateParam}
+                    internships={searchParams.get("category") === "internship"}
+                    disabled={isPending}
+                    idPrefix="home-role-filter"
+                  />
+                )}
 
                 <div className="space-y-2">
                   <p className="eyebrow">Source</p>

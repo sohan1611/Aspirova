@@ -25,6 +25,7 @@ from api.filters import (
     kind_filters,
     location_scope_filters,
     opportunity_filters,
+    role_signal_filters,
     student_rank_expression,
 )
 from api.opportunity_loading import opportunity_list_load_options
@@ -55,6 +56,16 @@ def get_feed(
     organiser_type: list[str] | None = Query(None),
     mode: list[str] | None = Query(None),
     prize_min: int | None = Query(None, ge=0),
+    paid: bool | None = Query(None),
+    min_stipend: int | None = Query(None, ge=0),
+    part_time: bool | None = Query(None),
+    max_duration: int | None = Query(None, ge=1, le=24),
+    job_offer: bool | None = Query(None),
+    posted_within: int | None = Query(None),
+    role: str | None = Query(
+        None,
+        pattern="^(software|data|design|marketing|finance|hr|sales|product|operations|content)$",
+    ),
     top: int | None = Query(None, gt=0),
     sort: str = Query("student", pattern="^(recent|deadline|student)$"),
     page: int = Query(1, ge=1),
@@ -69,6 +80,9 @@ def get_feed(
         exclude_closed_competitions(),
         *opportunity_filters(category, remote, company, location, top),
         *experience_filters(experience),
+        *role_signal_filters(
+            paid, min_stipend, part_time, max_duration, job_offer, posted_within, role
+        ),
         *location_scope_filters(scope, country, remote_abroad),
         *competition_filters(
             comp_type,

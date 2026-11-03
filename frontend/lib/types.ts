@@ -21,6 +21,7 @@ export interface OpportunityListItem {
   company: CompanySummary | null;
   category: string | null;
   source: string | null;
+  // Role meta.compensation currencies: INR | USD | CAD | AUD | SGD | GBP | EUR.
   meta?: Record<string, unknown> | null;
   location: string | null;
   country: string | null;

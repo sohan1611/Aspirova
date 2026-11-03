@@ -1,4 +1,5 @@
 import { type FeedParams, getFeed, getForYou, searchOpportunities } from "@/lib/api";
+import { parseRoleSignalParams, ROLE_FILTER_KEYS } from "@/lib/roleSignalQuery";
 import type { OpportunityListItem } from "@/lib/types";
 
 // The three sources this page can draw from return different envelopes -
@@ -73,6 +74,7 @@ export function parseFeedRequest(sp: URLSearchParams): FeedRequest {
       : "roles";
 
   const filters: FeedParams = {
+    ...parseRoleSignalParams(sp),
     category: category as "internship" | "job" | undefined,
     kind: kindParam as "roles" | "competitions" | undefined,
     source: get("source") as "direct" | "unstop" | "remoteok" | "devpost" | undefined,
@@ -89,13 +91,15 @@ export function parseFeedRequest(sp: URLSearchParams): FeedRequest {
   const forYouFields = splitList(sp.get("fields"));
   const forYouTerms = splitList(sp.get("terms"));
   const forYouSkills = splitList(sp.get("skills"));
-  const isForYou = (view === "foryou" || Boolean(forYouSkills?.length)) && !q;
+  const isForYou = (view === "foryou" || Boolean(forYouSkills?.length)) && !q &&
+    !ROLE_FILTER_KEYS.some((key) => sp.has(key));
 
   const hasActiveFilters = Boolean(
     category ||
       kindParam ||
       get("source") ||
       get("experience") ||
+      ROLE_FILTER_KEYS.some((key) => sp.has(key)) ||
       remote !== undefined ||
       location.length > 0 ||
       company.length > 0 ||

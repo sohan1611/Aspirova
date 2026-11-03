@@ -53,9 +53,34 @@ from core.textclean import fix_multiline_text, fix_text
 from pipeline.dedup import find_matching_opportunity
 from pipeline.location_country import derive_country
 from pipeline.normalize import normalize_title
+from pipeline.role_signals import merge_role_signals
 from pipeline.skills import extract_opportunity_skills
 
 RAW_LISTING_EXTERNAL_ID_CHUNK_SIZE = 500
+ROLE_DISPLAY_KEYS = ("compensation", "duration_months", "part_time", "job_offer", "timing")
+
+
+def _listing_meta(
+    normalized: NormalizedListing, country: str | None, existing: dict | None = None
+) -> dict | None:
+    if normalized.category not in {"internship", "job"}:
+        return normalized.meta
+    meta = {**_copy_meta(existing), **_copy_meta(normalized.meta)}
+    old_pay = (existing or {}).get("compensation")
+    incoming_pay = meta.get("compensation")
+    incoming_unstop = isinstance(incoming_pay, dict) and incoming_pay.get("source") == "unstop"
+    if isinstance(old_pay, dict) and old_pay.get("source") == "unstop" and not incoming_unstop:
+        meta["compensation"] = old_pay
+    return (
+        merge_role_signals(
+            meta, normalized.title, normalized.description_raw, normalized.category, country
+        )
+        or None
+    )
+
+
+def _role_display_meta(meta: dict | None) -> dict:
+    return {key: (meta or {}).get(key) for key in ROLE_DISPLAY_KEYS}
 
 
 def _slugify(text: str) -> str:
@@ -302,10 +327,11 @@ def ingest_one(
                 "deadline": opportunity.deadline,
                 "description_raw": opportunity.description_raw,
                 "summary": opportunity.summary,
+                "role_meta": _role_display_meta(opportunity.meta),
                 "skills": sorted(opportunity.skills or []),
             }
-            # Deliberately exclude title_normalized (derived from title); meta and
-            # deadline_confidence (not part of the rendered comparison); posted_at
+            # Deliberately exclude title_normalized (derived from title); non-display
+            # meta and deadline_confidence; posted_at
             # (the upstream can re-timestamp it without a listing change).
             raw_row.content_hash = raw.content_hash
             raw_row.raw_payload = raw.raw_payload
@@ -328,7 +354,9 @@ def ingest_one(
             )
             opportunity.embedding = None
             opportunity.embedding_model = None
-            _refresh_extracted_summary(opportunity, meta=normalized.meta)
+            _refresh_extracted_summary(
+                opportunity, meta=_listing_meta(normalized, country, opportunity.meta)
+            )
             session.execute(
                 delete(models.OpportunityTag).where(
                     models.OpportunityTag.opportunity_id == opportunity.id
@@ -344,6 +372,7 @@ def ingest_one(
                 "deadline": opportunity.deadline,
                 "description_raw": opportunity.description_raw,
                 "summary": opportunity.summary,
+                "role_meta": _role_display_meta(opportunity.meta),
                 "skills": sorted(opportunity.skills or []),
             }
             if (
@@ -419,7 +448,7 @@ def ingest_one(
             summary, meta = _extracted_summary_and_meta(
                 description=normalized.description_raw,
                 title=normalized.title,
-                meta=normalized.meta,
+                meta=_listing_meta(normalized, country),
             )
             opportunity = models.Opportunity(
                 slug=slug,
@@ -446,6 +475,12 @@ def ingest_one(
             )
             session.add(opportunity)
             is_new = True
+
+    if not is_new and normalized.category in {"internship", "job"}:
+        previous_role_meta = _role_display_meta(opportunity.meta)
+        opportunity.meta = _listing_meta(normalized, country, opportunity.meta)
+        if changed_slugs is not None and previous_role_meta != _role_display_meta(opportunity.meta):
+            changed_slugs.add(opportunity.slug)
 
     if is_new and changed_slugs is not None:
         changed_slugs.add(opportunity.slug)

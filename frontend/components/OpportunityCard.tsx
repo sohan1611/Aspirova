@@ -3,6 +3,7 @@ import HoverPrefetchLink from "@/components/HoverPrefetchLink";
 import { Badge } from "@/components/ui/badge";
 import CompanyFavicon from "@/components/CompanyFavicon";
 import SaveButton from "@/components/SaveButton";
+import { formatCompensation } from "@/lib/compensation";
 import { getCountry } from "@/lib/countries";
 import { formatDate } from "@/lib/date";
 import {
@@ -117,6 +118,9 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
     : null;
   const isCompetition = isCompetitionCategory(item.category);
   const isInternship = item.category === "internship";
+  const isRole = isInternship || item.category === "job";
+  const payText = isRole ? formatCompensation(item.meta) : null;
+  const duration = item.meta?.duration_months;
   const deadlineExpires = hasExpiringDeadline(item.category);
   const prizeText = isCompetition ? getPrizeText(item.meta) : null;
   const competitionMode = isCompetition
@@ -203,6 +207,13 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
           </div>
         )}
 
+        {payText && (
+          <p className="flex min-w-0 items-start gap-2 text-xs text-foreground/80">
+            <span className="eyebrow shrink-0 pt-0.5 !text-heritage">Pay</span>
+            <span className="line-clamp-2 min-w-0 break-words font-medium">{payText}</span>
+          </p>
+        )}
+
         {prizeText && (
           <p className="flex min-w-0 items-start gap-2 text-xs text-foreground/80">
             <span className="eyebrow shrink-0 pt-0.5 !text-heritage">Prize</span>
@@ -212,8 +223,8 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
           </p>
         )}
 
-        <div className="mt-auto flex items-center justify-between gap-2 border-t border-border/60 pt-1">
-          <div className="flex min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden">
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             {categoryLabel && (
               <Badge
                 variant={
@@ -232,6 +243,13 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
                 {categoryLabel}
               </Badge>
             )}
+            {isRole && (item.meta?.part_time === true || item.meta?.timing === "part_time") && (
+              <Badge variant="outline">Part-time</Badge>
+            )}
+            {isRole && typeof duration === "number" && Number.isInteger(duration) && duration >= 1 && duration <= 24 && (
+              <Badge variant="outline">{duration} months</Badge>
+            )}
+            {isRole && item.meta?.job_offer === true && <Badge variant="heritage">Job offer possible</Badge>}
             {competitionMode && (
               <Badge variant="outline">{competitionMode}</Badge>
             )}
