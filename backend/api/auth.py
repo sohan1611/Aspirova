@@ -10,15 +10,20 @@ ever shown to matter).
 A shared HTTP client reuses connections to Supabase across requests.
 """
 
+import logging
+import unicodedata
 import uuid
 
 import httpx
 from fastapi import Depends, Header, HTTPException
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from api.deps import get_db
 from core import models
 from core.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 _supabase_http = httpx.Client(
     timeout=5.0,
@@ -33,6 +38,24 @@ def _get_supabase_user(url: str, headers: dict[str, str]) -> httpx.Response:
     except _DEAD_CONNECTION_ERRORS:
         # The server may close a pooled connection between requests; retry once on a fresh one.
         return _supabase_http.get(url, headers=headers)
+
+
+def _provider_display_name(auth_user: dict) -> str | None:
+    metadata = auth_user.get("user_metadata")
+    if not isinstance(metadata, dict):
+        return None
+    name = next(
+        (metadata[key] for key in ("full_name", "name") if isinstance(metadata.get(key), str)),
+        None,
+    )
+    if name is None:
+        return None
+    # Whitespace first, so a newline between two names becomes a space, not a join.
+    name = " ".join(name.split())
+    name = "".join(char for char in name if unicodedata.category(char) != "Cc").strip()
+    if not name or "@" in name or len(name) > 80:
+        return None
+    return name
 
 
 def get_current_user(
@@ -66,8 +89,19 @@ def get_current_user(
         # First authenticated request from this Supabase Auth user - mirror
         # them into our users table (Doc 03 sec 4.1: users.id matches
         # auth.users.id).
-        user = models.User(id=user_id, email=auth_user.get("email"))
-        db.add(user)
+        db.execute(
+            insert(models.User)
+            .values(
+                id=user_id,
+                email=auth_user.get("email"),
+                display_name=_provider_display_name(auth_user),
+            )
+            .on_conflict_do_nothing()
+        )
         db.commit()
+        user = db.get(models.User, user_id)
+        if user is None:
+            logger.warning("Account mirror conflict for user id %s", user_id)
+            raise HTTPException(status_code=409, detail="Account conflict. Please contact support.")
 
     return user
