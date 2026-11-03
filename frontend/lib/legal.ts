@@ -15,6 +15,7 @@ export const LEGAL = {
   contactEmail: "support@aspirova.org",
   jurisdiction: "Kolkata, India", // courts for disputes
   lastUpdated: "2026-07-21",
+  privacyLastUpdated: "2026-11-03",
 } as const;
 
 export const HAS_PLACEHOLDER = (v: string) => v.startsWith("TODO_");

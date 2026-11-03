@@ -10,6 +10,7 @@ import {
   RefreshCw,
   Search,
   Sparkles,
+  Trash2,
   X,
   XCircle,
 } from "lucide-react";
@@ -37,6 +38,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -244,6 +255,7 @@ function SignedInResumeWorkspace({
   const [accountLoading, setAccountLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [openingResume, setOpeningResume] = useState(false);
+  const [removingResume, setRemovingResume] = useState(false);
   const [matches, setMatches] = useState<MatchItem[] | null>(null);
   const [matchesUpsell, setMatchesUpsell] = useState(false);
   const [submissionError, setSubmissionError] = useState(false);
@@ -320,7 +332,7 @@ function SignedInResumeWorkspace({
   async function handlePdfChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (!file) return;
+    if (!file || readingPdf || removingResume) return;
 
     setShortPdfExtraction(false);
     setHasPdfExtraction(false);
@@ -486,7 +498,7 @@ function SignedInResumeWorkspace({
   }
 
   async function handleViewSavedResume() {
-    if (!savedResume || openingResume) return;
+    if (!savedResume || openingResume || removingResume) return;
 
     setOpeningResume(true);
     try {
@@ -506,7 +518,40 @@ function SignedInResumeWorkspace({
     }
   }
 
+  async function handleRemoveSavedResume() {
+    if (!savedResume || removingResume || readingPdf) return;
+
+    setRemovingResume(true);
+    let fileRemoved = false;
+    try {
+      const { error } = await createClient()
+        .storage.from(RESUME_BUCKET)
+        .remove([savedResume.path]);
+
+      if (error) throw error;
+      fileRemoved = true;
+
+      await updateAccount(accessToken, { resume: null });
+
+      setSavedResume(null);
+      setResumeText("");
+      setShortPdfExtraction(false);
+      setHasPdfExtraction(false);
+      toast.success("Your resume has been removed.");
+    } catch {
+      toast.error(
+        fileRemoved
+          ? "Your file was removed, but we couldn't update your account. Please refresh."
+          : "We couldn't remove your resume. Please try again.",
+      );
+    } finally {
+      setRemovingResume(false);
+    }
+  }
+
   function handleReplaceSavedResume() {
+    if (readingPdf || removingResume) return;
+
     const input = document.getElementById(RESUME_PDF_INPUT_ID);
     if (input instanceof HTMLInputElement) {
       input.click();
@@ -556,8 +601,10 @@ function SignedInResumeWorkspace({
             resume={savedResume}
             openingResume={openingResume}
             replacingResume={readingPdf}
+            removingResume={removingResume}
             onViewResume={handleViewSavedResume}
             onReplaceResume={handleReplaceSavedResume}
+            onRemoveResume={handleRemoveSavedResume}
           />
         )}
 
@@ -565,6 +612,7 @@ function SignedInResumeWorkspace({
           hasSavedResume={Boolean(savedResume)}
           resumeText={resumeText}
           readingPdf={readingPdf}
+          removingResume={removingResume}
           shortPdfExtraction={shortPdfExtraction}
           onPdfChange={handlePdfChange}
           onResumeTextChange={handleResumeTextChange}
@@ -608,15 +656,21 @@ function SavedResumeCard({
   resume,
   openingResume,
   replacingResume,
+  removingResume,
   onViewResume,
   onReplaceResume,
+  onRemoveResume,
 }: {
   resume: ResumeMeta;
   openingResume: boolean;
   replacingResume: boolean;
+  removingResume: boolean;
   onViewResume: () => void;
   onReplaceResume: () => void;
+  onRemoveResume: () => void;
 }) {
+  const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
+
   return (
     <Card className="mx-auto w-full max-w-3xl border-primary/20 shadow-soft-md">
       <CardHeader className="px-5 sm:px-8">
@@ -646,7 +700,7 @@ function SavedResumeCard({
           type="button"
           variant="outline"
           onClick={onViewResume}
-          disabled={openingResume}
+          disabled={openingResume || removingResume}
           className="w-full sm:w-auto"
         >
           {openingResume ? (
@@ -660,7 +714,7 @@ function SavedResumeCard({
           type="button"
           variant="secondary"
           onClick={onReplaceResume}
-          disabled={replacingResume}
+          disabled={replacingResume || removingResume}
           className="w-full sm:w-auto"
         >
           {replacingResume ? (
@@ -670,6 +724,55 @@ function SavedResumeCard({
           )}
           {replacingResume ? "Replacing..." : "Replace resume"}
         </Button>
+        <Dialog
+          open={removeDialogOpen}
+          onOpenChange={(open) => {
+            if (!removingResume) setRemoveDialogOpen(open);
+          }}
+        >
+          <DialogTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={removingResume || replacingResume}
+              className="w-full sm:w-auto"
+            >
+              {removingResume ? (
+                <Loader2 className="animate-spin" aria-hidden="true" />
+              ) : (
+                <Trash2 aria-hidden="true" />
+              )}
+              {removingResume ? "Removing..." : "Remove"}
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Remove your resume?</DialogTitle>
+              <DialogDescription>
+                This deletes the saved PDF and your resume check score. The skills
+                you&apos;ve kept stay on your account.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="outline" disabled={removingResume}>
+                  Cancel
+                </Button>
+              </DialogClose>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={onRemoveResume}
+                disabled={removingResume || replacingResume}
+              >
+                {removingResume && (
+                  <Loader2 className="animate-spin" aria-hidden="true" />
+                )}
+                {removingResume ? "Removing..." : "Remove"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardFooter>
     </Card>
   );
@@ -679,6 +782,7 @@ function ResumeInputCard({
   hasSavedResume,
   resumeText,
   readingPdf,
+  removingResume,
   shortPdfExtraction,
   onPdfChange,
   onResumeTextChange,
@@ -686,6 +790,7 @@ function ResumeInputCard({
   hasSavedResume: boolean;
   resumeText: string;
   readingPdf: boolean;
+  removingResume: boolean;
   shortPdfExtraction: boolean;
   onPdfChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onResumeTextChange: (value: string) => void;
@@ -718,7 +823,7 @@ function ResumeInputCard({
               type="file"
               accept="application/pdf,.pdf"
               onChange={onPdfChange}
-              disabled={readingPdf}
+              disabled={readingPdf || removingResume}
               aria-describedby="resume-pdf-help"
               className="cursor-pointer bg-background/70"
             />

@@ -90,23 +90,36 @@ export default function PrivacyPage() {
           Your resume
         </h3>
         <p className="mt-3 text-base leading-7 text-muted-foreground">
-          We store only a mathematical embedding of your resume: a
-          1,536-number vector, along with its embedding model and version. We
-          never store the resume text itself.
+          If you upload a resume, we store the PDF privately so you can open or
+          replace it later. It isn&apos;t public and other users can&apos;t open it.
+          We only access it if you ask us to, or if the law requires it. You can
+          remove it at any time from the Resume check page.
         </p>
         <p className="mt-3 text-base leading-7 text-muted-foreground">
-          If and when AI features are enabled, your resume text is sent to the
-          embedding provider solely to create that vector. Aspirova does not
-          retain the resume text after that process.
+          We also save the file name, the upload date, your resume check score
+          and the skills you keep on your account. Your browser reads the PDF to
+          suggest skills and work out the score.
+        </p>
+        <p className="mt-3 text-base leading-7 text-muted-foreground">
+          If you used an earlier version of resume matching, we may also hold a
+          mathematical embedding of your resume, which is a list of numbers
+          rather than its text. Email us to have it removed. If AI matching is
+          turned on in future, your resume text would be sent to our embedding
+          provider to create that embedding, and we&apos;d update this policy first.
         </p>
 
         <h3 className="mt-8 scroll-mt-24 font-serif text-xl font-semibold tracking-tight text-foreground">
-          Information stored only on your device
+          Information stored on your device
         </h3>
         <p className="mt-3 text-base leading-7 text-muted-foreground">
-          Your chosen country, interest fields, recently viewed list, and
-          onboarding state are stored in your browser&apos;s local storage. They
-          are not sent to our servers.
+          Your chosen country, interest fields, recently viewed list and
+          onboarding state are stored in your browser&apos;s local storage. If
+          you&apos;re signed in, your field, interests and skills are also saved to
+          your account so they follow you across devices. Your browser sends your
+          interests or country to our servers only when needed to show results,
+          such as the For You feed or putting listings from your country first.
+          To decide the order of listings, your browser&apos;s time zone is checked
+          on your device and isn&apos;t sent to us.
         </p>
 
         <h3 className="mt-8 scroll-mt-24 font-serif text-xl font-semibold tracking-tight text-foreground">
@@ -127,7 +140,7 @@ export default function PrivacyPage() {
         <ul className="mt-3 list-disc space-y-2 pl-5 text-base leading-7 text-muted-foreground marker:text-primary">
           <li>Run and secure the service.</li>
           <li>Send the alerts and reports you have chosen to receive.</li>
-          <li>Match opportunities to your resume embedding when applicable.</li>
+          <li>Check your resume and suggest skills when you ask us to.</li>
           <li>Prevent abuse and keep the service reliable.</li>
           <li>Investigate and fix bugs that you report.</li>
         </ul>
@@ -140,14 +153,16 @@ export default function PrivacyPage() {
         </p>
         <ul className="mt-3 list-disc space-y-2 pl-5 text-base leading-7 text-muted-foreground marker:text-primary">
           <li>
-            <strong className="font-semibold text-foreground">Supabase</strong> for our database and authentication,
-            hosted in Mumbai, India.
+            <strong className="font-semibold text-foreground">DigitalOcean</strong> for our main database, hosted in Singapore.
+          </li>
+          <li>
+            <strong className="font-semibold text-foreground">Supabase</strong> for sign-in and private resume file storage, hosted in Mumbai, India.
           </li>
           <li>
             <strong className="font-semibold text-foreground">Render</strong> for our API, hosted in Singapore.
           </li>
           <li>
-            <strong className="font-semibold text-foreground">Vercel</strong> for the website.
+            <strong className="font-semibold text-foreground">Vercel</strong> for the website, including cookieless visit statistics.
           </li>
           <li>
             <strong className="font-semibold text-foreground">Razorpay</strong> for payments.
@@ -177,7 +192,7 @@ export default function PrivacyPage() {
           <li>We do not sell personal data.</li>
           <li>We do not run advertising.</li>
           <li>We never see or store card details.</li>
-          <li>We never store your resume text.</li>
+          <li>We never show your resume to companies or other users.</li>
         </ul>
 
         <h2 className="mt-12 scroll-mt-24 font-serif text-2xl font-semibold tracking-tight text-foreground">
@@ -186,7 +201,9 @@ export default function PrivacyPage() {
         <p className="mt-4 text-base leading-7 text-muted-foreground">
           We keep account information while your account exists. Raw crawl
           data is kept on a rolling retention basis. Encrypted backup copies
-          are retained in our backup systems.
+          are retained in our backup systems. When you remove your resume, we
+          delete the stored PDF straight away. Related account records can remain
+          in encrypted backups until those backups expire.
         </p>
 
         <h2 className="mt-12 scroll-mt-24 font-serif text-2xl font-semibold tracking-tight text-foreground">
@@ -208,7 +225,7 @@ export default function PrivacyPage() {
           Cookies and local storage
         </h2>
         <p className="mt-4 text-base leading-7 text-muted-foreground">
-          We use an authentication session and the device-only local storage
+          We use an authentication session and the local storage
           preferences described above. We do not use advertising cookies or
           third-party tracking for advertising.
         </p>
@@ -246,7 +263,7 @@ export default function PrivacyPage() {
       </article>
 
       <p className="mt-12 text-sm text-muted-foreground">
-        Last updated: {LEGAL.lastUpdated}
+        Last updated: {LEGAL.privacyLastUpdated}
       </p>
     </main>
   );
