@@ -57,6 +57,8 @@ const CATEGORY_LABEL: Record<string, string> = {
   scholarship: "Scholarship",
 };
 const SITE_URL = "https://www.aspirova.org";
+// Organiser names can be long, and these labels include them: let them wrap on a phone.
+const SOURCE_LINK_CLASSES = "h-auto min-h-11 max-w-full whitespace-normal py-2 text-center";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -184,8 +186,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description,
       type: "website",
       url: canonicalUrl,
-      images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "Aspirova" }],
     },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 
@@ -386,14 +388,14 @@ export default async function OpportunityPage({ params }: PageProps) {
           aria-label="Application actions"
           className="mt-8 flex max-w-3xl flex-col gap-5 border-y border-border py-6 sm:flex-row sm:items-center sm:justify-between"
         >
-          <div>
+          <div className="min-w-0">
             {closed ? (
               <>
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="inline-flex h-10 items-center justify-center rounded-md border border-border bg-secondary/50 px-6 text-sm font-medium text-muted-foreground">
                     {closedStatusLabel}
                   </span>
-                  <Button size="lg" variant="outline" asChild>
+                  <Button size="lg" variant="outline" className={SOURCE_LINK_CLASSES} asChild>
                     <a
                       href={opportunity.apply_url}
                       target="_blank"
@@ -413,7 +415,7 @@ export default async function OpportunityPage({ params }: PageProps) {
                   <span className="inline-flex h-10 items-center justify-center rounded-md border border-border bg-secondary/50 px-6 text-sm font-medium text-muted-foreground">
                     {staleStatusLabel}
                   </span>
-                  <ApplyLink href={opportunity.apply_url} size="lg" variant="outline">
+                  <ApplyLink href={opportunity.apply_url} size="lg" variant="outline" className={SOURCE_LINK_CLASSES}>
                     {verifyLabel}
                   </ApplyLink>
                 </div>
@@ -426,7 +428,7 @@ export default async function OpportunityPage({ params }: PageProps) {
               <>
                 {/* Always links to the real source - we index and link out, we
                     never mirror (Doc 01 sec 7 R1, Doc 04 sec 10). */}
-                <ApplyLink href={opportunity.apply_url} size="lg">
+                <ApplyLink href={opportunity.apply_url} size="lg" className={SOURCE_LINK_CLASSES}>
                   {opportunity.company?.name
                     ? `Apply on ${opportunity.company.name} →`
                     : "Apply at the source →"}
@@ -437,9 +439,9 @@ export default async function OpportunityPage({ params }: PageProps) {
               </>
             )}
           </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
             <BookmarkButton slug={opportunity.slug} />
-            <ShareButton slug={opportunity.slug} />
+            <ShareButton slug={opportunity.slug} title={opportunity.title} />
             <ReportIssueDialog opportunitySlug={opportunity.slug} />
           </div>
         </section>

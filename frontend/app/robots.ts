@@ -12,11 +12,22 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
   );
 
   return {
-    rules: {
-      userAgent: "*",
-      allow: "/",
-      disallow: "/style",
-    },
+    // Keep search crawlers off image renders while allowing shared-link previews.
+    rules: [
+      {
+        userAgent: "*",
+        allow: "/",
+        disallow: ["/style", "/opportunity/*/opengraph-image"],
+      },
+      {
+        userAgent: [
+          "facebookexternalhit", "WhatsApp", "TelegramBot", "Twitterbot",
+          "LinkedInBot", "Slackbot", "Discordbot",
+        ],
+        allow: "/",
+        disallow: "/style",
+      },
+    ],
     sitemap: [sitemapSiteUrl("/sitemap.xml"), ...opportunitySitemaps],
   };
 }

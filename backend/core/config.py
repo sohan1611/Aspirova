@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     site_url: str = "https://www.aspirova.org"
     google_indexing_sa_json: str = ""
     indexing_daily_budget: int = 190
+    telegram_bot_token: str = ""
+    telegram_channel_id: str = ""
     # Where the API itself is reachable. Needed for one-click unsubscribe, whose
     # URL Gmail POSTs to directly - that endpoint is on the API, not the site.
     api_base_url: str = "https://aspirova-api.onrender.com"
