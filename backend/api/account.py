@@ -158,8 +158,8 @@ def export_account(
         .where(models.SavedSearch.user_id == user.id)
         .order_by(models.SavedSearch.created_at, models.SavedSearch.id)
     ).all()
-    followed = db.scalars(
-        select(models.Company)
+    followed = db.execute(
+        select(models.Company, models.DreamCompany.roles)
         .join(models.DreamCompany, models.DreamCompany.company_id == models.Company.id)
         .where(models.DreamCompany.user_id == user.id)
         .order_by(models.Company.slug)
@@ -213,7 +213,8 @@ def export_account(
             for search in searches
         ],
         "followed_companies": [
-            {"name": company.name, "slug": company.slug} for company in followed
+            {"name": company.name, "slug": company.slug, "domains": roles}
+            for company, roles in followed
         ],
         "subscription": {
             "plan_key": subscription[1] if subscription else "free",

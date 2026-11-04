@@ -15,7 +15,7 @@ from html import escape
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
-from api.filters import exclude_stale_opportunities
+from api.filters import exclude_stale_opportunities, followed_company_match
 from core import ai_budget, ai_client, email_client, models
 from core.config import get_settings
 from core.email_templates import email_layout, text_footer
@@ -89,6 +89,7 @@ def _recent_dream_company_matches(
             .options(joinedload(models.Opportunity.company))
             .where(
                 models.DreamCompany.user_id == user_id,
+                followed_company_match(),
                 models.Opportunity.status == "active",
                 exclude_stale_opportunities(now),
                 models.Opportunity.first_seen_at >= since,

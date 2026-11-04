@@ -42,6 +42,23 @@ SENIOR_TITLE_PATTERN = (
     r"fellow|executive|counsel)([^a-z]|$)"
 )
 
+CLEARLY_SENIOR_TITLE_PATTERN = (
+    r"(^|[^a-z])(senior|sr|staff|principal|director|vp|vice president|president|"
+    r"chief|cto|ceo|coo|cfo|cxo|head of|distinguished)([^a-z]|$)"
+)
+# A title matching this is kept even when it also matches the senior pattern. Checked against
+# 1,216 live titles: "Member of Technical Staff - New Grad" and "Senior Engineer ... (Master's
+# New Graduate | 0-2 Years Experience)" are real entry-level roles. Staff Accountant and
+# Staff Writer are entry-level titles too. A wrongly kept role costs one noisy card; a wrongly
+# dropped one is an alert the student never gets, so this errs towards keeping.
+NOT_SENIOR_TITLE_PATTERN = (
+    r"(^|[^a-z])(intern|interns|internship|internships|trainee|trainees|apprentice|"
+    r"apprentices|apprenticeship|new grad|new grads|new graduate|new graduates|graduate|"
+    r"graduates|campus|fresher|freshers|entry level|entry-level|co-op|coop|working student|"
+    r"werkstudent|technical staff|staff accountant|staff auditor|staff writer|staff nurse)"
+    r"([^a-z]|$)"
+)
+
 # False (default) -> exclude only rows whose eligibility is School Students and nothing
 #                    else. A competition open to school students AND undergraduates is
 #                    still relevant to Aspirova's audience.
@@ -402,7 +419,12 @@ def competition_filters(
 ROLE_TERMS = {
     "software": (
         "software | developer | developers | programmer | programming | coding | backend | "
-        "frontend | fullstack | android | ios | sde | devops | web | cloud"
+        "frontend | fullstack | android | ios | sde | devops | web | cloud | "
+        "swe | sdet | qa | sre | site <-> reliability | full <-> stack | front <-> end | "
+        "back <-> end | react | kernel | database | infrastructure | cybersecurity | "
+        "security <-> engineer | information <-> security | network <-> engineer | "
+        "solutions <-> engineer | systems <-> engineer | support <-> engineer | "
+        "technical <-> staff | it <-> support | it <-> administrator | systems <-> administrator"
     ),
     "data": "data | analytics | analyst | analysts | scientist | ml | ai | machine <-> learning",
     "design": "design | designer | designers | designing | ux | ui | graphic",
@@ -413,7 +435,51 @@ ROLE_TERMS = {
     "product": "product",
     "operations": "operations | ops | logistics | supply <-> chain",
     "content": "content | copywriter | copywriting | writer | writing | editorial | editor",
+    "engineering": (
+        "mechanical | electrical | electronics | civil | manufacturing | hardware | embedded | "
+        "automotive | aerospace | chemical | industrial | instrumentation | robotics | vlsi | "
+        "firmware | mechatronics | engineer <-> trainee | graduate <-> engineer | "
+        "engineering <-> intern | engineering <-> internship | process <-> engineer | "
+        "quality <-> engineer | project <-> engineer"
+    ),
+    "research": "research | researcher | researchers",
 }
+
+ROLE_QUERY_PATTERN = "^(" + "|".join(ROLE_TERMS) + ")$"
+
+
+def role_match_expression(role: str):
+    terms = ROLE_TERMS.get(role)
+    if not terms:
+        return false()
+    return and_(
+        models.Opportunity.search_tsv.op("@@")(func.to_tsquery("english", terms)),
+        func.to_tsvector("simple", models.Opportunity.title).op("@@")(
+            func.to_tsquery("simple", terms)
+        ),
+    )
+
+
+def exclude_clearly_senior_jobs():
+    return and_(
+        func.coalesce(models.Opportunity.category, "") == "job",
+        models.Opportunity.title.op("~*")(CLEARLY_SENIOR_TITLE_PATTERN),
+        not_(models.Opportunity.title.op("~*")(NOT_SENIOR_TITLE_PATTERN)),
+    ).is_not(True)
+
+
+def followed_company_match():
+    """Match followed-company domains and apply the clearly senior job rule."""
+    return and_(
+        exclude_clearly_senior_jobs(),
+        or_(
+            func.cardinality(models.DreamCompany.roles) == 0,
+            *[
+                and_(models.DreamCompany.roles.any(role), role_match_expression(role))
+                for role in ROLE_TERMS
+            ],
+        ),
+    )
 
 
 def role_signal_filters(
@@ -487,18 +553,7 @@ def role_signal_filters(
             >= func.now() - timedelta(days=posted_within)
         )
     if role is not None:
-        terms = ROLE_TERMS.get(role)
-        if terms:
-            filters.append(
-                models.Opportunity.search_tsv.op("@@")(func.to_tsquery("english", terms))
-            )
-            filters.append(
-                func.to_tsvector("simple", models.Opportunity.title).op("@@")(
-                    func.to_tsquery("simple", terms)
-                )
-            )
-        else:
-            filters.append(false())
+        filters.append(role_match_expression(role))
     return filters
 
 

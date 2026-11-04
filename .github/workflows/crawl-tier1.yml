@@ -132,9 +132,11 @@ jobs:
       # notifications.py), not opportunity IDs threaded through the
       # crawl's return value, so it stays correct even if this step is
       # ever rerun independently or the crawl step's job is retried.
-      - name: Send instant dream-company alerts
+      - name: Send instant company alerts
+        if: success() || failure()
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          UNSUBSCRIBE_SECRET: ${{ secrets.UNSUBSCRIBE_SECRET }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
           PYTHONUNBUFFERED: "1"

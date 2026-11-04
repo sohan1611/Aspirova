@@ -1,32 +1,10 @@
-"""Notification worker logic (Doc 03 sec 4.3, Doc 02 sec 3.6, Doc
-handoffs/PHASE-2-HANDOFF.md sec 5). Three independent jobs:
+"""Notification workers with deterministic company and domain matching.
 
-- send_daily_digests(): one email per user per ~24h (Doc 02 sec 3.6: "one
-  daily digest email per free user, not per-opportunity"), rule-based
-  content (no AI/personalization until Phase 3) - opportunities from the
-  user's dream companies if they have any, else a generic recent-
-  opportunities sample, always excluding anything already covered by an
-  instant alert to that same user.
-- send_instant_alerts(): near-real-time, Pro/Pro-Lite only
-  (plans.features.instant_alerts), one email per NEW opportunity matching
-  a user's dream company - triggered by a lookback window on
-  opportunities.first_seen_at rather than threading opportunity IDs
-  through crawlers/runner.py's return value, so it keeps working
-  correctly regardless of exactly when it runs relative to a crawl.
-- send_closing_soon_alerts(): one grouped email per opted-in user for
-  their bookmarked active opportunities closing within the configured
-  deadline window, with per-opportunity notification-log deduplication.
-
-All three enforce their caps via the notifications table (Doc 03 sec 4.3's
-(user_id, type, sent_at) index) - never a scattered ad-hoc check.
-
-Deliberately a plain per-user loop, not a bulk-ops rewrite in the style of
-pipeline/ingest.py's Part-2.4 refactor: that refactor was justified by a
-measured, real bottleneck (a 25-minute crawl timeout at real scale). This
-job has no such measured pressure yet at this project's current user
-count - building for anticipated load here would violate the same
-"scale by measured trigger" principle that justified the OTHER refactor
-(Doc 02 sec 5, Doc 08 sec 1).
+Company alerts are grouped once per user per run: paid users receive them
+following crawls and on daily runs; free users receive at most one per UTC
+day. Daily digests exclude listings already delivered as company alerts.
+Closing-soon and hackathon digests retain their independent preferences.
+All entitlements use can(), and sent notification rows provide deduplication.
 """
 
 import logging
@@ -40,8 +18,11 @@ from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
 from api.filters import (
+    exclude_closed_competitions,
+    exclude_experienced_only_opportunities,
     exclude_school_only_opportunities,
     exclude_stale_opportunities,
+    followed_company_match,
     student_rank_expression,
 )
 from core import models
@@ -51,6 +32,7 @@ from core.email_templates import email_layout, text_footer
 from core.gating import can
 from core.organisers import REPUTED_ORGANISER_REGEX
 from core.unsubscribe import list_unsubscribe_headers, unsubscribe_url
+from pipeline.company_alert_email import CompanyAlertGroup, render_company_alert
 
 
 def wants(user: models.User, key: str) -> bool:
@@ -60,7 +42,7 @@ def wants(user: models.User, key: str) -> bool:
 
 logger = logging.getLogger(__name__)
 
-INSTANT_ALERT_LOOKBACK = timedelta(hours=3)
+COMPANY_ALERT_LOOKBACK = timedelta(hours=72)
 DIGEST_GENERIC_SAMPLE_SIZE = 5
 DIGEST_RANKED_COMPANY_RESERVE_SIZE = 2
 
@@ -175,6 +157,7 @@ def _dream_company_opportunities(
             )
             .where(
                 models.DreamCompany.user_id == user_id,
+                followed_company_match(),
                 models.Opportunity.status == "active",
                 models.Opportunity.first_seen_at >= since,
                 exclude_stale_opportunities(now),
@@ -340,44 +323,6 @@ def _render_digest(
     return html, text
 
 
-def _render_instant_alert(opportunity: models.Opportunity) -> tuple[str, str]:
-    company_name = _company_name(opportunity)
-    text = (
-        "A role just opened at a company you're tracking.\n\n"
-        f"{opportunity.title} at {company_name} was just posted.\n"
-        f"View & apply: {opportunity.apply_url}\n\n" + text_footer()
-    )
-    body_html = (
-        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
-        'style="background-color:#faf7f0;border:1px solid #e7e0d4;border-collapse:separate;'
-        'border-radius:8px;border-spacing:0;width:100%">'
-        '<tr><td style="padding:20px">'
-        '<p style="color:#5e2b47;font-family:Arial,Helvetica,sans-serif;font-size:12px;'
-        "font-weight:700;letter-spacing:0.5px;line-height:16px;margin:0 0 8px;"
-        'text-transform:uppercase">'
-        "Just posted</p>"
-        "<p style=\"color:#2b2620;font-family:Georgia,'Times New Roman',serif;font-size:20px;"
-        'font-weight:700;line-height:27px;margin:0 0 6px">'
-        f"{escape(opportunity.title, quote=True)}</p>"
-        '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:15px;'
-        'line-height:22px;margin:0">'
-        f"at {escape(company_name, quote=True)}</p>"
-        "</td></tr></table>"
-    )
-    html = email_layout(
-        title="A new opportunity is waiting",
-        intro_html=(
-            '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:15px;'
-            'line-height:22px;margin:0 0 20px">A role just opened at a company '
-            "you're tracking.</p>"
-        ),
-        body_html=body_html,
-        cta_label="View & apply",
-        cta_url=opportunity.apply_url,
-    )
-    return html, text
-
-
 def _render_closing_soon(
     opportunities: list[models.Opportunity],
     now: datetime,
@@ -515,54 +460,131 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
     return result
 
 
-def send_instant_alerts(session: Session, *, now: datetime | None = None) -> dict:
+def send_company_alerts(
+    session: Session, *, now: datetime | None = None, instant_only: bool = False
+) -> dict:
     now = now or datetime.now(timezone.utc)
-    since = now - INSTANT_ALERT_LOOKBACK
-
-    result = {"sent": 0, "failed": 0, "skipped_not_eligible": 0, "skipped_already_alerted": 0}
-
-    matches = session.execute(
-        select(models.DreamCompany.user_id, models.Opportunity)
-        .join(models.Opportunity, models.Opportunity.company_id == models.DreamCompany.company_id)
-        .where(
-            models.Opportunity.status == "active",
-            models.Opportunity.first_seen_at >= since,
-            exclude_stale_opportunities(now),
+    now = now.replace(tzinfo=timezone.utc) if now.tzinfo is None else now.astimezone(timezone.utc)
+    result = {
+        "sent": 0,
+        "failed": 0,
+        "skipped_not_eligible": 0,
+        "skipped_capped": 0,
+        "skipped_already_alerted": 0,
+        "skipped_empty": 0,
+    }
+    users = session.scalars(
+        select(models.User).where(
+            select(models.DreamCompany.id)
+            .where(models.DreamCompany.user_id == models.User.id)
+            .exists()
         )
     ).all()
-
-    for user_id, opportunity in matches:
+    for user in users:
+        user_id = user.id
         try:
-            user = session.get(models.User, user_id)
-            if (
-                user is None
-                or not can(session, user, "instant_alerts")
-                or not wants(user, "instant_alerts")
-            ):
+            if not user.email or not wants(user, "instant_alerts"):
                 result["skipped_not_eligible"] += 1
                 continue
-            if _already_alerted(session, user_id, opportunity.id):
-                result["skipped_already_alerted"] += 1
+            instant = can(session, user, "instant_alerts")
+            if instant_only and not instant:
+                result["skipped_not_eligible"] += 1
                 continue
-
-            html, text = _render_instant_alert(opportunity)
-            subject = f"New at {_company_name(opportunity)}: {opportunity.title}"
-            sent = send_email(user.email, subject, html, text)
-            _record_notification(
-                session,
-                user_id,
-                "instant_alert",
-                opportunity_id=opportunity.id,
-                status="sent" if sent else "failed",
+            if not instant and _already_sent_today(session, user_id, "instant_alert", now):
+                result["skipped_capped"] += 1
+                continue
+            follow_query = (
+                select(models.DreamCompany.id)
+                .where(models.DreamCompany.user_id == user_id)
+                .order_by(models.DreamCompany.created_at.asc(), models.DreamCompany.id.asc())
             )
+            limit = can(session, user, "dream_companies_limit")
+            if limit is not None:
+                follow_query = follow_query.limit(limit)
+            rows = session.execute(
+                select(models.DreamCompany, models.Opportunity, models.Company)
+                .select_from(models.DreamCompany)
+                .join(
+                    models.Opportunity,
+                    models.Opportunity.company_id == models.DreamCompany.company_id,
+                )
+                .join(models.Company, models.Company.id == models.DreamCompany.company_id)
+                .where(
+                    models.DreamCompany.id.in_(follow_query),
+                    models.Opportunity.status == "active",
+                    models.Opportunity.is_hidden.is_not(True),
+                    exclude_stale_opportunities(now),
+                    exclude_experienced_only_opportunities(),
+                    exclude_school_only_opportunities(),
+                    exclude_closed_competitions(),
+                    or_(models.Opportunity.deadline.is_(None), models.Opportunity.deadline >= now),
+                    models.Opportunity.first_seen_at >= now - COMPANY_ALERT_LOOKBACK,
+                    models.Opportunity.first_seen_at <= now,
+                    models.Opportunity.first_seen_at > models.DreamCompany.created_at,
+                    followed_company_match(),
+                )
+                .order_by(
+                    models.DreamCompany.created_at.asc(),
+                    models.DreamCompany.id.asc(),
+                    models.Opportunity.first_seen_at.desc(),
+                    models.Opportunity.id.desc(),
+                )
+            ).all()
+            groups: dict[int, CompanyAlertGroup] = {}
+            opportunity_ids = []
+            for follow, opportunity, company in rows:
+                if _already_alerted(session, user_id, opportunity.id, "instant_alert"):
+                    result["skipped_already_alerted"] += 1
+                    continue
+                if company.id not in groups:
+                    groups[company.id] = CompanyAlertGroup(company, list(follow.roles), [])
+                groups[company.id].opportunities.append(opportunity)
+                opportunity_ids.append(opportunity.id)
+            if not opportunity_ids:
+                result["skipped_empty"] += 1
+                continue
+            subject, html, text = render_company_alert(
+                display_name=user.display_name,
+                user_skills=user.skills,
+                groups=list(groups.values()),
+                unsub_url=unsubscribe_url(user_id, "instant_alerts"),
+                now=now,
+            )
+            try:
+                sent = send_email(
+                    user.email,
+                    subject,
+                    html,
+                    text,
+                    headers=list_unsubscribe_headers(user_id, "instant_alerts"),
+                )
+            except Exception:
+                logger.exception("company alert delivery failed for user %s", user_id)
+                sent = False
+            # Commit the complete group together, including cards covered by the more link.
+            session.add_all(
+                [
+                    models.Notification(
+                        user_id=user_id,
+                        type="instant_alert",
+                        opportunity_id=opportunity_id,
+                        status="sent" if sent else "failed",
+                        sent_at=now if sent else None,
+                    )
+                    for opportunity_id in opportunity_ids
+                ]
+            )
+            session.commit()
             result["sent" if sent else "failed"] += 1
         except Exception:
             session.rollback()
-            logger.exception("instant alert failed for user %s", user_id)
+            logger.exception("company alert failed for user %s", user_id)
             result["failed"] += 1
-            continue
-
     return result
+
+
+def send_instant_alerts(session: Session, *, now: datetime | None = None) -> dict:
+    return send_company_alerts(session, now=now, instant_only=True)
 
 
 def send_closing_soon_alerts(

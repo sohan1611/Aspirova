@@ -11,8 +11,16 @@ from sqlalchemy.orm import Session
 from api.auth import get_current_user
 from api.deps import get_db
 from api.main import app
+from api.notifications import _notification_copy, _unsubscribe_detail
 from core import models
 from core.unsubscribe import make_token
+
+
+def test_company_alert_fallback_and_unsubscribe_copy() -> None:
+    title, body = _notification_copy("instant_alert", "Software Intern", None)
+    assert title == "New at a company you follow"
+    assert body == "‘Software Intern’ just opened at a company you follow."
+    assert "alerts for companies you follow" in _unsubscribe_detail("instant_alerts")
 
 
 @pytest.fixture
@@ -128,7 +136,7 @@ def test_list_notifications_returns_delivered_alerts_with_client_ready_copy(clie
     assert closing_soon["opportunity_title"] == "Software Engineering Intern"
     assert closing_soon["company_name"] == "Dream Company"
     assert closing_soon["created_at"]
-    assert items_by_type["instant_alert"]["title"] == "New at a dream company"
+    assert items_by_type["instant_alert"]["title"] == "New at a company you follow"
     assert (
         items_by_type["instant_alert"]["body"]
         == "‘Software Engineering Intern’ just opened at Dream Company."

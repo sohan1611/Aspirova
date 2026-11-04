@@ -581,7 +581,7 @@ def test_account_exports_are_user_scoped_and_omit_internal_fields(
         assert payload["saved_searches"][0]["alerts_enabled"] is True
         assert payload["saved_searches"][0]["created_at"]
         assert payload["followed_companies"] == [
-            {"name": company_names[index], "slug": company_slugs[index]},
+            {"name": company_names[index], "slug": company_slugs[index], "domains": []},
         ]
         assert payload["subscription"]["status"] == "canceled"
         assert payload["subscription"]["plan_key"] == free_plan.key

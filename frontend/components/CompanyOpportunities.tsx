@@ -57,7 +57,7 @@ export default function CompanyOpportunities({
             <h1 className="mt-2 break-words font-serif text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl">
               {data.company.name}
             </h1>
-            <FollowCompanyButton slug={data.company.slug} />
+            <FollowCompanyButton slug={data.company.slug} companyName={data.company.name} />
             {domain && (
               <a
                 href={companyWebsite(domain)}

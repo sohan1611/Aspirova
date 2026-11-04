@@ -3,11 +3,12 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from api import middleware
 from api.deps import get_db
-from api.filters import STALE_AFTER_DAYS
+from api.filters import ROLE_TERMS, STALE_AFTER_DAYS, role_match_expression
 from api.main import app
 from core import models
 
@@ -418,6 +419,8 @@ def test_absent_pay_filter_includes_unknown_pay_and_false_only_flags_do_not_filt
         ("product", "Product Intern"),
         ("operations", "Operations Intern"),
         ("content", "Content Writer"),
+        ("engineering", "Mechanical Engineering Intern"),
+        ("research", "Research Intern"),
     ],
 )
 def test_feed_role_uses_full_text_index(client, db_session, role, title):
@@ -459,6 +462,86 @@ def test_feed_role_uses_full_text_index(client, db_session, role, title):
 )
 def test_feed_rejects_invalid_role_filters(client, params):
     assert client.get("/feed", params=params).status_code == 422
+
+
+@pytest.mark.parametrize("path", ["/feed", "/search"])
+@pytest.mark.parametrize("role", ["engineering", "research"])
+def test_read_routes_accept_new_domains_and_reject_unknown_roles(client, path, role):
+    params = {"role": role, "location": uuid.uuid4().hex}
+    if path == "/search":
+        params["q"] = "research"
+    assert client.get(path, params=params).status_code == 200
+    assert client.get(path, params={**params, "role": "unknown"}).status_code == 422
+
+
+@pytest.mark.parametrize("role", ROLE_TERMS)
+def test_role_queries_parse_under_both_text_search_configs(db_session, role):
+    for term in ROLE_TERMS[role].split("|"):
+        for config in ("english", "simple"):
+            assert db_session.scalar(select(func.to_tsquery(config, term.strip()))) is not None
+
+
+@pytest.mark.parametrize(
+    "role,title,matches",
+    [
+        ("software", "Security Engineer, New Grad", True),
+        ("software", "Site Reliability Engineer", True),
+        ("software", "Database Engineer Intern", True),
+        ("software", "Kernel Engineer - New Grad", True),
+        ("software", "Forward Deployed Infrastructure Engineer", True),
+        ("software", "Intern Network Engineer", True),
+        ("software", "Solutions Engineer intern", True),
+        ("software", "Technical Support Engineer", True),
+        ("software", "Member of Technical Staff", True),
+        ("software", "IT Support Trainee", True),
+        ("software", "React Native Internship", True),
+        ("software", "SWE Intern", True),
+        ("software", "SDET Intern", True),
+        ("software", "QA Intern", True),
+        ("software", "SRE Intern", True),
+        ("software", "Full Stack Intern", True),
+        ("software", "Front End Intern", True),
+        ("software", "Back End Intern", True),
+        ("software", "Cybersecurity Intern", True),
+        ("software", "Information Security Intern", True),
+        ("software", "Systems Engineer Intern", True),
+        ("software", "IT Administrator", True),
+        ("software", "Systems Administrator", True),
+        ("engineering", "Graduate Engineer Trainee", True),
+        ("engineering", "Engineering Intern (Summer 2027)", True),
+        ("engineering", "Engineering Internship", True),
+        ("engineering", "Intern - Process Engineer", True),
+        ("engineering", "Supplier Quality Engineer", True),
+        ("engineering", "Project Engineer Intern", True),
+        ("software", "Mechanical Engineer", False),
+        ("software", "Security Guard", False),
+        ("software", "Network Marketing Associate", False),
+        ("software", "Customer Support Representative", False),
+        ("software", "Business Development Associate", False),
+        ("software", "Support Intern", False),
+        ("software", "Administrator Intern", False),
+        ("software", "Graduate Engineer Trainee", False),
+        ("software", "Engineering Intern (Summer 2027)", False),
+    ],
+)
+def test_domain_matching_real_titles(db_session, role, title, matches):
+    suffix = uuid.uuid4().hex
+    # A software company name must never qualify a non-software title by itself.
+    company = models.Company(slug=f"domain-real-{suffix}", name="Software Developers")
+    opportunity = models.Opportunity(
+        slug=f"domain-real-{suffix}",
+        company=company,
+        title=title,
+        apply_url="https://example.com/apply",
+    )
+    db_session.add(opportunity)
+    db_session.flush()
+    matched_id = db_session.scalar(
+        select(models.Opportunity.id).where(
+            models.Opportunity.id == opportunity.id, role_match_expression(role)
+        )
+    )
+    assert (matched_id == opportunity.id) is matches
 
 
 def test_search_applies_shared_role_filters(client, role_listings):

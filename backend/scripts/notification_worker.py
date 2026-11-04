@@ -6,6 +6,7 @@ Usage:
   uv run python -m scripts.notification_worker --digest
   uv run python -m scripts.notification_worker --hackathon-digest
   uv run python -m scripts.notification_worker --instant-alerts
+  uv run python -m scripts.notification_worker --company-alerts
   uv run python -m scripts.notification_worker --closing-soon
   uv run python -m scripts.notification_worker --saved-search-alerts
   uv run python -m scripts.notification_worker --weekly
@@ -18,6 +19,7 @@ from sqlalchemy.orm import Session
 from core.db import make_engine
 from pipeline.notifications import (
     send_closing_soon_alerts,
+    send_company_alerts,
     send_daily_digests,
     send_hackathon_digests,
     send_instant_alerts,
@@ -30,6 +32,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--digest", action="store_true", help="Send daily digest emails")
+    group.add_argument("--company-alerts", action="store_true", help="Send grouped company alerts")
     group.add_argument(
         "--instant-alerts", action="store_true", help="Send instant dream-company alerts"
     )
@@ -54,6 +57,9 @@ def main() -> None:
         if args.digest:
             result = send_daily_digests(session)
             print(f"daily digests: {result}", flush=True)
+        elif args.company_alerts:
+            result = send_company_alerts(session)
+            print(f"company alerts: {result}", flush=True)
         elif args.hackathon_digest:
             result = send_hackathon_digests(session)
             print(f"hackathon digests: {result}", flush=True)

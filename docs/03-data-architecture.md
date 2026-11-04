@@ -204,6 +204,7 @@ subscriptions (
 ```sql
 dream_companies (
   id bigserial PK, user_id uuid FK, company_id bigint FK,
+  roles text[] NOT NULL DEFAULT '{}', -- role filter keys; empty = all domains
   created_at timestamptz DEFAULT now(),
   UNIQUE(user_id, company_id)
 )

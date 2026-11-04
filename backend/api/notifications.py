@@ -32,8 +32,8 @@ def _notification_copy(
         return "Closing soon", f"‘{title}’ closes soon — don’t miss it."
     if notification_type == "instant_alert":
         title = opportunity_title or "An opportunity"
-        company = company_name or "a dream company"
-        return "New at a dream company", f"‘{title}’ just opened at {company}."
+        company = company_name or "a company you follow"
+        return "New at a company you follow", f"‘{title}’ just opened at {company}."
     # `digest` is the legacy type currently emitted by the notification
     # worker. Keep it readable alongside the specified `daily_digest` type.
     if notification_type in {"daily_digest", "digest"}:
@@ -220,6 +220,7 @@ def _unsubscribe_detail(preference_key: str) -> str:
     list_name = {
         "daily_digest": "the daily opportunity digest",
         "hackathon_digest": "the hackathon digest",
+        "instant_alerts": "alerts for companies you follow",
     }.get(preference_key, "these emails")
     return (
         f"You won't get {list_name} any more. " "You can turn it back on in your account settings."

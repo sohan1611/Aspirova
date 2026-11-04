@@ -63,6 +63,7 @@ export type SavedOpportunityItem = OpportunityListItem & {
 
 export interface DreamCompanyItem {
   company: CompanySummary;
+  roles: string[];
 }
 
 export interface SavedSearchParams {
