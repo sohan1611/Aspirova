@@ -823,3 +823,8 @@ RESULT (source expansion, live): SmartRecruiters seeded to production and the Ti
 - Task: unsaved edits survive navigation, country and college stay consistent, honest progress labels, saved search rename, edit and safe delete, deletion request wording, data export, resume failure recovery, sign-out feedback, bookmark race.
 - Codex: all ten. Reported the upload handler has a different name and that the alert baseline already worked as specified.
 - Review: one correction round. It had allowed updating a saved search to no filters, which would email every new listing. One direct edit: a repeated "Optional". Verified: 44 of 44 real-page checks, 1658 tests, eslint, tsc, build, ISR check. PR #146.
+
+## 2026-11-04 — Work order (Claude → Codex, gpt-6.1-sol medium): skip clearly senior roles in alerts
+- Task: founder ruled alerts skip clearly senior jobs. Narrow rule tested first on 1,216 live titles, which showed new-grad and technical staff titles must be exempt and only `job` listings affected.
+- Codex: `exclude_clearly_senior_jobs()` inside `followed_company_match()`, so alerts, digest picks and the weekly report share it; copy, decision row, tests.
+- Review: no corrections. Merge with master resolved by Claude: #144 locked paid-plan toggles, so the followed-company toggle is exempt because every plan now gets those emails; the account export now lists domains. Verified: 2,084 passed, real send on real listings (0 of 17 senior jobs sent), real browser for the toggles.
