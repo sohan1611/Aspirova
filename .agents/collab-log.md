@@ -828,3 +828,8 @@ RESULT (source expansion, live): SmartRecruiters seeded to production and the Ti
 - Task: founder ruled alerts skip clearly senior jobs. Narrow rule tested first on 1,216 live titles, which showed new-grad and technical staff titles must be exempt and only `job` listings affected.
 - Codex: `exclude_clearly_senior_jobs()` inside `followed_company_match()`, so alerts, digest picks and the weekly report share it; copy, decision row, tests.
 - Review: no corrections. Merge with master resolved by Claude: #144 locked paid-plan toggles, so the followed-company toggle is exempt because every plan now gets those emails; the account export now lists domains. Verified: 2,084 passed, real send on real listings (0 of 17 senior jobs sent), real browser for the toggles.
+
+## 2026-11-05 — Work order (Claude → Codex, gpt-6.1-sol medium): saved searches need a filter; readable password errors
+- Task: POST /saved-searches rejects searches with no real filter, shared with PATCH; password reset and change stop showing raw Supabase messages.
+- Codex: first run stopped before any change (file tool timed out, shell failed to start); the retry built both as specified. Could not write this log, because the sandbox denied it, so Claude added this entry.
+- Review: no correction round. One direct edit, correcting my own spec: supabase-js reports 5xx as "retryable", so a server error told students to check their connection; those now get the plain retry message. Verified: 2,110 tests on a throwaway database, ruff, black, eslint, tsc, and 40 of 40 checks through real pages with the real supabase-js against a local auth stub. Live Supabase's error shape checked with a bogus token.

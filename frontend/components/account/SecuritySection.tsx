@@ -28,6 +28,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { exportAccountData } from "@/lib/api";
+import { passwordUpdateErrorMessage } from "@/lib/authErrors";
 import { signOutWithFeedback } from "@/lib/signOut";
 import { MIN_PASSWORD_LENGTH } from "@/lib/password";
 import { createClient } from "@/lib/supabase/client";
@@ -123,11 +124,7 @@ export default function SecuritySection({
       setPassword("");
       toast.success("Password updated");
     } catch (error: unknown) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "We couldn't update your password. Please try again.",
-      );
+      toast.error(passwordUpdateErrorMessage(error, "account"));
     } finally {
       setUpdatingPassword(false);
     }

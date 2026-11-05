@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { passwordUpdateErrorMessage } from "@/lib/authErrors";
 import { MIN_PASSWORD_LENGTH } from "@/lib/password";
 import { createClient } from "@/lib/supabase/client";
 import { useSessionState } from "@/lib/useSession";
@@ -54,16 +55,12 @@ export default function ResetPasswordPage() {
     try {
       const { error: updateError } = await supabase.auth.updateUser({ password });
       if (updateError) {
-        setError(updateError.message);
+        setError(passwordUpdateErrorMessage(updateError, "reset"));
         return;
       }
       setDone(true);
     } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "We couldn't update your password. Please try again.",
-      );
+      setError(passwordUpdateErrorMessage(caught, "reset"));
     } finally {
       setSaving(false);
     }
