@@ -11,6 +11,7 @@ from api.deps import get_db
 from api.filters import (
     DEADLINE_WITHIN_DAYS,
     ROLE_TERMS,
+    _clean_values,
     _comp_type_values,
     _mode_values,
     _organiser_type_values,
@@ -62,6 +63,14 @@ def _validated_params(params: SavedSearchParams) -> dict:
 
     if params.q is not None and len(params.q) > 200:
         raise HTTPException(status_code=422, detail="q must be at most 200 characters")
+    if params.q is not None:
+        values["q"] = params.q.strip()
+        if not values["q"]:
+            values.pop("q")
+    if params.location is not None:
+        values["location"] = _clean_values(params.location)
+        if not values["location"]:
+            values.pop("location")
     if params.category is not None and params.category not in _ALLOWED_CATEGORIES:
         raise HTTPException(status_code=422, detail="Invalid category")
     if params.kind is not None and params.kind not in _ALLOWED_KINDS:
@@ -102,7 +111,11 @@ def _validated_params(params: SavedSearchParams) -> dict:
             if any(not normalize([value]) for value in selected):
                 raise HTTPException(status_code=422, detail=f"Invalid {key}")
             values[key] = normalize(selected)
+            if not values[key]:
+                values.pop(key)
 
+    if not values:
+        raise HTTPException(status_code=422, detail="A saved search needs at least one filter")
     return values
 
 
@@ -204,8 +217,6 @@ def update_saved_search(
         if payload.params is None:
             raise HTTPException(status_code=422, detail="params must not be null")
         params = _validated_params(payload.params)
-        if not params:
-            raise HTTPException(status_code=422, detail="A saved search needs at least one filter")
         if params != saved_search.params:
             saved_search.params = params
             saved_search.last_alerted_at = datetime.now(UTC)

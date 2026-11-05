@@ -411,7 +411,20 @@ def test_non_filter_edits_preserve_alert_baseline(
         assert row.name == "Original name"
 
 
-@pytest.mark.parametrize("params", [{}, {"q": None}])
+@pytest.mark.parametrize(
+    "params",
+    [
+        {},
+        {"q": None},
+        {"q": ""},
+        {"q": "   "},
+        {"location": []},
+        {"location": ["  "]},
+        {"comp_type": []},
+        {"organiser_type": []},
+        {"mode": []},
+    ],
+)
 def test_patch_saved_search_requires_at_least_one_filter(
     client, db_session, seeded, params
 ) -> None:
@@ -436,3 +449,95 @@ def test_patch_saved_search_requires_at_least_one_filter(
     assert row.name == "Original name"
     assert row.params == {"q": "python"}
     assert row.last_alerted_at == baseline
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {},
+        {"q": None},
+        {"q": ""},
+        {"q": "   "},
+        {"location": []},
+        {"location": ["  "]},
+        {"comp_type": []},
+        {"organiser_type": []},
+        {"mode": []},
+    ],
+)
+def test_create_saved_search_requires_at_least_one_filter(client, db_session, params) -> None:
+    before = set(db_session.scalars(select(models.SavedSearch.id)).all())
+
+    response = client.post("/saved-searches", json={"params": params})
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "A saved search needs at least one filter"
+    assert set(db_session.scalars(select(models.SavedSearch.id)).all()) == before
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"remote": False},
+        {"paid": False},
+        {"part_time": False},
+        {"job_offer": False},
+        {"min_stipend": 0},
+        {"prize_min": 0},
+    ],
+)
+def test_create_saved_search_preserves_falsy_filters(client, db_session, params) -> None:
+    response = client.post("/saved-searches", json={"params": params})
+
+    assert response.status_code == 200
+    assert response.json()["params"] == params
+    row = db_session.get(models.SavedSearch, response.json()["id"])
+    assert row.params == params
+
+
+@pytest.mark.parametrize(
+    ("params", "expected"),
+    [
+        ({"q": "  python  "}, {"q": "python"}),
+        ({"location": ["Bengaluru, India", " "]}, {"location": ["Bengaluru, India"]}),
+    ],
+)
+def test_create_saved_search_cleans_filters(client, db_session, params, expected) -> None:
+    response = client.post("/saved-searches", json={"params": params})
+
+    assert response.status_code == 200
+    assert response.json()["params"] == expected
+    row = db_session.get(models.SavedSearch, response.json()["id"])
+    assert row.params == expected
+
+
+@pytest.mark.parametrize("patch", [{"name": "Renamed"}, {"alerts_enabled": False}])
+def test_empty_saved_search_still_lists_and_accepts_non_filter_edits(
+    client, db_session, seeded, patch
+) -> None:
+    baseline = datetime.now(timezone.utc) - timedelta(days=7)
+    row = models.SavedSearch(
+        user_id=seeded["user"].id,
+        name="Legacy search",
+        params={},
+        last_alerted_at=baseline,
+    )
+    db_session.add(row)
+    db_session.flush()
+
+    response = client.get("/saved-searches")
+
+    assert response.status_code == 200
+    loaded = next(item for item in response.json() if item["id"] == row.id)
+    assert loaded["params"] == {}
+
+    response = client.patch(f"/saved-searches/{row.id}", json=patch)
+
+    assert response.status_code == 200
+    for key, value in patch.items():
+        assert response.json()[key] == value
+    db_session.refresh(row)
+    assert row.params == {}
+    assert row.last_alerted_at == baseline
+    for key, value in patch.items():
+        assert getattr(row, key) == value
