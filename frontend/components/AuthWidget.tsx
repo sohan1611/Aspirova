@@ -7,13 +7,13 @@ import { PasswordInput } from "@/components/PasswordInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AUTH_CONNECTION_ERROR } from "@/lib/authErrors";
 import { MIN_PASSWORD_LENGTH } from "@/lib/password";
 import { signOutWithFeedback } from "@/lib/signOut";
 import { createClient } from "@/lib/supabase/client";
 import { useSession } from "@/lib/useSession";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const AUTH_CONNECTION_ERROR = "We couldn't reach the sign-in service. Check your connection and try again.";
 type OAuthProvider = "google" | "github";
 
 /** A terminal message that replaces the form once an action succeeds. */
