@@ -370,6 +370,7 @@ def _merge_candidates(candidates: list[Candidate], key: str) -> list[Candidate]:
 def score_candidates(
     key: str, candidates: list[Candidate], homepages: Mapping[str, Homepage]
 ) -> Decision:
+    threshold = 4 if len(key.split()) == 1 else 3
     merged = _merge_candidates(candidates, key)
     evidence = {}
     for candidate in merged:
@@ -383,7 +384,7 @@ def score_candidates(
             score=0 if parked else sum(SIGNAL_WEIGHTS[signal] for signal in signals),
             parked=parked,
         )
-    winners = [candidate for candidate in merged if evidence[candidate.domain].score >= 3]
+    winners = [candidate for candidate in merged if evidence[candidate.domain].score >= threshold]
     if len(winners) != 1:
         return Decision("ambiguous" if winners else "not_found", None, evidence)
     winner = winners[0]
@@ -405,6 +406,7 @@ def discover_domain(
     key = company_key(name)
     if not key:
         return Decision("not_found", None, {})
+    threshold = 4 if len(key.split()) == 1 else 3
     candidates = _merge_candidates(
         wikidata_candidates(fetcher, name)
         + clearbit_candidates(fetcher, name)
@@ -414,7 +416,7 @@ def discover_domain(
     homepages = {
         candidate.domain: inspect_homepage(fetcher, candidate.domain, robots_cache)
         for candidate in candidates
-        if sum(SIGNAL_WEIGHTS[signal] for signal in candidate.signals) >= 2
+        if sum(SIGNAL_WEIGHTS[signal] for signal in candidate.signals) >= threshold - 1
     }
     return score_candidates(key, candidates, homepages)
 

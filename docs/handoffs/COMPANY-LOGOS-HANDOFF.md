@@ -60,6 +60,7 @@ Normalize every name with `pipeline.normalize.normalize_company_name`, then stri
 - Domains compare after lowercasing and stripping `www.`. Two hosts are the same site when one equals the other or ends with `"." + other`. Do **not** add a public-suffix list.
 - **Merge** a candidate that is a subdomain of another candidate into the parent (for example, `respark.iitm.ac.in` folds into `iitm.ac.in`). **Each signal type counts at most once per candidate**, so two Wikidata entities pointing at the same site still score 2, not 4.
 - **Accept** a candidate with score ≥ 3 **only if it is the only candidate at ≥ 3**. Two or more at ≥ 3 → `ambiguous`. None → `not_found`. The signals and per-candidate scores always go into `logo_evidence`.
+  - Single-word company keys need score ≥ 4, with exactly one candidate at that threshold (real review: Alan/Micron/Quantum).
 
 Expected outcomes, which are also tests on the recorded fixtures:
 

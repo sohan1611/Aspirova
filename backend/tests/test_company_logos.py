@@ -107,6 +107,50 @@ def recorded_fetcher(name: str, stem: str) -> FakeFetcher:
     return fetcher
 
 
+@pytest.mark.parametrize(
+    ("name", "signals", "status", "score"),
+    [
+        ("Alan", {"wikidata"}, "not_found", 3),
+        ("Alan", {"wikidata", "clearbit"}, "found", 4),
+        ("Alan Labs", {"wikidata"}, "found", 3),
+    ],
+)
+def test_name_token_count_sets_acceptance_threshold(
+    name: str, signals: set[str], status: str, score: int
+) -> None:
+    domain = "alan.example"
+    homepage = Homepage(domain, url=f"https://{domain}/", titles=(name,))
+    decision = score_candidates(company_key(name), [Candidate(domain, signals)], {domain: homepage})
+    assert decision.status == status
+    assert decision.domain == (domain if status == "found" else None)
+    assert decision.candidates[domain].score == score
+
+
+@pytest.mark.parametrize(
+    ("name", "signals", "fetch_homepage"),
+    [
+        ("Alan", {"wikidata"}, False),
+        ("Alan", {"wikidata", "clearbit"}, True),
+        ("Alan Labs", {"wikidata"}, True),
+    ],
+)
+def test_homepage_pruning_uses_name_threshold(
+    monkeypatch: pytest.MonkeyPatch, name: str, signals: set[str], fetch_homepage: bool
+) -> None:
+    domain = "alan.example"
+    monkeypatch.setattr(
+        "pipeline.company_logos.wikidata_candidates",
+        lambda fetcher, name: [Candidate(domain, signals)],
+    )
+    monkeypatch.setattr("pipeline.company_logos.clearbit_candidates", lambda fetcher, name: [])
+    fetcher = FakeFetcher()
+    fetcher.add(f"https://{domain}/", f"<title>{name}</title>".encode())
+    decision = discover_domain(fetcher, name, [], {})
+    assert (request_key(f"https://{domain}/") in fetcher.calls) == fetch_homepage
+    assert (request_key(f"https://{domain}/robots.txt") in fetcher.calls) == fetch_homepage
+    assert decision.status == ("found" if fetch_homepage else "not_found")
+
+
 def test_worldquant_exact_match_in_any_position() -> None:
     fetcher = recorded_fetcher("WorldQuant", "worldquant")
     assert [candidate.domain for candidate in clearbit_candidates(fetcher, "WorldQuant")] == [
@@ -293,16 +337,29 @@ def test_weak_marker_uses_whole_visible_text_length(length: int, parked: bool) -
     assert inspect_homepage(fetcher, "acme.example", {}).parked == parked
 
 
-def test_two_winners_are_ambiguous_and_signals_count_once() -> None:
+@pytest.mark.parametrize(
+    ("key", "status", "with_titles"),
+    [("acme labs", "ambiguous", False), ("acme", "not_found", False), ("acme", "ambiguous", True)],
+)
+def test_two_winners_are_ambiguous_and_signals_count_once(
+    key: str, status: str, with_titles: bool
+) -> None:
     candidates = [
         Candidate("one.example", {"wikidata"}),
         Candidate("one.example", {"wikidata"}),
         Candidate("one.example", {"clearbit"}),
         Candidate("two.example", {"listing", "clearbit"}),
     ]
-    decision = score_candidates("acme", candidates, {})
-    assert (decision.status, decision.domain) == ("ambiguous", None)
-    assert [candidate.score for candidate in decision.candidates.values()] == [3, 3]
+    homepages = {
+        domain: Homepage(domain, url=f"https://{domain}/", titles=(key,))
+        for domain in ("one.example", "two.example")
+        if with_titles
+    }
+    decision = score_candidates(key, candidates, homepages)
+    assert (decision.status, decision.domain) == (status, None)
+    assert [candidate.score for candidate in decision.candidates.values()] == (
+        [4, 4] if with_titles else [3, 3]
+    )
 
 
 def test_robots_disallow_skips_homepage_and_caches_per_domain() -> None:
