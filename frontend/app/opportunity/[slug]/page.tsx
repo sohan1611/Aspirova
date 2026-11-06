@@ -159,6 +159,11 @@ function buildJobPostingJsonLd(
   return jsonLd;
 }
 
+// Apply labels end in a text arrow; this page draws an arrow icon instead.
+function withoutArrow(label: string): string {
+  return label.replace(/\s*→\s*$/, "");
+}
+
 function serializeJsonLd(value: Record<string, unknown>): string {
   return JSON.stringify(value).replace(/</g, "\\u003c");
 }
@@ -380,16 +385,16 @@ export default async function OpportunityPage({ params }: PageProps) {
                       <div className="flex flex-wrap items-center gap-3">
                         <span className="inline-flex min-h-11 items-center rounded-md border border-border bg-secondary px-4 py-2 text-sm font-medium text-muted-foreground">{closedStatusLabel}</span>
                         <Button size="lg" variant="outline" className={SOURCE_LINK_CLASSES} asChild>
-                          <a href={opportunity.apply_url} target="_blank" rel="noopener noreferrer">{verifyLabel}<ArrowUpRight className="size-4 shrink-0" aria-hidden="true" /></a>
+                          <a href={opportunity.apply_url} target="_blank" rel="noopener noreferrer">{withoutArrow(verifyLabel)}<ArrowUpRight className="size-4 shrink-0" aria-hidden="true" /></a>
                         </Button>
                       </div>
                     ) : stale ? (
                       <div className="flex flex-wrap items-center gap-3">
                         <span className="inline-flex min-h-11 items-center rounded-md border border-border bg-secondary px-4 py-2 text-sm font-medium text-muted-foreground">{staleStatusLabel}</span>
-                        <ApplyLink slug={opportunity.slug} href={opportunity.apply_url} size="lg" variant="outline" className={SOURCE_LINK_CLASSES}>{verifyLabel}<ArrowUpRight className="size-4 shrink-0" aria-hidden="true" /></ApplyLink>
+                        <ApplyLink slug={opportunity.slug} href={opportunity.apply_url} size="lg" variant="outline" className={SOURCE_LINK_CLASSES}>{withoutArrow(verifyLabel)}<ArrowUpRight className="size-4 shrink-0" aria-hidden="true" /></ApplyLink>
                       </div>
                     ) : (
-                      <ApplyLink slug={opportunity.slug} href={opportunity.apply_url} size="lg" className={SOURCE_LINK_CLASSES}>{apply.buttonLabel}<ArrowUpRight className="size-4 shrink-0" aria-hidden="true" /></ApplyLink>
+                      <ApplyLink slug={opportunity.slug} href={opportunity.apply_url} size="lg" className={SOURCE_LINK_CLASSES}>{withoutArrow(apply.buttonLabel)}<ArrowUpRight className="size-4 shrink-0" aria-hidden="true" /></ApplyLink>
                     )}
                   </div>
                   <BookmarkButton slug={opportunity.slug} />

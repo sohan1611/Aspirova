@@ -9,7 +9,7 @@ export default function SimilarOpportunitiesList({ items }: { items: Opportunity
   if (items.length === 0) return null;
   return (
     <section className="rounded-lg border border-border bg-card p-5 sm:p-6" aria-labelledby="similar-opportunities-heading">
-      <h2 id="similar-opportunities-heading" className="border-b border-border pb-4 font-serif text-2xl font-bold">Similar opportunities</h2>
+      <h2 id="similar-opportunities-heading" className="border-b border-border pb-4 font-serif text-xl font-bold">Similar opportunities</h2>
       <ul className="divide-y divide-border">
         {items.slice(0, 5).map((item) => {
           const location = summarizeLocation(item.location).short;

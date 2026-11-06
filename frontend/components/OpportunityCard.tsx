@@ -1,13 +1,3 @@
-import {
-  Building2,
-  CalendarDays,
-  Code2,
-  Globe2,
-  MapPin,
-  Trophy,
-  UserCheck,
-  Users,
-} from "lucide-react";
 import HoverPrefetchLink from "@/components/HoverPrefetchLink";
 import { Badge } from "@/components/ui/badge";
 import CompanyFavicon from "@/components/CompanyFavicon";
@@ -62,13 +52,9 @@ function absoluteDate(value: string): string {
   return Number.isNaN(date.getTime()) ? value : ABSOLUTE_DATE_FORMATTER.format(date);
 }
 
-const BANNER_PALETTES = [
-  "from-blue-50 via-indigo-100 to-sky-100",
-  "from-sky-50 via-blue-100 to-teal-100",
-  "from-indigo-50 via-slate-100 to-blue-100",
-  "from-teal-50 via-sky-100 to-indigo-100",
-  "from-slate-50 via-blue-100 to-cyan-100",
-];
+// Palettes and motifs live in globals.css (.comp-banner): the banner is one
+// element painted with layered gradients, so it adds nothing to hydrate.
+const BANNER_PALETTE_COUNT = 5;
 
 export default function OpportunityCard({ item }: { item: OpportunityListItem }) {
   const companyName = item.company?.name ?? "Unknown company";
@@ -105,8 +91,8 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
     (hash, character) => (hash * 31 + character.charCodeAt(0)) >>> 0,
     0,
   );
-  const paletteIndex = slugHash % BANNER_PALETTES.length;
-  const BannerIcon = item.category === "hackathon" ? Code2 : Trophy;
+  const paletteIndex = slugHash % BANNER_PALETTE_COUNT;
+  const bannerMotif = item.category === "hackathon" ? "comp-banner--hatch" : "comp-banner--rings";
   const locationText = (
     <span className="min-w-0 break-words" title={full ?? undefined}>
       {countryFlag && <span aria-hidden="true">{countryFlag} </span>}
@@ -146,9 +132,7 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
         className="group flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-soft transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         {isCompetition && (
-          <div className={`relative h-28 shrink-0 overflow-hidden bg-gradient-to-br sm:h-32 ${BANNER_PALETTES[paletteIndex]}`}>
-            <div aria-hidden="true" className="absolute inset-0 text-primary/15 [background-image:radial-gradient(currentColor_1px,transparent_1px)] [background-size:16px_16px]" />
-            <BannerIcon aria-hidden="true" className="absolute -bottom-4 right-8 size-28 -rotate-12 text-primary/15" strokeWidth={1} />
+          <div className={`comp-banner ${bannerMotif} comp-banner--p${paletteIndex} relative h-28 shrink-0 overflow-hidden sm:h-32`}>
             {(item.closed_at || item.deadline) && (
               <RelativeDeadline
                 deadline={item.deadline}
@@ -197,41 +181,41 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
 
           {isCompetition ? (
             <>
-              <div className="mt-auto grid min-w-0 grid-cols-2 gap-x-3 gap-y-2 border-t border-border pt-3 text-xs text-muted-foreground [&>span]:flex [&>span]:min-w-0 [&>span]:items-start [&>span]:gap-1.5 [&_svg]:mt-0.5 [&_svg]:size-3.5 [&_svg]:shrink-0">
+              <div className="mt-auto grid min-w-0 grid-cols-2 gap-x-3 gap-y-2 border-t border-border pt-3 text-xs text-muted-foreground [&>span]:flex [&>span]:min-w-0 [&>span]:items-start [&>span]:gap-1.5">
                 {prizeText && (
                   <span className="text-accent-foreground">
-                    <Trophy aria-hidden="true" />
+                    <span aria-hidden="true" className="ico ico-trophy mt-0.5 size-3.5" />
                     <span className="break-words">
                       <span className="sr-only">Prize pool </span>{prizeText}
                     </span>
                   </span>
                 )}
                 {teamSize && (
-                  <span><Users aria-hidden="true" /><span>{teamSize}</span></span>
+                  <span><span aria-hidden="true" className="ico ico-users mt-0.5 size-3.5" /><span>{teamSize}</span></span>
                 )}
                 {(mode || location || countryFlag) && (
                   <span>
-                    {mode === "Online" ? <Globe2 aria-hidden="true" /> : <MapPin aria-hidden="true" />}
+                    <span aria-hidden="true" className={`ico ${mode === "Online" ? "ico-globe" : "ico-map-pin"} mt-0.5 size-3.5`} />
                     <span>
                       {mode}{mode && (location || countryFlag) && " · "}{locationText}
                     </span>
                   </span>
                 )}
-                {item.is_remote && <span><Globe2 aria-hidden="true" />Remote</span>}
+                {item.is_remote && <span><span aria-hidden="true" className="ico ico-globe mt-0.5 size-3.5" />Remote</span>}
                 {deadlineText && (
-                  <span><CalendarDays aria-hidden="true" /><span>{deadlineText}</span></span>
+                  <span><span aria-hidden="true" className="ico ico-calendar mt-0.5 size-3.5" /><span>{deadlineText}</span></span>
                 )}
                 {registered !== null && (
                   <span>
-                    <UserCheck aria-hidden="true" />
+                    <span aria-hidden="true" className="ico ico-user-check mt-0.5 size-3.5" />
                     <span>{registered.toLocaleString("en-US")} registered</span>
                   </span>
                 )}
                 {offersPpi && (
-                  <span><UserCheck aria-hidden="true" />Offers internship</span>
+                  <span><span aria-hidden="true" className="ico ico-user-check mt-0.5 size-3.5" />Offers internship</span>
                 )}
                 {offersPpo && (
-                  <span><UserCheck aria-hidden="true" />Offers PPO</span>
+                  <span><span aria-hidden="true" className="ico ico-user-check mt-0.5 size-3.5" />Offers PPO</span>
                 )}
               </div>
               <div className="flex min-w-0 flex-wrap items-center gap-1.5">
@@ -244,18 +228,18 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
             <>
               <div className="mt-auto flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-3 text-xs text-muted-foreground">
                 <span className="inline-flex min-w-0 items-center gap-1.5">
-                  <Building2 className="size-3.5 shrink-0" aria-hidden="true" />
+                  <span aria-hidden="true" className="ico ico-building size-3.5" />
                   <CompanyFavicon company={item.company} size={20} />
                   <span className="min-w-0 break-words">{companyName}</span>
                 </span>
                 {(location || countryFlag) && (
                   <span className="inline-flex min-w-0 items-start gap-1.5">
-                    <MapPin className="size-3.5 shrink-0" aria-hidden="true" />{locationText}
+                    <span aria-hidden="true" className="ico ico-map-pin size-3.5" />{locationText}
                   </span>
                 )}
                 {item.is_remote && (
                   <span className="inline-flex items-center gap-1.5">
-                    <Globe2 className="size-3.5" aria-hidden="true" />Remote
+                    <span aria-hidden="true" className="ico ico-globe size-3.5" />Remote
                   </span>
                 )}
                 {registered !== null && (

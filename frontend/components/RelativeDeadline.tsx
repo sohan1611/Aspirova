@@ -1,6 +1,5 @@
 "use client";
 
-import { CalendarDays, CheckCircle2, Clock } from "lucide-react";
 import { isListingClosed } from "@/lib/deadline";
 import { useHydrated } from "@/lib/useHydrated";
 
@@ -47,16 +46,16 @@ export default function RelativeDeadline({
   const closed = hydrated ? isListingClosed(closedAt, deadline, category) : !!closedAt;
   const relative = hydrated && !closed && deadline ? relativeText(deadline, banner) : null;
   let text = absoluteText;
-  let Icon = CalendarDays;
+  let icon = "ico-calendar";
   if (closed) {
     text = closedText;
-    Icon = Clock;
+    icon = "ico-clock";
   } else if (relative) {
     text = `${relative}${estimated ? " (estimated)" : ""}`;
-    Icon = Clock;
+    icon = "ico-clock";
   } else if (hydrated && banner && deadline) {
     text = "Registering now";
-    Icon = CheckCircle2;
+    icon = "ico-check-circle";
   }
 
   const className = banner
@@ -65,7 +64,7 @@ export default function RelativeDeadline({
 
   return (
     <span className={className} title={absoluteText ?? undefined}>
-      <Icon className="size-3.5 shrink-0" aria-hidden="true" />
+      <span aria-hidden="true" className={`ico ${icon} size-3.5`} />
       {text}
     </span>
   );

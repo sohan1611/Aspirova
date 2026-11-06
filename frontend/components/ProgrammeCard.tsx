@@ -12,7 +12,7 @@ export default function ProgrammeCard({ programme }: { programme: ProgrammeListI
   const remaining = closesAt ? new Date(closesAt).getTime() - new Date().getTime() : 0;
   const days = Math.ceil(remaining / 86_400_000);
   const path = programmePath(programme.slug);
-  const initials = programme.name.trim().split(/\s+/).slice(0, 2).map((word) => word[0]).join("");
+  const initials = programme.name.trim().split(/\s+/).slice(0, 2).map((word) => word[0]).join("").toUpperCase();
 
   return (
     <article className={`flex min-w-0 flex-col rounded-lg [overflow-wrap:anywhere] border border-border bg-card p-5 ${open ? "border-t-[3px] border-t-success" : ""}`}>
@@ -32,7 +32,7 @@ export default function ProgrammeCard({ programme }: { programme: ProgrammeListI
       </div>
       <div className="mt-5 border-t border-border pt-4">
         <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground"><CalendarDays className="size-3.5" aria-hidden="true" />Application window</p>
-        <p className="mt-2 text-sm leading-6">{status.text}</p>
+        <p className="mt-2 text-sm leading-6">{status.text.charAt(0).toUpperCase() + status.text.slice(1)}</p>
         {remaining > 0 && <p className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground"><Timer className="size-4" aria-hidden="true" />Closes in {days} {days === 1 ? "day" : "days"}</p>}
       </div>
       <p className="mt-3 line-clamp-2 text-sm leading-6 text-muted-foreground">{programme.description?.trim() || "Programme details vary by annual edition; verify dates and eligibility on the official page."}</p>

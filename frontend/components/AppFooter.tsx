@@ -36,16 +36,6 @@ export default function AppFooter() {
                 </HoverPrefetchLink>
               </li>
               <li>
-                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/jobs">
-                  Jobs
-                </HoverPrefetchLink>
-              </li>
-              <li>
-                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/internships">
-                  Internships
-                </HoverPrefetchLink>
-              </li>
-              <li>
                 <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/competitions">
                   Competitions
                 </HoverPrefetchLink>
@@ -88,7 +78,7 @@ export default function AppFooter() {
               </li>
               <li>
                 <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/resume">
-                  Resume check
+                  Matches
                 </HoverPrefetchLink>
               </li>
               <li>

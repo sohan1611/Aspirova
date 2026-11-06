@@ -44,7 +44,7 @@ export default function ProgrammeAlmanac({ programmes }: { programmes: Programme
           {rows.map(({ programme, window }) => <div key={programme.slug} role="row" className="grid grid-cols-[180px_minmax(0,1fr)] border-b border-border last:border-b-0">
             <div role="rowheader" className="min-w-0 pr-3">
               <HoverPrefetchLink href={programmePath(programme.slug)} className="flex min-h-14 items-center gap-2 text-xs font-medium hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <span className="flex size-7 shrink-0 items-center justify-center rounded border border-border bg-secondary text-xs" aria-hidden="true">{programme.name.trim().split(/\s+/).slice(0, 2).map((word) => word[0]).join("")}</span>
+                <span className="flex size-7 shrink-0 items-center justify-center rounded border border-border bg-secondary text-xs" aria-hidden="true">{programme.name.trim().split(/\s+/).slice(0, 2).map((word) => word[0]).join("").toUpperCase()}</span>
                 <span className="truncate" title={programme.name}>{programme.name}</span>
               </HoverPrefetchLink>
             </div>
