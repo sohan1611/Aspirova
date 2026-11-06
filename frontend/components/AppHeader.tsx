@@ -1,55 +1,33 @@
+import { Search } from "lucide-react";
 import HoverPrefetchLink from "@/components/HoverPrefetchLink";
 import HeaderAuth from "@/components/HeaderAuth";
+import HeaderNav from "@/components/HeaderNav";
 import MobileNav from "@/components/MobileNav";
 import NotificationBell from "@/components/NotificationBell";
 import Wordmark from "@/components/Wordmark";
-
-const NAV_LINK_CLASSES =
-  "relative py-1 text-muted-foreground transition-colors duration-300 ease-premium after:absolute after:inset-x-0 after:bottom-0 after:h-px after:origin-left after:scale-x-0 after:bg-primary after:transition-transform after:duration-300 after:ease-premium hover:text-foreground hover:after:scale-x-100 focus-visible:text-foreground focus-visible:after:scale-x-100 active:text-foreground";
+import { Button } from "@/components/ui/button";
 
 export default function AppHeader() {
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-[1680px] items-center justify-between gap-2 px-4 sm:gap-4 sm:px-6 lg:px-10 xl:px-12">
-        <div className="flex min-w-0 items-center gap-3 sm:gap-6">
-          <Wordmark className="[&>span]:hidden [&>span]:tracking-[-0.01em] sm:[&>span]:inline" />
+    <header className="sticky top-0 z-40 border-b border-border bg-card">
+      <div className="mx-auto flex h-16 max-w-[1680px] items-center justify-between gap-2 px-4 sm:gap-3 sm:px-6 lg:gap-2 lg:px-10 xl:px-12">
+        <div className="flex min-w-0 shrink-0 items-center gap-1 md:gap-3">
+          <Wordmark className="[&>span]:hidden min-[360px]:[&>span]:inline [&>span]:text-lg lg:[&>span]:text-[22px]" />
           <MobileNav />
-          <nav className="hidden min-w-0 items-center gap-3 overflow-x-auto whitespace-nowrap text-sm font-medium [scrollbar-width:none] md:flex xl:gap-4 [&::-webkit-scrollbar]:hidden">
-            <HoverPrefetchLink href="/jobs" className={NAV_LINK_CLASSES}>
-              Jobs
-            </HoverPrefetchLink>
-            <HoverPrefetchLink href="/internships" className={NAV_LINK_CLASSES}>
-              Internships
-            </HoverPrefetchLink>
-            <HoverPrefetchLink href="/remote" className={NAV_LINK_CLASSES}>
-              Remote
-            </HoverPrefetchLink>
-            <HoverPrefetchLink href="/competitions" className={NAV_LINK_CLASSES}>
-              Competitions
-            </HoverPrefetchLink>
-            <HoverPrefetchLink href="/scholarships" className={NAV_LINK_CLASSES}>
-              Scholarships
-            </HoverPrefetchLink>
-            <HoverPrefetchLink href="/research" className={NAV_LINK_CLASSES}>
-              Research
-            </HoverPrefetchLink>
-            <HoverPrefetchLink href="/programmes" className={NAV_LINK_CLASSES}>
-              Programmes
-            </HoverPrefetchLink>
-            <HoverPrefetchLink href="/companies" className={NAV_LINK_CLASSES}>
-              Companies
-            </HoverPrefetchLink>
-            <HoverPrefetchLink href="/pricing" className={NAV_LINK_CLASSES}>
-              Pricing
-            </HoverPrefetchLink>
-          </nav>
         </div>
-        <div className="flex items-center gap-2">
+        <HeaderNav />
+        <div className="flex shrink-0 items-center gap-1 xl:gap-2">
+          <Button variant="outline" asChild className="size-11 p-0 sm:size-9 lg:w-auto lg:px-3">
+            <HoverPrefetchLink href="/#feed-search" aria-label="Search opportunities">
+              <Search className="size-4" aria-hidden="true" />
+              <span className="hidden lg:inline">Search</span>
+            </HoverPrefetchLink>
+          </Button>
+          <Button variant="outline" asChild className="hidden px-3 md:inline-flex">
+            <HoverPrefetchLink href="/pricing">Pricing</HoverPrefetchLink>
+          </Button>
           <NotificationBell />
-          <HeaderAuth
-            triggerVariant="ghost"
-            triggerClassName="font-normal text-muted-foreground hover:bg-transparent hover:text-foreground"
-          />
+          <HeaderAuth triggerVariant="default" triggerClassName="px-3 xl:px-4" />
         </div>
       </div>
     </header>

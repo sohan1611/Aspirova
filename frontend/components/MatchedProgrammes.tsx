@@ -52,7 +52,7 @@ export default function MatchedProgrammes() {
       <div className="max-w-3xl">
         <h2
           id="matched-programmes-heading"
-          className="font-serif text-2xl font-semibold text-foreground sm:text-3xl"
+          className="font-serif text-2xl font-bold text-foreground sm:text-3xl"
         >
           Matched to your profile
         </h2>

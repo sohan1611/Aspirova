@@ -40,7 +40,7 @@ export default function ContactPage() {
     <main className="mx-auto w-full max-w-4xl px-6 py-16 sm:px-8 sm:py-20">
       <header className="border-b border-border pb-10">
         <p className="eyebrow">Aspirova legal</p>
-        <h1 className="mt-3 font-serif text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl">
+        <h1 className="mt-3 font-serif text-4xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl">
           Contact Aspirova
         </h1>
         <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
@@ -50,7 +50,7 @@ export default function ContactPage() {
 
       <article className="mt-12 max-w-none">
         <section className="scroll-mt-24">
-          <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
+          <h2 className="font-serif text-2xl font-bold tracking-tight text-foreground">
             Get in touch
           </h2>
           <p className="mt-4 text-base leading-7 text-muted-foreground">
@@ -60,7 +60,7 @@ export default function ContactPage() {
         </section>
 
         <section className="mt-12 scroll-mt-24 border-t border-border pt-10">
-          <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
+          <h2 className="font-serif text-2xl font-bold tracking-tight text-foreground">
             Business details
           </h2>
           <p className="mt-4 text-base leading-7 text-muted-foreground">
@@ -71,7 +71,7 @@ export default function ContactPage() {
         </section>
 
         <section className="mt-12 scroll-mt-24 border-t border-border pt-10">
-          <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
+          <h2 className="font-serif text-2xl font-bold tracking-tight text-foreground">
             Report a bug or broken link
           </h2>
           <p className="mt-4 text-base leading-7 text-muted-foreground">

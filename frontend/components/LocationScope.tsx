@@ -142,7 +142,7 @@ export default function LocationScope() {
       <div
         role="group"
         aria-label={`Location scope for ${country.name}`}
-        className="inline-flex max-w-full items-center rounded-md border border-border bg-muted p-1"
+        className="inline-flex max-w-full flex-wrap items-center gap-2"
       >
         {scopeOptions.map((option) => {
           const isActive = option.value === activeScope;
@@ -155,10 +155,10 @@ export default function LocationScope() {
               disabled={isPending}
               onClick={() => handleScopeChange(option.value)}
               className={cn(
-                "inline-flex min-w-0 items-center gap-1 whitespace-nowrap rounded-sm px-2.5 py-1.5 text-sm font-medium transition-[background-color,color,box-shadow] duration-200 ease-[var(--ease-premium)] disabled:cursor-wait sm:px-3",
+                "inline-flex min-w-0 items-center gap-1 whitespace-nowrap min-h-11 rounded-full border px-2.5 sm:min-h-9 py-1.5 text-sm font-medium transition-[background-color,color,box-shadow] duration-200 ease-[var(--ease-premium)] disabled:cursor-wait sm:px-3",
                 isActive
-                  ? "bg-background text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground",
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground",
               )}
             >
               {option.label}

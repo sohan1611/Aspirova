@@ -40,6 +40,7 @@ export function programmePath(slug: string): string {
 export function getProgrammeStatusDisplay(
   edition: ProgrammeEditionItem | null | undefined,
   typicalWindow: string | null | undefined,
+  now: Date = new Date(),
 ): ProgrammeStatusDisplay {
   const windowText = cleanText(typicalWindow);
   if (!edition) {
@@ -51,7 +52,7 @@ export function getProgrammeStatusDisplay(
       return { text: "Open now", tone: "primary" };
     case "announced":
       return {
-        text: edition.opens_at ? `Opens ${formatDate(edition.opens_at)}` : "Announced",
+        text: edition.opens_at ? `${new Date(edition.opens_at).getTime() < now.getTime() ? "Opened" : "Opens"} ${formatDate(edition.opens_at)}` : "Announced",
         tone: "neutral",
       };
     case "closed":

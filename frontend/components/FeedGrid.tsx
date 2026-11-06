@@ -18,6 +18,7 @@ interface FeedGridProps {
   items: OpportunityListItem[];
   cols: number;
   skeletonCount: number;
+  competitionSkeleton?: boolean;
   emptyHref?: string;
   emptyActionLabel?: string;
   emptyTitle?: string;
@@ -28,6 +29,7 @@ export default function FeedGrid({
   items,
   cols,
   skeletonCount,
+  competitionSkeleton = false,
   emptyHref = "/",
   emptyActionLabel = "Clear filters",
   emptyTitle = "Nothing matches — yet.",
@@ -43,7 +45,7 @@ export default function FeedGrid({
           Updating opportunities...
         </span>
         {Array.from({ length: Math.max(1, skeletonCount) }).map((_, index) => (
-          <OpportunityCardSkeleton key={index} />
+          <OpportunityCardSkeleton key={index} competition={competitionSkeleton} />
         ))}
       </div>
     );
@@ -64,7 +66,7 @@ export default function FeedGrid({
       <div className="rounded-lg border border-border bg-secondary/40 p-3">
         <SearchX className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
       </div>
-      <h2 className="mt-5 text-xl font-semibold text-foreground">{emptyTitle}</h2>
+      <h2 className="mt-5 text-xl font-bold text-foreground">{emptyTitle}</h2>
       <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
         {emptyDescription}
       </p>

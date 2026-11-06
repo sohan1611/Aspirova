@@ -243,7 +243,7 @@ export default function PricingPlans({
               className={cn(
                 "relative py-8 shadow-soft transition-[transform,box-shadow,border-color] duration-300 ease-premium",
                 !isFree && "hover:-translate-y-0.5 hover:[box-shadow:var(--shadow-md)]",
-                tier.highlight && "border-heritage/40 shadow-soft-md",
+                tier.highlight && "border-primary/40 shadow-soft-md",
               )}
             >
               {isCurrentPlan ? (

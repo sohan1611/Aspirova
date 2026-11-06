@@ -18,22 +18,22 @@ export default function StatsBar({ stats }: StatsBarProps) {
   return (
     <section
       aria-label="Aspirova live statistics"
-      className="mt-5 rounded-xl border border-border bg-secondary/25 px-4 py-4 shadow-soft sm:px-5"
+      className="mt-4 rounded-lg border border-border bg-card px-3 py-3 shadow-soft sm:mt-5 sm:px-5 sm:py-4"
     >
-      <div className="flex flex-wrap items-center gap-x-8 gap-y-4 sm:justify-between">
+      <div className="grid grid-cols-3 items-start gap-x-3 gap-y-2 sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-8 sm:gap-y-4">
         {figures.map(({ label, value }) => (
-          <div key={label} className="flex items-baseline gap-2">
-            <span className="tnum font-serif text-xl font-semibold tracking-tight text-foreground">
+          <div key={label} className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-2">
+            <span className="tnum font-serif text-lg font-bold tracking-tight text-foreground sm:text-xl">
               {value.toLocaleString()}
             </span>
-            <span className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+            <span className="text-[0.625rem] font-medium uppercase tracking-[0.06em] text-muted-foreground sm:text-xs sm:tracking-[0.12em]">
               {label}
             </span>
           </div>
         ))}
 
-        <p className="eyebrow flex items-center gap-2 sm:ml-auto">
-          <span className="size-1.5 rounded-full bg-heritage" aria-hidden="true" />
+        <p className="eyebrow col-span-3 flex items-center gap-2 sm:ml-auto">
+          <span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />
           Updated daily
         </p>
       </div>

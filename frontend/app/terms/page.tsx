@@ -39,7 +39,7 @@ export default function TermsPage() {
     <main className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
       <header className="max-w-3xl">
         <p className="eyebrow">The fine print, plainly</p>
-        <h1 className="mt-3 font-serif text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl">
+        <h1 className="mt-3 font-serif text-4xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl">
           Terms of Service
         </h1>
         <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
@@ -53,7 +53,7 @@ export default function TermsPage() {
 
       <div className="mt-10 max-w-3xl space-y-10 text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
         <section>
-          <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
+          <h2 className="font-serif text-2xl font-bold tracking-tight text-foreground">
             What Aspirova is
           </h2>
           <p className="mt-3">
@@ -64,7 +64,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
+          <h2 className="font-serif text-2xl font-bold tracking-tight text-foreground">
             Accuracy and availability
           </h2>
           <p className="mt-3">
@@ -76,7 +76,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
+          <h2 className="font-serif text-2xl font-bold tracking-tight text-foreground">
             Accounts
           </h2>
           <p className="mt-3">
@@ -86,7 +86,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
+          <h2 className="font-serif text-2xl font-bold tracking-tight text-foreground">
             Acceptable use
           </h2>
           <p className="mt-3">Please do not:</p>
@@ -98,7 +98,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
+          <h2 className="font-serif text-2xl font-bold tracking-tight text-foreground">
             Subscriptions and billing
           </h2>
           <p className="mt-3">
@@ -112,7 +112,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
+          <h2 className="font-serif text-2xl font-bold tracking-tight text-foreground">
             Changes and termination
           </h2>
           <p className="mt-3">
@@ -122,7 +122,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
+          <h2 className="font-serif text-2xl font-bold tracking-tight text-foreground">
             Disclaimer and limitation of liability
           </h2>
           <p className="mt-3">
@@ -135,7 +135,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
+          <h2 className="font-serif text-2xl font-bold tracking-tight text-foreground">
             Governing law
           </h2>
           <p className="mt-3">
@@ -145,7 +145,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
+          <h2 className="font-serif text-2xl font-bold tracking-tight text-foreground">
             Contact
           </h2>
           <p className="mt-3">

@@ -53,7 +53,7 @@ export default function CopilotChat() {
             Pro intelligence
           </Badge>
         </div>
-        <h1 className="mt-3 text-3xl font-semibold text-foreground sm:text-4xl">
+        <h1 className="mt-3 text-3xl font-bold text-foreground sm:text-4xl">
           Turn opportunity into a plan.
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
@@ -307,7 +307,7 @@ function Transcript({
               >
                 A
               </span>
-              <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground shadow-soft">
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground shadow-soft">
                 <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                 Copilot is thinking…
               </div>
@@ -327,7 +327,7 @@ function EmptyState({ onSelectPrompt }: { onSelectPrompt: (prompt: string) => vo
         <MessageCircle className="size-6" aria-hidden="true" />
       </span>
       <p className="eyebrow mt-5">Begin with a question</p>
-      <h2 className="mt-2 text-xl font-semibold text-foreground">What would make the search clearer?</h2>
+      <h2 className="mt-2 text-xl font-bold text-foreground">What would make the search clearer?</h2>
       <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted-foreground">
         Copilot works best when you mention the role, location, skill, or timeline you care about.
       </p>

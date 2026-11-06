@@ -7,18 +7,18 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  /* Brand plum scale - derived from the logo ink. */
-  --color-brand-50: #f8eef4;
-  --color-brand-100: #f0dbe8;
-  --color-brand-200: #e3bcd4;
-  --color-brand-300: #d091b6;
-  --color-brand-400: #b96593;
-  --color-brand-500: #9c4372;
-  --color-brand-600: #7c2f57;
-  --color-brand-700: #60294e;
-  --color-brand-800: #4e2240;
-  --color-brand-900: #3f1c34;
-  --color-brand-950: #281021;
+  /* Royal-blue brand scale. */
+  --color-brand-50: #eef4ff;
+  --color-brand-100: #dce8ff;
+  --color-brand-200: #bed3ff;
+  --color-brand-300: #91b5ff;
+  --color-brand-400: #5b8ef5;
+  --color-brand-500: #2c6be8;
+  --color-brand-600: #0b4fd6;
+  --color-brand-700: #0b3fae;
+  --color-brand-800: #12378c;
+  --color-brand-900: #142e70;
+  --color-brand-950: #0a1f5c;
 
   /* Neutral scale - the disciplined gray backbone everything else sits on. */
   --color-neutral-50: #f8fafc;
@@ -38,7 +38,7 @@
      3.8 contrast audit finds a real failure. "destructive" (not "danger")
      to match the shadcn/ui component convention (Part 3.2) - the
      generated Button/Badge/etc primitives hardcode that name. */
-  --color-success: #16a34a;
+  --color-success: #047857;
   --color-success-foreground: #ffffff;
   --color-warning: #f59e0b;
   --color-warning-foreground: #451a03;
@@ -50,13 +50,13 @@
      built-in linear/in/out/in-out. */
   --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
 
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
-  --font-serif: var(--font-fraunces);
+  --font-serif: var(--font-source-serif);
 }
 
 :root {
-  --radius: 0.625rem;
+  --radius: 0.5rem;
   --text-2xs: 0.6875rem;
   --text-xs: 0.78rem;
   --text-sm: 0.875rem;
@@ -67,63 +67,57 @@
   --text-2xl: 1.95rem;
   --text-3xl: 2.45rem;
   --text-4xl: 3.05rem;
-  --background: #faf7f0;
-  --foreground: #231c15;
-  --card: #fffdf8;
-  --card-foreground: #231c15;
-  --popover: #fffdf8;
-  --popover-foreground: #231c15;
-  --primary: #8a5e2f;
-  --primary-foreground: #fdf9f0;
-  --secondary: #efe8d9;
-  --secondary-foreground: #3a3022;
-  --muted: #f0e9db;
-  --muted-foreground: #6b5f4e; /* keep >= 4.5:1 on both --background and --muted */
-  --accent: #ece4d3;
-  --accent-foreground: #3a3022;
-  --destructive: #b23b2e;
+  --background: #f7f8fb;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #0b4fd6;
+  --primary-foreground: #ffffff;
+  --secondary: #eef1f7;
+  --secondary-foreground: #1e293b;
+  --muted: #f1f4f9;
+  --muted-foreground: #5a6475;
+  --accent: #eaf0fd;
+  --accent-foreground: #0b3fae;
+  --destructive: #c2362b;
   --destructive-foreground: #ffffff;
-  --border: #e6ddcb;
-  --input: #e6ddcb;
-  --ring: #8a5e2f;
-  --heritage: #5e2b47;
-  --heritage-foreground: #faf3f7;
-  --shadow-sm: 0 1px 2px rgba(35, 28, 21, 0.05),
-    0 4px 12px -8px rgba(35, 28, 21, 0.1);
-  --shadow-md: 0 1px 2px rgba(35, 28, 21, 0.05),
-    0 10px 28px -14px rgba(35, 28, 21, 0.16);
-  --shadow-lg: 0 2px 4px rgba(35, 28, 21, 0.06),
-    0 24px 48px -20px rgba(35, 28, 21, 0.22);
+  --border: #e2e7f0;
+  --input: #dfe4ee;
+  --ring: #0b4fd6;
+  --heritage: #1e40af;
+  --heritage-foreground: #ffffff;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, .04), 0 1px 3px rgba(15, 23, 42, .06);
+  --shadow-md: 0 2px 4px rgba(15, 23, 42, .04), 0 6px 16px rgba(15, 23, 42, .06);
+  --shadow-lg: 0 4px 8px rgba(15, 23, 42, .04), 0 12px 32px rgba(15, 23, 42, .08);
 }
 
 .dark {
-  --background: #1a1712;
-  --foreground: #ece4d5;
-  --card: #241f18;
-  --card-foreground: #ece4d5;
-  --popover: #1a1712;
-  --popover-foreground: #ece4d5;
-  --primary: #c99f63;
-  --primary-foreground: #231c15;
-  --secondary: #2c261d;
-  --secondary-foreground: #ece4d5;
-  --muted: #282219;
-  --muted-foreground: #a99a84;
-  --accent: #2c261d;
-  --accent-foreground: #ece4d5;
-  --destructive: #7f2b23;
+  --background: #0b1220;
+  --foreground: #e8eef8;
+  --card: #111c2f;
+  --card-foreground: #e8eef8;
+  --popover: #111c2f;
+  --popover-foreground: #e8eef8;
+  --primary: #8cb5ff;
+  --primary-foreground: #081b40;
+  --secondary: #1c2b43;
+  --secondary-foreground: #e8eef8;
+  --muted: #17253b;
+  --muted-foreground: #acb9ce;
+  --accent: #20365c;
+  --accent-foreground: #b6d0ff;
+  --destructive: #c2362b;
   --destructive-foreground: #ffffff;
-  --border: #342c20;
-  --input: #342c20;
-  --ring: #c99f63;
-  --heritage: #cf92b4;
-  --heritage-foreground: #231c15;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4),
-    0 4px 12px -8px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.4),
-    0 10px 28px -14px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.4),
-    0 24px 48px -20px rgba(0, 0, 0, 0.5);
+  --border: #2c3b53;
+  --input: #34455f;
+  --ring: #8cb5ff;
+  --heritage: #a9bfff;
+  --heritage-foreground: #081b40;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, .16);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, .2);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, .24);
 }
 
 /* Mode-dependent tokens are re-exposed here as `inline` so Tailwind treats
@@ -314,25 +308,70 @@ body {
   font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
-body::before {
-  position: fixed;
-  z-index: -1;
-  inset: 0;
-  content: "";
-  pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.72'/%3E%3C/svg%3E");
-  background-attachment: fixed;
-  background-size: 180px 180px;
-  opacity: 0.025;
-}
+/* Sonner's own mobile breakpoint is 600px; the tab bar extends to md. */
+@media (width < 48rem) {
+  html {
+    scroll-padding-top: 5rem;
+    scroll-padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
 
-.dark body::before {
-  opacity: 0.04;
+  :is(a, button, input, select, textarea, [tabindex]) {
+    scroll-margin-block: 1rem;
+  }
+
+  .toaster[data-sonner-toaster][data-y-position="bottom"] {
+    bottom: calc(4rem + env(safe-area-inset-bottom) + 1rem);
+  }
 }
 
 h1,
 h2 {
   font-family: var(--font-serif), Georgia, "Times New Roman", serif;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
+  font-weight: 700;
   text-wrap: balance;
 }
+
+/* Decorative icons drawn as CSS masks: one element each, nothing for React to
+   hydrate inside it. A listing card with lucide SVGs carried ~40 SVG nodes,
+   which measurably slowed /competitions on phones. Paths are lucide's (ISC). */
+.ico {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+  background-color: currentColor;
+  -webkit-mask: var(--ico) center / contain no-repeat;
+  mask: var(--ico) center / contain no-repeat;
+}
+.ico-trophy { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978'/%3E%3Cpath d='M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978'/%3E%3Cpath d='M18 9h1.5a1 1 0 0 0 0-5H18'/%3E%3Cpath d='M4 22h16'/%3E%3Cpath d='M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z'/%3E%3Cpath d='M6 9H4.5a1 1 0 0 1 0-5H6'/%3E%3C/svg%3E"); }
+.ico-users { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Cpath d='M16 3.128a4 4 0 0 1 0 7.744'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3C/svg%3E"); }
+.ico-map-pin { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0'/%3E%3Ccircle cx='12' cy='10' r='3'/%3E%3C/svg%3E"); }
+.ico-globe { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21.54 15H17a2 2 0 0 0-2 2v4.54'/%3E%3Cpath d='M7 3.34V5a3 3 0 0 0 3 3a2 2 0 0 1 2 2c0 1.1.9 2 2 2a2 2 0 0 0 2-2c0-1.1.9-2 2-2h3.17'/%3E%3Cpath d='M11 21.95V18a2 2 0 0 0-2-2a2 2 0 0 1-2-2v-1a2 2 0 0 0-2-2H2.05'/%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3C/svg%3E"); }
+.ico-calendar { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 2v4'/%3E%3Cpath d='M16 2v4'/%3E%3Crect width='18' height='18' x='3' y='4' rx='2'/%3E%3Cpath d='M3 10h18'/%3E%3Cpath d='M8 14h.01'/%3E%3Cpath d='M12 14h.01'/%3E%3Cpath d='M16 14h.01'/%3E%3Cpath d='M8 18h.01'/%3E%3Cpath d='M12 18h.01'/%3E%3Cpath d='M16 18h.01'/%3E%3C/svg%3E"); }
+.ico-clock { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 6v6l4 2'/%3E%3C/svg%3E"); }
+.ico-check-circle { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='m9 12 2 2 4-4'/%3E%3C/svg%3E"); }
+.ico-building { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 12h4'/%3E%3Cpath d='M10 8h4'/%3E%3Cpath d='M14 21v-3a2 2 0 0 0-4 0v3'/%3E%3Cpath d='M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2'/%3E%3Cpath d='M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16'/%3E%3C/svg%3E"); }
+.ico-user-check { --ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m16 11 2 2 4-4'/%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3C/svg%3E"); }
+
+/* Competition card banner: a calm, decorative header drawn entirely with layered
+   gradients on one element (motif, dot grid, palette wash). No images and no SVG,
+   so twenty cards cost nothing extra to hydrate. */
+.comp-banner {
+  background-image:
+    var(--motif),
+    radial-gradient(rgb(11 79 214 / 0.14) 1px, transparent 1px),
+    linear-gradient(135deg, var(--b1), var(--b2) 55%, var(--b3));
+  background-size: auto, 16px 16px, auto;
+}
+.comp-banner--rings {
+  --motif: repeating-radial-gradient(circle at 86% 120%, transparent 0 15px, rgb(11 79 214 / 0.11) 15px 16px);
+}
+.comp-banner--hatch {
+  --motif: repeating-linear-gradient(135deg, transparent 0 17px, rgb(11 79 214 / 0.08) 17px 18px);
+}
+.comp-banner--p0 { --b1: #eff6ff; --b2: #e0e7ff; --b3: #e0f2fe; }
+.comp-banner--p1 { --b1: #f0f9ff; --b2: #dbeafe; --b3: #ccfbf1; }
+.comp-banner--p2 { --b1: #eef2ff; --b2: #f1f5f9; --b3: #dbeafe; }
+.comp-banner--p3 { --b1: #f0fdfa; --b2: #e0f2fe; --b3: #e0e7ff; }
+.comp-banner--p4 { --b1: #f8fafc; --b2: #dbeafe; --b3: #cffafe; }

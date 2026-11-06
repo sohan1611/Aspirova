@@ -24,7 +24,7 @@ function NotificationRow({ item }: { item: NotificationItem }) {
   const content = (
     <article
       className={cn(
-        "flex gap-3 rounded-xl border border-border bg-card px-4 py-4 shadow-soft transition-colors sm:px-5",
+        "flex gap-3 rounded-lg border border-border bg-card px-4 py-4 shadow-soft transition-colors sm:px-5",
         !item.read && "border-primary/30 bg-primary/[0.035]",
       )}
     >
@@ -71,7 +71,7 @@ function NotificationsSkeleton() {
       </span>
       <div className="space-y-3" aria-hidden="true">
         {Array.from({ length: 5 }).map((_, index) => (
-          <div key={index} className="rounded-xl border border-border bg-card px-4 py-4 shadow-soft sm:px-5">
+          <div key={index} className="rounded-lg border border-border bg-card px-4 py-4 shadow-soft sm:px-5">
             <Skeleton className="h-4 w-40" />
             <Skeleton className="mt-3 h-4 w-full max-w-2xl" />
             <Skeleton className="mt-2 h-4 w-3/4 max-w-xl" />
@@ -152,7 +152,7 @@ export default function NotificationsPage() {
     <main className="mx-auto w-full max-w-[1680px] px-4 py-10 sm:px-6 sm:py-14 lg:px-10 xl:px-12">
       <header className="max-w-3xl">
         <p className="eyebrow">Alerts</p>
-        <h1 className="mt-3 font-serif text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl">
+        <h1 className="mt-3 font-serif text-4xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl">
           Notifications
         </h1>
         <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
@@ -189,11 +189,11 @@ export default function NotificationsPage() {
           </CardFooter>
         </Card>
       ) : loadState.items.length === 0 ? (
-        <section className="mt-10 flex flex-col items-center rounded-xl border border-border bg-card px-5 py-16 text-center shadow-soft sm:py-20">
+        <section className="mt-10 flex flex-col items-center rounded-lg border border-border bg-card px-5 py-16 text-center shadow-soft sm:py-20">
           <div className="rounded-lg border border-border bg-secondary/40 p-3">
             <Bell className="size-6 text-muted-foreground" aria-hidden="true" />
           </div>
-          <h2 className="mt-5 font-serif text-xl font-semibold text-foreground">No notifications yet.</h2>
+          <h2 className="mt-5 font-serif text-xl font-bold text-foreground">No notifications yet.</h2>
           <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
             Alerts about opportunities and your career activity will appear here.
           </p>

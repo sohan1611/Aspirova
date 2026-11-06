@@ -43,7 +43,7 @@ export default function RefundsPage() {
     <main className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
       <header className="max-w-3xl">
         <p className="eyebrow">Billing, plainly</p>
-        <h1 className="mt-3 font-serif text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl">
+        <h1 className="mt-3 font-serif text-4xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl">
           Refund &amp; Cancellation Policy
         </h1>
         <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
@@ -55,7 +55,7 @@ export default function RefundsPage() {
       </header>
 
       <section className="mt-10 max-w-3xl rounded-xl border border-amber-500/40 bg-amber-500/10 p-5 shadow-soft sm:p-6">
-        <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
+        <h2 className="font-serif text-2xl font-bold tracking-tight text-foreground">
           Payments already made are not refunded
         </h2>
         <p className="mt-3 text-sm font-medium leading-6 text-foreground sm:text-base sm:leading-7">
@@ -65,7 +65,7 @@ export default function RefundsPage() {
 
       <div className="mt-10 max-w-3xl space-y-10 text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
         <section>
-          <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
+          <h2 className="font-serif text-2xl font-bold tracking-tight text-foreground">
             Cancel any time
           </h2>
           <p className="mt-3">
@@ -75,7 +75,7 @@ export default function RefundsPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
+          <h2 className="font-serif text-2xl font-bold tracking-tight text-foreground">
             How to cancel
           </h2>
           <p className="mt-3">
@@ -88,7 +88,7 @@ export default function RefundsPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
+          <h2 className="font-serif text-2xl font-bold tracking-tight text-foreground">
             If something went wrong
           </h2>
           <p className="mt-3">
@@ -98,7 +98,7 @@ export default function RefundsPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
+          <h2 className="font-serif text-2xl font-bold tracking-tight text-foreground">
             Prices and payments
           </h2>
           <p className="mt-3">Prices are in INR and are billed through Razorpay.</p>

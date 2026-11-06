@@ -304,7 +304,7 @@ export default function SavedSearchesSection({ accessToken }: { accessToken: str
                   <div className="min-w-0">
                     <h2
                       id={titleId}
-                      className="truncate font-serif text-lg font-semibold text-foreground"
+                      className="truncate font-serif text-lg font-bold text-foreground"
                     >
                       {title}
                     </h2>

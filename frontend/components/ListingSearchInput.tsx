@@ -83,7 +83,7 @@ export default function ListingSearchInput({
           value={value}
           disabled={isPending}
           onChange={(event) => setValue(event.target.value)}
-          className="w-full pl-9 sm:w-72"
+          className="w-full bg-card pl-9 sm:w-72"
         />
       </div>
     </form>

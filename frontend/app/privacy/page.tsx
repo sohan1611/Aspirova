@@ -37,7 +37,7 @@ export default function PrivacyPage() {
     <main className="mx-auto w-full max-w-4xl px-6 py-16 sm:px-8 sm:py-20">
       <header className="border-b border-border pb-10">
         <p className="eyebrow">Aspirova legal</p>
-        <h1 className="mt-3 font-serif text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl">
+        <h1 className="mt-3 font-serif text-4xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl">
           Privacy Policy
         </h1>
         <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
@@ -47,7 +47,7 @@ export default function PrivacyPage() {
       </header>
 
       <article className="mt-12 max-w-none">
-        <h2 className="scroll-mt-24 font-serif text-2xl font-semibold tracking-tight text-foreground">
+        <h2 className="scroll-mt-24 font-serif text-2xl font-bold tracking-tight text-foreground">
           What we collect
         </h2>
 
@@ -134,7 +134,7 @@ export default function PrivacyPage() {
           subscription period.
         </p>
 
-        <h2 className="mt-12 scroll-mt-24 font-serif text-2xl font-semibold tracking-tight text-foreground">
+        <h2 className="mt-12 scroll-mt-24 font-serif text-2xl font-bold tracking-tight text-foreground">
           Why we use this information
         </h2>
         <p className="mt-4 text-base leading-7 text-muted-foreground">
@@ -148,7 +148,7 @@ export default function PrivacyPage() {
           <li>Investigate and fix bugs that you report.</li>
         </ul>
 
-        <h2 className="mt-12 scroll-mt-24 font-serif text-2xl font-semibold tracking-tight text-foreground">
+        <h2 className="mt-12 scroll-mt-24 font-serif text-2xl font-bold tracking-tight text-foreground">
           Who processes information
         </h2>
         <p className="mt-4 text-base leading-7 text-muted-foreground">
@@ -188,7 +188,7 @@ export default function PrivacyPage() {
           </li>
         </ul>
 
-        <h2 className="mt-12 scroll-mt-24 font-serif text-2xl font-semibold tracking-tight text-foreground">
+        <h2 className="mt-12 scroll-mt-24 font-serif text-2xl font-bold tracking-tight text-foreground">
           What we do not do
         </h2>
         <ul className="mt-4 list-disc space-y-2 pl-5 text-base leading-7 text-muted-foreground marker:text-primary">
@@ -198,7 +198,7 @@ export default function PrivacyPage() {
           <li>We never show your resume to companies or other users.</li>
         </ul>
 
-        <h2 className="mt-12 scroll-mt-24 font-serif text-2xl font-semibold tracking-tight text-foreground">
+        <h2 className="mt-12 scroll-mt-24 font-serif text-2xl font-bold tracking-tight text-foreground">
           How long we keep information
         </h2>
         <p className="mt-4 text-base leading-7 text-muted-foreground">
@@ -209,7 +209,7 @@ export default function PrivacyPage() {
           in encrypted backups until those backups expire.
         </p>
 
-        <h2 className="mt-12 scroll-mt-24 font-serif text-2xl font-semibold tracking-tight text-foreground">
+        <h2 className="mt-12 scroll-mt-24 font-serif text-2xl font-bold tracking-tight text-foreground">
           Your choices and rights
         </h2>
         <p className="mt-4 text-base leading-7 text-muted-foreground">
@@ -224,7 +224,7 @@ export default function PrivacyPage() {
           access to or deletion of your information, email <ContactEmail />. You can download a copy of your account data any time from Account, under Security.
         </p>
 
-        <h2 className="mt-12 scroll-mt-24 font-serif text-2xl font-semibold tracking-tight text-foreground">
+        <h2 className="mt-12 scroll-mt-24 font-serif text-2xl font-bold tracking-tight text-foreground">
           Cookies and local storage
         </h2>
         <p className="mt-4 text-base leading-7 text-muted-foreground">
@@ -233,7 +233,7 @@ export default function PrivacyPage() {
           third-party tracking for advertising.
         </p>
 
-        <h2 className="mt-12 scroll-mt-24 font-serif text-2xl font-semibold tracking-tight text-foreground">
+        <h2 className="mt-12 scroll-mt-24 font-serif text-2xl font-bold tracking-tight text-foreground">
           Children
         </h2>
         <p className="mt-4 text-base leading-7 text-muted-foreground">
@@ -241,7 +241,7 @@ export default function PrivacyPage() {
           under 13.
         </p>
 
-        <h2 className="mt-12 scroll-mt-24 font-serif text-2xl font-semibold tracking-tight text-foreground">
+        <h2 className="mt-12 scroll-mt-24 font-serif text-2xl font-bold tracking-tight text-foreground">
           Changes to this policy
         </h2>
         <p className="mt-4 text-base leading-7 text-muted-foreground">
@@ -249,7 +249,7 @@ export default function PrivacyPage() {
           The latest version will always be posted here with its updated date.
         </p>
 
-        <h2 className="mt-12 scroll-mt-24 font-serif text-2xl font-semibold tracking-tight text-foreground">
+        <h2 className="mt-12 scroll-mt-24 font-serif text-2xl font-bold tracking-tight text-foreground">
           Contact
         </h2>
         <p className="mt-4 text-base leading-7 text-muted-foreground">

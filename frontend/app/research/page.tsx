@@ -112,7 +112,7 @@ export default async function ResearchPage({ searchParams }: PageProps) {
     <main className="mx-auto w-full max-w-[1680px] px-4 py-10 sm:px-6 sm:py-14 lg:px-10 xl:px-12">
       <header className="max-w-3xl">
         <p className="eyebrow">The research track</p>
-        <h1 className="mt-3 font-serif text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl">
+        <h1 className="mt-3 font-serif text-4xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl">
           Research fellowships & internships
         </h1>
         <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
@@ -180,12 +180,12 @@ export default async function ResearchPage({ searchParams }: PageProps) {
         <ProgrammesActiveFilterChips facets={facets} path="/research" />
 
         {failed ? (
-          <section className="mt-10 flex flex-col items-center rounded-xl border border-border bg-card px-5 py-16 text-center shadow-soft sm:py-20">
+          <section className="mt-10 flex flex-col items-center rounded-lg border border-border bg-card px-5 py-16 text-center shadow-soft sm:py-20">
             <div className="rounded-lg border border-border bg-secondary/40 p-3 shadow-soft">
               <AlertCircle className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
             </div>
             <p className="eyebrow mt-5">Programmes</p>
-            <h2 className="mt-2 font-serif text-xl font-semibold text-foreground">
+            <h2 className="mt-2 font-serif text-xl font-bold text-foreground">
               The research track could not be loaded.
             </h2>
             <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
