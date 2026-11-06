@@ -20,13 +20,10 @@ export default function SkillMatchCard({ skills }: { skills: string[] }) {
         <Target className="size-5 shrink-0 text-primary" aria-hidden="true" />
         Your skill match
       </h2>
-      {!hydrated ? (
-        <div className="min-h-48 animate-pulse space-y-4 pt-6" role="status" aria-label="Loading saved skills">
-          <div className="h-12 w-28 rounded bg-muted" />
-          <div className="h-4 w-full rounded bg-muted" />
-          <div className="h-10 w-3/4 rounded bg-muted" />
-        </div>
-      ) : skillNames.length === 0 ? (
+      {/* Most visitors have no saved skills, so the server and pre-hydration render
+          show that state rather than a skeleton: the card then never changes after
+          load for them, which is what keeps this sidebar from shifting (CLS). */}
+      {!hydrated || skillNames.length === 0 ? (
         <div className="flex min-h-48 flex-col items-start justify-center gap-5">
           <p className="text-sm leading-6 text-muted-foreground">See which of these {skills.length} skills you already have.</p>
           <Button asChild variant="outline" className="min-h-11"><HoverPrefetchLink href="/resume">Check my resume</HoverPrefetchLink></Button>
