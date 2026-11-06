@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import ResumeMatchPage from "@/components/ResumeMatchPage";
 
 export const metadata: Metadata = {
-  title: "Resume check",
+  title: "Matches and resume check",
   description:
-    "Store your private resume, review suggested skills and check an ATS readiness estimate.",
+    "Opportunities ranked by your fields and skills, plus a private resume store, skill suggestions and an ATS readiness estimate.",
 };
 
 export default function ResumePage() {
