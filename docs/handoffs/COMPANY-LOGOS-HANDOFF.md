@@ -53,7 +53,10 @@ Normalize every name with `pipeline.normalize.normalize_company_name`, then stri
 | `clearbit` | 1 | `autocomplete.clearbit.com/v1/companies/suggest?query=<name>`. **Every** suggestion whose name key equals the company key counts, in any position. Prefix or "starts with" matches never count. |
 | `title` | 1 | Fetch the homepage (respecting robots.txt, §5). `<title>`, `og:site_name`, `og:title` or `application-name` must contain the key as a whole-word token sequence. The final URL after redirects must still be on the candidate domain. |
 
-- **Parked or for-sale pages disqualify the candidate entirely.** That means a score of 0, whatever else it has. Markers, case-insensitive, in the title or the first 5 KB of visible text: "domain is for sale", "buy this domain", "this domain may be for sale", "domain for sale", "parked", "sedo", "afternic", "hugedomains", "dan.com", "godaddy", "coming soon".
+- **Parked or for-sale pages disqualify the candidate entirely.** That means a score of 0, whatever else it has. Markers match case-insensitively on word boundaries, so "sedo" never matches "Sedona".
+  - Strong markers count in the title or the first 5 KB of visible text: "domain is for sale", "buy this domain", "this domain may be for sale", "domain for sale", "hugedomains", "afternic", "sedo", "dan.com".
+  - Weak markers ("parked", "godaddy", "coming soon") count only in the title, or when the page's whole visible text is under 1,000 characters. A real site's "coming soon" banner must not disqualify a real company.
+- **Homepages are fetched only for candidates that can still win**, meaning a pre-title score ≥ 2. A Clearbit-only candidate (1) can never reach 3, so it costs no homepage request.
 - Domains compare after lowercasing and stripping `www.`. Two hosts are the same site when one equals the other or ends with `"." + other`. Do **not** add a public-suffix list.
 - **Merge** a candidate that is a subdomain of another candidate into the parent (for example, `respark.iitm.ac.in` folds into `iitm.ac.in`). **Each signal type counts at most once per candidate**, so two Wikidata entities pointing at the same site still score 2, not 4.
 - **Accept** a candidate with score ≥ 3 **only if it is the only candidate at ≥ 3**. Two or more at ≥ 3 → `ambiguous`. None → `not_found`. The signals and per-candidate scores always go into `logo_evidence`.
@@ -62,8 +65,9 @@ Expected outcomes, which are also tests on the recorded fixtures:
 
 - WorldQuant → `worldquant.com` scores 4 (wikidata + clearbit + title), accept. "WorldQuant University" and "WorldQuant Foundation" have different keys, so they never contribute.
 - IIT Madras → `iitm.ac.in` scores 3 (wikidata, merged with the Research Park subdomain, + title), accept. `cubeiitm.org` scores 1 (clearbit; title "Cube").
-- Physical Intelligence with no listing text → `physicalintelligence.com` scores 2 (clearbit + title) → **not_found**. The same company with a listing description mentioning `physicalintelligence.company` → that domain scores 3 (listing + title), accept, and the `.com` stays at 2.
-- A tiny company with clearbit + title = 2 → not_found.
+- Physical Intelligence with no listing text → `physicalintelligence.com` scores 1 (clearbit only; its homepage is never fetched) → **not_found**. Even with its title, it could only reach 2. The same company with a listing description mentioning `physicalintelligence.company` → that domain scores 3 (listing + title), accept, and the `.com` stays at 1.
+- A tiny company with only a Clearbit match → not_found, with zero homepage requests.
+- A platform company ("Devfolio", "Google") can own its own root domain (`devfolio.co`, `google.com`) through `clean_domain(..., owner_key=company_key(name))`. Every other company ignores those hosts.
 
 When a domain is accepted:
 
@@ -88,7 +92,8 @@ Validation (`core/logo_store.py`). A failure of any check means "no logo from th
 - HTTP 200, `Content-Type` starting `image/` (or `application/octet-stream` with a body Pillow can decode; Unstop's CloudFront serves that), 100 B ≤ size ≤ 1 MB.
 - Pillow decodes it. For ICO, take the largest frame. Convert to RGBA.
 - Smallest side ≥ 32 px, aspect ≤ 4.
-- Not fully transparent (every alpha below 16). Not near-uniform (opaque pixels' per-channel range below 12).
+- Let coverage be opaque pixels (alpha ≥ 16) over all pixels. Reject when coverage < 1% (practically empty), or when coverage ≥ 95% **and** the opaque pixels' per-channel range is below 12 (a solid block). A single-colour glyph on transparency (GitHub, Apple, X, Vercel) is a valid logo.
+- Pillow's pixel cap is 16 MP, and decompression-bomb warnings count as rejections.
 - Normalize: fit inside 128×128 preserving aspect (LANCZOS), centre on a transparent 128×128 canvas, PNG-encode. `sha256` of those bytes goes into the evidence.
 
 **Generic-icon guard.** This is a post-pass at the end of every non-dry run, plus a check before each accept. If the same `sha256` is on found logos of ≥ 3 groups, where a group is `coalesce(evidence domain, company id)`, it is a platform default (Wix, WordPress, GoDaddy, globe). Clear `logo_url` on every non-manual row with that hash and set `logo_status = 'rejected_generic'`. Rows sharing one domain (domain-cache siblings) are one group and never trip it.
@@ -104,7 +109,9 @@ Validation (`core/logo_store.py`). A failure of any check means "no logo from th
 
 - `JOB_BOARD_HOSTS`, which can never be a company's domain: lever.co, greenhouse.io, ashbyhq.com, workable.com, smartrecruiters.com, recruitee.com, keka.com, myworkdayjobs.com, workday.com, icims.com, bamboohr.com, breezy.hr, jobvite.com, teamtailor.com, personio.de, personio.com, unstop.com, devfolio.co, devpost.com, hackerearth.com, himalayas.app, jobicy.com, remoteok.com, arbeitnow.com, linkedin.com, indeed.com, glassdoor.com, wellfound.com, angel.co, naukri.com, internshala.com, instahyre.com, cutshort.io.
 - `SHARED_HOSTS`, multi-tenant or generic, never a company's identity: google.com, goo.gl, forms.gle, bit.ly, tinyurl.com, linktr.ee, notion.site, notion.so, github.io, github.com, gitlab.io, medium.com, substack.com, wordpress.com, blogspot.com, wixsite.com, webflow.io, framer.website, carrd.co, vercel.app, netlify.app, herokuapp.com, typeform.com, calendly.com, youtube.com, youtu.be, twitter.com, x.com, facebook.com, instagram.com, t.me, wa.me, whatsapp.com, wikipedia.org, amazonaws.com, cloudfront.net, zoom.us, microsoft.com, office.com, sharepoint.com.
-- `clean_domain(value) -> str | None` moves from `scripts/backfill_domains.py::_clean_domain`. It also strips `www.` and returns None for anything in the two lists, IP addresses, or hosts without a dot.
+- Both lists were extended in review with more ATS and careers-hosting platforms (Zoho Recruit, Darwinbox, SuccessFactors, Taleo, Rippling, Work at a Startup…), more job sites, link shorteners and site builders. **The code in `core/domains.py` is authoritative.** The rule behind it: an ATS-hosted careers page such as `acme.zohorecruit.com` would otherwise score listing + title = 3 and store the ATS's favicon as Acme's logo.
+- `clean_domain(value, *, owner_key=None) -> str | None` moves from `scripts/backfill_domains.py::_clean_domain`. It also strips `www.` and returns None for IP addresses, hosts without a dot, and anything in the two lists. The one exception is a list entry's exact root when the company *is* that platform: `owner_key` without spaces equals the entry's first label.
+- `http_url(value)` accepts only well-formed absolute http(s) URLs. It uses `urlsplit`, because httpx 0.28 percent-encodes a malformed host instead of rejecting it.
 
 ## 7. Storage
 

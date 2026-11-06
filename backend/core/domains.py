@@ -39,6 +39,59 @@ JOB_BOARD_HOSTS = frozenset(
         "internshala.com",
         "instahyre.com",
         "cutshort.io",
+        "zohorecruit.com",
+        "zohorecruit.in",
+        "zoho.com",
+        "freshteam.com",
+        "darwinbox.in",
+        "darwinbox.com",
+        "successfactors.com",
+        "successfactors.eu",
+        "taleo.net",
+        "oraclecloud.com",
+        "ultipro.com",
+        "paylocity.com",
+        "adp.com",
+        "jazzhr.com",
+        "applytojob.com",
+        "pinpointhq.com",
+        "rippling.com",
+        "dover.com",
+        "gem.com",
+        "homerun.co",
+        "join.com",
+        "hirehive.com",
+        "trakstar.com",
+        "workatastartup.com",
+        "ycombinator.com",
+        "welcometothejungle.com",
+        "otta.com",
+        "weworkremotely.com",
+        "remote.co",
+        "flexjobs.com",
+        "builtin.com",
+        "dice.com",
+        "monster.com",
+        "careerbuilder.com",
+        "ziprecruiter.com",
+        "simplyhired.com",
+        "foundit.in",
+        "shine.com",
+        "apna.co",
+        "hirist.tech",
+        "hirist.com",
+        "iimjobs.com",
+        "joinsuperset.com",
+        "dare2compete.com",
+        "hackerrank.com",
+        "mettl.com",
+        "eventbrite.com",
+        "lu.ma",
+        "airtable.com",
+        "jotform.com",
+        "tally.so",
+        "hirequotient.com",
+        "keka.co",
     }
 )
 
@@ -84,6 +137,27 @@ SHARED_HOSTS = frozenset(
         "microsoft.com",
         "office.com",
         "sharepoint.com",
+        "lnkd.in",
+        "t.co",
+        "rebrand.ly",
+        "shorturl.at",
+        "cutt.ly",
+        "is.gd",
+        "ow.ly",
+        "buff.ly",
+        "sites.google.com",
+        "drive.google.com",
+        "dropbox.com",
+        "box.com",
+        "canva.site",
+        "my.canva.site",
+        "wix.com",
+        "squarespace.com",
+        "godaddysites.com",
+        "mystrikingly.com",
+        "site123.me",
+        "weebly.com",
+        "jimdosite.com",
     }
 )
 
@@ -139,15 +213,15 @@ def clean_domain(value: Any, *, owner_key: str | None = None) -> str | None:
         pass
     else:
         return None
-    for host in JOB_BOARD_HOSTS | SHARED_HOSTS:
-        if domain == host or domain.endswith("." + host):
-            if (
-                domain == host
-                and owner_key is not None
-                and owner_key.replace(" ", "") == host.split(".")[0]
-            ):
-                return domain
-            return None
+    excluded_hosts = JOB_BOARD_HOSTS | SHARED_HOSTS
+    if (
+        domain in excluded_hosts
+        and owner_key is not None
+        and owner_key.replace(" ", "") == domain.split(".")[0]
+    ):
+        return domain
+    if any(domain == host or domain.endswith("." + host) for host in excluded_hosts):
+        return None
     return domain
 
 
