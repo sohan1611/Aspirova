@@ -102,3 +102,21 @@ def test_same_site(a: str, b: str, expected: bool) -> None:
 )
 def test_http_url_accepts_only_well_formed_http_urls(value, expected) -> None:
     assert http_url(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("domain", "brand"),
+    [
+        ("amazon.com", "amazon"),
+        ("aws.amazon.com", "amazon"),
+        ("amazon.in", "amazon"),
+        ("amazon.co.uk", "amazon"),
+        ("iitm.ac.in", "iitm"),
+        ("www.qld.gov.au", "qld"),
+        ("example.io", "example"),
+    ],
+)
+def test_brand_label(domain, brand) -> None:
+    from core.domains import brand_label
+
+    assert brand_label(domain) == brand

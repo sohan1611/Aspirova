@@ -253,3 +253,20 @@ def http_url(value: Any) -> str | None:
     if any(character in host for character in "%[] "):
         return None
     return text
+
+
+_SECOND_LEVEL_LABELS = frozenset({"co", "com", "org", "net", "ac", "gov", "edu", "nic", "res"})
+
+
+def brand_label(domain: str) -> str:
+    """The label that names the brand, without a public-suffix list.
+
+    amazon.com, aws.amazon.com, amazon.in and amazon.co.uk all give "amazon", so
+    one brand's sibling domains count as one group in the generic-icon guard.
+    """
+    labels = [label for label in domain.lower().removeprefix("www.").split(".") if label]
+    if len(labels) >= 3 and len(labels[-1]) == 2 and labels[-2] in _SECOND_LEVEL_LABELS:
+        labels = labels[:-2]
+    elif len(labels) >= 2:
+        labels = labels[:-1]
+    return labels[-1] if labels else domain.lower()
