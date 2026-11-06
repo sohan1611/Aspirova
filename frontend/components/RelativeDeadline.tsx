@@ -2,9 +2,8 @@
 
 import { useDeferredValue } from "react";
 import { isListingClosed } from "@/lib/deadline";
+import { deadlineTone, DEADLINE_TONE_SURFACE, DEADLINE_TONE_TEXT } from "@/lib/deadlineTone";
 import { useHydrated } from "@/lib/useHydrated";
-
-const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 interface RelativeDeadlineProps {
   deadline: string | null;
@@ -16,21 +15,17 @@ interface RelativeDeadlineProps {
   banner?: boolean;
 }
 
-function relativeText(deadline: string, banner: boolean): string | null {
-  const now = new Date();
+function relativeText(deadline: string, now: Date, banner: boolean): string {
   const date = new Date(deadline);
-  const remaining = date.getTime() - now.getTime();
-  if (remaining < 0 || !Number.isFinite(remaining) || remaining > 7 * DAY_IN_MS) {
-    return null;
-  }
-
-  if (date.toDateString() === now.toDateString()) {
+  const days = (
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) -
+    Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
+  ) / 86_400_000;
+  if (days === 0) {
     return banner ? "Closes today" : "Due today";
   }
-
-  const days = Math.ceil(remaining / DAY_IN_MS);
-  const duration = `${days} ${days === 1 ? "day" : "days"}`;
-  return banner ? `Closing in ${duration}` : `Due in ${duration}`;
+  if (days === 1) return banner ? "Closes tomorrow" : "Due tomorrow";
+  return banner ? `Closing in ${days} days` : `Due in ${days} days`;
 }
 
 export default function RelativeDeadline({
@@ -48,7 +43,11 @@ export default function RelativeDeadline({
   const hydrated = useDeferredValue(useHydrated(), false);
   // Keep text, icons, and styling stable until hydration has completed.
   const closed = hydrated ? isListingClosed(closedAt, deadline, category) : !!closedAt;
-  const relative = hydrated && !closed && deadline ? relativeText(deadline, banner) : null;
+  const now = hydrated ? new Date() : null;
+  const tone = now && !closed && deadline ? deadlineTone(deadline, now) : null;
+  const relative = now && deadline && (tone === "imminent" || tone === "near")
+    ? relativeText(deadline, now, banner)
+    : null;
   let text = absoluteText;
   let icon = "ico-calendar";
   if (closed) {
@@ -57,17 +56,17 @@ export default function RelativeDeadline({
   } else if (relative) {
     text = `${relative}${estimated ? " (estimated)" : ""}`;
     icon = "ico-clock";
-  } else if (hydrated && banner && deadline) {
+  } else if (banner && tone === "far") {
     text = "Registering now";
     icon = "ico-check-circle";
   }
 
   const className = banner
-    ? `absolute right-3 top-3 inline-flex max-w-[calc(100%-1.5rem)] items-center gap-1.5 rounded-md border bg-card px-2 py-1 text-xs font-semibold shadow-soft ${closed ? "border-border text-muted-foreground" : relative ? "border-amber-200 text-amber-700" : "border-emerald-200 text-success"}`
-    : `tnum inline-flex items-center gap-1.5 text-xs ${relative ? "font-medium text-amber-700" : "text-muted-foreground"}`;
+    ? `absolute right-3 top-3 inline-flex max-w-[calc(100%-1.5rem)] items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-semibold shadow-soft ${tone ? `${DEADLINE_TONE_SURFACE[tone]} ${DEADLINE_TONE_TEXT[tone]}` : "border-border bg-card text-muted-foreground"}`
+    : `tnum inline-flex items-center gap-1.5 text-xs ${tone ? `font-medium ${DEADLINE_TONE_TEXT[tone]}` : "text-muted-foreground"}`;
 
   return (
-    <span className={className} title={absoluteText ?? undefined}>
+    <span className={className} title={absoluteText ?? undefined} data-tone={tone ?? "none"} data-deadline={deadline ?? undefined}>
       <span aria-hidden="true" className={`ico ${icon} size-3.5`} />
       {text}
     </span>

@@ -6,6 +6,7 @@ import ApplyLink from "@/components/ApplyLink";
 import AddToCalendar from "@/components/AddToCalendar";
 import BookmarkButton from "@/components/BookmarkButton";
 import CompanyFavicon from "@/components/CompanyFavicon";
+import DeadlineBox from "@/components/DeadlineBox";
 import RecordOpportunityView from "@/components/RecordOpportunityView";
 import ReportIssueDialog from "@/components/ReportIssueDialog";
 import ShareButton from "@/components/ShareButton";
@@ -412,13 +413,7 @@ export default async function OpportunityPage({ params }: PageProps) {
 
               {opportunity.deadline && (
                 <div className="mt-5 flex flex-wrap items-center gap-3 [&_button]:min-h-11">
-                  <div
-                    className={
-                      closed
-                        ? "inline-flex max-w-full items-center gap-2 rounded-md border border-border bg-secondary/50 px-3 py-2 text-sm font-medium text-muted-foreground"
-                        : "inline-flex max-w-full items-center gap-2 rounded-md border border-warning/25 bg-warning/15 px-3 py-2 text-sm font-medium text-warning-foreground dark:text-warning"
-                    }
-                  >
+                  <DeadlineBox deadlineIso={opportunity.deadline} closed={closed}>
                     <Clock className="size-4 shrink-0" aria-hidden="true" />
                     <span>
                       {closed ? `${closedStatusLabel}:` : "Deadline:"}{" "}
@@ -427,7 +422,7 @@ export default async function OpportunityPage({ params }: PageProps) {
                       </span>
                       {opportunity.deadline_confidence !== "explicit" ? " (estimated)" : ""}
                     </span>
-                  </div>
+                  </DeadlineBox>
                   {!closed && (
                     <AddToCalendar
                       event={{
