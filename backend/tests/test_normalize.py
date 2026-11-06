@@ -6,7 +6,29 @@ import pytest
 from sqlalchemy import text
 
 from crawlers.student_relevance import classify_student_role, is_student_relevant_role
-from pipeline.normalize import NEW_GRAD_TITLE_PATTERN, classify_category
+from pipeline.normalize import NEW_GRAD_TITLE_PATTERN, classify_category, company_key
+
+
+@pytest.mark.parametrize(
+    "name, expected",
+    [
+        ("Cloud Counselage Pvt Ltd", "cloud counselage"),
+        ("Cloud Counselage Pvt", "cloud counselage"),
+        ("Cloud Counselage Private Limited", "cloud counselage"),
+        ("WIDGET MAKERS, LLC.", "widget makers"),
+        ("Physical Intelligence Inc.", "physical intelligence"),
+        ("Example Company Incorporated LLP", "example"),
+        ("Hacker Earth", "hacker earth"),
+        ("  Cloud__Counselage---Pvt., Ltd.  ", "cloud counselage"),
+        ("Group", "group"),
+        ("Company", "company"),
+        ("Studio 42 Ltd", "studio 42"),
+        ("München Labs GmbH", "münchen labs"),
+        ("", ""),
+    ],
+)
+def test_company_key(name: str, expected: str) -> None:
+    assert company_key(name) == expected
 
 
 @pytest.mark.parametrize(

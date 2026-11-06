@@ -74,7 +74,7 @@ export default async function HomePage() {
 
   const [stats, trending, data] = await Promise.all([
     loadStats(),
-    getTrending(undefined, PAGE_REVALIDATE),
+    getTrending(undefined, PAGE_REVALIDATE, true),
     withBuildFallback(
       () => loadFeedData(request, PAGE_REVALIDATE),
       () => ({ items: [], total: 0 }),

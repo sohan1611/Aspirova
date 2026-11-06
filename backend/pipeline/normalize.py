@@ -4,6 +4,8 @@
 
 import re
 
+from core.domains import LEGAL_SUFFIXES
+
 # Word-boundary-safe: \bintern\b alone would still need care, since "intern"
 # is a prefix of "internal" and "international" with NO boundary after it in
 # either word - the trailing \b after the optional suffix group enforces that
@@ -52,3 +54,11 @@ def normalize_company_name(name: str) -> str:
     stripped = _COMPANY_SUFFIX_PATTERN.sub("", collapsed).strip()
     stripped = stripped.rstrip(",.")
     return stripped or collapsed
+
+
+def company_key(name: str) -> str:
+    """Build an alphanumeric name key with repeated trailing legal suffixes removed."""
+    tokens = re.sub(r"[\W_]+", " ", normalize_company_name(name)).split()
+    while len(tokens) > 1 and tokens[-1] in LEGAL_SUFFIXES:
+        tokens.pop()
+    return " ".join(tokens)

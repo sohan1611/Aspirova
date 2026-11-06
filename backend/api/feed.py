@@ -31,6 +31,7 @@ from api.filters import (
     student_rank_expression,
 )
 from api.opportunity_loading import opportunity_list_load_options
+from api.landing import famous_company_filter, landing_rows
 from api.schemas import FeedResponse, OpportunityListItem
 from core import models
 
@@ -68,6 +69,7 @@ def get_feed(
     role: str | None = Query(None, pattern=ROLE_QUERY_PATTERN),
     top: int | None = Query(None, gt=0),
     sort: str = Query("student", pattern="^(recent|deadline|student|prize)$"),
+    prefer_logos: bool = Query(False),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -129,12 +131,67 @@ def get_feed(
     selected_columns = [models.Opportunity, total_count, open_count]
     if source_rank is not None:
         selected_columns.append(source_rank)
-    query = select(*selected_columns).options(*opportunity_list_load_options()).where(*base_filters)
     # id is a required tie-breaker, not cosmetic: many rows share the exact
     # same last_seen_at (same crawl batch) or deadline (often null), and
     # Postgres gives no ordering guarantee among tied rows across separate
     # paginated queries - confirmed live, page 1 and page 2 returned
     # overlapping rows without this.
+    # The landing-page preference applies to the unfiltered first student page.
+    has_filters = (
+        remote_abroad
+        or kind not in {None, "roles"}
+        or any(
+            value is not None
+            for value in (
+                category,
+                remote,
+                company,
+                location,
+                scope,
+                country,
+                source,
+                experience,
+                comp_type,
+                registration,
+                deadline_within,
+                organiser_type,
+                mode,
+                prize_min,
+                status,
+                paid,
+                min_stipend,
+                part_time,
+                max_duration,
+                job_offer,
+                posted_within,
+                role,
+                top,
+            )
+        )
+    )
+    landing = prefer_logos and page == 1 and sort == "student" and not has_filters
+    if landing:
+        has_logo = models.Opportunity.company.has(models.Company.logo_url.is_not(None))
+        # Freeze original source order and logo-eligible totals before quota selection.
+        source_ranks = (
+            select(
+                models.Opportunity.id,
+                source_rank,
+                func.count().filter(has_logo).over().label("total_count"),
+                func.count().filter(and_(has_logo, is_closed == 0)).over().label("open_count"),
+            )
+            .where(*base_filters)
+            .subquery()
+        )
+        base_filters.append(has_logo)
+        source_rank = source_ranks.c.source_rank
+        selected_columns[1:3] = [source_ranks.c.total_count, source_ranks.c.open_count]
+        selected_columns[-1] = source_rank
+    query = select(*selected_columns).options(*opportunity_list_load_options()).where(*base_filters)
+    if landing:
+        query = query.join_from(
+            models.Opportunity, source_ranks, source_ranks.c.id == models.Opportunity.id
+        )
     ordering = [is_closed.asc()]
     if kind == "roles" and sort != "prize":
         roles_first = case(
@@ -198,7 +255,16 @@ def get_feed(
         )
     query = query.order_by(*ordering)
 
-    rows = db.execute(query.offset((page - 1) * limit).limit(limit)).unique().all()
+    if landing:
+        rows = landing_rows(
+            db,
+            query,
+            models.Opportunity.company.has(famous_company_filter()),
+            limit,
+            listing_order=ordering,
+        )
+    else:
+        rows = db.execute(query.offset((page - 1) * limit).limit(limit)).unique().all()
 
     items = [OpportunityListItem.from_model(row.Opportunity) for row in rows]
     total = rows[0].total_count if rows else 0

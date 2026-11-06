@@ -7,6 +7,7 @@ import type {
   BugReportResponse,
   CompanyListItem,
   CompanyPage,
+  CompanySummary,
   CopilotResponse,
   DreamCompanyItem,
   Facets,
@@ -30,6 +31,12 @@ import type {
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+export async function getExternalCompanyLogos(): Promise<Record<string, CompanySummary>> {
+  const res = await fetch(`${API_URL}/companies/external`);
+  if (!res.ok) throw new Error(`Failed to load external company logos: ${res.status}`);
+  return res.json();
+}
 
 export class ProFeatureRequiredError extends Error {
   readonly status = 403;
@@ -103,6 +110,7 @@ export interface FeedParams extends RoleSignalParams {
   scope?: "abroad" | "domestic" | "both";
   country?: string;
   prefer_country?: string;
+  prefer_logos?: boolean;
   remote_abroad?: boolean;
   comp_type?: string | string[];
   registration?: string;
@@ -209,6 +217,7 @@ export async function getFeed(
   if (params.scope) search.set("scope", params.scope);
   if (params.country) search.set("country", params.country);
   if (params.prefer_country) search.set("prefer_country", params.prefer_country);
+  if (params.prefer_logos) search.set("prefer_logos", "true");
   if (params.remote_abroad) search.set("remote_abroad", "true");
   appendRepeatedParam(search, "comp_type", params.comp_type);
   if (params.registration) search.set("registration", params.registration);
@@ -251,10 +260,14 @@ export async function pingOpportunityView(slug: string): Promise<void> {
 export async function getTrending(
   limit?: number,
   revalidateSeconds = 600,
+  preferLogos = false,
 ): Promise<TrendingResponse> {
   try {
-    const search = limit === undefined ? "" : `?limit=${encodeURIComponent(String(limit))}`;
-    const res = await fetch(`${API_URL}/trending${search}`, {
+    const search = new URLSearchParams();
+    if (limit !== undefined) search.set("limit", String(limit));
+    if (preferLogos) search.set("prefer_logos", "true");
+    const query = search.toString();
+    const res = await fetch(`${API_URL}/trending${query ? `?${query}` : ""}`, {
       next: { revalidate: revalidateSeconds },
     });
     if (!res.ok) return { items: [] };
@@ -440,8 +453,9 @@ export async function getCompanies(): Promise<CompanyListItem[]> {
   return res.json();
 }
 
-export async function getTopCompanies(limit = 12): Promise<CompanyListItem[]> {
+export async function getTopCompanies(limit = 12, preferLogos = false): Promise<CompanyListItem[]> {
   const search = new URLSearchParams({ limit: String(limit) });
+  if (preferLogos) search.set("prefer_logos", "true");
   const res = await fetch(`${API_URL}/companies/top?${search.toString()}`, {
     next: { revalidate: 21600 },
   });

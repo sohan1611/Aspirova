@@ -98,6 +98,12 @@ class Settings(BaseSettings):
     backup_s3_access_key_id: str = ""
     backup_s3_secret_access_key: str = ""
     backup_s3_bucket: str = ""
+    # Independent logo bucket and public base URL.
+    logo_s3_endpoint_url: str = ""
+    logo_s3_access_key_id: str = ""
+    logo_s3_secret_access_key: str = ""
+    logo_s3_bucket: str = ""
+    logo_public_base_url: str = ""
     # Supabase session-pooler URL used only by the nightly Auth backup.
     supabase_db_url: str = ""
 

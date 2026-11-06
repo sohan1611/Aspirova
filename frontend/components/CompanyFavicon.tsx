@@ -26,8 +26,7 @@ interface CompanyFaviconImageProps {
 /**
  * The only client leaf in the feed card - everything else stays
  * server-rendered text. Isolated here so a broken/missing favicon can
- * advance through external favicon candidates before falling back to an
- * initial-letter avatar via onError, which needs JS,
+ * fall back to an initial-letter avatar via onError, which needs JS,
  * without making the whole card (and its SEO-relevant text) client-side.
  */
 function CompanyFaviconImage({
@@ -83,7 +82,7 @@ export default function CompanyFavicon({
     new Set(
       [
         company?.logo_url,
-        domain
+        !company?.logo_url && domain
           ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`
           : null,
       ].filter((candidate): candidate is string => Boolean(candidate)),

@@ -5,6 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from api import company as company_api
 from api import middleware
 from api.deps import get_db
 from api.main import app
@@ -341,3 +342,117 @@ def test_top_companies_rejects_out_of_bounds_limit(client: TestClient, limit: in
     response = client.get(f"/companies/top?limit={limit}")
 
     assert response.status_code == 422
+
+
+@pytest.fixture
+def logo_companies(db_session: Session, monkeypatch):
+    suffix = uuid.uuid4().hex
+    definitions = [
+        ("blank", 1, None, None, None, "active"),
+        ("favicon", 2, None, "favicon.example", None, "active"),
+        ("prestige", 10, None, None, "https://example.com/prestige.png", "active"),
+        ("forbes", None, 20, None, "https://example.com/forbes.png", "active"),
+        ("both", 30, 1, None, "https://example.com/both.png", "active"),
+        ("other-alpha", None, None, None, "https://example.com/alpha.png", "active"),
+        ("other-beta", None, None, None, "https://example.com/beta.png", "active"),
+        ("other-gamma", None, None, None, "https://example.com/gamma.png", "active"),
+        ("inactive", 0, None, None, "https://example.com/inactive.png", "expired"),
+    ]
+    companies = {}
+    for name, rank, global_rank, domain, logo_url, status in definitions:
+        company = models.Company(
+            slug=f"logo-strip-{name}-{suffix}",
+            name=name,
+            prestige_rank=rank,
+            global_rank=global_rank,
+            domain=f"{suffix}.{domain}" if domain else None,
+            logo_url=logo_url,
+        )
+        db_session.add(
+            models.Opportunity(
+                slug=f"logo-strip-opp-{name}-{suffix}",
+                title="Software Intern",
+                company=company,
+                category="internship",
+                apply_url=f"https://example.com/{suffix}/{name}",
+                status=status,
+                last_seen_at=datetime.now(UTC),
+            )
+        )
+        companies[name] = company
+    db_session.flush()
+    # Scope the unfiltered company strip to this fixture's rows.
+    monkeypatch.setattr(
+        company_api,
+        "exclude_stale_opportunities",
+        lambda: models.Opportunity.company_id.in_([company.id for company in companies.values()]),
+    )
+    return companies
+
+
+@pytest.mark.parametrize(
+    "limit,expected",
+    [
+        (2, ["prestige", "forbes"]),
+        (3, ["prestige", "forbes", "both"]),
+        (4, ["prestige", "other-alpha", "forbes", "both"]),
+        (6, ["prestige", "other-alpha", "forbes", "other-beta", "both", "other-gamma"]),
+        (24, ["prestige", "other-alpha", "forbes", "other-beta", "both", "other-gamma"]),
+    ],
+)
+def test_top_companies_logo_preference_requires_logos_and_interleaves_famous(
+    client: TestClient, logo_companies, limit: int, expected: list[str]
+) -> None:
+    response = client.get("/companies/top", params={"prefer_logos": "true", "limit": limit})
+    assert response.status_code == 200
+    assert [item["slug"] for item in response.json()] == [
+        logo_companies[name].slug for name in expected
+    ]
+    assert all(item["active_count"] == 1 for item in response.json())
+    assert all(item["logo_url"] is not None for item in response.json())
+
+
+def test_top_companies_logo_preference_with_no_logos(
+    client: TestClient, db_session: Session, logo_companies
+) -> None:
+    for company in logo_companies.values():
+        company.logo_url = None
+    db_session.flush()
+    response = client.get("/companies/top", params={"prefer_logos": "true", "limit": 24})
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_top_companies_without_usable_images_returns_empty(
+    client: TestClient, db_session: Session, logo_companies
+) -> None:
+    for company in logo_companies.values():
+        company.logo_url = None
+        company.domain = None
+    db_session.flush()
+    response = client.get("/companies/top", params={"prefer_logos": "true"})
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_top_companies_uses_all_famous_when_fewer_than_half(
+    client: TestClient, db_session: Session, logo_companies
+) -> None:
+    for name in ["forbes", "both"]:
+        logo_companies[name].prestige_rank = None
+        logo_companies[name].global_rank = None
+    db_session.flush()
+    response = client.get("/companies/top", params={"prefer_logos": "true", "limit": 6})
+    assert response.status_code == 200
+    assert [item["slug"] for item in response.json()] == [
+        logo_companies[name].slug
+        for name in ["prestige", "both", "forbes", "other-alpha", "other-beta", "other-gamma"]
+    ]
+
+
+def test_top_companies_parameter_absent_keeps_prestige_only_order(client, logo_companies):
+    response = client.get("/companies/top", params={"limit": 24})
+    assert response.status_code == 200
+    assert [item["slug"] for item in response.json()] == [
+        logo_companies[name].slug for name in ["blank", "favicon", "prestige", "both"]
+    ]

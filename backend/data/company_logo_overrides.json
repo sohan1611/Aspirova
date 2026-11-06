@@ -1,0 +1,1115 @@
+{
+  "1x": {
+    "domain": "1x.tech"
+  },
+  "ab-inbev-2df0fdc7": {
+    "domain": "ab-inbev.com"
+  },
+  "abb-715edf8b": {
+    "domain": "abb.com"
+  },
+  "abbott-f9840701": {
+    "domain": "abbott.com"
+  },
+  "abridge": {
+    "domain": "abridge.com"
+  },
+  "accenture-4d748ebd": {
+    "domain": "accenture.com"
+  },
+  "accenture-australia-08fcd51e": {
+    "domain": "accenture.com"
+  },
+  "accenture-in-india-b6506e44": {
+    "domain": "accenture.com"
+  },
+  "accor-eab55a57": {
+    "domain": "accor.com"
+  },
+  "adidas-08bb42a3": {
+    "domain": "adidas.com"
+  },
+  "affirm": {
+    "domain": "affirm.com"
+  },
+  "agilent-technologies-64ad1f1c": {
+    "domain": "agilent.com"
+  },
+  "agoda-04cc66d0": {
+    "domain": "agoda.com"
+  },
+  "airbnb": {
+    "domain": "airbnb.com"
+  },
+  "airbus-36aa04f4": {
+    "domain": "airbus.com"
+  },
+  "airtable": {
+    "domain": "airtable.com"
+  },
+  "airtel-8703423b": {
+    "domain": "airtel.com"
+  },
+  "akamai-technologies-84923816": {
+    "domain": "akamai.com"
+  },
+  "algolia": {
+    "domain": "algolia.com"
+  },
+  "allianz-group-94d5f785": {
+    "domain": "allianz.com"
+  },
+  "allianz-se-8c2b1c31": {
+    "domain": "allianz.com"
+  },
+  "alstom-36e26473": {
+    "domain": "alstom.com"
+  },
+  "amazon": {
+    "domain": "amazon.com"
+  },
+  "amazon-web-services-aws-dfe6c6b3": {
+    "domain": "amazon.com"
+  },
+  "amd-240389f4": {
+    "domain": "amd.com"
+  },
+  "amgen-48272715": {
+    "domain": "amgen.com"
+  },
+  "amplitude": {
+    "domain": "amplitude.com"
+  },
+  "analog-devices-inc-bb424f07": {
+    "domain": "analog.com"
+  },
+  "anchorage": {
+    "domain": "anchoragedigital.com"
+  },
+  "angellist": {
+    "domain": "angellist.com"
+  },
+  "anthropic": {
+    "domain": "anthropic.com"
+  },
+  "apple-3a7bd3e2": {
+    "domain": "apple.com"
+  },
+  "aqr": {
+    "domain": "aqr.com"
+  },
+  "arisinfra": {
+    "domain": "aris.in"
+  },
+  "arista-networks-1095f172": {
+    "domain": "arista.com"
+  },
+  "asana": {
+    "domain": "asana.com"
+  },
+  "asian-paints-d0879cba": {
+    "domain": "asianpaints.com"
+  },
+  "associated-press-89ff63ce": {
+    "domain": "ap.org"
+  },
+  "atari-inc-f3c1f895": {
+    "domain": "atari.com"
+  },
+  "atlassian-651b2c67": {
+    "domain": "atlassian.com"
+  },
+  "autodesk-inc-320d5976": {
+    "domain": "autodesk.com"
+  },
+  "aws-7d150728": {
+    "domain": "amazon.com"
+  },
+  "bain-company-937b4116": {
+    "domain": "bain.com"
+  },
+  "barclays-71f566ab": {
+    "domain": "barclays.com"
+  },
+  "baseten": {
+    "domain": "baseten.co"
+  },
+  "bayer-107eaa27": {
+    "domain": "bayer.com"
+  },
+  "benchling-143be1d0": {
+    "domain": "benchling.com"
+  },
+  "binance-59bba357": {
+    "domain": "binance.com"
+  },
+  "block": {
+    "domain": "block.xyz"
+  },
+  "blockchain-com-562c09e7": {
+    "domain": "blockchain.com"
+  },
+  "bnp-paribas-56046651": {
+    "domain": "bnpparibas.com"
+  },
+  "bombardier-d418045c": {
+    "domain": "bombardier.com"
+  },
+  "bosch-india-3be96df4": {
+    "domain": "bosch.com"
+  },
+  "brex": {
+    "domain": "brex.com"
+  },
+  "browserbase": {
+    "domain": "browserbase.com"
+  },
+  "bugcrowd": {
+    "domain": "bugcrowd.com"
+  },
+  "bybit-8c2785d1": {
+    "domain": "bybit.com"
+  },
+  "calendly": {
+    "domain": "calendly.com"
+  },
+  "canonical-0deeb8fa": {
+    "domain": "canonical.com"
+  },
+  "capgemini-f55a85b2": {
+    "domain": "capgemini.com"
+  },
+  "capgemini-technology-services-64956f64": {
+    "domain": "capgemini.com"
+  },
+  "cartesia": {
+    "domain": "cartesia.ai"
+  },
+  "caterpillar-inc-baffdf37": {
+    "domain": "caterpillar.com"
+  },
+  "centurylink-2d782a08": {
+    "domain": "centurylink.com"
+  },
+  "cerebras": {
+    "domain": "cerebras.ai"
+  },
+  "chanel-b46bcc66": {
+    "domain": "chanel.com"
+  },
+  "character": {
+    "domain": "character.ai"
+  },
+  "checkr": {
+    "domain": "checkr.com"
+  },
+  "chess-com-a55e9885": {
+    "domain": "chess.com"
+  },
+  "chime": {
+    "domain": "chime.com"
+  },
+  "cisco-e73b79a0": {
+    "domain": "cisco.com"
+  },
+  "clickpost": {
+    "domain": "clickpost.ai"
+  },
+  "cloudflare": {
+    "domain": "cloudflare.com"
+  },
+  "cloudsek": {
+    "domain": "cloudsek.com"
+  },
+  "cloudthat": {
+    "domain": "cloudthat.com"
+  },
+  "cma-cgm-e1979d40": {
+    "domain": "cma-cgm.com"
+  },
+  "cme-group-ea2c7095": {
+    "domain": "cmegroup.com"
+  },
+  "cockroachlabs": {
+    "domain": "cockroachlabs.com"
+  },
+  "cognition": {
+    "domain": "cognition.ai"
+  },
+  "cognizant-86f73dfe": {
+    "domain": "cognizant.com"
+  },
+  "cohere": {
+    "domain": "cohere.com"
+  },
+  "coinbase": {
+    "domain": "coinbase.com"
+  },
+  "collins-aerospace-7d89cb35": {
+    "domain": "collinsaerospace.com"
+  },
+  "commerzbank-ag-f34a8e57": {
+    "domain": "commerzbank.com"
+  },
+  "confluent": {
+    "domain": "confluent.io"
+  },
+  "contentful": {
+    "domain": "contentful.com"
+  },
+  "coursera": {
+    "domain": "coursera.org"
+  },
+  "cred": {
+    "domain": "cred.club"
+  },
+  "crocs-inc-dc49949a": {
+    "domain": "crocs.com"
+  },
+  "crowdstrike-101958da": {
+    "domain": "crowdstrike.com"
+  },
+  "crypto-com-23ba4d0e": {
+    "domain": "crypto.com"
+  },
+  "cultureamp": {
+    "domain": "cultureamp.com"
+  },
+  "cursor": {
+    "domain": "cursor.com"
+  },
+  "danaher-35100dc3": {
+    "domain": "danaher.com"
+  },
+  "danfoss-da4b1c6b": {
+    "domain": "danfoss.com"
+  },
+  "databricks": {
+    "domain": "databricks.com"
+  },
+  "datadog": {
+    "domain": "datadoghq.com"
+  },
+  "dataiku": {
+    "domain": "dataiku.com"
+  },
+  "decagon": {
+    "domain": "decagon.ai"
+  },
+  "deepgram": {
+    "domain": "deepgram.com"
+  },
+  "deliveroo-64686f98": {
+    "domain": "deliveroo.co.uk"
+  },
+  "dell-technologies-3ec4c7b2": {
+    "domain": "dell.com"
+  },
+  "deloitte-3e808ece": {
+    "domain": "deloitte.com"
+  },
+  "delta-air-lines-5725fe1d": {
+    "domain": "delta.com"
+  },
+  "dentsu-8519efa7": {
+    "domain": "dentsu.com"
+  },
+  "deutsche-telekom-8ccfa892": {
+    "domain": "telekom.com"
+  },
+  "devrev": {
+    "domain": "devrev.ai"
+  },
+  "dhl-express-38b99051": {
+    "domain": "dhl.com"
+  },
+  "directv-732c05dc": {
+    "domain": "directv.com"
+  },
+  "discord": {
+    "domain": "discord.com"
+  },
+  "docker": {
+    "domain": "docker.com"
+  },
+  "dropbox": {
+    "domain": "dropbox.com"
+  },
+  "druva": {
+    "domain": "druva.com"
+  },
+  "duckduckgo-5b8eeb90": {
+    "domain": "duckduckgo.com"
+  },
+  "duolingo": {
+    "domain": "duolingo.com"
+  },
+  "e2b": {
+    "domain": "e2b.dev"
+  },
+  "eaton-28236bb6": {
+    "domain": "eaton.com"
+  },
+  "elastic": {
+    "domain": "elastic.co"
+  },
+  "electronic-arts-inc-ea-3711c7fe": {
+    "domain": "ea.com"
+  },
+  "elevenlabs": {
+    "domain": "elevenlabs.io"
+  },
+  "emerson-c023b7b0": {
+    "domain": "emerson.com"
+  },
+  "epicgames-d39455d7": {
+    "domain": "epicgames.com"
+  },
+  "etched": {
+    "domain": "etched.com"
+  },
+  "eventbrite-7dddc025": {
+    "domain": "eventbrite.com"
+  },
+  "ey-2bdd94c0": {
+    "domain": "ey.com"
+  },
+  "faire": {
+    "domain": "faire.com"
+  },
+  "fastly": {
+    "domain": "fastly.com"
+  },
+  "fedex-3ee49785": {
+    "domain": "fedex.com"
+  },
+  "fidelity-investments-c92a057e": {
+    "domain": "fidelity.com"
+  },
+  "figma": {
+    "domain": "figma.com"
+  },
+  "fireworksai": {
+    "domain": "fireworks.ai"
+  },
+  "fivetran": {
+    "domain": "fivetran.com"
+  },
+  "flexport": {
+    "domain": "flexport.com"
+  },
+  "flowtraders": {
+    "domain": "flowtraders.com"
+  },
+  "forbes-5430bc4a": {
+    "domain": "forbes.com"
+  },
+  "ford-india-8cd9affb": {
+    "domain": "ford.com"
+  },
+  "four-seasons-8e6c0388": {
+    "domain": "fourseasons.com"
+  },
+  "freshworks": {
+    "domain": "freshworks.com"
+  },
+  "fujifilm-4236ab3d": {
+    "domain": "fujifilm.com"
+  },
+  "gamma": {
+    "domain": "gamma.app"
+  },
+  "ge-aerospace-a83512a7": {
+    "domain": "geaerospace.com"
+  },
+  "ge-appliances-be972f28": {
+    "domain": "geappliances.com"
+  },
+  "ge-healthcare-98548349": {
+    "domain": "gehealthcare.com"
+  },
+  "ge-vernova-be689f4e": {
+    "domain": "gevernova.com"
+  },
+  "gemini": {
+    "domain": "gemini.com"
+  },
+  "genpact-e78186cb": {
+    "domain": "genpact.com"
+  },
+  "gitlab": {
+    "domain": "gitlab.com"
+  },
+  "gocardless": {
+    "domain": "gocardless.com"
+  },
+  "google-bbdefa29": {
+    "domain": "google.com"
+  },
+  "grafanalabs": {
+    "domain": "grafana.com"
+  },
+  "granola": {
+    "domain": "granola.ai"
+  },
+  "groww": {
+    "domain": "groww.in"
+  },
+  "gusto": {
+    "domain": "gusto.com"
+  },
+  "hackerearth-be61bb1d": {
+    "domain": "hackerearth.com"
+  },
+  "hackerone": {
+    "domain": "hackerone.com"
+  },
+  "hackerrank": {
+    "domain": "hackerrank.com"
+  },
+  "harman-international-2f9ded1c": {
+    "domain": "harman.com"
+  },
+  "harman-international-industries-incorporated-b67a465f": {
+    "domain": "harman.com"
+  },
+  "harpercollins-publishers-883432ae": {
+    "domain": "harpercollins.com"
+  },
+  "harvey": {
+    "domain": "harvey.ai"
+  },
+  "hellofresh-3537165c": {
+    "domain": "hellofresh.com"
+  },
+  "hertz-e333c47e": {
+    "domain": "hertz.com"
+  },
+  "hewlett-packard-enterprise-b064e693": {
+    "domain": "hpe.com"
+  },
+  "highradius": {
+    "domain": "highradius.com"
+  },
+  "hilton-8e3f5e91": {
+    "domain": "hilton.com"
+  },
+  "hitachi-ca6e0dc3": {
+    "domain": "hitachi.com"
+  },
+  "honeywell-aerospace-99f0f573": {
+    "domain": "honeywell.com"
+  },
+  "honeywell-technologies-e497044e": {
+    "domain": "honeywell.com"
+  },
+  "hsbc-ce749e84": {
+    "domain": "hsbc.com"
+  },
+  "huggingface": {
+    "domain": "huggingface.co"
+  },
+  "hugo-boss-120abaef": {
+    "domain": "hugoboss.com"
+  },
+  "hyperbolic": {
+    "domain": "hyperbolic.xyz"
+  },
+  "ibm-916a98f0": {
+    "domain": "ibm.com"
+  },
+  "imc": {
+    "domain": "imc.com"
+  },
+  "includedhealth": {
+    "domain": "includedhealth.com"
+  },
+  "infosys-ab877737": {
+    "domain": "infosys.com"
+  },
+  "inmobi": {
+    "domain": "inmobi.com"
+  },
+  "instacart": {
+    "domain": "instacart.com"
+  },
+  "intel-96eebba4": {
+    "domain": "intel.com"
+  },
+  "intuit-80daf15e": {
+    "domain": "intuit.com"
+  },
+  "itc-limited-34a51378": {
+    "domain": "itcportal.com"
+  },
+  "janestreet": {
+    "domain": "janestreet.com"
+  },
+  "jd-com-59956d38": {
+    "domain": "jd.com"
+  },
+  "jetbrains": {
+    "domain": "jetbrains.com"
+  },
+  "johnson-controls-905e3a41": {
+    "domain": "johnsoncontrols.com"
+  },
+  "jumptrading": {
+    "domain": "jumptrading.com"
+  },
+  "justworks-30b301fc": {
+    "domain": "justworks.com"
+  },
+  "khan-academy-9ec5fcfb": {
+    "domain": "khanacademy.org"
+  },
+  "kpmg-india-205ed74f": {
+    "domain": "kpmg.com"
+  },
+  "krea": {
+    "domain": "krea.ai"
+  },
+  "labelbox": {
+    "domain": "labelbox.com"
+  },
+  "langchain": {
+    "domain": "langchain.com"
+  },
+  "larsen-toubro-2ba593af": {
+    "domain": "larsentoubro.com"
+  },
+  "lattice": {
+    "domain": "lattice.com"
+  },
+  "launchdarkly": {
+    "domain": "launchdarkly.com"
+  },
+  "linear": {
+    "domain": "linear.app"
+  },
+  "linkedin-84308bea": {
+    "domain": "linkedin.com"
+  },
+  "lockheed-martin-c3760135": {
+    "domain": "lockheedmartin.com"
+  },
+  "logitech-1db0046b": {
+    "domain": "logitech.com"
+  },
+  "lovable": {
+    "domain": "lovable.dev"
+  },
+  "lumel": {
+    "domain": "lumel.com"
+  },
+  "lyft": {
+    "domain": "lyft.com"
+  },
+  "maersk-4ac6b1d4": {
+    "domain": "maersk.com"
+  },
+  "makemytrip-06c08557": {
+    "domain": "makemytrip.com"
+  },
+  "marriott-international-6bacc597": {
+    "domain": "marriott.com"
+  },
+  "mastercard-07863e7a": {
+    "domain": "mastercard.com"
+  },
+  "mckesson-5ac20c74": {
+    "domain": "mckesson.com"
+  },
+  "meesho": {
+    "domain": "meesho.com"
+  },
+  "mercor": {
+    "domain": "mercor.com"
+  },
+  "mercury": {
+    "domain": "mercury.com"
+  },
+  "meta-ea3bd73e": {
+    "domain": "meta.com"
+  },
+  "metlife-2194d6eb": {
+    "domain": "metlife.com"
+  },
+  "micron-37b5fece": {
+    "domain": "micron.com"
+  },
+  "micron-technology-4395ca37": {
+    "domain": "micron.com"
+  },
+  "microsoft-9fbf261b": {
+    "domain": "microsoft.com"
+  },
+  "midjourney-d931372b": {
+    "domain": "midjourney.com"
+  },
+  "mindtickle": {
+    "domain": "mindtickle.com"
+  },
+  "mintlify": {
+    "domain": "mintlify.com"
+  },
+  "mistral-ai-c14044aa": {
+    "domain": "mistral.ai"
+  },
+  "mixpanel": {
+    "domain": "mixpanel.com"
+  },
+  "modal": {
+    "domain": "modal.com"
+  },
+  "mongodb": {
+    "domain": "mongodb.com"
+  },
+  "monzo": {
+    "domain": "monzo.com"
+  },
+  "motorola-solutions-9b51eb20": {
+    "domain": "motorolasolutions.com"
+  },
+  "netlify": {
+    "domain": "netlify.com"
+  },
+  "netradyne": {
+    "domain": "netradyne.com"
+  },
+  "netskope": {
+    "domain": "netskope.com"
+  },
+  "new-relic-a82261cf": {
+    "domain": "newrelic.com"
+  },
+  "newrelic": {
+    "domain": "newrelic.com"
+  },
+  "notion": {
+    "domain": "notion.so"
+  },
+  "ntt-data-68bad0bf": {
+    "domain": "nttdata.com"
+  },
+  "nuro": {
+    "domain": "nuro.ai"
+  },
+  "nvidia-8d4321d9": {
+    "domain": "nvidia.com"
+  },
+  "observeai": {
+    "domain": "observe.ai"
+  },
+  "openai": {
+    "domain": "openai.com"
+  },
+  "oracle-9202af6c": {
+    "domain": "oracle.com"
+  },
+  "pagerduty": {
+    "domain": "pagerduty.com"
+  },
+  "palantir": {
+    "domain": "palantir.com"
+  },
+  "paypal-afe4d16f": {
+    "domain": "paypal.com"
+  },
+  "paypal-india-private-limited-e6cf5510": {
+    "domain": "paypal.com"
+  },
+  "paytm-2b1da9c8": {
+    "domain": "paytm.com"
+  },
+  "peloton": {
+    "domain": "onepeloton.com"
+  },
+  "pepsico-14a13622": {
+    "domain": "pepsico.com"
+  },
+  "perplexity": {
+    "domain": "perplexity.ai"
+  },
+  "phonepe": {
+    "domain": "phonepe.com"
+  },
+  "phonepe-pvt-ltd-01d379db": {
+    "domain": "phonepe.com"
+  },
+  "physicalintelligence": {
+    "domain": "physicalintelligence.company"
+  },
+  "pika": {
+    "domain": "pika.art"
+  },
+  "pinterest": {
+    "domain": "pinterest.com"
+  },
+  "plaid-45cd2fb5": {
+    "domain": "plaid.com"
+  },
+  "planetscale": {
+    "domain": "planetscale.com"
+  },
+  "polaroid-8365591b": {
+    "domain": "polaroid.com"
+  },
+  "poolside": {
+    "domain": "poolside.ai"
+  },
+  "porter": {
+    "domain": "porter.in"
+  },
+  "postman": {
+    "domain": "postman.com"
+  },
+  "procter-gamble-0b993672": {
+    "domain": "pg.com"
+  },
+  "pwc-india-788191e5": {
+    "domain": "pwc.com"
+  },
+  "qualcomm-f31639a2": {
+    "domain": "qualcomm.com"
+  },
+  "qualcomm-india-private-limited-98a28b4f": {
+    "domain": "qualcomm.com"
+  },
+  "qualminds": {
+    "domain": "qualminds.com"
+  },
+  "railway": {
+    "domain": "railway.app"
+  },
+  "ramp": {
+    "domain": "ramp.com"
+  },
+  "razorpaysoftwareprivatelimited": {
+    "domain": "razorpay.com"
+  },
+  "recordedfuture": {
+    "domain": "recordedfuture.com"
+  },
+  "reddit": {
+    "domain": "reddit.com"
+  },
+  "redis": {
+    "domain": "redis.io"
+  },
+  "reliance-industries-limited-51300748": {
+    "domain": "ril.com"
+  },
+  "reliance-industries-limited-ril-6fd0300a": {
+    "domain": "ril.com"
+  },
+  "remotecom": {
+    "domain": "remote.com"
+  },
+  "render": {
+    "domain": "render.com"
+  },
+  "replit": {
+    "domain": "replit.com"
+  },
+  "resend": {
+    "domain": "resend.com"
+  },
+  "revolut-a5c1835f": {
+    "domain": "revolut.com"
+  },
+  "ro": {
+    "domain": "ro.co"
+  },
+  "robinhood": {
+    "domain": "robinhood.com"
+  },
+  "roblox": {
+    "domain": "roblox.com"
+  },
+  "rockwell-automation-3fac3110": {
+    "domain": "rockwellautomation.com"
+  },
+  "royal-caribbean-group-985a9e65": {
+    "domain": "royalcaribbeangroup.com"
+  },
+  "royal-caribbean-international-172451f7": {
+    "domain": "royalcaribbean.com"
+  },
+  "rubrik": {
+    "domain": "rubrik.com"
+  },
+  "rubrik-4094a2b7": {
+    "domain": "rubrik.com"
+  },
+  "s-p-global-24d9197f": {
+    "domain": "spglobal.com"
+  },
+  "salesforce-3ccbd910": {
+    "domain": "salesforce.com"
+  },
+  "samsara": {
+    "domain": "samsara.com"
+  },
+  "sardine": {
+    "domain": "sardine.ai"
+  },
+  "sarvam": {
+    "domain": "sarvam.ai"
+  },
+  "satsure": {
+    "domain": "satsure.co"
+  },
+  "scaleai": {
+    "domain": "scale.com"
+  },
+  "scaleai-36489710": {
+    "domain": "scale.com"
+  },
+  "seagate-technology-llc-02db8a1d": {
+    "domain": "seagate.com"
+  },
+  "sentry": {
+    "domain": "sentry.io"
+  },
+  "sephora-8db0f429": {
+    "domain": "sephora.com"
+  },
+  "shell-global-60a1cda2": {
+    "domain": "shell.com"
+  },
+  "siemens-30e363d3": {
+    "domain": "siemens.com"
+  },
+  "sierra": {
+    "domain": "sierra.ai"
+  },
+  "sigmoid": {
+    "domain": "sigmoid.com"
+  },
+  "skechers-5a4678b1": {
+    "domain": "skechers.com"
+  },
+  "slice": {
+    "domain": "sliceit.com"
+  },
+  "sofi": {
+    "domain": "sofi.com"
+  },
+  "sony-587d392b": {
+    "domain": "sony.com"
+  },
+  "sonymusicentertainment-08bc4421": {
+    "domain": "sonymusic.com"
+  },
+  "sophos": {
+    "domain": "sophos.com"
+  },
+  "sotheby-s-c4e00427": {
+    "domain": "sothebys.com"
+  },
+  "southwest-airlines-eafb7890": {
+    "domain": "southwest.com"
+  },
+  "spacex-e78bdeba": {
+    "domain": "spacex.com"
+  },
+  "spotify": {
+    "domain": "spotify.com"
+  },
+  "squarespace": {
+    "domain": "squarespace.com"
+  },
+  "stabilityai": {
+    "domain": "stability.ai"
+  },
+  "starbucks-b21492b1": {
+    "domain": "starbucks.com"
+  },
+  "starburst": {
+    "domain": "starburst.io"
+  },
+  "stripe": {
+    "domain": "stripe.com"
+  },
+  "subway-9f3a4329": {
+    "domain": "subway.com"
+  },
+  "suno": {
+    "domain": "suno.com"
+  },
+  "supabase": {
+    "domain": "supabase.com"
+  },
+  "swarovski-ce496a3d": {
+    "domain": "swarovski.com"
+  },
+  "swiggy-e5f2f4ad": {
+    "domain": "swiggy.com"
+  },
+  "swisscom-701622b7": {
+    "domain": "swisscom.ch"
+  },
+  "synack": {
+    "domain": "synack.com"
+  },
+  "synthesia": {
+    "domain": "synthesia.io"
+  },
+  "tailscale": {
+    "domain": "tailscale.com"
+  },
+  "tata-consultancy-services-5fa790f3": {
+    "domain": "tcs.com"
+  },
+  "tavus": {
+    "domain": "tavus.io"
+  },
+  "temu-5849f0db": {
+    "domain": "temu.com"
+  },
+  "tesco-b922b7e0": {
+    "domain": "tesco.com"
+  },
+  "the-heineken-company-e88d6c9f": {
+    "domain": "theheinekencompany.com"
+  },
+  "the-walt-disney-company-b7ec53a6": {
+    "domain": "thewaltdisneycompany.com"
+  },
+  "thenewyorktimes-db8d9414": {
+    "domain": "nytimes.com"
+  },
+  "thomson-reuters-cb571403": {
+    "domain": "thomsonreuters.com"
+  },
+  "thoughtworks": {
+    "domain": "thoughtworks.com"
+  },
+  "turing": {
+    "domain": "turing.com"
+  },
+  "twilio": {
+    "domain": "twilio.com"
+  },
+  "twitch": {
+    "domain": "twitch.tv"
+  },
+  "uber-74c860f6": {
+    "domain": "uber.com"
+  },
+  "unilever-a38c2d7b": {
+    "domain": "unilever.com"
+  },
+  "united-airlines-d6db21dd": {
+    "domain": "united.com"
+  },
+  "unity-a5790b06": {
+    "domain": "unity.com"
+  },
+  "vanta": {
+    "domain": "vanta.com"
+  },
+  "veeam-software-8e94fb06": {
+    "domain": "veeam.com"
+  },
+  "veeamsoftware-8a274a12": {
+    "domain": "veeam.com"
+  },
+  "vercel": {
+    "domain": "vercel.com"
+  },
+  "verizon-wireless-d91062fc": {
+    "domain": "verizon.com"
+  },
+  "verkada": {
+    "domain": "verkada.com"
+  },
+  "vodafone-idea-limited-cf73e730": {
+    "domain": "myvi.in"
+  },
+  "volvo-group-c7d07a7e": {
+    "domain": "volvogroup.com"
+  },
+  "volvo-group-india-e75143ce": {
+    "domain": "volvogroup.com"
+  },
+  "vonage-f5454ed4": {
+    "domain": "vonage.com"
+  },
+  "walmart-943c3eeb": {
+    "domain": "walmart.com"
+  },
+  "walmart-canada-15b8accb": {
+    "domain": "walmart.ca"
+  },
+  "walt-disney-parks-and-resorts-u-s-inc-39e57f44": {
+    "domain": "disney.com"
+  },
+  "warp": {
+    "domain": "warp.dev"
+  },
+  "watershed": {
+    "domain": "watershed.com"
+  },
+  "waymo-7931b6d1": {
+    "domain": "waymo.com"
+  },
+  "wayve": {
+    "domain": "wayve.ai"
+  },
+  "wealthfront": {
+    "domain": "wealthfront.com"
+  },
+  "webflow": {
+    "domain": "webflow.com"
+  },
+  "weride": {
+    "domain": "weride.ai"
+  },
+  "westerndigital": {
+    "domain": "westerndigital.com"
+  },
+  "wipro-5528a266": {
+    "domain": "wipro.com"
+  },
+  "wipro-technologies-4297235e": {
+    "domain": "wipro.com"
+  },
+  "wise": {
+    "domain": "wise.com"
+  },
+  "workday-4e44ddff": {
+    "domain": "workday.com"
+  },
+  "workos": {
+    "domain": "workos.com"
+  },
+  "worldquant-d1dd59cb": {
+    "domain": "worldquant.com"
+  },
+  "writer": {
+    "domain": "writer.com"
+  },
+  "yelp-bd11be25": {
+    "domain": "yelp.com"
+  },
+  "youtube-24e6654b": {
+    "domain": "youtube.com"
+  },
+  "zenoti": {
+    "domain": "zenoti.com"
+  },
+  "zerodha-504fda55": {
+    "domain": "zerodha.com"
+  },
+  "zeta": {
+    "domain": "zeta.tech"
+  },
+  "zluri": {
+    "domain": "zluri.com"
+  },
+  "zscaler-b1b40dcb": {
+    "domain": "zscaler.com"
+  }
+}

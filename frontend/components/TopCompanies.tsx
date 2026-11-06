@@ -32,7 +32,7 @@ export default function TopCompanies() {
 
     let cancelled = false;
 
-    getTopCompanies()
+    getTopCompanies(undefined, true)
       .then((items) => {
         if (cancelled) return;
         setState({ sessionKey, status: "success", companies: items });

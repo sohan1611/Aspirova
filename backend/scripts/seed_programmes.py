@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from core.db import make_engine
 from core.models import Programme, ProgrammeEdition
+from pipeline.organiser_companies import link_programme_company
 
 PROGRAMMES_PATH = Path(__file__).resolve().parents[1] / "data" / "programmes.json"
 PROGRAMME_EDITIONS_PATH = Path(__file__).resolve().parents[1] / "data" / "programme_editions.json"
@@ -176,6 +177,9 @@ def _seed_with_session(
 
     for entry in programmes:
         programme = session.scalar(select(Programme).where(Programme.slug == entry["slug"]))
+        evidence_changed = programme is not None and (
+            programme.organiser != entry["organiser"] or programme.url != entry["url"]
+        )
         if programme is None:
             programme = Programme(
                 slug=entry["slug"],
@@ -202,6 +206,8 @@ def _seed_with_session(
             if changed:
                 programme.updated_at = datetime.now(UTC)
                 updated += 1
+
+        link_programme_company(session, programme, evidence_changed=evidence_changed)
 
         edition = session.scalar(
             select(ProgrammeEdition).where(

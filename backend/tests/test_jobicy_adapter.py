@@ -150,3 +150,49 @@ def test_fetch_keeps_graduate_roles_and_parse_classifies_them_as_jobs(
     listings = adapter.fetch()
     assert len(listings) == 1
     assert adapter.parse(listings[0]).category == "job"
+
+
+@pytest.mark.parametrize(
+    "logo, expected",
+    [
+        ("https://images.example/logo.png", "https://images.example/logo.png"),
+        (" http://images.example/logo.png ", "http://images.example/logo.png"),
+        (None, None),
+        ("", None),
+        ("  ", None),
+        ("ftp://images.example/logo.png", None),
+        ("data:image/png;base64,abc", None),
+        ("javascript:alert(1)", None),
+        ("/logo.png", None),
+        ("//images.example/logo.png", None),
+        ("https:///", None),
+        ("https://[broken", None),
+    ],
+)
+def test_parse_company_logo_requires_http_url(adapter, fixture_payload, logo, expected) -> None:
+    job = {**fixture_payload["jobs"][0], "companyLogo": logo}
+
+    assert adapter.parse(_raw_listing_for(job)).company_logo_url == expected
+
+
+def test_parse_missing_company_logo_is_none(adapter, fixture_payload) -> None:
+    job = {**fixture_payload["jobs"][0]}
+    job.pop("companyLogo", None)
+
+    assert adapter.parse(_raw_listing_for(job)).company_logo_url is None
+
+
+def test_parse_ignores_logo_when_company_falls_back_to_source(adapter, fixture_payload) -> None:
+    job = {
+        **fixture_payload["jobs"][0],
+        "company": None,
+        "companyName": "",
+        "company_name": "",
+        "companySlug": "",
+        "company_slug": "",
+        "companyLogo": "https://images.example/logo.png",
+    }
+    normalized = adapter.parse(_raw_listing_for(job))
+
+    assert normalized.company_name == "Jobicy"
+    assert normalized.company_logo_url is None
