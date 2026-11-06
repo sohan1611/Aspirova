@@ -1,6 +1,6 @@
 import { AlertCircle, SearchX } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/HoverPrefetchLink";
 import MatchedProgrammes from "@/components/MatchedProgrammes";
 import {
   ProgrammesActiveFilterChips,
@@ -8,6 +8,8 @@ import {
 } from "@/components/ProgrammesAdvancedFilters";
 import ProgrammesListingControls from "@/components/ProgrammesListingControls";
 import ProgrammeCard from "@/components/ProgrammeCard";
+import ProgrammeAlmanac from "@/components/ProgrammeAlmanac";
+import ProgrammeViewToggle, { type ProgrammeViewQuery } from "@/components/ProgrammeViewToggle";
 import { FeedNavigationProvider } from "@/components/FeedNavigation";
 import { Button } from "@/components/ui/button";
 import { getFacets } from "@/lib/api";
@@ -23,7 +25,6 @@ import {
   parseProgrammesRequest,
   programmeCountLabel,
   PROGRAMMES_LIMIT,
-  type ProgrammeSearchParams,
 } from "@/lib/programmesQuery";
 import type { Facets, ProgrammeListItem } from "@/lib/types";
 
@@ -45,20 +46,22 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 interface PageProps {
-  searchParams: Promise<ProgrammeSearchParams>;
+  searchParams: Promise<ProgrammeViewQuery>;
 }
 
-function categoryHref(query: ProgrammeSearchParams, category?: string): string {
+function categoryHref(query: ProgrammeViewQuery, category?: string): string {
   const search = new URLSearchParams();
   appendCurrentProgrammeFilters(search, query, "category");
   if (category) search.set("category", category);
+  if ((Array.isArray(query.view) ? query.view[0] : query.view) === "browse") search.set("view", "browse");
   const queryString = search.toString();
   return queryString ? `/programmes?${queryString}` : "/programmes";
 }
 
-function pageHref(page: number, query: ProgrammeSearchParams): string {
+function pageHref(page: number, query: ProgrammeViewQuery): string {
   const search = new URLSearchParams({ page: String(page) });
   appendCurrentProgrammeFilters(search, query);
+  if ((Array.isArray(query.view) ? query.view[0] : query.view) === "browse") search.set("view", "browse");
   return `/programmes?${search.toString()}`;
 }
 
@@ -99,10 +102,10 @@ export default async function ProgrammesPage({ searchParams }: PageProps) {
         : `${selectedCategories.length} categories`;
 
   return (
-    <main className="mx-auto w-full max-w-[1680px] px-4 py-10 sm:px-6 sm:py-14 lg:px-10 xl:px-12">
+    <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
       <header className="max-w-3xl">
         <p className="eyebrow">The almanac</p>
-        <h1 className="mt-3 font-serif text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl">
+        <h1 className="mt-3 font-serif text-[1.875rem] font-bold leading-tight tracking-tight text-foreground sm:text-[2.25rem]">
           Programmes students miss because they open once a year
         </h1>
         <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
@@ -113,39 +116,40 @@ export default async function ProgrammesPage({ searchParams }: PageProps) {
       <MatchedProgrammes />
 
       <FeedNavigationProvider>
-        <section className="mt-10 border-y border-border py-6" aria-label="Programme categories">
+        <section className="mt-6 border-y border-border py-4 sm:mt-8 sm:py-5" aria-label="Programme categories">
           <p className="eyebrow">Browse by category</p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Link
-              href={categoryHref(query)}
-              className={`inline-flex h-9 items-center rounded-md border px-3 text-sm font-medium transition-colors ${
-                selectedCategories.length > 0
-                  ? "border-border bg-transparent text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
-                  : "border-primary/20 bg-primary text-primary-foreground"
-              }`}
-            >
-              All
-            </Link>
-            {PROGRAMME_CATEGORIES.map((category) => {
-              const selected = selectedCategories.includes(category.value);
-              return (
-                <Link
-                  key={category.value}
-                  href={categoryHref(query, category.value)}
-                  className={`inline-flex h-9 items-center rounded-md border px-3 text-sm font-medium transition-colors ${
-                    selected
-                      ? "border-primary/20 bg-primary text-primary-foreground"
-                      : "border-border bg-transparent text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+          <div className="mt-3 flex flex-col items-start gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex w-full min-w-0 flex-wrap gap-2 lg:flex-1">
+              <Link
+                href={categoryHref(query)}
+                className={`inline-flex min-h-11 items-center whitespace-nowrap rounded-full border px-3 text-sm font-medium transition-colors ${selectedCategories.length > 0
+                    ? "border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    : "border-primary bg-accent text-accent-foreground"
                   }`}
-                >
-                  {category.label}
-                </Link>
-              );
-            })}
+              >
+                All
+              </Link>
+              {PROGRAMME_CATEGORIES.map((category) => {
+                const selected = selectedCategories.includes(category.value);
+                return (
+                  <Link
+                    key={category.value}
+                    href={categoryHref(query, category.value)}
+                    className={`inline-flex min-h-11 items-center whitespace-nowrap rounded-full border px-3 text-sm font-medium transition-colors ${selected
+                        ? "border-primary bg-accent text-accent-foreground"
+                        : "border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      }`}
+                  >
+                    {category.label}
+                  </Link>
+                );
+              })}
+            </div>
+            <ProgrammeViewToggle query={query} />
           </div>
         </section>
 
-        <div className="mb-5 mt-10 flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
+        <div className="mb-5 mt-6 flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4 sm:mt-8">
           <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
             <p className="eyebrow">{activeCategoryLabel}</p>
             {!failed && (
@@ -174,7 +178,7 @@ export default async function ProgrammesPage({ searchParams }: PageProps) {
               <AlertCircle className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
             </div>
             <p className="eyebrow mt-5">Programmes</p>
-            <h2 className="mt-2 font-serif text-xl font-semibold text-foreground">
+            <h2 className="mt-2 font-serif text-xl font-bold text-foreground">
               The almanac could not be loaded.
             </h2>
             <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
@@ -183,7 +187,8 @@ export default async function ProgrammesPage({ searchParams }: PageProps) {
           </section>
         ) : programmes.length > 0 ? (
           <>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {(Array.isArray(query.view) ? query.view[0] : query.view) !== "browse" && <ProgrammeAlmanac programmes={programmes} />}
+            <div className="grid min-w-0 grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {programmes.map((programme) => (
                 <ProgrammeCard key={programme.slug} programme={programme} />
               ))}
@@ -194,7 +199,7 @@ export default async function ProgrammesPage({ searchParams }: PageProps) {
                 aria-label="Programmes pagination"
                 className="mt-8 flex flex-wrap items-center justify-center gap-4"
               >
-                <Button variant="outline" size="sm" disabled={page <= 1} asChild={page > 1}>
+                <Button variant="outline" size="sm" className="min-h-11" disabled={page <= 1} asChild={page > 1}>
                   {page > 1 ? (
                     <Link href={pageHref(page - 1, query)}>Previous</Link>
                   ) : (
@@ -207,6 +212,7 @@ export default async function ProgrammesPage({ searchParams }: PageProps) {
                 <Button
                   variant="outline"
                   size="sm"
+                  className="min-h-11"
                   disabled={page >= totalPages}
                   asChild={page < totalPages}
                 >
@@ -225,7 +231,7 @@ export default async function ProgrammesPage({ searchParams }: PageProps) {
               <SearchX className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
             </div>
             <p className="eyebrow mt-5">Programmes</p>
-            <h2 className="mt-2 font-serif text-xl font-semibold text-foreground">
+            <h2 className="mt-2 font-serif text-xl font-bold text-foreground">
               No programmes match this view.
             </h2>
             <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">

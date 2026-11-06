@@ -74,11 +74,11 @@ export default function TopCompanies() {
           <HoverPrefetchLink
             key={company.slug}
             href={`/companies/${company.slug}`}
-            className="group flex w-52 shrink-0 snap-start items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-soft transition-[transform,box-shadow,border-color] duration-300 ease-premium hover:-translate-y-0.5 hover:border-primary/50 hover:[box-shadow:var(--shadow-md)] focus-visible:-translate-y-0.5 focus-visible:border-primary/50 focus-visible:[box-shadow:var(--shadow-md)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="group flex w-52 shrink-0 snap-start items-center gap-3 rounded-lg border border-border bg-card p-3 shadow-soft transition-colors duration-300 ease-premium hover:border-primary/50 focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             <CompanyFavicon company={company} size={36} />
             <div className="min-w-0">
-              <h3 className="truncate text-sm font-semibold text-card-foreground transition-colors duration-300 ease-premium group-hover:text-primary group-focus-visible:text-primary">
+              <h3 className="truncate font-serif text-sm font-bold text-card-foreground transition-colors duration-300 ease-premium group-hover:text-primary group-focus-visible:text-primary">
                 {company.name}
               </h3>
               <p className="mt-1 text-xs font-medium text-muted-foreground">

@@ -48,13 +48,13 @@ export default function CompanyOpportunities({
 
       <header className="mt-8 border-b border-border pb-10">
         <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:gap-7">
-          <div className="rounded-xl border border-border bg-card p-2 shadow-soft">
+          <div className="rounded-lg border border-border bg-card p-2 shadow-soft">
             <CompanyFavicon company={data.company} size={72} />
           </div>
 
           <div className="min-w-0">
             <p className="eyebrow">Company field note</p>
-            <h1 className="mt-2 break-words font-serif text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl">
+            <h1 className="mt-2 break-words font-serif text-4xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl">
               {data.company.name}
             </h1>
             <FollowCompanyButton slug={data.company.slug} companyName={data.company.name} />
@@ -83,7 +83,7 @@ export default function CompanyOpportunities({
         <div className="mb-5 mt-2 flex flex-wrap items-end justify-between gap-3 border-b border-border pb-4">
           <h2
             id="company-opportunities-title"
-            className="font-serif text-2xl font-semibold leading-tight text-foreground sm:text-3xl"
+            className="font-serif text-2xl font-bold leading-tight text-foreground sm:text-3xl"
           >
             Current openings
           </h2>
@@ -99,12 +99,12 @@ export default function CompanyOpportunities({
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center rounded-xl border border-border bg-card px-5 py-16 text-center shadow-soft sm:py-20">
+          <div className="flex flex-col items-center rounded-lg border border-border bg-card px-5 py-16 text-center shadow-soft sm:py-20">
             <div className="rounded-lg border border-border bg-secondary/40 p-3 shadow-soft">
               <SearchX className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
             </div>
             <p className="eyebrow mt-5">Open opportunities</p>
-            <h2 className="mt-2 font-serif text-xl font-semibold text-foreground">
+            <h2 className="mt-2 font-serif text-xl font-bold text-foreground">
               Nothing on the ledger today.
             </h2>
             <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">

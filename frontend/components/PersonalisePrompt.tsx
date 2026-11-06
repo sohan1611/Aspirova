@@ -22,14 +22,14 @@ export default function PersonalisePrompt() {
   if (!hydrated || hasStoredProfile || onboarded) return null;
 
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-secondary/30 px-4 py-3">
-      <p className="min-w-0 flex-1 text-sm leading-6 text-muted-foreground">
+    <div className="relative mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-secondary/30 px-4 py-3 sm:gap-3">
+      <p className="min-w-0 basis-full pr-10 text-sm leading-6 text-muted-foreground sm:flex-1 sm:basis-auto sm:pr-0">
         Studying something specific? Tell us your field and we&apos;ll put the most relevant roles first.
       </p>
       <Button type="button" variant="outline" size="sm" onClick={requestOnboarding}>
         Personalise
       </Button>
-      <Button type="button" variant="ghost" size="icon" aria-label="Dismiss" onClick={markOnboardingComplete}>
+      <Button type="button" variant="ghost" size="icon" className="absolute right-2 top-2 sm:static" aria-label="Dismiss" onClick={markOnboardingComplete}>
         <X className="size-4" aria-hidden="true" />
       </Button>
     </div>

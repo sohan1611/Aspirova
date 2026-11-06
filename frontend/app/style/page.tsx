@@ -203,7 +203,7 @@ export default function StylePage() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <h2 className="mb-4 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+      <h2 className="mb-4 text-sm font-bold tracking-wide text-muted-foreground uppercase">
         {title}
       </h2>
       {children}

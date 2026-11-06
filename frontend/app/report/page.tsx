@@ -12,7 +12,7 @@ export default function ReportPage() {
     <main className="mx-auto w-full max-w-3xl px-4 py-10 sm:py-14">
       <header className="max-w-2xl">
         <p className="eyebrow">Feedback</p>
-        <h1 className="mt-3 font-serif text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl">
+        <h1 className="mt-3 font-serif text-4xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl">
           Report a problem
         </h1>
         <p className="mt-4 text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
@@ -22,7 +22,7 @@ export default function ReportPage() {
       </header>
 
       <section
-        className="mt-10 max-w-2xl rounded-xl border border-border bg-card p-6 shadow-soft sm:p-7"
+        className="mt-10 max-w-2xl rounded-lg border border-border bg-card p-6 shadow-soft sm:p-7"
         aria-label="Report a problem"
       >
         <ReportIssueForm />

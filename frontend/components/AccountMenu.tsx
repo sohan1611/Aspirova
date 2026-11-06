@@ -29,7 +29,7 @@ export default function AccountMenu({ user }: { user: User }) {
         <button
           type="button"
           aria-label="Account menu"
-          className="rounded-full outline-none transition-transform duration-200 ease-premium hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="inline-flex size-11 items-center justify-center rounded-full outline-none sm:size-9 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           <AccountAvatar
             email={user.email}

@@ -9,8 +9,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Internships, jobs, hackathons and research programmes for students, gathered daily from company career pages and public sources. Always links to the original listing.",
     start_url: "/",
     display: "standalone",
-    background_color: "#faf7f0",
-    theme_color: "#faf7f0",
+    background_color: "#f7f8fb",
+    theme_color: "#ffffff",
     icons: [
       { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
       { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },

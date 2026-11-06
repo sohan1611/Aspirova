@@ -21,7 +21,7 @@ export default function SourceCompanyDetail({ company }: SourceCompanyDetailProp
 
       <header className="mt-8 border-b border-border pb-10">
         <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:gap-7">
-          <div className="rounded-xl border border-border bg-card p-2 shadow-soft">
+          <div className="rounded-lg border border-border bg-card p-2 shadow-soft">
             <CompanyFavicon
               company={{
                 slug: company.slug,
@@ -35,7 +35,7 @@ export default function SourceCompanyDetail({ company }: SourceCompanyDetailProp
 
           <div className="min-w-0">
             <p className="eyebrow">Straight to source</p>
-            <h1 className="mt-2 break-words font-serif text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl">
+            <h1 className="mt-2 break-words font-serif text-4xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl">
               {company.name}
             </h1>
           </div>
@@ -62,7 +62,7 @@ export default function SourceCompanyDetail({ company }: SourceCompanyDetailProp
         <p className="eyebrow">The annual calendar</p>
         <h2
           id="flagship-programs-title"
-          className="mt-2 font-serif text-2xl font-semibold leading-tight text-foreground sm:text-3xl"
+          className="mt-2 font-serif text-2xl font-bold leading-tight text-foreground sm:text-3xl"
         >
           Flagship annual programs
         </h2>
@@ -74,7 +74,7 @@ export default function SourceCompanyDetail({ company }: SourceCompanyDetailProp
           {company.programs.map((program) => (
             <article
               key={program.name}
-              className="rounded-xl border border-border bg-card p-5 shadow-soft"
+              className="rounded-lg border border-border bg-card p-5 shadow-soft"
             >
               <h3 className="font-medium text-card-foreground">{program.name}</h3>
               <Badge

@@ -224,7 +224,7 @@ function SignedInNotificationBell({ accessToken }: { accessToken: string }) {
           variant="ghost"
           size="icon-sm"
           aria-label="Notifications"
-          className="relative text-muted-foreground hover:bg-transparent hover:text-foreground"
+          className="relative bg-accent text-accent-foreground hover:bg-secondary hover:text-foreground"
         >
           <Bell aria-hidden="true" />
           {unreadCount > 0 && (

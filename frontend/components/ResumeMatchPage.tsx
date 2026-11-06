@@ -2,6 +2,10 @@
 
 import {
   AlertTriangle,
+  ArrowRight,
+  FileText,
+  Lightbulb,
+  User,
   CheckCircle2,
   ChevronDown,
   ExternalLink,
@@ -14,7 +18,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import Link from "next/link";
+import HoverPrefetchLink from "@/components/HoverPrefetchLink";
 import {
   type ChangeEvent,
   type FormEvent,
@@ -27,7 +31,10 @@ import {
 } from "react";
 import { toast } from "sonner";
 import HeaderAuth from "@/components/HeaderAuth";
-import OpportunityCard from "@/components/OpportunityCard";
+import ProfileOpportunities from "@/components/ProfileOpportunities";
+import SaveButton from "@/components/SaveButton";
+import ScoreRing from "@/components/ScoreRing";
+import { summarizeLocation } from "@/lib/location";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,7 +43,6 @@ import {
   CardDescription,
   CardFooter,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   Dialog,
@@ -67,7 +73,7 @@ import { storeSkillNames } from "@/lib/personalizationSkills";
 import { extractSkills } from "@/lib/resumeSkills";
 import { catalogSkills } from "@/lib/skillsCatalog";
 import { createClient } from "@/lib/supabase/client";
-import { expandToSearchTerms } from "@/lib/taxonomy";
+import { expandToSearchTerms, getDivision, getStream, interestsFor, type FieldProfile } from "@/lib/taxonomy";
 import type { AccountMe, MatchItem, ResumeMeta } from "@/lib/types";
 import { useSession } from "@/lib/useSession";
 import { cn } from "@/lib/utils";
@@ -187,7 +193,7 @@ function getAtsStatusClassName(status: "pass" | "partial" | "fail"): string {
   }
 
   if (status === "partial") {
-    return "border-heritage/25 bg-heritage/10 text-heritage";
+    return "border-primary/25 bg-accent text-accent-foreground";
   }
 
   return "border-border bg-secondary/70 text-muted-foreground";
@@ -210,13 +216,13 @@ export default function ResumeMatchPage() {
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
-      <header className="mx-auto max-w-3xl text-center">
+      <header className="max-w-3xl">
         <p className="eyebrow">Your resume</p>
-        <h1 className="mt-4 text-3xl font-semibold text-foreground sm:text-4xl">
-          Resume check
+        <h1 className="mt-4 font-serif text-4xl font-bold text-foreground sm:text-5xl">
+          Matches
         </h1>
-        <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-          Store one private resume, review suggested skills, and check an ATS readiness estimate.
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+          Your resume, your skills, and the opportunities that fit them.
         </p>
       </header>
 
@@ -242,7 +248,7 @@ function SignedInResumeWorkspace({
   accessToken: string;
   userId: string;
 }) {
-  const { profile } = useFieldProfile();
+  const { profile, hydrated: profileHydrated } = useFieldProfile();
   const [resumeText, setResumeText] = useState("");
   const [readingPdf, setReadingPdf] = useState(false);
   const [shortPdfExtraction, setShortPdfExtraction] = useState(false);
@@ -638,8 +644,8 @@ function SignedInResumeWorkspace({
   }
 
   return (
-    <div className="grid gap-12 sm:gap-14">
-      <section aria-label="Free resume workspace" className="grid gap-5">
+    <div className="grid min-w-0 items-start gap-6 [overflow-wrap:anywhere] [&_button]:min-h-11 [&_input]:min-h-11 lg:grid-cols-[360px_minmax(0,1fr)]">
+      <section aria-label="Free resume workspace" className="grid min-w-0 gap-6">
         {pendingResumeSave && (
           <div role="alert" className="grid gap-3 rounded-lg border border-warning/40 bg-warning/5 p-4 text-sm">
             <p>Your new PDF is stored, but its details didn&apos;t save, so your ATS estimate may be out of date.</p>
@@ -648,31 +654,21 @@ function SignedInResumeWorkspace({
             </Button>
           </div>
         )}
-        {(savedResume || pendingResumeSave) && (
-          <SavedResumeCard
-            resume={(pendingResumeSave?.meta ?? savedResume)!}
-            openingResume={openingResume}
-            replacingResume={readingPdf || savingResumeDetails}
-            removingResume={removingResume}
-            onViewResume={handleViewSavedResume}
-            onReplaceResume={handleReplaceSavedResume}
-            onRemoveResume={handleRemoveSavedResume}
-          />
-        )}
+        <section className="min-w-0 rounded-lg border border-border bg-card p-5" aria-labelledby="profile-context-heading">
+          <h2 id="profile-context-heading" className="mb-5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"><User className="size-4" aria-hidden="true" />Profile context</h2>
+          {(savedResume || pendingResumeSave) && (
+            <SavedResumeCard
+              resume={(pendingResumeSave?.meta ?? savedResume)!}
+              openingResume={openingResume}
+              replacingResume={readingPdf || savingResumeDetails}
+              removingResume={removingResume}
+              onViewResume={handleViewSavedResume}
+              onReplaceResume={handleReplaceSavedResume}
+              onRemoveResume={handleRemoveSavedResume}
+            />
+          )}
 
-        <ResumeInputCard
-          hasSavedResume={Boolean(savedResume)}
-          resumeText={resumeText}
-          readingPdf={readingPdf || savingResumeDetails}
-          removingResume={removingResume}
-          shortPdfExtraction={shortPdfExtraction}
-          onPdfChange={handlePdfChange}
-          onResumeTextChange={handleResumeTextChange}
-        />
-
-        {displayedAtsResult && (
-          <div className="mx-auto grid w-full max-w-5xl gap-5 lg:grid-cols-2">
-            <AtsScoreCard result={displayedAtsResult} />
+          {displayedAtsResult && (
             <SkillsExposureCard
               skills={skills}
               streamKey={profile.stream}
@@ -685,22 +681,61 @@ function SignedInResumeWorkspace({
               onExposureChange={handleExposureChange}
               onSaveProfile={handleSaveProfile}
             />
-          </div>
-        )}
+          )}
+        </section>
+
+        <ResumeInputCard
+          hasSavedResume={Boolean(savedResume)}
+          resumeText={resumeText}
+          readingPdf={readingPdf || savingResumeDetails}
+          removingResume={removingResume}
+          shortPdfExtraction={shortPdfExtraction}
+          onPdfChange={handlePdfChange}
+          onResumeTextChange={handleResumeTextChange}
+        />
+
+        {displayedAtsResult && <AtsScoreCard result={displayedAtsResult} />}
+
       </section>
 
-      {RESUME_MATCHES_ENABLED && (
-        <ProMatchesSection
-          resumeReady={Boolean(resumeText.trim())}
-          findingMatches={findingMatches}
-          matchesUpsell={matchesUpsell}
-          submissionError={submissionError}
-          matches={matches}
-          formRef={matchFormRef}
-          onSubmit={handleFindMatches}
-        />
-      )}
+      <div className="grid min-w-0 gap-8">
+        <ProfileSignals profile={profile} />
+        {!RESUME_MATCHES_ENABLED && (
+          <ProfileOpportunities
+            profile={profile}
+            skillNames={savedSkills.map((skill) => skill.name)}
+            accountLoading={accountLoading || !profileHydrated}
+          />
+        )}
+        {RESUME_MATCHES_ENABLED && (
+          <ProMatchesSection
+            resumeReady={Boolean(resumeText.trim())}
+            findingMatches={findingMatches}
+            matchesUpsell={matchesUpsell}
+            submissionError={submissionError}
+            matches={matches}
+            formRef={matchFormRef}
+            onSubmit={handleFindMatches}
+          />
+        )}
+      </div>
     </div>
+  );
+}
+
+function ProfileSignals({ profile }: { profile: FieldProfile }) {
+  const stream = getStream(profile.stream);
+  const fields = [
+    ...(stream ? [stream.label] : []),
+    ...profile.divisions.map((key) => getDivision(profile.stream, key)?.label).filter((label): label is string => Boolean(label)),
+    ...interestsFor(profile.stream, profile.divisions).filter((interest) => profile.interests.includes(interest.key)).map((interest) => interest.label),
+  ];
+  if (fields.length === 0) return null;
+  return (
+    <section className="rounded-lg border border-border bg-card p-6" aria-labelledby="profile-signals-heading">
+      <h2 id="profile-signals-heading" className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"><Lightbulb className="size-4" aria-hidden="true" />Profile signals</h2>
+      <ul className="mt-5 flex flex-wrap gap-3">{fields.map((field, index) => <li key={index} className="inline-flex max-w-full items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm"><span className={`size-2 shrink-0 rounded-full ${index === 0 ? "bg-primary" : "bg-secondary"}`} aria-hidden="true" /><span className="break-words">{field}</span></li>)}</ul>
+    </section>
   );
 }
 
@@ -724,36 +759,39 @@ function SavedResumeCard({
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
 
   return (
-    <Card className="mx-auto w-full max-w-3xl border-primary/20 shadow-soft-md">
-      <CardHeader className="px-5 sm:px-8">
+    <Card className="min-w-0 gap-4 rounded-none border-0 bg-card py-0 shadow-none">
+      <CardHeader className="px-0">
         <p className="eyebrow">Your saved resume</p>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <CardTitle className="truncate font-serif text-2xl leading-tight">
-              {resume.filename}
-            </CardTitle>
-            <CardDescription className="mt-2 leading-6">
-              {formatSavedResumeUploadedAt(resume.uploaded_at)}. Stored privately in your
-              account and replaced when you upload a new PDF.
-            </CardDescription>
-          </div>
-          <div className="flex w-fit shrink-0 items-center gap-1.5">
-            <Badge
-              variant="outline"
-              className="tnum shrink-0 border-primary/25 bg-primary/10 text-primary"
-            >
-              {resume.ats.score}/100 ATS readiness estimate
-            </Badge>
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-destructive/10 text-destructive"><FileText className="size-5" aria-hidden="true" /></div>
+          <div className="flex min-w-0 flex-col gap-3">
+            <div className="min-w-0">
+              <h3 className="break-words font-serif text-lg font-bold leading-tight">
+                {resume.filename}
+              </h3>
+              <CardDescription className="mt-2 leading-6">
+                {formatSavedResumeUploadedAt(resume.uploaded_at)}. Stored privately in your
+                account and replaced when you upload a new PDF.
+              </CardDescription>
+            </div>
+            <div className="flex min-w-0 max-w-full items-center gap-1.5">
+              <Badge
+                variant="outline"
+                className="tnum max-w-full whitespace-normal border-primary/25 bg-accent text-accent-foreground"
+              >
+                {resume.ats.score}/100 ATS readiness estimate
+              </Badge>
+            </div>
           </div>
         </div>
       </CardHeader>
-      <CardFooter className="flex-col items-stretch gap-3 px-5 sm:flex-row sm:items-center sm:justify-end sm:px-8">
+      <CardFooter className="flex-col items-stretch gap-2 px-0">
         <Button
           type="button"
           variant="outline"
           onClick={onViewResume}
           disabled={openingResume || removingResume}
-          className="w-full sm:w-auto"
+          className="min-h-11 w-full"
         >
           {openingResume ? (
             <Loader2 className="animate-spin" aria-hidden="true" />
@@ -767,7 +805,7 @@ function SavedResumeCard({
           variant="secondary"
           onClick={onReplaceResume}
           disabled={replacingResume || removingResume}
-          className="w-full sm:w-auto"
+          className="min-h-11 w-full"
         >
           {replacingResume ? (
             <Loader2 className="animate-spin" aria-hidden="true" />
@@ -787,7 +825,7 @@ function SavedResumeCard({
               type="button"
               variant="outline"
               disabled={removingResume || replacingResume}
-              className="w-full sm:w-auto"
+              className="min-h-11 w-full"
             >
               {removingResume ? (
                 <Loader2 className="animate-spin" aria-hidden="true" />
@@ -850,13 +888,13 @@ function ResumeInputCard({
   return (
     <Card
       id="resume-workspace"
-      className="mx-auto w-full max-w-3xl scroll-mt-24 border-primary/20 shadow-soft-md"
+      className="w-full min-w-0 scroll-mt-24 border-border bg-card shadow-none"
     >
       <CardHeader className="px-5 sm:px-8">
         <p className="eyebrow">Your experience</p>
-        <CardTitle className="font-serif text-2xl leading-tight">
+        <h2 className="font-serif text-2xl font-bold leading-tight">
           {hasSavedResume ? "Replace or quick-check your resume" : "Start with your resume"}
-        </CardTitle>
+        </h2>
         <CardDescription className="max-w-2xl leading-6">
           Upload your resume PDF. It&apos;s stored privately in your account, only you can view
           it, and uploading another PDF replaces it. We read the text in your browser to
@@ -891,7 +929,7 @@ function ResumeInputCard({
             </p>
           )}
           {shortPdfExtraction && (
-            <p className="text-sm leading-6 text-heritage" role="status">
+            <p className="text-sm leading-6 text-primary" role="status">
               We couldn&apos;t read much text — this looks like a scanned/image PDF. Paste your
               resume text below instead.
             </p>
@@ -977,24 +1015,19 @@ function AtsChecksList({ result }: { result: AtsResult }) {
 
 function AtsScoreCard({ result }: { result: AtsResult }) {
   return (
-    <Card className="h-full border-primary/20 shadow-soft-md">
+    <Card className="h-full border-border bg-card shadow-none">
       <CardHeader className="px-5 sm:px-6">
         <p className="eyebrow">Free ATS estimate</p>
-        <CardTitle className="font-serif text-2xl leading-tight">ATS readiness estimate</CardTitle>
-        <CardDescription className="leading-6">
-          Checks formatting and content signals, not your odds of being hired.
-        </CardDescription>
+        <h2 className="font-serif text-2xl font-bold leading-tight">ATS readiness estimate</h2>
       </CardHeader>
       <CardContent className="grid gap-5 px-5 sm:px-6">
-        <div className="flex items-start justify-between gap-4 rounded-lg border border-primary/15 bg-primary/5 p-4">
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">ATS readiness</p>
-            <p className="mt-1 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-              {result.score} <span className="text-lg font-medium text-muted-foreground">/ 100</span>
-            </p>
-          </div>
-        </div>
-        <AtsChecksList result={result} />
+        <ScoreRing score={result.score} />
+        <p className="text-center text-sm leading-6 text-muted-foreground">Checks formatting and content signals, not your odds of being hired.</p>
+        <details className="border-t border-border pt-3">
+          <summary className="min-h-11 cursor-pointer content-center text-sm font-medium text-primary">See the checks</summary>
+          <div className="mt-3"><AtsChecksList result={result} /></div>
+        </details>
+
         <p className="text-xs leading-5 text-muted-foreground">
           This score is an estimate for improving your resume, not a guarantee of ATS or hiring
           outcomes.
@@ -1033,15 +1066,15 @@ function SkillsExposureCard({
   );
 
   return (
-    <Card className="h-full border-primary/20 shadow-soft-md">
-      <CardHeader className="px-5 sm:px-6">
+    <Card className="mt-5 min-w-0 gap-5 rounded-none border-0 border-t border-border bg-card pt-5 pb-0 shadow-none">
+      <CardHeader className="px-0">
         <p className="eyebrow">Free profile signals</p>
-        <CardTitle className="font-serif text-2xl leading-tight">Skills &amp; exposure</CardTitle>
+        <h3 className="font-serif text-2xl font-bold leading-tight">Skills &amp; exposure</h3>
         <CardDescription className="leading-6">
           Resume skills are suggestions. Edit them so your saved profile reflects you.
         </CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-6 px-5 sm:px-6">
+      <CardContent className="grid gap-6 px-0">
         <div className="grid gap-3">
           <div className="flex items-center justify-between gap-3">
             <span className="eyebrow">Skills</span>
@@ -1051,19 +1084,19 @@ function SkillsExposureCard({
           {skills.length > 0 ? (
             <ul className="flex flex-wrap gap-2" aria-label="Skills to save to your profile">
               {skills.map((skill, index) => (
-                <li key={getSkillKey(skill.name)}>
+                <li key={getSkillKey(skill.name)} className="max-w-full">
                   <Badge
                     variant={skill.source === "manual" ? "outline" : "secondary"}
-                    className="gap-1.5 normal-case tracking-normal"
+                    className="max-w-full gap-1.5 whitespace-normal break-words normal-case tracking-normal"
                   >
-                    <span>{skill.name}</span>
+                    <span className="min-w-0 break-words [overflow-wrap:anywhere]">{skill.name}</span>
                     <span className="text-[0.625rem] text-muted-foreground">
                       {skill.source === "manual" ? "Manual" : "Suggested"}
                     </span>
                     <button
                       type="button"
                       onClick={() => onRemoveSkill(index)}
-                      className="rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-background/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-background/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       aria-label={"Remove " + skill.name}
                     >
                       <X className="size-3" aria-hidden="true" />
@@ -1124,7 +1157,7 @@ function SkillsExposureCard({
           </div>
         </div>
       </CardContent>
-      <CardFooter className="flex-col items-stretch gap-3 px-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <CardFooter className="flex-col items-stretch gap-3 px-0">
         <p className="text-xs leading-5 text-muted-foreground" role={accountLoading ? "status" : undefined}>
           {accountLoading
             ? "Loading saved profile details…"
@@ -1134,7 +1167,7 @@ function SkillsExposureCard({
           type="button"
           onClick={onSaveProfile}
           disabled={savingProfile || !profileIsDirty || accountLoading}
-          className="w-full sm:w-auto"
+          className="min-h-11 w-full"
         >
           {savingProfile ? (
             <Loader2 className="animate-spin" aria-hidden="true" />
@@ -1202,7 +1235,7 @@ function SkillCatalogPicker({
           id={id}
           type="button"
           variant="outline"
-          className="w-full justify-between font-normal"
+          className="min-h-11 w-full justify-between font-normal"
           aria-expanded={open}
           aria-describedby={describedById}
         >
@@ -1268,7 +1301,7 @@ function SkillCatalogPicker({
                   aria-pressed={false}
                   onClick={() => handleSelect(skill.name)}
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-sm px-2 py-2 text-left text-sm transition-colors duration-200 ease-[var(--ease-premium)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    "flex min-h-11 w-full items-center gap-3 rounded-sm px-2 py-2 text-left text-sm transition-colors duration-200 ease-[var(--ease-premium)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     "hover:bg-accent/70 hover:text-accent-foreground",
                   )}
                 >
@@ -1285,7 +1318,7 @@ function SkillCatalogPicker({
             aria-pressed={false}
             onClick={handleOther}
             className={cn(
-              "flex w-full items-center rounded-sm px-2 py-2 text-left text-sm transition-colors duration-200 ease-[var(--ease-premium)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "flex min-h-11 w-full items-center rounded-sm px-2 py-2 text-left text-sm transition-colors duration-200 ease-[var(--ease-premium)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               "hover:bg-accent/70 hover:text-accent-foreground",
             )}
           >
@@ -1323,26 +1356,26 @@ function ProMatchesSection({
       <div className="mx-auto flex w-full max-w-3xl flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="eyebrow">Resume workspace</p>
-          <h2 id="pro-matches-heading" className="mt-2 text-2xl font-semibold text-foreground sm:text-3xl">
-            Find your opportunity matches
+          <h2 id="pro-matches-heading" className="mt-2 font-serif text-2xl font-bold text-foreground sm:text-3xl">
+            Curated opportunities
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
             Your free skills and ATS estimate stay yours. Pro adds a ranked shortlist from the same
             resume text.
           </p>
         </div>
-        <Badge variant="heritage">
+        <Badge variant="secondary">
           <Sparkles aria-hidden="true" />
           Pro
         </Badge>
       </div>
 
-      <Card className="mx-auto w-full max-w-3xl border-heritage/25 shadow-soft-md">
+      <Card className="w-full min-w-0 border-border shadow-none">
         <CardHeader className="px-5 sm:px-8">
           <p className="eyebrow">The Pro shortlist</p>
-          <CardTitle className="font-serif text-2xl leading-tight">
+          <h3 className="font-serif text-2xl font-bold leading-tight">
             Rank opportunities against your experience
-          </CardTitle>
+          </h3>
           <CardDescription className="max-w-2xl leading-6">
             When you&apos;re ready, use the current resume text above to find your personalized
             matches.
@@ -1388,15 +1421,15 @@ function ProMatchesSection({
 
 function SignedOutCard() {
   return (
-    <Card className="mx-auto max-w-2xl border-primary/20 text-center shadow-soft-md">
+    <Card className="mx-auto max-w-2xl border-primary/20 text-center shadow-none">
       <CardHeader className="justify-items-center px-5 sm:px-8">
         <div className="mb-1 rounded-xl border border-primary/20 bg-primary/10 p-3">
           <FileSearch className="size-6 text-primary" aria-hidden="true" />
         </div>
         <p className="eyebrow">Resume workspace</p>
-        <CardTitle className="font-serif text-2xl leading-tight sm:text-3xl">
+        <h2 className="font-serif text-2xl font-bold leading-tight sm:text-3xl">
           Sign in to check your resume
-        </CardTitle>
+        </h2>
         <CardDescription className="max-w-lg leading-6">
           Use your Aspirova account to save your resume, review skills and check an ATS readiness estimate.
         </CardDescription>
@@ -1410,16 +1443,16 @@ function SignedOutCard() {
 
 function UpsellCard() {
   return (
-    <Card className="mx-auto max-w-2xl border-heritage/25 text-center shadow-soft-md">
+    <Card className="mx-auto max-w-2xl border-border text-center shadow-none">
       <CardHeader className="justify-items-center px-5 sm:px-8">
-        <div className="mb-1 rounded-xl border border-heritage/20 bg-heritage/10 p-3">
-          <Sparkles className="size-6 text-heritage" aria-hidden="true" />
+        <div className="mb-1 rounded-xl border border-primary/20 bg-accent p-3">
+          <Sparkles className="size-6 text-primary" aria-hidden="true" />
         </div>
         <p className="eyebrow">The Pro shortlist</p>
-        <Badge variant="heritage">Pro feature</Badge>
-        <CardTitle className="font-serif text-2xl leading-tight sm:text-3xl">
+        <Badge variant="secondary">Pro feature</Badge>
+        <h3 className="font-serif text-2xl font-bold leading-tight sm:text-3xl">
           Unlock matches built around your experience
-        </CardTitle>
+        </h3>
         <CardDescription className="max-w-lg leading-6">
           The free skills and ATS readiness estimate above are yours to keep. Pro adds ranked
           opportunities based on your experience, education, and goals.
@@ -1427,7 +1460,7 @@ function UpsellCard() {
       </CardHeader>
       <CardFooter className="justify-center px-5 sm:px-8">
         <Button asChild size="lg">
-          <Link href="/pricing">View Pro pricing</Link>
+          <HoverPrefetchLink href="/pricing">View Pro pricing</HoverPrefetchLink>
         </Button>
       </CardFooter>
     </Card>
@@ -1443,14 +1476,14 @@ function SubmissionErrorCard({
 }) {
   return (
     <Card
-      className="mx-auto w-full max-w-3xl border-primary/20 shadow-soft-md"
+      className="w-full min-w-0 border-border bg-card shadow-none"
       role="alert"
     >
       <CardHeader className="px-5 sm:px-8">
         <p className="eyebrow">Analysis interrupted</p>
-        <CardTitle className="font-serif text-2xl leading-tight">
+        <h3 className="font-serif text-2xl font-bold leading-tight">
           We couldn&apos;t refresh your matches
-        </CardTitle>
+        </h3>
         <CardDescription className="max-w-2xl leading-6">
           Your current shortlist is unchanged. Try analyzing the same resume again.
         </CardDescription>
@@ -1483,7 +1516,7 @@ function MatchesList({ matches }: { matches: MatchItem[] }) {
       <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="eyebrow">Curated shortlist</p>
-          <h2 id="matches-heading" className="mt-2 text-2xl font-semibold text-foreground sm:text-3xl">
+          <h2 id="matches-heading" className="mt-2 font-serif text-2xl font-bold text-foreground sm:text-3xl">
             Matches for you
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
@@ -1498,15 +1531,15 @@ function MatchesList({ matches }: { matches: MatchItem[] }) {
       </div>
 
       {matches.length === 0 ? (
-        <Card className="mt-6 border-primary/20 text-center shadow-soft-md">
+        <Card className="mt-6 border-primary/20 text-center shadow-none">
           <CardHeader className="justify-items-center px-5 sm:px-8">
             <div className="mb-1 rounded-xl border border-border bg-secondary/50 p-3">
               <FileSearch className="size-6 text-primary" aria-hidden="true" />
             </div>
             <p className="eyebrow">Catalog watch</p>
-            <CardTitle className="font-serif text-2xl leading-tight">
+            <h3 className="font-serif text-2xl font-bold leading-tight">
               No strong matches yet
-            </CardTitle>
+            </h3>
             <CardDescription className="max-w-lg leading-6">
               We&apos;re still enriching opportunities. Check back as the catalog grows.
             </CardDescription>
@@ -1518,22 +1551,25 @@ function MatchesList({ matches }: { matches: MatchItem[] }) {
           </CardFooter>
         </Card>
       ) : (
-        <ol className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+
+        <ol className="mt-6 grid gap-4">
           {matches.map((match, index) => (
-            <li key={match.opportunity.slug} className="flex h-full min-w-0 flex-col gap-3">
-              <div className="flex items-center justify-between gap-3 px-1">
-                <span className="eyebrow tnum">
-                  Rank {String(index + 1).padStart(2, "0")}
-                </span>
-                <Badge
-                  variant="outline"
-                  className="tnum border-primary/25 bg-primary/10 text-primary"
-                >
-                  {Math.round(match.score * 100)}% fit
-                </Badge>
-              </div>
-              <div className="min-h-0 flex-1">
-                <OpportunityCard item={match.opportunity} />
+            <li key={match.opportunity.slug} className={`min-w-0 rounded-lg border border-border border-l-4 bg-card p-5 sm:p-6 ${match.score >= 0.85 ? "border-l-success" : "border-l-primary/40"}`}>
+              <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                    <span className="text-xs font-medium text-muted-foreground">Rank {String(index + 1).padStart(2, "0")}</span>
+                    <Badge variant="outline" className={`tnum ${match.score >= 0.85 ? "border-success/25 bg-success/10 text-success" : "border-primary/25 bg-accent text-accent-foreground"}`}>{Math.round(match.score * 100)}% fit</Badge>
+                  </div>
+                  <h3 className="font-serif text-2xl font-bold">
+                    <HoverPrefetchLink href={`/opportunity/${match.opportunity.slug}`} className="inline-flex min-h-11 items-center break-words hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{match.opportunity.title}</HoverPrefetchLink>
+                  </h3>
+                  <p className="mt-1 break-words text-sm text-muted-foreground">{[match.opportunity.company?.name, summarizeLocation(match.opportunity.location).short].filter(Boolean).join(" · ")}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-stretch">
+                  <Button asChild className="min-h-11"><HoverPrefetchLink href={`/opportunity/${match.opportunity.slug}`}>View<ArrowRight className="size-4" aria-hidden="true" /></HoverPrefetchLink></Button>
+                  <SaveButton slug={match.opportunity.slug} title={match.opportunity.title} className="min-h-11 min-w-11 sm:w-full" />
+                </div>
               </div>
             </li>
           ))}

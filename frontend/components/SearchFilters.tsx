@@ -127,7 +127,7 @@ function SegmentedGroup({
     <div
       role="group"
       aria-label={label}
-      className="inline-flex max-w-full flex-wrap rounded-md border border-border bg-muted p-1"
+      className="inline-flex max-w-full flex-wrap gap-2"
     >
       {options.map((option) => {
         const isActive = option.value === active;
@@ -139,10 +139,10 @@ function SegmentedGroup({
             disabled={disabled}
             onClick={() => onSelect(option.value)}
             className={cn(
-              "whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-[background-color,color,box-shadow] duration-200 ease-[var(--ease-premium)] disabled:cursor-wait",
+              "whitespace-nowrap min-h-11 rounded-full border px-3 py-1.5 sm:min-h-9 text-sm font-medium transition-[background-color,color,box-shadow] duration-200 ease-[var(--ease-premium)] disabled:cursor-wait",
               isActive
-                ? "bg-background text-foreground shadow-xs"
-                : "text-muted-foreground hover:text-foreground",
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground",
             )}
           >
             {option.label}
@@ -336,31 +336,31 @@ export default function SearchFilters() {
           Updating opportunities…
         </span>
       )}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <div className="relative flex flex-wrap items-center gap-x-3 gap-y-2">
         <form
           onSubmit={handleSubmit}
-          className="flex min-w-0 w-full flex-wrap gap-x-2 gap-y-2 sm:w-auto"
+          className="flex w-full min-w-0 gap-2 sm:w-auto"
         >
           <div className="relative min-w-0 flex-1 sm:flex-none">
-            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="search"
               aria-label="Search opportunities"
               placeholder="Search opportunities..."
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              className="w-full pl-9 sm:w-72"
+              className="w-full bg-card pl-9 pr-3 sm:w-72"
             />
           </div>
-          <Button type="submit" disabled={isPending}>
+          <Button type="submit" disabled={isPending} className="px-3">
             Search
           </Button>
         </form>
 
-        <div className="ml-auto flex w-full min-w-0 flex-wrap items-center justify-end gap-x-2 gap-y-2 sm:w-auto sm:flex-nowrap">
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:ml-auto sm:w-auto sm:justify-end">
           <Popover>
             <PopoverTrigger asChild>
-              <Button type="button" variant="outline" disabled={isPending}>
+              <Button type="button" variant="outline" disabled={isPending} aria-label="Filter opportunities" className="px-3">
                 {isPending ? (
                   <Loader2
                     className="animate-spin motion-reduce:animate-none"
@@ -369,7 +369,7 @@ export default function SearchFilters() {
                 ) : (
                   <SlidersHorizontal aria-hidden="true" />
                 )}
-                Filter
+                <span>Filter</span>
                 {hasFilters && (
                   <Badge
                     variant="secondary"
@@ -597,7 +597,7 @@ export default function SearchFilters() {
                 aria-label={`Remove ${humanLabel} filter`}
                 disabled={isPending}
                 onClick={onRemove}
-                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-[color,background-color,box-shadow] duration-200 ease-[var(--ease-premium)] hover:bg-background/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                className="inline-flex h-11 w-11 shrink-0 sm:h-7 sm:w-7 items-center justify-center rounded-sm text-muted-foreground transition-[color,background-color,box-shadow] duration-200 ease-[var(--ease-premium)] hover:bg-background/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
               >
                 <X className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
@@ -607,7 +607,7 @@ export default function SearchFilters() {
             type="button"
             disabled={isPending}
             onClick={clearFilters}
-            className="min-h-7 whitespace-nowrap rounded-sm px-1.5 py-1 text-sm font-medium text-muted-foreground transition-colors duration-200 ease-[var(--ease-premium)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="min-h-11 sm:min-h-7 whitespace-nowrap rounded-sm px-1.5 py-1 text-sm font-medium text-muted-foreground transition-colors duration-200 ease-[var(--ease-premium)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             Clear all
           </button>

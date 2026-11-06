@@ -11,7 +11,7 @@ export default function AboutPage() {
     <main className="mx-auto w-full max-w-4xl px-6 py-16 sm:px-8 sm:py-20">
       <header className="border-b border-border pb-10">
         <p className="eyebrow">Aspirova</p>
-        <h1 className="mt-3 font-serif text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl">
+        <h1 className="mt-3 font-serif text-4xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl">
           About Aspirova
         </h1>
         <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
@@ -24,7 +24,7 @@ export default function AboutPage() {
 
       <article className="mt-12 max-w-none">
         <section className="scroll-mt-24">
-          <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
+          <h2 className="font-serif text-2xl font-bold tracking-tight text-foreground">
             How it works
           </h2>
           <p className="mt-4 text-base leading-7 text-muted-foreground">
@@ -33,7 +33,7 @@ export default function AboutPage() {
         </section>
 
         <section className="mt-12 scroll-mt-24 border-t border-border pt-10">
-          <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
+          <h2 className="font-serif text-2xl font-bold tracking-tight text-foreground">
             Not a job board
           </h2>
           <p className="mt-4 text-base leading-7 text-muted-foreground">
@@ -42,7 +42,7 @@ export default function AboutPage() {
         </section>
 
         <section className="mt-12 scroll-mt-24 border-t border-border pt-10">
-          <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
+          <h2 className="font-serif text-2xl font-bold tracking-tight text-foreground">
             Who builds it
           </h2>
           <p className="mt-4 text-base leading-7 text-muted-foreground">

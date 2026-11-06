@@ -26,7 +26,7 @@ export default function RecentlyViewed() {
           <HoverPrefetchLink
             key={item.slug}
             href={`/opportunity/${item.slug}`}
-            className="group flex w-56 shrink-0 snap-start items-start gap-3 rounded-xl border border-border bg-card p-3 shadow-soft transition-[transform,box-shadow,border-color] duration-300 ease-premium hover:-translate-y-0.5 hover:border-primary/50 hover:[box-shadow:var(--shadow-md)] focus-visible:-translate-y-0.5 focus-visible:border-primary/50 focus-visible:[box-shadow:var(--shadow-md)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="group flex w-56 shrink-0 snap-start items-start gap-3 rounded-lg border border-border bg-card p-3 shadow-soft transition-colors duration-300 ease-premium hover:border-primary/50 focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             <CompanyFavicon
               company={{
@@ -38,7 +38,7 @@ export default function RecentlyViewed() {
               size={36}
             />
             <div className="min-w-0">
-              <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-card-foreground transition-colors duration-300 ease-premium group-hover:text-primary group-focus-visible:text-primary">
+              <h3 className="line-clamp-2 font-serif text-sm font-bold leading-snug text-card-foreground transition-colors duration-300 ease-premium group-hover:text-primary group-focus-visible:text-primary">
                 {item.title}
               </h3>
               <p className="mt-1 truncate text-xs font-medium text-muted-foreground">
