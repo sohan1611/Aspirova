@@ -1,5 +1,6 @@
 "use client";
 
+import { useDeferredValue } from "react";
 import { isListingClosed } from "@/lib/deadline";
 import { useHydrated } from "@/lib/useHydrated";
 
@@ -41,7 +42,10 @@ export default function RelativeDeadline({
   estimated,
   banner = false,
 }: RelativeDeadlineProps) {
-  const hydrated = useHydrated();
+  // Deferred: the switch to relative text renders as a low-priority, yielding
+  // update instead of joining the hydration task, which kept a long task
+  // on phones across twenty cards.
+  const hydrated = useDeferredValue(useHydrated(), false);
   // Keep text, icons, and styling stable until hydration has completed.
   const closed = hydrated ? isListingClosed(closedAt, deadline, category) : !!closedAt;
   const relative = hydrated && !closed && deadline ? relativeText(deadline, banner) : null;

@@ -1,5 +1,6 @@
 "use client";
 
+import { useDeferredValue } from "react";
 import { Badge } from "@/components/ui/badge";
 import { useHydrated } from "@/lib/useHydrated";
 
@@ -26,7 +27,10 @@ function relativeAge(days: number | null): string {
 }
 
 export default function ListingFreshness({ postedAt, lastSeenAt, absoluteText }: ListingFreshnessProps) {
-  const hydrated = useHydrated();
+  // Deferred: the switch to relative text renders as a low-priority, yielding
+  // update instead of joining the hydration task, which kept a long task
+  // on phones across twenty cards.
+  const hydrated = useDeferredValue(useHydrated(), false);
   const value = postedAt ?? lastSeenAt;
 
   if (!hydrated) {
