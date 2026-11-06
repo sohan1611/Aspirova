@@ -64,7 +64,7 @@ export default function CompetitionsResults({ initialData }: CompetitionsResults
 
   return (
     <FeedNavigationProvider>
-      <div className="mb-5 mt-10 flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
+      <div className="mb-5 mt-6 flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4 sm:mt-8">
         <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
           <p className="eyebrow">Open arena</p>
           <p className="tnum text-sm text-muted-foreground">

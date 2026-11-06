@@ -219,6 +219,9 @@ export default async function OpportunityPage({ params }: PageProps) {
   );
   const descriptionBlocks = parseDescriptionBlocks(opportunity.description_raw);
   const sections = splitDescriptionSections(descriptionBlocks);
+  const showSummary = Boolean(opportunity.summary?.trim()) && !sections.about.some(
+    (block) => block.type === "paragraph" && block.text.trim() === opportunity.summary?.trim(),
+  );
   const jobPostingJsonLd = buildJobPostingJsonLd(
     opportunity,
     canonicalUrl,
@@ -292,19 +295,19 @@ export default async function OpportunityPage({ params }: PageProps) {
         category={opportunity.category}
       />
 
-      <main className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+      <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
         <Link href="/" className="inline-flex min-h-11 items-center text-sm text-muted-foreground underline-offset-4 hover:text-primary hover:underline">← All opportunities</Link>
         <div className="grid min-w-0 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div className="min-w-0 [overflow-wrap:anywhere]">
 
-            <header className="mt-8">
-              <div className="flex flex-wrap items-start gap-4">
-                <div className="flex size-14 shrink-0 items-center justify-center rounded-lg border border-border bg-card">
+            <header className="mt-4 sm:mt-6">
+              <div className="flex flex-wrap items-start gap-3 sm:gap-4">
+                <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border border-border bg-card sm:size-14">
                   <CompanyFavicon company={opportunity.company} />
                 </div>
                 <div className="min-w-0 flex-1 basis-48">
-                  <h1 className="break-words font-serif text-3xl font-bold leading-tight text-foreground sm:text-4xl">{opportunity.title}</h1>
-                  <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted-foreground">
+                  <h1 className="break-words font-serif text-[1.875rem] font-bold leading-tight text-foreground sm:text-[2.25rem]">{opportunity.title}</h1>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                     <span className="inline-flex min-w-0 items-center gap-1.5">
                       <Building2 className="size-4 shrink-0" aria-hidden="true" />
                       {opportunity.company?.slug ? (
@@ -329,7 +332,7 @@ export default async function OpportunityPage({ params }: PageProps) {
                   <ExternalLink className="size-3" aria-hidden="true" />via {sourceLabel}
                 </span>}
               </div>
-              <div className="mt-6 flex flex-wrap items-center gap-2">
+              <div className="mt-3 flex flex-wrap items-center gap-2 sm:mt-4">
                 {opportunity.category && (
                   <Badge variant="secondary" className="rounded-full text-xs px-2.5 py-1">
                     {CATEGORY_LABEL[opportunity.category] ?? opportunity.category}
@@ -377,10 +380,10 @@ export default async function OpportunityPage({ params }: PageProps) {
               </div>
             )}
 
-            <div className="border-b border-border pb-8">
-              <section aria-label="Application actions" className="mt-8 min-w-0 [&_button]:min-h-11 [&_a]:min-h-11">
-                <div className="flex min-w-0 flex-wrap items-center gap-3">
-                  <div className="min-w-0 max-w-full">
+            <div className="border-b border-border pb-6">
+              <section aria-label="Application actions" className="mt-5 min-w-0 [&_button]:min-h-11 [&_a]:min-h-11 sm:mt-6">
+                <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
+                  <div className="flex w-full min-w-0 max-w-full flex-wrap items-center gap-3 sm:contents">
                     {closed ? (
                       <div className="flex flex-wrap items-center gap-3">
                         <span className="inline-flex min-h-11 items-center rounded-md border border-border bg-secondary px-4 py-2 text-sm font-medium text-muted-foreground">{closedStatusLabel}</span>
@@ -396,12 +399,12 @@ export default async function OpportunityPage({ params }: PageProps) {
                     ) : (
                       <ApplyLink slug={opportunity.slug} href={opportunity.apply_url} size="lg" className={SOURCE_LINK_CLASSES}>{withoutArrow(apply.buttonLabel)}<ArrowUpRight className="size-4 shrink-0" aria-hidden="true" /></ApplyLink>
                     )}
+                    <BookmarkButton slug={opportunity.slug} />
                   </div>
-                  <BookmarkButton slug={opportunity.slug} />
                   <ShareButton slug={opportunity.slug} title={opportunity.title} />
-                  {opportunity.company?.slug && <div className="min-w-0 max-w-full sm:ml-auto"><FollowCompanyButton slug={opportunity.company.slug} companyName={opportunity.company.name} /></div>}
+                  {opportunity.company?.slug && <div className="min-w-0 max-w-full [&>div]:mt-0 sm:ml-auto"><FollowCompanyButton slug={opportunity.company.slug} companyName={opportunity.company.name} /></div>}
                 </div>
-                <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                   <p className="max-w-lg text-xs leading-5 text-muted-foreground">{closed ? closedCaption : stale ? verification.caption : apply.caption}</p>
                   <ReportIssueDialog opportunitySlug={opportunity.slug} />
                 </div>
@@ -440,12 +443,12 @@ export default async function OpportunityPage({ params }: PageProps) {
               )}
 
             </div>
-            {(opportunity.summary || opportunity.reopen_estimate) && (
-              <aside className="mt-8 rounded-lg border border-border bg-card p-6">
-                {opportunity.summary && (
+            {(showSummary || opportunity.reopen_estimate) && (
+              <aside className="mt-6 rounded-lg border border-border bg-card p-4 sm:p-5">
+                {showSummary && (
                   <div>
                     <p className="eyebrow">At a glance</p>
-                    <p className="mt-3 whitespace-pre-wrap leading-7 text-foreground">
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-foreground sm:text-base">
                       {opportunity.summary}
                     </p>
                   </div>
@@ -454,7 +457,7 @@ export default async function OpportunityPage({ params }: PageProps) {
                 {opportunity.reopen_estimate && (
                   <div
                     className={
-                      opportunity.summary ? "mt-6 border-t border-border pt-6" : undefined
+                      showSummary ? "mt-6 border-t border-border pt-6" : undefined
                     }
                   >
                     <div className="flex items-center gap-2">
@@ -479,19 +482,19 @@ export default async function OpportunityPage({ params }: PageProps) {
               </aside>
             )}
 
-            <article className="mt-10" aria-labelledby="about-role-heading">
-              <h2 id="about-role-heading" className="font-serif text-2xl font-bold">About the role</h2>
-              <div className="mt-5 space-y-5 text-[0.95rem] leading-7 text-muted-foreground">
+            <article className="mt-6 sm:mt-8" aria-labelledby="about-role-heading">
+              <h2 id="about-role-heading" className="font-serif text-xl font-bold sm:text-2xl">About the role</h2>
+              <div className="mt-4 space-y-4 text-sm leading-6 text-muted-foreground sm:text-[0.95rem] sm:leading-7">
                 <DescriptionBlocks blocks={sections.about} />
               </div>
               {(sections.requirements.length > 0 || sections.eligibility.length > 0) && (
-                <div className={`mt-10 grid gap-6 border-t border-border pt-10 ${sections.requirements.length > 0 && sections.eligibility.length > 0 ? "md:grid-cols-2" : ""}`}>
-                  {sections.requirements.length > 0 && <section className="min-w-0 rounded-lg border border-border bg-card p-6" aria-labelledby="requirements-heading">
-                    <h3 id="requirements-heading" className="flex items-center gap-2 font-serif text-2xl font-bold"><ListChecks className="size-5 shrink-0 text-primary" aria-hidden="true" />Requirements</h3>
+                <div className={`mt-6 grid gap-4 border-t border-border pt-6 sm:mt-8 sm:gap-6 sm:pt-8 ${sections.requirements.length > 0 && sections.eligibility.length > 0 ? "md:grid-cols-2" : ""}`}>
+                  {sections.requirements.length > 0 && <section className="min-w-0 rounded-lg border border-border bg-card p-4 sm:p-5" aria-labelledby="requirements-heading">
+                    <h3 id="requirements-heading" className="flex items-center gap-2 font-serif text-xl font-bold"><ListChecks className="size-5 shrink-0 text-primary" aria-hidden="true" />Requirements</h3>
                     <div className="mt-4 space-y-4 text-sm leading-6 text-muted-foreground"><DescriptionBlocks blocks={sections.requirements} inCard /></div>
                   </section>}
-                  {sections.eligibility.length > 0 && <section className="min-w-0 rounded-lg border border-border bg-card p-6" aria-labelledby="eligibility-heading">
-                    <h3 id="eligibility-heading" className="flex items-center gap-2 font-serif text-2xl font-bold"><GraduationCap className="size-5 shrink-0 text-primary" aria-hidden="true" />Eligibility</h3>
+                  {sections.eligibility.length > 0 && <section className="min-w-0 rounded-lg border border-border bg-card p-4 sm:p-5" aria-labelledby="eligibility-heading">
+                    <h3 id="eligibility-heading" className="flex items-center gap-2 font-serif text-xl font-bold"><GraduationCap className="size-5 shrink-0 text-primary" aria-hidden="true" />Eligibility</h3>
                     <div className="mt-4 space-y-4 text-sm leading-6 text-muted-foreground"><DescriptionBlocks blocks={sections.eligibility} inCard /></div>
                   </section>}
                 </div>
@@ -535,7 +538,7 @@ export default async function OpportunityPage({ params }: PageProps) {
             )}
 
           </div>
-          <aside className="min-w-0 space-y-6 pt-8" aria-label="Skills and similar opportunities">
+          <aside className="min-w-0 space-y-4 lg:space-y-6 lg:pt-6" aria-label="Skills and similar opportunities">
             <SkillMatchCard skills={opportunity.skills} />
             <SimilarOpportunitiesList items={similarOpportunities} />
           </aside>

@@ -1,6 +1,6 @@
 import { AlertCircle, SearchX } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/components/HoverPrefetchLink";
 import MatchedProgrammes from "@/components/MatchedProgrammes";
 import {
   ProgrammesActiveFilterChips,
@@ -102,10 +102,10 @@ export default async function ProgrammesPage({ searchParams }: PageProps) {
         : `${selectedCategories.length} categories`;
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+    <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
       <header className="max-w-3xl">
         <p className="eyebrow">The almanac</p>
-        <h1 className="mt-3 font-serif text-4xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl">
+        <h1 className="mt-3 font-serif text-[1.875rem] font-bold leading-tight tracking-tight text-foreground sm:text-[2.25rem]">
           Programmes students miss because they open once a year
         </h1>
         <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
@@ -116,13 +116,13 @@ export default async function ProgrammesPage({ searchParams }: PageProps) {
       <MatchedProgrammes />
 
       <FeedNavigationProvider>
-        <section className="mt-10 border-y border-border py-6" aria-label="Programme categories">
+        <section className="mt-6 border-y border-border py-4 sm:mt-8 sm:py-5" aria-label="Programme categories">
           <p className="eyebrow">Browse by category</p>
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex min-w-0 flex-1 flex-wrap gap-2">
+          <div className="mt-3 flex flex-col items-start gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex w-full min-w-0 flex-wrap gap-2 lg:flex-1">
               <Link
                 href={categoryHref(query)}
-                className={`inline-flex min-h-11 items-center rounded-full border px-3 text-sm font-medium transition-colors ${selectedCategories.length > 0
+                className={`inline-flex min-h-11 items-center whitespace-nowrap rounded-full border px-3 text-sm font-medium transition-colors ${selectedCategories.length > 0
                     ? "border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
                     : "border-primary bg-accent text-accent-foreground"
                   }`}
@@ -135,7 +135,7 @@ export default async function ProgrammesPage({ searchParams }: PageProps) {
                   <Link
                     key={category.value}
                     href={categoryHref(query, category.value)}
-                    className={`inline-flex min-h-11 items-center rounded-full border px-3 text-sm font-medium transition-colors ${selected
+                    className={`inline-flex min-h-11 items-center whitespace-nowrap rounded-full border px-3 text-sm font-medium transition-colors ${selected
                         ? "border-primary bg-accent text-accent-foreground"
                         : "border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
                       }`}
@@ -149,7 +149,7 @@ export default async function ProgrammesPage({ searchParams }: PageProps) {
           </div>
         </section>
 
-        <div className="mb-5 mt-10 flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
+        <div className="mb-5 mt-6 flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4 sm:mt-8">
           <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
             <p className="eyebrow">{activeCategoryLabel}</p>
             {!failed && (

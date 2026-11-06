@@ -310,6 +310,15 @@ body {
 
 /* Sonner's own mobile breakpoint is 600px; the tab bar extends to md. */
 @media (width < 48rem) {
+  html {
+    scroll-padding-top: 5rem;
+    scroll-padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
+
+  :is(a, button, input, select, textarea, [tabindex]) {
+    scroll-margin-block: 1rem;
+  }
+
   .toaster[data-sonner-toaster][data-y-position="bottom"] {
     bottom: calc(4rem + env(safe-area-inset-bottom) + 1rem);
   }

@@ -80,7 +80,7 @@ export default function FeedResults({ initialData, trendingItems }: FeedResultsP
       {request.isCleanDefaultFeed && <MostViewed items={trendingItems} />}
 
       <FeedNavigationProvider>
-        <div id="feed-search" className="mb-6 scroll-mt-20 pt-10">
+        <div id="feed-search" className="mb-5 scroll-mt-20 pt-5 sm:pt-8">
           <PersonalisePrompt />
           <ForYouControl />
           <div className="mt-3">

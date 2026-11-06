@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function OpportunityCardSkeleton({ competition = false }: { competition?: boolean }) {
   return (
     <Card aria-hidden="true" className="h-full gap-3 overflow-hidden p-4 sm:p-5">
-      {competition && <Skeleton className="-mx-4 -mt-4 h-28 rounded-none sm:-mx-5 sm:-mt-5 sm:h-32" />}
+      {competition && <Skeleton className="-mx-4 -mt-4 h-24 rounded-none sm:-mx-5 sm:-mt-5 sm:h-28" />}
       <div className="flex items-start justify-between gap-3">
         <Skeleton className="h-6 w-24 shrink-0 rounded-md" />
         <Skeleton className="mt-1 h-4 w-28" />

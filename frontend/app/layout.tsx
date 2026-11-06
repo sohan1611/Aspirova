@@ -68,7 +68,7 @@ export default function RootLayout({
         {/* Decide likely auth state before first paint to avoid signed-out flashes. */}
         <script dangerouslySetInnerHTML={{ __html: AUTH_PENDING_SCRIPT }} />
       </head>
-      <body className="min-h-full flex flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
+      <body className="min-h-full flex flex-col pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
         <ThemeProvider attribute="class" forcedTheme="light" disableTransitionOnChange>
           <a
             href="#main-content"

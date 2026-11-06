@@ -73,6 +73,7 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
   const payText = isRole ? formatCompensation(item.meta) : null;
   const prizeText = hasPrize ? formatPrizePool(item.meta) : null;
   const mode = hasPrize ? competitionMode(item) : null;
+  const showCompetitionLocation = Boolean(location && location.trim().toLowerCase() !== mode?.toLowerCase());
   const registered = hasPrize ? participantCount(item.meta) : null;
   const teamSize = isCompetition ? teamSizeText(item.meta) : null;
   const offersPpi = hasPrize && item.meta?.offers_ppi === true;
@@ -132,7 +133,7 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
         className="group flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-soft transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         {isCompetition && (
-          <div className={`comp-banner ${bannerMotif} comp-banner--p${paletteIndex} relative h-28 shrink-0 overflow-hidden sm:h-32`}>
+          <div className={`comp-banner ${bannerMotif} comp-banner--p${paletteIndex} relative h-24 shrink-0 overflow-hidden sm:h-28`}>
             {(item.closed_at || item.deadline) && (
               <RelativeDeadline
                 deadline={item.deadline}
@@ -175,9 +176,11 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
           <h3 className="line-clamp-2 min-w-0 break-words font-serif text-[1.25rem] font-bold leading-tight text-card-foreground transition-colors group-hover:text-primary group-focus-visible:text-primary lg:text-[1.35rem]">
             {item.title}
           </h3>
-          <p className="line-clamp-2 min-h-10 break-words text-sm leading-5 text-muted-foreground">
-            {item.summary}
-          </p>
+          {item.summary && (
+            <p className="line-clamp-2 break-words text-sm leading-5 text-muted-foreground">
+              {item.summary}
+            </p>
+          )}
 
           {isCompetition ? (
             <>
@@ -197,11 +200,12 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
                   <span>
                     <span aria-hidden="true" className={`ico ${mode === "Online" ? "ico-globe" : "ico-map-pin"} mt-0.5 size-3.5`} />
                     <span>
-                      {mode}{mode && (location || countryFlag) && " · "}{locationText}
+                      {mode}{mode && (showCompetitionLocation || countryFlag) && " · "}
+                      {showCompetitionLocation ? locationText : countryFlag && <span aria-hidden="true">{countryFlag}</span>}
                     </span>
                   </span>
                 )}
-                {item.is_remote && <span><span aria-hidden="true" className="ico ico-globe mt-0.5 size-3.5" />Remote</span>}
+                {item.is_remote && mode !== "Online" && <span><span aria-hidden="true" className="ico ico-globe mt-0.5 size-3.5" />Remote</span>}
                 {deadlineText && (
                   <span><span aria-hidden="true" className="ico ico-calendar mt-0.5 size-3.5" /><span>{deadlineText}</span></span>
                 )}
@@ -267,7 +271,7 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
         slug={item.slug}
         title={item.title}
         className={isCompetition
-          ? "absolute right-3 top-32 z-10 sm:top-[9.25rem]"
+          ? "absolute right-3 top-28 z-10 sm:top-[8.25rem]"
           : "absolute bottom-3 right-3 z-10"}
       />
     </div>

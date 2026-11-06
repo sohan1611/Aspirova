@@ -339,9 +339,9 @@ export default function SearchFilters() {
       <div className="relative flex flex-wrap items-center gap-x-3 gap-y-2">
         <form
           onSubmit={handleSubmit}
-          className="flex min-w-0 w-full flex-wrap gap-x-2 gap-y-2 sm:w-auto sm:flex-nowrap"
+          className="flex w-full min-w-0 gap-2 sm:w-auto"
         >
-          <div className="relative min-w-0 w-full flex-1 basis-full sm:basis-auto sm:flex-none">
+          <div className="relative min-w-0 flex-1 sm:flex-none">
             <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="search"
@@ -349,18 +349,18 @@ export default function SearchFilters() {
               placeholder="Search opportunities..."
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              className="w-full bg-card pl-9 pr-12 sm:w-72 sm:pr-3"
+              className="w-full bg-card pl-9 pr-3 sm:w-72"
             />
           </div>
-          <Button type="submit" disabled={isPending}>
+          <Button type="submit" disabled={isPending} className="px-3">
             Search
           </Button>
         </form>
 
-        <div className="ml-auto flex w-full min-w-0 flex-wrap items-center justify-end gap-x-2 gap-y-2 sm:w-auto">
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:ml-auto sm:w-auto sm:justify-end">
           <Popover>
             <PopoverTrigger asChild>
-              <Button type="button" variant="ghost" disabled={isPending} aria-label="Filter opportunities" className="absolute right-0 top-0 size-11 px-0 sm:static sm:h-9 sm:w-auto sm:border sm:border-border sm:bg-card sm:px-3">
+              <Button type="button" variant="outline" disabled={isPending} aria-label="Filter opportunities" className="px-3">
                 {isPending ? (
                   <Loader2
                     className="animate-spin motion-reduce:animate-none"
@@ -369,11 +369,11 @@ export default function SearchFilters() {
                 ) : (
                   <SlidersHorizontal aria-hidden="true" />
                 )}
-                <span className="sr-only sm:not-sr-only">Filter</span>
+                <span>Filter</span>
                 {hasFilters && (
                   <Badge
                     variant="secondary"
-                    className="tnum absolute -right-1 -top-1 sm:static"
+                    className="tnum"
                     aria-label={`${activeFilterCount} active filters`}
                   >
                     {activeFilterCount}
