@@ -4,44 +4,19 @@ import argparse
 import time
 from collections.abc import Iterator
 from typing import Any
-from urllib.parse import urlparse
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, load_only
 
 from core import models
 from core.db import make_engine
+from core.domains import LEGAL_SUFFIXES, clean_domain
 from pipeline.normalize import normalize_company_name
 
 BATCH_SIZE = 100
 CLEARBIT_SUGGEST_URL = "https://autocomplete.clearbit.com/v1/companies/suggest"
 REQUEST_TIMEOUT_SECONDS = 10.0
 EXAMPLE_LIMIT = 10
-_LEGAL_SUFFIXES = frozenset(
-    {
-        "ab",
-        "ag",
-        "as",
-        "bv",
-        "co",
-        "corp",
-        "corporation",
-        "gmbh",
-        "group",
-        "holdings",
-        "inc",
-        "kg",
-        "limited",
-        "llc",
-        "ltd",
-        "oy",
-        "plc",
-        "pty",
-        "sa",
-        "sas",
-        "srl",
-    }
-)
 
 
 def _positive_int(value: str) -> int:
@@ -102,7 +77,7 @@ def _first_token(value: str) -> str | None:
 
 def _strip_legal_suffixes(value: str) -> str:
     tokens = value.split()
-    while len(tokens) > 1 and tokens[-1] in _LEGAL_SUFFIXES:
+    while len(tokens) > 1 and tokens[-1] in LEGAL_SUFFIXES:
         tokens.pop()
     return " ".join(tokens)
 
@@ -128,20 +103,6 @@ def _is_confident_match(company: models.Company, suggestion_name: str) -> bool:
     suggestion_extends_company = suggestion_normalized.startswith(company_normalized)
     company_extends_suggestion = company_normalized.startswith(suggestion_normalized)
     return suggestion_extends_company or company_extends_suggestion
-
-
-def _clean_domain(value: Any) -> str | None:
-    if not isinstance(value, str):
-        return None
-
-    raw_domain = value.strip().lower()
-    if not raw_domain:
-        return None
-
-    parsed = urlparse(raw_domain if "://" in raw_domain else f"//{raw_domain}")
-    domain = parsed.netloc or parsed.path.split("/", maxsplit=1)[0]
-    domain = domain.rsplit("@", maxsplit=1)[-1].split(":", maxsplit=1)[0].strip(".")
-    return domain or None
 
 
 def _lookup_top_suggestion(client: Any, company_name: str) -> dict[str, Any] | None:
@@ -200,7 +161,7 @@ def backfill_domains(
                     continue
 
                 suggestion_name = suggestion.get("name")
-                domain = _clean_domain(suggestion.get("domain"))
+                domain = clean_domain(suggestion.get("domain"))
                 if (
                     not isinstance(suggestion_name, str)
                     or domain is None

@@ -777,7 +777,7 @@ def test_aggregator_seen_listing_reopens_only_with_full_inventory_and_no_past_de
         def health(self):
             return "ok"
 
-    monkeypatch.setattr(runner, "resolve_company", lambda *_args: company)
+    monkeypatch.setattr(runner, "resolve_company", lambda *_args, **_kwargs: company)
     result = runner.crawl_aggregator(db_session, source, SeenAdapter)
     assert result["status"] == "success"
     assert result["errors"] == 0

@@ -1289,3 +1289,60 @@ def test_competition_keeps_online_behavior_even_with_job_detail(
     assert normalized.country is None
     assert "work_mode" not in normalized.meta
     assert "compensation" not in normalized.meta
+
+
+@pytest.mark.parametrize("fixture_index", [0, 1])
+def test_parse_company_logo_from_fixture(adapter, fixture_payload, fixture_index) -> None:
+    opportunity = _fixture_items(fixture_payload)[fixture_index]
+    normalized = adapter.parse(_raw_listing_for(opportunity))
+    organization = opportunity["organisation"]
+
+    assert normalized.company_logo_url == (
+        organization.get("logoUrl2") or organization.get("logoUrl") or None
+    )
+    if fixture_index == 1:
+        assert organization["logoUrl"] == ""
+        assert normalized.company_logo_url is None
+
+
+@pytest.mark.parametrize(
+    "preferred, fallback, expected",
+    [
+        (
+            "https://images.example/large.png",
+            "https://images.example/small.png",
+            "https://images.example/large.png",
+        ),
+        (None, "http://images.example/small.png", "http://images.example/small.png"),
+        ("  ", "https://images.example/small.png", "https://images.example/small.png"),
+        (
+            "ftp://images.example/large.png",
+            "https://images.example/small.png",
+            "https://images.example/small.png",
+        ),
+        ("data:image/png;base64,abc", None, None),
+        ("/logo.png", "//images.example/logo.png", None),
+        ("https:///", "javascript:alert(1)", None),
+        ("https://[broken", "", None),
+    ],
+)
+def test_parse_company_logo_requires_http_url(
+    adapter, fixture_payload, preferred, fallback, expected
+) -> None:
+    opportunity = {
+        **_fixture_items(fixture_payload)[0],
+        "organisation": {"name": "Example", "logoUrl2": preferred, "logoUrl": fallback},
+    }
+
+    assert adapter.parse(_raw_listing_for(opportunity)).company_logo_url == expected
+
+
+def test_parse_ignores_logo_when_company_falls_back_to_unstop(adapter, fixture_payload) -> None:
+    opportunity = {
+        **_fixture_items(fixture_payload)[0],
+        "organisation": {"logoUrl2": "https://images.example/logo.png"},
+    }
+    normalized = adapter.parse(_raw_listing_for(opportunity))
+
+    assert normalized.company_name == "Unstop"
+    assert normalized.company_logo_url is None

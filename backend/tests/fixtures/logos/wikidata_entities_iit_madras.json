@@ -1,0 +1,522 @@
+{
+ "entities": {
+  "Q858662": {
+   "type": "item",
+   "id": "Q858662",
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "Indian Institute of Technology Madras"
+    }
+   },
+   "aliases": {
+    "en": [
+     {
+      "language": "en",
+      "value": "IIT Madras"
+     },
+     {
+      "language": "en",
+      "value": "IIT-M"
+     },
+     {
+      "language": "en",
+      "value": "IIT Chennai"
+     },
+     {
+      "language": "en",
+      "value": "Indian Institute of Technology, Madras"
+     }
+    ]
+   },
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "hash": "200aa1205113f3263de9d13939803672a5207c28",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 1371037,
+         "id": "Q1371037"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "id": "Q858662$c61503b1-4e69-3b6a-64cf-c03802f06dcb",
+      "rank": "normal"
+     },
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "hash": "8322b7d5c114a7f2cfebb48729f43541fdf71314",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 47531586,
+         "id": "Q47531586"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "id": "Q858662$2093C1E2-62C7-4AA8-B4CA-DE94BB9A77B9",
+      "rank": "normal",
+      "references": [
+       {
+        "hash": "e4d46ddadffc8884be601c64840fc89614425a41",
+        "snaks": {
+         "P854": [
+          {
+           "snaktype": "value",
+           "property": "P854",
+           "hash": "2e043d0c22055f0fc3a39c925f16e555c21f767c",
+           "datavalue": {
+            "value": "https://dashboard.aishe.gov.in/hedirectory/#/hedirectory/universityDetails/U/07",
+            "type": "string"
+           },
+           "datatype": "url"
+          }
+         ],
+         "P1476": [
+          {
+           "snaktype": "value",
+           "property": "P1476",
+           "hash": "0f9e29eb4810e676a4cff0ac8088d51053936471",
+           "datavalue": {
+            "value": {
+             "text": "Institute of National Importance",
+             "language": "en"
+            },
+            "type": "monolingualtext"
+           },
+           "datatype": "monolingualtext"
+          }
+         ],
+         "P123": [
+          {
+           "snaktype": "value",
+           "property": "P123",
+           "hash": "63d15003a1825d8a0dd43c384f32657b88dfc831",
+           "datavalue": {
+            "value": {
+             "entity-type": "item",
+             "numeric-id": 5260331,
+             "id": "Q5260331"
+            },
+            "type": "wikibase-entityid"
+           },
+           "datatype": "wikibase-item"
+          }
+         ],
+         "P813": [
+          {
+           "snaktype": "value",
+           "property": "P813",
+           "hash": "0841dad006ff72233cc531912171296f5fcbf916",
+           "datavalue": {
+            "value": {
+             "time": "+2026-01-04T00:00:00Z",
+             "timezone": 0,
+             "before": 0,
+             "after": 0,
+             "precision": 11,
+             "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+            },
+            "type": "time"
+           },
+           "datatype": "time"
+          }
+         ],
+         "P407": [
+          {
+           "snaktype": "value",
+           "property": "P407",
+           "hash": "daf1c4fcb58181b02dff9cc89deb084004ddae4b",
+           "datavalue": {
+            "value": {
+             "entity-type": "item",
+             "numeric-id": 1860,
+             "id": "Q1860"
+            },
+            "type": "wikibase-entityid"
+           },
+           "datatype": "wikibase-item"
+          }
+         ]
+        },
+        "snaks-order": [
+         "P854",
+         "P1476",
+         "P123",
+         "P813",
+         "P407"
+        ]
+       }
+      ]
+     }
+    ],
+    "P856": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P856",
+       "hash": "58c4cdae8b20df2945c70dcc4e9af0c99926f2f2",
+       "datavalue": {
+        "value": "http://www.iitm.ac.in",
+        "type": "string"
+       },
+       "datatype": "url"
+      },
+      "type": "statement",
+      "id": "Q858662$0B164672-94BB-4713-AA90-EF112D7FB49E",
+      "rank": "normal",
+      "references": [
+       {
+        "hash": "e4d46ddadffc8884be601c64840fc89614425a41",
+        "snaks": {
+         "P854": [
+          {
+           "snaktype": "value",
+           "property": "P854",
+           "hash": "2e043d0c22055f0fc3a39c925f16e555c21f767c",
+           "datavalue": {
+            "value": "https://dashboard.aishe.gov.in/hedirectory/#/hedirectory/universityDetails/U/07",
+            "type": "string"
+           },
+           "datatype": "url"
+          }
+         ],
+         "P1476": [
+          {
+           "snaktype": "value",
+           "property": "P1476",
+           "hash": "0f9e29eb4810e676a4cff0ac8088d51053936471",
+           "datavalue": {
+            "value": {
+             "text": "Institute of National Importance",
+             "language": "en"
+            },
+            "type": "monolingualtext"
+           },
+           "datatype": "monolingualtext"
+          }
+         ],
+         "P123": [
+          {
+           "snaktype": "value",
+           "property": "P123",
+           "hash": "63d15003a1825d8a0dd43c384f32657b88dfc831",
+           "datavalue": {
+            "value": {
+             "entity-type": "item",
+             "numeric-id": 5260331,
+             "id": "Q5260331"
+            },
+            "type": "wikibase-entityid"
+           },
+           "datatype": "wikibase-item"
+          }
+         ],
+         "P813": [
+          {
+           "snaktype": "value",
+           "property": "P813",
+           "hash": "0841dad006ff72233cc531912171296f5fcbf916",
+           "datavalue": {
+            "value": {
+             "time": "+2026-01-04T00:00:00Z",
+             "timezone": 0,
+             "before": 0,
+             "after": 0,
+             "precision": 11,
+             "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+            },
+            "type": "time"
+           },
+           "datatype": "time"
+          }
+         ],
+         "P407": [
+          {
+           "snaktype": "value",
+           "property": "P407",
+           "hash": "daf1c4fcb58181b02dff9cc89deb084004ddae4b",
+           "datavalue": {
+            "value": {
+             "entity-type": "item",
+             "numeric-id": 1860,
+             "id": "Q1860"
+            },
+            "type": "wikibase-entityid"
+           },
+           "datatype": "wikibase-item"
+          }
+         ]
+        },
+        "snaks-order": [
+         "P854",
+         "P1476",
+         "P123",
+         "P813",
+         "P407"
+        ]
+       }
+      ]
+     }
+    ],
+    "P154": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P154",
+       "hash": "1eee5f3748156fc1ccb2ca0cde141484f3762078",
+       "datavalue": {
+        "value": "IIT Madras Logo (Black and White).svg",
+        "type": "string"
+       },
+       "datatype": "commonsMedia"
+      },
+      "type": "statement",
+      "id": "Q858662$3805c27f-49a1-e301-3d8f-c38e75274189",
+      "rank": "normal"
+     }
+    ]
+   }
+  },
+  "Q110811030": {
+   "type": "item",
+   "id": "Q110811030",
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "Indian Institute of Technology Madras"
+    }
+   },
+   "aliases": {
+    "en": [
+     {
+      "language": "en",
+      "value": "IITM RP"
+     },
+     {
+      "language": "en",
+      "value": "Indian Institute of Technology Research Park"
+     }
+    ]
+   },
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "hash": "c64a9772cd23fdc63767cb1f3a6594c836be16d2",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 1976594,
+         "id": "Q1976594"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "id": "Q110811030$a112c9b9-4c67-159b-311d-4ad120d224d3",
+      "rank": "normal"
+     }
+    ],
+    "P856": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P856",
+       "hash": "d9ef794bf60e90cfd6273c216269f4cf164a31cb",
+       "datavalue": {
+        "value": "https://respark.iitm.ac.in/",
+        "type": "string"
+       },
+       "datatype": "url"
+      },
+      "type": "statement",
+      "qualifiers": {
+       "P407": [
+        {
+         "snaktype": "value",
+         "property": "P407",
+         "hash": "daf1c4fcb58181b02dff9cc89deb084004ddae4b",
+         "datavalue": {
+          "value": {
+           "entity-type": "item",
+           "numeric-id": 1860,
+           "id": "Q1860"
+          },
+          "type": "wikibase-entityid"
+         },
+         "datatype": "wikibase-item"
+        }
+       ]
+      },
+      "qualifiers-order": [
+       "P407"
+      ],
+      "id": "Q110811030$c337258a-4b3c-96bc-b751-3b8be6445e94",
+      "rank": "normal"
+     }
+    ]
+   }
+  },
+  "Q135739042": {
+   "type": "item",
+   "id": "Q135739042",
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "Indian Institute of Technology Madras, Zanzibar"
+    }
+   },
+   "aliases": {
+    "en": [
+     {
+      "language": "en",
+      "value": "IITM Zanzibar"
+     },
+     {
+      "language": "en",
+      "value": "IITMZ"
+     },
+     {
+      "language": "en",
+      "value": "Indian Institute of Technology Madras, Zanzibar Campus"
+     }
+    ]
+   },
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "hash": "0344abdcdc8ee17ad668cc1b7f883083cadd117a",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 2385804,
+         "id": "Q2385804"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "id": "Q135739042$0504A110-876E-46CE-ABE8-AEE80288D350",
+      "rank": "normal",
+      "references": [
+       {
+        "hash": "0405e215114064ca714a7c8db8420444869ac443",
+        "snaks": {
+         "P248": [
+          {
+           "snaktype": "value",
+           "property": "P248",
+           "hash": "d1e25e3b81a706cda409153bd0e179db67a19ec9",
+           "datavalue": {
+            "value": {
+             "entity-type": "item",
+             "numeric-id": 135732912,
+             "id": "Q135732912"
+            },
+            "type": "wikibase-entityid"
+           },
+           "datatype": "wikibase-item"
+          }
+         ],
+         "P6782": [
+          {
+           "snaktype": "value",
+           "property": "P6782",
+           "hash": "fbf1f0ed9da37980c783ac262123ccab71769e35",
+           "datavalue": {
+            "value": "04rje7438",
+            "type": "string"
+           },
+           "datatype": "external-id"
+          }
+         ]
+        },
+        "snaks-order": [
+         "P248",
+         "P6782"
+        ]
+       }
+      ]
+     }
+    ],
+    "P856": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P856",
+       "hash": "d77ad7ed70af9fb5bd91001ebd6ebb3d945ece33",
+       "datavalue": {
+        "value": "https://www.iitmz.ac.in",
+        "type": "string"
+       },
+       "datatype": "url"
+      },
+      "type": "statement",
+      "id": "Q135739042$3E075DDB-314E-4B04-AC7E-26809B74AA3C",
+      "rank": "normal",
+      "references": [
+       {
+        "hash": "0405e215114064ca714a7c8db8420444869ac443",
+        "snaks": {
+         "P248": [
+          {
+           "snaktype": "value",
+           "property": "P248",
+           "hash": "d1e25e3b81a706cda409153bd0e179db67a19ec9",
+           "datavalue": {
+            "value": {
+             "entity-type": "item",
+             "numeric-id": 135732912,
+             "id": "Q135732912"
+            },
+            "type": "wikibase-entityid"
+           },
+           "datatype": "wikibase-item"
+          }
+         ],
+         "P6782": [
+          {
+           "snaktype": "value",
+           "property": "P6782",
+           "hash": "fbf1f0ed9da37980c783ac262123ccab71769e35",
+           "datavalue": {
+            "value": "04rje7438",
+            "type": "string"
+           },
+           "datatype": "external-id"
+          }
+         ]
+        },
+        "snaks-order": [
+         "P248",
+         "P6782"
+        ]
+       }
+      ]
+     }
+    ]
+   }
+  }
+ },
+ "success": 1
+}

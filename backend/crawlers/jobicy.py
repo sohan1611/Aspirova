@@ -7,6 +7,7 @@ from typing import Any, Literal
 import httpx
 
 from core.adapters import NormalizedListing, RawListing
+from core.domains import http_url
 from crawlers.common import (
     USER_AGENT,
     build_http_timeout,
@@ -114,6 +115,7 @@ class JobicyAdapter:
     def parse(self, raw: RawListing) -> NormalizedListing:
         job = raw.raw_payload
         title = extract_text(_job_title(job))
+        company_name = extract_text(_as_text(job.get("companyName")))
         job_level = _as_text(job.get("jobLevel")) or None
         tags = _text_list(job.get("tags"))
         job_type = _text_list(job.get("jobType"))
@@ -124,8 +126,9 @@ class JobicyAdapter:
             external_id=raw.external_id,
             source_url=raw.source_url,
             title=title,
-            company_name=extract_text(_as_text(job.get("companyName"))) or "Jobicy",
+            company_name=company_name or "Jobicy",
             company_domain=_as_text(job.get("companyWebsite")) or None,
+            company_logo_url=http_url(job.get("companyLogo")) if company_name else None,
             location=_as_text(job.get("jobGeo")) or None,
             is_remote=True,
             category=classify_student_role(title, job_level),

@@ -29,6 +29,7 @@ class NormalizedListing(BaseModel):
     title: str
     company_name: str
     company_domain: str | None = None
+    company_logo_url: str | None = None
     location: str | None = None
     country: str | None = None
     is_remote: bool | None = None

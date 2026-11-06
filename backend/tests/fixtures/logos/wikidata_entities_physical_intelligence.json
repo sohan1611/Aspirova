@@ -1,0 +1,232 @@
+{
+ "entities": {
+  "Q85793215": {
+   "type": "item",
+   "id": "Q85793215",
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "Physical intelligence"
+    }
+   },
+   "aliases": {},
+   "claims": {}
+  },
+  "Q138658641": {
+   "type": "item",
+   "id": "Q138658641",
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "Physical Intelligence Inc."
+    }
+   },
+   "aliases": {},
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "hash": "b7fc6c9f46efeede3bf483f3a5b0c45c7be77936",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 783794,
+         "id": "Q783794"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "id": "Q138658641$2729ad25-6886-4e5e-872b-452268353106",
+      "rank": "normal"
+     }
+    ]
+   }
+  },
+  "Q51233824": {
+   "type": "item",
+   "id": "Q51233824",
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "Physical intelligence does matter to cumulative technological culture."
+    }
+   },
+   "aliases": {},
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "hash": "29465f78f13add11b617f0de4ade56cd1122c19c",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 13442814,
+         "id": "Q13442814"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "id": "Q51233824$633BC611-F472-4D39-B080-057A94C0F770",
+      "rank": "normal",
+      "references": [
+       {
+        "hash": "b9a1b59754cf420f856170d77b6acd78f65c7eb3",
+        "snaks": {
+         "P248": [
+          {
+           "snaktype": "value",
+           "property": "P248",
+           "hash": "93747a24d4fc614d1eb34cac855a7d80bbb04057",
+           "datavalue": {
+            "value": {
+             "entity-type": "item",
+             "numeric-id": 5412157,
+             "id": "Q5412157"
+            },
+            "type": "wikibase-entityid"
+           },
+           "datatype": "wikibase-item"
+          }
+         ],
+         "P698": [
+          {
+           "snaktype": "value",
+           "property": "P698",
+           "hash": "b2398b55f448e48fea929feabba603735276a4ba",
+           "datavalue": {
+            "value": "27454039",
+            "type": "string"
+           },
+           "datatype": "external-id"
+          }
+         ],
+         "P854": [
+          {
+           "snaktype": "value",
+           "property": "P854",
+           "hash": "3e3524cb68416eb853b64ad252539d23e72d4c2a",
+           "datavalue": {
+            "value": "https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=EXT_ID:27454039%20AND%20SRC:MED&resulttype=core&format=json",
+            "type": "string"
+           },
+           "datatype": "url"
+          }
+         ],
+         "P813": [
+          {
+           "snaktype": "value",
+           "property": "P813",
+           "hash": "8333d6f03ed241395395f518369e020b59c61ee5",
+           "datavalue": {
+            "value": {
+             "time": "+2020-03-19T00:00:00Z",
+             "timezone": 0,
+             "before": 0,
+             "after": 0,
+             "precision": 11,
+             "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+            },
+            "type": "time"
+           },
+           "datatype": "time"
+          }
+         ]
+        },
+        "snaks-order": [
+         "P248",
+         "P698",
+         "P854",
+         "P813"
+        ]
+       }
+      ]
+     }
+    ]
+   }
+  },
+  "Q136796528": {
+   "type": "item",
+   "id": "Q136796528",
+   "labels": {},
+   "aliases": {},
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "hash": "29465f78f13add11b617f0de4ade56cd1122c19c",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 13442814,
+         "id": "Q13442814"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "id": "Q136796528$F9A658ED-E099-45D0-8B8F-468E99D7B495",
+      "rank": "normal",
+      "references": [
+       {
+        "hash": "5b271fec8037dc3333a8d338ee63df4ce0f984ae",
+        "snaks": {
+         "P248": [
+          {
+           "snaktype": "value",
+           "property": "P248",
+           "hash": "a185ae64d472c92d128e6bcb1de168a4b46a2019",
+           "datavalue": {
+            "value": {
+             "entity-type": "item",
+             "numeric-id": 5188229,
+             "id": "Q5188229"
+            },
+            "type": "wikibase-entityid"
+           },
+           "datatype": "wikibase-item"
+          }
+         ],
+         "P813": [
+          {
+           "snaktype": "value",
+           "property": "P813",
+           "hash": "51db860c36ef1f4cf84b59b5e5527994dba43df5",
+           "datavalue": {
+            "value": {
+             "time": "+2025-11-15T00:00:00Z",
+             "timezone": 0,
+             "before": 0,
+             "after": 0,
+             "precision": 11,
+             "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+            },
+            "type": "time"
+           },
+           "datatype": "time"
+          }
+         ]
+        },
+        "snaks-order": [
+         "P248",
+         "P813"
+        ]
+       }
+      ]
+     }
+    ]
+   }
+  }
+ },
+ "success": 1
+}

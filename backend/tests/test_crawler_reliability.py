@@ -740,7 +740,9 @@ def test_aggregator_loads_source_raw_listings_once_for_multi_company_batch(monke
     source = SimpleNamespace(id=1, crawl_tier=1, adapter_key="aggregator-test")
 
     monkeypatch.setattr(
-        runner, "resolve_company", lambda _session, name, _domain: _company_for_name(name)
+        runner,
+        "resolve_company",
+        lambda _session, name, _domain, **_kwargs: _company_for_name(name),
     )
     monkeypatch.setattr(
         runner,
@@ -783,7 +785,9 @@ def test_aggregator_new_raw_listing_is_visible_across_company_states(monkeypatch
         return object(), True
 
     monkeypatch.setattr(
-        runner, "resolve_company", lambda _session, name, _domain: _company_for_name(name)
+        runner,
+        "resolve_company",
+        lambda _session, name, _domain, **_kwargs: _company_for_name(name),
     )
     monkeypatch.setattr(runner, "ingest_one", fake_ingest)
 
@@ -820,7 +824,9 @@ def test_aggregator_reloads_shared_raw_listing_map_after_rollback(monkeypatch) -
         return object(), True
 
     monkeypatch.setattr(
-        runner, "resolve_company", lambda _session, name, _domain: _company_for_name(name)
+        runner,
+        "resolve_company",
+        lambda _session, name, _domain, **_kwargs: _company_for_name(name),
     )
     monkeypatch.setattr(runner, "ingest_one", fake_ingest)
 
@@ -953,7 +959,7 @@ def test_bounded_by_design_aggregator_records_success_outcome(monkeypatch) -> No
 
     monkeypatch.setattr(runner, "load_source_raw_listings", lambda *_args: {})
     monkeypatch.setattr(runner, "load_board_state", lambda *_args: object())
-    monkeypatch.setattr(runner, "resolve_company", lambda *_args: SimpleNamespace(id=2))
+    monkeypatch.setattr(runner, "resolve_company", lambda *_args, **_kwargs: SimpleNamespace(id=2))
     monkeypatch.setattr(
         runner,
         "ingest_one",
@@ -999,7 +1005,7 @@ def test_aggregator_deadline_commits_completed_work_and_returns_partial(monkeypa
 
     monkeypatch.setattr(runner, "load_source_raw_listings", lambda *_args: {})
     monkeypatch.setattr(runner, "load_board_state", lambda *_args: object())
-    monkeypatch.setattr(runner, "resolve_company", lambda *_args: SimpleNamespace(id=2))
+    monkeypatch.setattr(runner, "resolve_company", lambda *_args, **_kwargs: SimpleNamespace(id=2))
     monkeypatch.setattr(runner, "ingest_one", fake_ingest)
     monkeypatch.setattr(runner.time, "monotonic", fake_monotonic)
 
@@ -1107,7 +1113,7 @@ def test_coverage_unknown_for_source_without_declared_total(monkeypatch, capsys)
 
     monkeypatch.setattr(runner, "load_source_raw_listings", lambda *_args: {})
     monkeypatch.setattr(runner, "load_board_state", lambda *_args: object())
-    monkeypatch.setattr(runner, "resolve_company", lambda *_args: SimpleNamespace(id=2))
+    monkeypatch.setattr(runner, "resolve_company", lambda *_args, **_kwargs: SimpleNamespace(id=2))
     monkeypatch.setattr(
         runner,
         "ingest_one",
@@ -1165,7 +1171,7 @@ def test_aggregator_forwards_deadline_controls_to_unstop(monkeypatch, capsys) ->
 
     monkeypatch.setattr(runner, "load_source_raw_listings", lambda *_args: {})
     monkeypatch.setattr(runner, "load_board_state", lambda *_args: object())
-    monkeypatch.setattr(runner, "resolve_company", lambda *_args: SimpleNamespace(id=2))
+    monkeypatch.setattr(runner, "resolve_company", lambda *_args, **_kwargs: SimpleNamespace(id=2))
     monkeypatch.setattr(
         runner,
         "ingest_one",
@@ -1458,7 +1464,7 @@ def test_a_failed_source_records_why_it_failed(monkeypatch) -> None:
         recorded.update(kwargs)
 
     monkeypatch.setattr(runner, "load_board_state", lambda *_args: object())
-    monkeypatch.setattr(runner, "resolve_company", lambda *_args: SimpleNamespace(id=2))
+    monkeypatch.setattr(runner, "resolve_company", lambda *_args, **_kwargs: SimpleNamespace(id=2))
     monkeypatch.setattr(runner, "_record_crawl_run", fake_record)
 
     result = runner.crawl_aggregator(session, source, _ExplodingAggregator)
@@ -1516,7 +1522,7 @@ def test_no_transaction_is_held_open_across_the_aggregator_fetch(monkeypatch) ->
     source = SimpleNamespace(id=1, crawl_tier=1, adapter_key="himalayas")
 
     monkeypatch.setattr(runner, "load_board_state", lambda *_args: object())
-    monkeypatch.setattr(runner, "resolve_company", lambda *_args: SimpleNamespace(id=2))
+    monkeypatch.setattr(runner, "resolve_company", lambda *_args, **_kwargs: SimpleNamespace(id=2))
     monkeypatch.setattr(runner, "_record_crawl_run", lambda _session, **_kwargs: None)
 
     result = runner.crawl_aggregator(session, source, _SlowFetchAggregator)
@@ -1563,7 +1569,7 @@ def test_aggregator_stamps_last_seen_at_in_bulk_not_once_per_listing(monkeypatch
 
     monkeypatch.setattr(runner, "load_source_raw_listings", lambda *_a, **_k: {})
     monkeypatch.setattr(runner, "load_board_state", lambda *_a, **_k: object())
-    monkeypatch.setattr(runner, "resolve_company", lambda *_a: SimpleNamespace(id=2))
+    monkeypatch.setattr(runner, "resolve_company", lambda *_a, **_kwargs: SimpleNamespace(id=2))
     monkeypatch.setattr(runner, "ingest_one", fake_ingest)
     monkeypatch.setattr(runner, "_record_crawl_run", lambda _s, **_k: None)
 
