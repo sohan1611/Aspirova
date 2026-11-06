@@ -5,7 +5,8 @@ export default function OpportunityCardSkeleton({ competition = false }: { compe
   return (
     <Card aria-hidden="true" className="h-full gap-3 overflow-hidden p-4 sm:p-5">
       {competition && <Skeleton className="-mx-4 -mt-4 h-24 rounded-none sm:-mx-5 sm:-mt-5 sm:h-28" />}
-      <div className="flex items-start justify-between gap-3">
+      <div className={`relative flex items-start justify-between gap-3 ${competition ? "" : "min-h-11 pr-14"}`}>
+        {!competition && <Skeleton className="absolute right-0 top-0 size-11 shrink-0 rounded-md" />}
         <Skeleton className="h-6 w-24 shrink-0 rounded-md" />
         <Skeleton className="mt-1 h-4 w-28" />
       </div>

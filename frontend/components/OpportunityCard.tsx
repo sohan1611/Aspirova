@@ -155,7 +155,10 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
               <span className="min-w-0 flex-1 break-words">{companyName}</span>
             </div>
           ) : (
-            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
+            <div className="relative flex min-h-11 min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5 pr-14">
+              <div aria-hidden="true" className="absolute right-0 top-0 flex size-11 shrink-0 items-center justify-center rounded-md border border-border bg-card">
+                <CompanyFavicon company={item.company} size={40} />
+              </div>
               {categoryLabel && (
                 <Badge variant="secondary" className="font-semibold">{categoryLabel}</Badge>
               )}
@@ -233,7 +236,6 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
               <div className="mt-auto flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-3 text-xs text-muted-foreground">
                 <span className="inline-flex min-w-0 items-center gap-1.5">
                   <span aria-hidden="true" className="ico ico-building size-3.5" />
-                  <CompanyFavicon company={item.company} size={20} />
                   <span className="min-w-0 break-words">{companyName}</span>
                 </span>
                 {(location || countryFlag) && (
