@@ -60,7 +60,7 @@ function StageControl({
   onChange: (status: BookmarkStage) => void;
 }) {
   return (
-    <div className="absolute right-14 top-3 z-20">
+    <div className="flex min-w-0 justify-end">
       <Select
         value={item.bookmark_status}
         disabled={pending}
@@ -70,7 +70,7 @@ function StageControl({
           size="sm"
           aria-busy={pending}
           aria-label={`Application stage for ${item.title}`}
-          className="min-w-[7.25rem] border-border bg-background/90 px-2.5 text-xs shadow-soft backdrop-blur"
+          className="min-w-[7.25rem] border-border bg-card px-2.5 text-xs shadow-soft"
         >
           <SelectValue />
         </SelectTrigger>
@@ -217,7 +217,7 @@ export default function SavedPage() {
     <main className="mx-auto w-full max-w-[1680px] px-4 py-10 sm:px-6 sm:py-14 lg:px-10 xl:px-12">
       <header className="max-w-3xl">
         <p className="eyebrow">Your shortlist</p>
-        <h1 className="mt-3 font-serif text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl">
+        <h1 className="mt-3 font-serif text-4xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl">
           Saved opportunities
         </h1>
         <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
@@ -269,11 +269,11 @@ export default function SavedPage() {
           </CardFooter>
         </Card>
       ) : loadState.items.length === 0 ? (
-        <section className="mt-10 flex flex-col items-center rounded-xl border border-border bg-card px-5 py-16 text-center shadow-soft sm:py-20">
+        <section className="mt-10 flex flex-col items-center rounded-lg border border-border bg-card px-5 py-16 text-center shadow-soft sm:py-20">
           <div className="rounded-lg border border-border bg-secondary/40 p-3">
             <Bookmark className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
           </div>
-          <h2 className="mt-5 font-serif text-xl font-semibold text-foreground">
+          <h2 className="mt-5 font-serif text-xl font-bold text-foreground">
             Your shortlist is ready to grow
           </h2>
           <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
@@ -288,7 +288,7 @@ export default function SavedPage() {
           <div
             role="group"
             aria-label="Filter saved opportunities by application stage"
-            className="inline-flex max-w-full flex-wrap rounded-md border border-border bg-muted p-1"
+            className="inline-flex max-w-full flex-wrap gap-2"
           >
             <button
               type="button"
@@ -296,10 +296,10 @@ export default function SavedPage() {
               aria-label={`All: ${loadState.items.length} opportunities`}
               onClick={() => setActiveStage("all")}
               className={cn(
-                "flex items-center gap-1.5 whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-[background-color,color,box-shadow] duration-200 ease-[var(--ease-premium)]",
+                "flex items-center gap-1.5 whitespace-nowrap min-h-11 rounded-full border px-3 sm:min-h-9 py-1.5 text-sm font-medium transition-[background-color,color,box-shadow] duration-200 ease-[var(--ease-premium)]",
                 selectedStage === "all"
-                  ? "bg-background text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground",
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground",
               )}
             >
               All
@@ -321,10 +321,10 @@ export default function SavedPage() {
                   aria-label={`${stage.label}: ${stageCounts[stage.value]} opportunities`}
                   onClick={() => setActiveStage(stage.value)}
                   className={cn(
-                    "flex items-center gap-1.5 whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-[background-color,color,box-shadow] duration-200 ease-[var(--ease-premium)]",
+                    "flex items-center gap-1.5 whitespace-nowrap min-h-11 rounded-full border px-3 sm:min-h-9 py-1.5 text-sm font-medium transition-[background-color,color,box-shadow] duration-200 ease-[var(--ease-premium)]",
                     isActive
-                      ? "bg-background text-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground",
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground",
                   )}
                 >
                   {stage.label}
@@ -347,7 +347,7 @@ export default function SavedPage() {
           </p>
 
           {filteredItems.length === 0 ? (
-            <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-border bg-card px-5 py-8 text-left shadow-soft">
+            <div className="flex flex-col items-start gap-3 rounded-lg border border-dashed border-border bg-card px-5 py-8 text-left shadow-soft">
               <p className="text-sm text-muted-foreground">
                 No opportunities in {selectedStageLabel.toLowerCase()} yet.
               </p>
@@ -358,13 +358,13 @@ export default function SavedPage() {
           ) : (
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {filteredItems.map((item) => (
-                <div key={item.slug} className="relative">
-                  <OpportunityCard item={item} />
+                <div key={item.slug} className="grid min-w-0 grid-rows-[auto_1fr] gap-2">
                   <StageControl
                     item={item}
                     pending={pendingSlugs.has(item.slug)}
                     onChange={(status) => void handleStageChange(item.slug, status)}
                   />
+                  <OpportunityCard item={item} />
                 </div>
               ))}
             </div>

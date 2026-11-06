@@ -22,7 +22,7 @@ export default function SaveButton({ slug, title, className }: SaveButtonProps) 
       variant="ghost"
       size="icon-sm"
       className={cn(
-        "border border-border bg-background/70 text-muted-foreground shadow-soft backdrop-blur transition-colors hover:bg-background hover:text-primary focus-visible:bg-background focus-visible:text-primary",
+        "bg-card text-muted-foreground transition-colors hover:bg-secondary hover:text-primary focus-visible:bg-secondary focus-visible:text-primary",
         saved && "text-primary",
         className,
       )}

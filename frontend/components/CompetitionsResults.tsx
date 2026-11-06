@@ -83,6 +83,7 @@ export default function CompetitionsResults({ initialData }: CompetitionsResults
       <FeedGrid
         items={isLoading ? [] : data.items}
         cols={3}
+        competitionSkeleton
         skeletonCount={data.items.length || Math.min(COMPETITIONS_LIMIT, 9)}
         emptyHref="/competitions"
         emptyActionLabel="Clear filters"

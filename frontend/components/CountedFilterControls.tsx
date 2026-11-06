@@ -67,8 +67,8 @@ export function CountedMultiSelectGroup({
             key={option.value}
             className={cn(
               "flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border bg-background px-3 py-2 text-sm transition-[background-color,border-color,box-shadow,color] duration-200 ease-[var(--ease-premium)]",
-              "hover:border-heritage/30 hover:bg-secondary/40",
-              isActive && "border-heritage/30 bg-heritage/10 text-heritage",
+              "hover:border-primary/30 hover:bg-secondary/40",
+              isActive && "border-primary bg-accent text-accent-foreground",
               isDisabled && "cursor-not-allowed opacity-55 hover:border-border hover:bg-background",
             )}
           >
@@ -124,8 +124,8 @@ export function CountedSingleSelectGroup({
             onClick={() => onSelect(isActive ? null : option.value)}
             className={cn(
               "flex min-h-11 items-center gap-3 rounded-md border border-border bg-background px-3 py-2 text-left text-sm transition-[background-color,border-color,box-shadow,color] duration-200 ease-[var(--ease-premium)] disabled:cursor-wait",
-              "hover:border-heritage/30 hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-              isActive && "border-heritage/30 bg-heritage/10 text-heritage",
+              "hover:border-primary/30 hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              isActive && "border-primary bg-accent text-accent-foreground",
               isDisabled && "opacity-55 hover:border-border hover:bg-background",
             )}
           >
@@ -167,7 +167,7 @@ export function ActiveFilterChips({
             aria-label={`Remove ${humanLabel} filter`}
             disabled={disabled}
             onClick={onRemove}
-            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-[color,background-color,box-shadow] duration-200 ease-[var(--ease-premium)] hover:bg-background/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:cursor-wait"
+            className="inline-flex h-11 w-11 shrink-0 sm:h-7 sm:w-7 items-center justify-center rounded-sm text-muted-foreground transition-[color,background-color,box-shadow] duration-200 ease-[var(--ease-premium)] hover:bg-background/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:cursor-wait"
           >
             <X className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
@@ -178,7 +178,7 @@ export function ActiveFilterChips({
           type="button"
           disabled={disabled}
           onClick={onClearAll}
-          className="min-h-7 whitespace-nowrap rounded-sm px-1.5 py-1 text-sm font-medium text-muted-foreground transition-colors duration-200 ease-[var(--ease-premium)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-wait"
+          className="min-h-11 sm:min-h-7 whitespace-nowrap rounded-sm px-1.5 py-1 text-sm font-medium text-muted-foreground transition-colors duration-200 ease-[var(--ease-premium)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-wait"
         >
           Clear all
         </button>

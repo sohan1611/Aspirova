@@ -1,9 +1,10 @@
 import { Analytics } from "@vercel/analytics/next";
 import type { Metadata } from "next";
-import { Fraunces, Geist, Geist_Mono } from "next/font/google";
+import { Inter, Source_Serif_4, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 import AppFooter from "@/components/AppFooter";
 import AppHeader from "@/components/AppHeader";
+import MobileTabBar from "@/components/MobileTabBar";
 import { BookmarksProvider } from "@/components/BookmarksProvider";
 import OnboardingDialog from "@/components/OnboardingDialog";
 import ReferralCapture from "@/components/ReferralCapture";
@@ -12,8 +13,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { AUTH_PENDING_SCRIPT } from "@/lib/authPending";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
@@ -22,8 +23,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
+const sourceSerif = Source_Serif_4({
+  variable: "--font-source-serif",
   subsets: ["latin"],
   display: "swap",
 });
@@ -60,14 +61,14 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} h-full antialiased`}
+      className={`${inter.variable} ${geistMono.variable} ${sourceSerif.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>
         {/* Decide likely auth state before first paint to avoid signed-out flashes. */}
         <script dangerouslySetInnerHTML={{ __html: AUTH_PENDING_SCRIPT }} />
       </head>
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
         <ThemeProvider attribute="class" forcedTheme="light" disableTransitionOnChange>
           <a
             href="#main-content"
@@ -88,6 +89,7 @@ export default function RootLayout({
             </Suspense>
           </BookmarksProvider>
           <AppFooter />
+          <MobileTabBar />
           <Toaster />
         </ThemeProvider>
         {/* Aspirova had no analytics of any kind, so "12 registered users" was a

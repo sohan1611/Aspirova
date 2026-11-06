@@ -70,7 +70,7 @@ export default function AccountSidebar({
           <p className="eyebrow mb-2 px-3">Settings</p>
           <nav
             aria-label="Account settings"
-            className="grid gap-1 rounded-xl border border-border bg-card p-2 shadow-soft"
+            className="grid gap-1 rounded-lg border border-border bg-card p-2 shadow-soft"
           >
             {ACCOUNT_SECTIONS.map(({ key, label, Icon }) => (
               <button

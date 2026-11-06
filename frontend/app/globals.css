@@ -7,18 +7,18 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  /* Brand plum scale - derived from the logo ink. */
-  --color-brand-50: #f8eef4;
-  --color-brand-100: #f0dbe8;
-  --color-brand-200: #e3bcd4;
-  --color-brand-300: #d091b6;
-  --color-brand-400: #b96593;
-  --color-brand-500: #9c4372;
-  --color-brand-600: #7c2f57;
-  --color-brand-700: #60294e;
-  --color-brand-800: #4e2240;
-  --color-brand-900: #3f1c34;
-  --color-brand-950: #281021;
+  /* Royal-blue brand scale. */
+  --color-brand-50: #eef4ff;
+  --color-brand-100: #dce8ff;
+  --color-brand-200: #bed3ff;
+  --color-brand-300: #91b5ff;
+  --color-brand-400: #5b8ef5;
+  --color-brand-500: #2c6be8;
+  --color-brand-600: #0b4fd6;
+  --color-brand-700: #0b3fae;
+  --color-brand-800: #12378c;
+  --color-brand-900: #142e70;
+  --color-brand-950: #0a1f5c;
 
   /* Neutral scale - the disciplined gray backbone everything else sits on. */
   --color-neutral-50: #f8fafc;
@@ -38,7 +38,7 @@
      3.8 contrast audit finds a real failure. "destructive" (not "danger")
      to match the shadcn/ui component convention (Part 3.2) - the
      generated Button/Badge/etc primitives hardcode that name. */
-  --color-success: #16a34a;
+  --color-success: #047857;
   --color-success-foreground: #ffffff;
   --color-warning: #f59e0b;
   --color-warning-foreground: #451a03;
@@ -50,13 +50,13 @@
      built-in linear/in/out/in-out. */
   --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
 
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
-  --font-serif: var(--font-fraunces);
+  --font-serif: var(--font-source-serif);
 }
 
 :root {
-  --radius: 0.625rem;
+  --radius: 0.5rem;
   --text-2xs: 0.6875rem;
   --text-xs: 0.78rem;
   --text-sm: 0.875rem;
@@ -67,63 +67,57 @@
   --text-2xl: 1.95rem;
   --text-3xl: 2.45rem;
   --text-4xl: 3.05rem;
-  --background: #faf7f0;
-  --foreground: #231c15;
-  --card: #fffdf8;
-  --card-foreground: #231c15;
-  --popover: #fffdf8;
-  --popover-foreground: #231c15;
-  --primary: #8a5e2f;
-  --primary-foreground: #fdf9f0;
-  --secondary: #efe8d9;
-  --secondary-foreground: #3a3022;
-  --muted: #f0e9db;
-  --muted-foreground: #6b5f4e; /* keep >= 4.5:1 on both --background and --muted */
-  --accent: #ece4d3;
-  --accent-foreground: #3a3022;
-  --destructive: #b23b2e;
+  --background: #f7f8fb;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #0b4fd6;
+  --primary-foreground: #ffffff;
+  --secondary: #eef1f7;
+  --secondary-foreground: #1e293b;
+  --muted: #f1f4f9;
+  --muted-foreground: #5a6475;
+  --accent: #eaf0fd;
+  --accent-foreground: #0b3fae;
+  --destructive: #c2362b;
   --destructive-foreground: #ffffff;
-  --border: #e6ddcb;
-  --input: #e6ddcb;
-  --ring: #8a5e2f;
-  --heritage: #5e2b47;
-  --heritage-foreground: #faf3f7;
-  --shadow-sm: 0 1px 2px rgba(35, 28, 21, 0.05),
-    0 4px 12px -8px rgba(35, 28, 21, 0.1);
-  --shadow-md: 0 1px 2px rgba(35, 28, 21, 0.05),
-    0 10px 28px -14px rgba(35, 28, 21, 0.16);
-  --shadow-lg: 0 2px 4px rgba(35, 28, 21, 0.06),
-    0 24px 48px -20px rgba(35, 28, 21, 0.22);
+  --border: #e2e7f0;
+  --input: #dfe4ee;
+  --ring: #0b4fd6;
+  --heritage: #1e40af;
+  --heritage-foreground: #ffffff;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, .04), 0 1px 3px rgba(15, 23, 42, .06);
+  --shadow-md: 0 2px 4px rgba(15, 23, 42, .04), 0 6px 16px rgba(15, 23, 42, .06);
+  --shadow-lg: 0 4px 8px rgba(15, 23, 42, .04), 0 12px 32px rgba(15, 23, 42, .08);
 }
 
 .dark {
-  --background: #1a1712;
-  --foreground: #ece4d5;
-  --card: #241f18;
-  --card-foreground: #ece4d5;
-  --popover: #1a1712;
-  --popover-foreground: #ece4d5;
-  --primary: #c99f63;
-  --primary-foreground: #231c15;
-  --secondary: #2c261d;
-  --secondary-foreground: #ece4d5;
-  --muted: #282219;
-  --muted-foreground: #a99a84;
-  --accent: #2c261d;
-  --accent-foreground: #ece4d5;
-  --destructive: #7f2b23;
+  --background: #0b1220;
+  --foreground: #e8eef8;
+  --card: #111c2f;
+  --card-foreground: #e8eef8;
+  --popover: #111c2f;
+  --popover-foreground: #e8eef8;
+  --primary: #8cb5ff;
+  --primary-foreground: #081b40;
+  --secondary: #1c2b43;
+  --secondary-foreground: #e8eef8;
+  --muted: #17253b;
+  --muted-foreground: #acb9ce;
+  --accent: #20365c;
+  --accent-foreground: #b6d0ff;
+  --destructive: #c2362b;
   --destructive-foreground: #ffffff;
-  --border: #342c20;
-  --input: #342c20;
-  --ring: #c99f63;
-  --heritage: #cf92b4;
-  --heritage-foreground: #231c15;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4),
-    0 4px 12px -8px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.4),
-    0 10px 28px -14px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.4),
-    0 24px 48px -20px rgba(0, 0, 0, 0.5);
+  --border: #2c3b53;
+  --input: #34455f;
+  --ring: #8cb5ff;
+  --heritage: #a9bfff;
+  --heritage-foreground: #081b40;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, .16);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, .2);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, .24);
 }
 
 /* Mode-dependent tokens are re-exposed here as `inline` so Tailwind treats
@@ -314,25 +308,17 @@ body {
   font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
-body::before {
-  position: fixed;
-  z-index: -1;
-  inset: 0;
-  content: "";
-  pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.72'/%3E%3C/svg%3E");
-  background-attachment: fixed;
-  background-size: 180px 180px;
-  opacity: 0.025;
-}
-
-.dark body::before {
-  opacity: 0.04;
+/* Sonner's own mobile breakpoint is 600px; the tab bar extends to md. */
+@media (width < 48rem) {
+  .toaster[data-sonner-toaster][data-y-position="bottom"] {
+    bottom: calc(4rem + env(safe-area-inset-bottom) + 1rem);
+  }
 }
 
 h1,
 h2 {
   font-family: var(--font-serif), Georgia, "Times New Roman", serif;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
+  font-weight: 700;
   text-wrap: balance;
 }

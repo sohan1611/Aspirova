@@ -4,16 +4,11 @@ import { useState } from "react";
 import type { CompanySummary } from "@/lib/types";
 
 const MONOGRAM_COLORS = [
-  "#7c4a2b",
-  "#5e2b47",
-  "#4a5d4f",
-  "#7a5c22",
-  "#6b3a2f",
-  "#3f5561",
-  "#6a4b6e",
-  "#8a4a3a",
-  "#4c5a3a",
-  "#5a4a76",
+  "var(--primary)",
+  "var(--heritage)",
+  "var(--accent-foreground)",
+  "var(--secondary-foreground)",
+  "var(--foreground)",
 ] as const;
 
 interface CompanyFaviconProps {
@@ -48,7 +43,7 @@ function CompanyFaviconImage({
     return (
       <div
         aria-hidden="true"
-        className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-sm font-semibold text-[#f7f1e6] ring-1 ring-black/5"
+        className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-sm font-semibold text-primary-foreground ring-1 ring-black/5"
         style={{
           backgroundColor: MONOGRAM_COLORS[colorIndex],
           ...(size === 44 ? {} : { height: size, width: size }),
@@ -69,7 +64,7 @@ function CompanyFaviconImage({
       loading="lazy"
       referrerPolicy="no-referrer"
       onError={() => setCandidateIndex((index) => index + 1)}
-      className="h-11 w-11 shrink-0 rounded-lg border border-border bg-background object-contain p-1.5"
+      className="h-11 w-11 shrink-0 rounded-lg border border-border bg-card object-contain p-1.5"
       style={size === 44 ? undefined : { height: size, width: size }}
     />
   );

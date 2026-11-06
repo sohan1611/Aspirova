@@ -109,7 +109,7 @@ export default function FeedResults({ initialData, trendingItems }: FeedResultsP
 
         {showResearch && (
           <section className="mb-6 max-w-md">
-            <div className="rounded-xl border border-border bg-card p-5 shadow-soft">
+            <div className="rounded-lg border border-border bg-card p-5 shadow-soft">
               <p className="eyebrow">Research track</p>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
                 India&apos;s flagship IISc, IIT, NIT &amp; TIFR research fellowships and
@@ -131,7 +131,7 @@ export default function FeedResults({ initialData, trendingItems }: FeedResultsP
         />
 
         {totalPages > 1 && (
-          <div className="mt-8 flex items-center justify-center gap-4">
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
             <Button
               variant="outline"
               size="sm"

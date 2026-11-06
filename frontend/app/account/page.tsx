@@ -197,7 +197,7 @@ function AccountPageContent() {
   if (!session) {
     return (
       <main className="mx-auto w-full max-w-5xl px-4 py-10">
-        <h1 className="font-serif text-4xl font-semibold tracking-tight text-foreground">
+        <h1 className="font-serif text-4xl font-bold tracking-tight text-foreground">
           Account
         </h1>
         <Card className="mx-auto mt-10 max-w-xl text-center">
@@ -225,7 +225,7 @@ function AccountPageContent() {
   if (error || !account) {
     return (
       <main className="mx-auto w-full max-w-5xl px-4 py-10">
-        <h1 className="font-serif text-4xl font-semibold tracking-tight text-foreground">
+        <h1 className="font-serif text-4xl font-bold tracking-tight text-foreground">
           Account
         </h1>
         <Card className="mx-auto mt-10 max-w-xl text-center">
@@ -263,7 +263,7 @@ function AccountPageContent() {
     <main className="mx-auto w-full max-w-5xl px-4 py-10">
       <div className="mb-8">
         <p className="eyebrow mb-2">Your almanac</p>
-        <h1 className="font-serif text-4xl font-semibold tracking-tight text-foreground">
+        <h1 className="font-serif text-4xl font-bold tracking-tight text-foreground">
           Account
         </h1>
         <p className="mt-2 text-muted-foreground">
@@ -462,7 +462,7 @@ function AccountLoadingSkeleton() {
       </div>
       <div className="mt-8 grid gap-6 md:grid-cols-[13rem_minmax(0,1fr)]">
         <Skeleton className="hidden h-64 rounded-xl md:block" />
-        <div className="rounded-xl border border-border bg-card p-6">
+        <div className="rounded-lg border border-border bg-card p-6">
           <Skeleton className="h-7 w-40" />
           <Skeleton className="mt-3 h-4 w-3/4" />
           <div className="mt-8 grid gap-5">

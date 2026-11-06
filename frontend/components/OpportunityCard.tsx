@@ -1,17 +1,31 @@
-import { Clock, Globe2, MapPin } from "lucide-react";
+import {
+  Building2,
+  CalendarDays,
+  Code2,
+  Globe2,
+  MapPin,
+  Trophy,
+  UserCheck,
+  Users,
+} from "lucide-react";
 import HoverPrefetchLink from "@/components/HoverPrefetchLink";
 import { Badge } from "@/components/ui/badge";
 import CompanyFavicon from "@/components/CompanyFavicon";
+import ListingFreshness from "@/components/ListingFreshness";
+import RelativeDeadline from "@/components/RelativeDeadline";
 import SaveButton from "@/components/SaveButton";
-import { competitionMode, formatPrizePool, participantCount } from "@/lib/competition";
+import {
+  competitionMode,
+  formatPrizePool,
+  participantCount,
+  teamSizeText,
+} from "@/lib/competition";
 import { formatCompensation } from "@/lib/compensation";
 import { getCountry } from "@/lib/countries";
-import { formatDate } from "@/lib/date";
 import {
   closedDeadlineLabel,
   hasExpiringDeadline,
   isCompetitionCategory,
-  isListingClosed,
 } from "@/lib/deadline";
 import { isSinglePlace, summarizeLocation } from "@/lib/location";
 import { getSourceLabel } from "@/lib/sourceLabel";
@@ -36,35 +50,25 @@ const SOURCE_LABEL: Record<string, string> = {
   devpost: "Devpost",
 };
 
-const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const ABSOLUTE_DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC",
+});
 
-function getAgeInDays(value: string | null): number | null {
-  if (!value) return null;
-
-  const timestamp = new Date(value).getTime();
-  if (Number.isNaN(timestamp)) return null;
-
-  return Math.floor((Date.now() - timestamp) / DAY_IN_MS);
+function absoluteDate(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : ABSOLUTE_DATE_FORMATTER.format(date);
 }
 
-function formatRelativeTime(value: string): string {
-  const ageInDays = getAgeInDays(value);
-
-  if (ageInDays === null || ageInDays <= 0) return "· today";
-  if (ageInDays < 7) return `· ${ageInDays}d ago`;
-  if (ageInDays < 30) return `· ${Math.floor(ageInDays / 7)}w ago`;
-  if (ageInDays < 365) return `· ${Math.floor(ageInDays / 30)}mo ago`;
-
-  return `· ${Math.floor(ageInDays / 365)}y ago`;
-}
-
-function isDeadlineUrgent(value: string): boolean {
-  const timestamp = new Date(value).getTime();
-  if (Number.isNaN(timestamp)) return false;
-
-  const timeUntilDeadline = timestamp - Date.now();
-  return timeUntilDeadline >= 0 && timeUntilDeadline <= 7 * DAY_IN_MS;
-}
+const BANNER_PALETTES = [
+  "from-blue-50 via-indigo-100 to-sky-100",
+  "from-sky-50 via-blue-100 to-teal-100",
+  "from-indigo-50 via-slate-100 to-blue-100",
+  "from-teal-50 via-sky-100 to-indigo-100",
+  "from-slate-50 via-blue-100 to-cyan-100",
+];
 
 export default function OpportunityCard({ item }: { item: OpportunityListItem }) {
   const companyName = item.company?.name ?? "Unknown company";
@@ -75,206 +79,212 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
       : null;
   const { short: location, hiddenCount, full } = summarizeLocation(item.location);
   const countryFlag = isSinglePlace(item.location) ? getCountry(item.country)?.flag : null;
-  const postedAgeInDays = getAgeInDays(item.posted_at);
-  const isNew =
-    postedAgeInDays !== null && postedAgeInDays >= 0 && postedAgeInDays < 7;
-  const relativeTime = formatRelativeTime(item.posted_at ?? item.last_seen_at);
-  const categoryLabel = item.category
-    ? CATEGORY_LABEL[item.category] ?? item.category
-    : null;
-  const isCompetition = isCompetitionCategory(item.category) || item.category === "scholarship";
+  const categoryLabel = item.category ? CATEGORY_LABEL[item.category] ?? item.category : null;
+  const isCompetition = isCompetitionCategory(item.category);
+  const hasPrize = isCompetition || item.category === "scholarship";
   const isInternship = item.category === "internship";
   const isRole = isInternship || item.category === "job";
   const payText = isRole ? formatCompensation(item.meta) : null;
+  const prizeText = hasPrize ? formatPrizePool(item.meta) : null;
+  const mode = hasPrize ? competitionMode(item) : null;
+  const registered = hasPrize ? participantCount(item.meta) : null;
+  const teamSize = isCompetition ? teamSizeText(item.meta) : null;
+  const offersPpi = hasPrize && item.meta?.offers_ppi === true;
+  const offersPpo = hasPrize && item.meta?.offers_ppo === true;
   const duration = item.meta?.duration_months;
   const deadlineExpires = hasExpiringDeadline(item.category);
-  const prizeText = isCompetition ? formatPrizePool(item.meta) : null;
-  const mode = isCompetition
-    ? competitionMode(item)
-    : null;
-  const registered = isCompetition ? participantCount(item.meta) : null;
-  const offersPpi = isCompetition && item.meta?.offers_ppi === true;
-  const offersPpo = isCompetition && item.meta?.offers_ppo === true;
-  const urgentDeadline =
-    deadlineExpires && item.deadline
-      ? isDeadlineUrgent(item.deadline)
-      : false;
-  const listingClosed = isListingClosed(
-    item.closed_at,
-    item.deadline,
-    item.category,
-  );
+  const estimated = item.deadline_confidence !== "explicit";
   const openDeadlineLabel = isInternship ? "Apply by" : "Registers by";
   const closedDeadlineText = closedDeadlineLabel(item.category);
+  const deadlineText = item.deadline
+    ? deadlineExpires
+      ? `${openDeadlineLabel} ${estimated ? "~" : ""}${absoluteDate(item.deadline)}`
+      : `Closes ${estimated ? "~" : ""}${absoluteDate(item.deadline)}`
+    : null;
+  const slugHash = Array.from(item.slug).reduce(
+    (hash, character) => (hash * 31 + character.charCodeAt(0)) >>> 0,
+    0,
+  );
+  const paletteIndex = slugHash % BANNER_PALETTES.length;
+  const BannerIcon = item.category === "hackathon" ? Code2 : Trophy;
+  const locationText = (
+    <span className="min-w-0 break-words" title={full ?? undefined}>
+      {countryFlag && <span aria-hidden="true">{countryFlag} </span>}
+      {location}
+      {hiddenCount > 0 && ` +${hiddenCount} more`}
+    </span>
+  );
+  const freshness = (
+    <ListingFreshness
+      postedAt={item.posted_at}
+      lastSeenAt={item.last_seen_at}
+      absoluteText={absoluteDate(item.posted_at ?? item.last_seen_at)}
+    />
+  );
+  const secondaryBadges = (
+    <>
+      {isRole && (item.meta?.part_time === true || item.meta?.timing === "part_time") && (
+        <Badge variant="outline">Part-time</Badge>
+      )}
+      {isRole && typeof duration === "number" && Number.isInteger(duration) && duration >= 1 && duration <= 24 && (
+        <Badge variant="outline">{duration} months</Badge>
+      )}
+      {isRole && item.meta?.job_offer === true && (
+        <Badge variant="heritage">Job offer possible</Badge>
+      )}
+      {!isCompetition && mode && <Badge variant="outline">{mode}</Badge>}
+      {!isCompetition && offersPpi && <Badge variant="heritage">Offers internship</Badge>}
+      {!isCompetition && offersPpo && <Badge variant="heritage">Offers PPO</Badge>}
+      {item.is_hidden && <Badge variant="heritage">Hidden gem</Badge>}
+    </>
+  );
 
   return (
-    <div className="relative h-full">
+    <div className="relative min-w-0 h-full">
       <HoverPrefetchLink
         href={`/opportunity/${item.slug}`}
-        className="group flex h-full flex-col gap-3 rounded-xl border border-border bg-card p-5 shadow-soft transition-[transform,box-shadow,border-color] duration-300 ease-premium hover:-translate-y-1 hover:border-primary/50 hover:[box-shadow:var(--shadow-md)] focus-visible:-translate-y-1 focus-visible:border-primary/50 focus-visible:[box-shadow:var(--shadow-md)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className="group flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-soft transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
-        <div className="flex items-start">
-          <CompanyFavicon company={item.company} />
-        </div>
+        {isCompetition && (
+          <div className={`relative h-28 shrink-0 overflow-hidden bg-gradient-to-br sm:h-32 ${BANNER_PALETTES[paletteIndex]}`}>
+            <div aria-hidden="true" className="absolute inset-0 text-primary/15 [background-image:radial-gradient(currentColor_1px,transparent_1px)] [background-size:16px_16px]" />
+            <BannerIcon aria-hidden="true" className="absolute -bottom-4 right-8 size-28 -rotate-12 text-primary/15" strokeWidth={1} />
+            {(item.closed_at || item.deadline) && (
+              <RelativeDeadline
+                deadline={item.deadline}
+                closedAt={item.closed_at}
+                category={item.category}
+                absoluteText={deadlineText}
+                closedText={closedDeadlineText}
+                estimated={estimated}
+                banner
+              />
+            )}
+          </div>
+        )}
 
-        <h3 className="line-clamp-2 min-w-0 text-md font-semibold leading-snug text-card-foreground transition-colors duration-300 ease-premium group-hover:text-primary group-focus-visible:text-primary">
-          {item.title}
-        </h3>
-
-        <p className="line-clamp-2 min-h-10 break-words text-sm leading-5 text-muted-foreground">
-          {item.summary}
-        </p>
-
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <p className="min-w-0 truncate text-sm font-medium text-foreground/80">
-            {companyName}
-          </p>
-          {sourceLabel && (
-            <span className="shrink-0 rounded-full border border-border bg-muted/50 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-              via {sourceLabel}
-            </span>
-          )}
-          {isNew ? (
-            <span className="eyebrow rounded-full border border-heritage/20 bg-heritage/10 px-2 py-1 !text-heritage">
-              New
-            </span>
+        <div className="flex min-w-0 flex-1 flex-col gap-3 p-4 sm:p-5">
+          {isCompetition ? (
+            <div className="flex min-h-11 min-w-0 flex-wrap items-center gap-2 pr-10 text-xs font-semibold text-muted-foreground sm:min-h-8">
+              <CompanyFavicon company={item.company} size={24} />
+              <span className="min-w-0 flex-1 break-words">{companyName}</span>
+            </div>
           ) : (
-            <span className="tnum shrink-0 text-xs text-muted-foreground">
-              {relativeTime}
-            </span>
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
+              {categoryLabel && (
+                <Badge variant="secondary" className="font-semibold">{categoryLabel}</Badge>
+              )}
+              {(item.closed_at || deadlineText) && (
+                <RelativeDeadline
+                  deadline={item.deadline}
+                  closedAt={item.closed_at}
+                  category={item.category}
+                  absoluteText={deadlineText}
+                  closedText={closedDeadlineText}
+                  estimated={estimated}
+                />
+              )}
+              {freshness}
+            </div>
           )}
-        </div>
 
-        {(location || countryFlag || item.is_remote) && (
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-            {(location || countryFlag) && (
-              <span className="inline-flex min-w-0 items-center gap-1.5">
-                {countryFlag && (
-                  <span aria-hidden="true" className="text-[11px] leading-none opacity-80">
-                    {countryFlag}
-                  </span>
-                )}
-                {location && (
-                  <>
-                    <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                    <span className="min-w-0 break-words" title={full ?? undefined}>
-                      {location}{hiddenCount > 0 && ` +${hiddenCount} more`}
+          <h3 className="line-clamp-2 min-w-0 break-words font-serif text-[1.25rem] font-bold leading-tight text-card-foreground transition-colors group-hover:text-primary group-focus-visible:text-primary lg:text-[1.35rem]">
+            {item.title}
+          </h3>
+          <p className="line-clamp-2 min-h-10 break-words text-sm leading-5 text-muted-foreground">
+            {item.summary}
+          </p>
+
+          {isCompetition ? (
+            <>
+              <div className="mt-auto grid min-w-0 grid-cols-2 gap-x-3 gap-y-2 border-t border-border pt-3 text-xs text-muted-foreground [&>span]:flex [&>span]:min-w-0 [&>span]:items-start [&>span]:gap-1.5 [&_svg]:mt-0.5 [&_svg]:size-3.5 [&_svg]:shrink-0">
+                {prizeText && (
+                  <span className="text-accent-foreground">
+                    <Trophy aria-hidden="true" />
+                    <span className="break-words">
+                      <span className="sr-only">Prize pool </span>{prizeText}
                     </span>
-                  </>
+                  </span>
                 )}
-              </span>
-            )}
-            {(location || countryFlag) && item.is_remote && <span aria-hidden="true">·</span>}
-            {item.is_remote && (
-              <span className="inline-flex items-center gap-1.5">
-                <Globe2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                Remote
-              </span>
-            )}
-          </div>
-        )}
-
-        {payText && (
-          <p className="flex min-w-0 items-start gap-2 text-xs text-foreground/80">
-            <span className="eyebrow shrink-0 pt-0.5 !text-heritage">Pay</span>
-            <span className="line-clamp-2 min-w-0 break-words font-medium">{payText}</span>
-          </p>
-        )}
-
-        {prizeText && (
-          <p className="flex min-w-0 items-start gap-2 text-xs text-foreground/80">
-            <span className="eyebrow shrink-0 pt-0.5 !text-heritage">Prize pool</span>
-            <span className="line-clamp-2 min-w-0 break-words font-medium">
-              {prizeText}
-            </span>
-          </p>
-        )}
-
-        {registered !== null && (
-          <p className="tnum text-xs text-muted-foreground">{registered.toLocaleString("en-US")} registered</p>
-        )}
-
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-1">
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            {categoryLabel && (
-              <Badge
-                variant={
-                  item.category === "internship"
-                    ? "heritage"
-                    : isCompetition
-                      ? "secondary"
-                      : "default"
-                }
-                className={
-                  item.category === "job"
-                    ? "border border-primary/20 bg-primary/10 text-primary"
-                    : undefined
-                }
-              >
-                {categoryLabel}
-              </Badge>
-            )}
-            {isRole && (item.meta?.part_time === true || item.meta?.timing === "part_time") && (
-              <Badge variant="outline">Part-time</Badge>
-            )}
-            {isRole && typeof duration === "number" && Number.isInteger(duration) && duration >= 1 && duration <= 24 && (
-              <Badge variant="outline">{duration} months</Badge>
-            )}
-            {isRole && item.meta?.job_offer === true && <Badge variant="heritage">Job offer possible</Badge>}
-            {mode && (
-              <Badge variant="outline">{mode}</Badge>
-            )}
-            {offersPpi && <Badge variant="heritage">Offers internship</Badge>}
-            {offersPpo && <Badge variant="heritage">Offers PPO</Badge>}
-            {item.is_hidden && <Badge variant="heritage">Hidden gem</Badge>}
-          </div>
-
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-            {listingClosed ? (
-              <Badge
-                variant="secondary"
-                className="tnum border border-border px-2 py-1 normal-case text-muted-foreground"
-              >
-                <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                {closedDeadlineText}
-              </Badge>
-            ) : (
-              item.deadline && (
-                deadlineExpires ? (
-                  <span
-                    className={`tnum inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border px-2 py-1 text-xs font-medium ${
-                      urgentDeadline
-                        ? "border-heritage/30 bg-heritage/10 font-semibold text-heritage"
-                        : "border-border bg-secondary text-secondary-foreground"
-                    }`}
-                    aria-label={
-                      urgentDeadline
-                        ? `Urgent: ${openDeadlineLabel.toLowerCase()} ${formatDate(item.deadline, "long")}`
-                        : undefined
-                    }
-                  >
-                    <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                    {openDeadlineLabel} {formatDate(item.deadline, "long")}
+                {teamSize && (
+                  <span><Users aria-hidden="true" /><span>{teamSize}</span></span>
+                )}
+                {(mode || location || countryFlag) && (
+                  <span>
+                    {mode === "Online" ? <Globe2 aria-hidden="true" /> : <MapPin aria-hidden="true" />}
+                    <span>
+                      {mode}{mode && (location || countryFlag) && " · "}{locationText}
+                    </span>
                   </span>
-                ) : (
-                  <span className="tnum inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-warning/25 bg-warning/15 px-2 py-1 text-xs font-medium text-warning-foreground dark:text-warning">
-                    <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                    Closes {item.deadline_confidence !== "explicit" ? "~" : ""}
-                    {formatDate(item.deadline, "long")}
+                )}
+                {item.is_remote && <span><Globe2 aria-hidden="true" />Remote</span>}
+                {deadlineText && (
+                  <span><CalendarDays aria-hidden="true" /><span>{deadlineText}</span></span>
+                )}
+                {registered !== null && (
+                  <span>
+                    <UserCheck aria-hidden="true" />
+                    <span>{registered.toLocaleString("en-US")} registered</span>
                   </span>
-                )
-              )
-            )}
-            <span className="whitespace-nowrap text-xs font-medium text-primary">
-              View →
-            </span>
+                )}
+                {offersPpi && (
+                  <span><UserCheck aria-hidden="true" />Offers internship</span>
+                )}
+                {offersPpo && (
+                  <span><UserCheck aria-hidden="true" />Offers PPO</span>
+                )}
+              </div>
+              <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                {categoryLabel && <Badge variant="secondary">{categoryLabel}</Badge>}
+                {freshness}
+                {secondaryBadges}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="mt-auto flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-3 text-xs text-muted-foreground">
+                <span className="inline-flex min-w-0 items-center gap-1.5">
+                  <Building2 className="size-3.5 shrink-0" aria-hidden="true" />
+                  <CompanyFavicon company={item.company} size={20} />
+                  <span className="min-w-0 break-words">{companyName}</span>
+                </span>
+                {(location || countryFlag) && (
+                  <span className="inline-flex min-w-0 items-start gap-1.5">
+                    <MapPin className="size-3.5 shrink-0" aria-hidden="true" />{locationText}
+                  </span>
+                )}
+                {item.is_remote && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Globe2 className="size-3.5" aria-hidden="true" />Remote
+                  </span>
+                )}
+                {registered !== null && (
+                  <span>{registered.toLocaleString("en-US")} registered</span>
+                )}
+              </div>
+              <div className="flex min-h-11 min-w-0 flex-wrap items-center gap-1.5 pr-10 sm:min-h-8">
+                {(payText || prizeText) && (
+                  <span className="max-w-full break-words rounded-md bg-accent px-2 py-1 text-xs font-semibold text-accent-foreground">
+                    <span className="sr-only">{payText ? "Pay " : "Prize pool "}</span>
+                    {payText || prizeText}
+                  </span>
+                )}
+                {secondaryBadges}
+              </div>
+            </>
+          )}
+          <div className={`flex min-w-0 flex-wrap items-center justify-between gap-2 text-xs ${isCompetition ? "" : "pr-10"}`}>
+            {sourceLabel && <span className="text-muted-foreground">via {sourceLabel}</span>}
+            <span className="ml-auto font-medium text-primary">View →</span>
           </div>
         </div>
       </HoverPrefetchLink>
       <SaveButton
         slug={item.slug}
         title={item.title}
-        className="absolute right-3 top-3 z-10"
+        className={isCompetition
+          ? "absolute right-3 top-32 z-10 sm:top-[9.25rem]"
+          : "absolute bottom-3 right-3 z-10"}
       />
     </div>
   );

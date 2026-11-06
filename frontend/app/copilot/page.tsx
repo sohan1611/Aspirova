@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 export default function CopilotPage() {
   return (
     <main className="mx-auto w-full max-w-4xl px-6 py-16 sm:px-8 sm:py-20">
-      <h1 className="font-serif text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl">
+      <h1 className="font-serif text-4xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl">
         Career Copilot isn&apos;t available yet
       </h1>
       <p className="mt-5 text-lg leading-8 text-muted-foreground">

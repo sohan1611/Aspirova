@@ -78,7 +78,7 @@ export default function FeedViewControls({ cols, rows }: FeedViewControlsProps) 
     <div
       aria-busy={isPending}
       className={cn(
-        "flex items-center gap-3 motion-safe:transition-opacity motion-safe:duration-200",
+        "flex flex-wrap items-center gap-3 motion-safe:transition-opacity motion-safe:duration-200",
         isPending && "pointer-events-none cursor-progress opacity-70",
       )}
     >

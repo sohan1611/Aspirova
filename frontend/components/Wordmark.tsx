@@ -22,7 +22,7 @@ export function Wordmark({ className }: WordmarkProps) {
         height={28}
         className="h-7 w-7 shrink-0 rounded-full ring-1 ring-border"
       />
-      <span className="font-serif text-lg font-semibold tracking-tight text-foreground">
+      <span className="font-serif text-[22px] font-bold tracking-tight text-primary">
         Aspirova
       </span>
     </HoverPrefetchLink>

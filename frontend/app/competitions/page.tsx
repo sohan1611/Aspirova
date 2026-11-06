@@ -53,6 +53,7 @@ function DefaultCompetitions({ data }: { data: FeedResultData }) {
       <FeedGrid
         items={data.items}
         cols={3}
+        competitionSkeleton
         skeletonCount={data.items.length || Math.min(COMPETITIONS_LIMIT, 9)}
         emptyHref="/competitions"
         emptyActionLabel="Clear filters"
@@ -73,8 +74,8 @@ export default async function CompetitionsPage() {
   return (
     <main className="mx-auto w-full max-w-[1680px] px-4 py-10 sm:px-6 sm:py-14 lg:px-10 xl:px-12">
       <header className="max-w-3xl">
-        <p className="eyebrow">THE ARENA</p>
-        <h1 className="mt-3 font-serif text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl">
+        <p className="eyebrow font-serif">THE ARENA</p>
+        <h1 className="mt-3 font-serif text-4xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl">
           Competitions &amp; hackathons
         </h1>
         <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">

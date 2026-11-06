@@ -489,8 +489,8 @@ export function OpportunityListingFilterBar({
             <Badge
               key={option.value}
               asChild
-              variant={isActive ? "heritage" : "outline"}
-              className="px-2.5 py-1"
+              variant="outline"
+              className={cn("min-h-11 rounded-full px-3 py-1.5 sm:min-h-9", isActive ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:bg-secondary")}
             >
               <button
                 type="button"
@@ -682,13 +682,13 @@ export function OpportunityListingRoleChips({ basePath }: { basePath: Opportunit
     <div className="mb-5 w-full min-w-0 max-w-full overflow-x-auto pb-1" role="group" aria-label="Filter by role">
       <div className="flex w-max gap-2">
         {ROLE_OPTIONS.map((option) => (
-          <Badge key={option.value} asChild variant={selected === option.value ? "heritage" : "outline"}>
+          <Badge key={option.value} asChild variant="outline" className={cn("rounded-full", selected === option.value ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:bg-secondary")}>
             <button
               type="button"
               aria-pressed={selected === option.value}
               disabled={isFeedPending}
               onClick={() => toggleRole(option.value)}
-              className="shrink-0 whitespace-nowrap px-3 py-2"
+              className="min-h-11 shrink-0 whitespace-nowrap px-3 py-2 sm:min-h-9"
             >
               {option.label}
             </button>

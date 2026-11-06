@@ -39,7 +39,7 @@ export default async function ScholarshipsPage() {
     >
       {programmes.items.length > 0 && (
         <section className="mt-14" aria-labelledby="scholarship-programmes-heading">
-          <h2 id="scholarship-programmes-heading" className="font-serif text-3xl font-semibold tracking-tight">
+          <h2 id="scholarship-programmes-heading" className="font-serif text-3xl font-bold tracking-tight">
             Scholarship and fellowship programmes
           </h2>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">

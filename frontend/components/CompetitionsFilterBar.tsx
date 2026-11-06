@@ -9,6 +9,13 @@ import {
 import { useFeedNavigation } from "@/components/FeedNavigation";
 import ListingSearchInput from "@/components/ListingSearchInput";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { CompetitionSort } from "@/lib/competitionsQuery";
 import type { Facets } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -127,7 +134,7 @@ export default function CompetitionsFilterBar({
     <div
       aria-busy={isPending}
       className={cn(
-        "flex min-w-0 flex-wrap items-center justify-end gap-x-4 gap-y-2",
+        "flex w-full min-w-0 flex-wrap items-center gap-x-4 gap-y-3",
         isPending && "pointer-events-none cursor-progress",
       )}
     >
@@ -146,11 +153,11 @@ export default function CompetitionsFilterBar({
       <CompetitionsAdvancedFilters facets={facets} facetsStatus={facetsStatus} />
 
       <div
-        className="flex min-w-0 flex-wrap items-center justify-end gap-2"
+        className="flex min-w-0 flex-wrap items-center gap-2"
         role="group"
         aria-label="Filter competitions by location"
       >
-        <span className="eyebrow mr-1">Location</span>
+        <span className="sr-only">Location</span>
         {locationOptions.map((option) => {
           const isActive = option.value === activeLocation;
 
@@ -158,8 +165,13 @@ export default function CompetitionsFilterBar({
             <Badge
               key={option.value}
               asChild
-              variant={isActive ? "heritage" : "outline"}
-              className="px-2.5 py-1"
+              variant="outline"
+              className={cn(
+                "min-h-11 rounded-full px-3 py-1.5 sm:min-h-9",
+                isActive
+                  ? "border-primary bg-primary text-primary-foreground hover:bg-primary/90"
+                  : "bg-card hover:bg-secondary",
+              )}
             >
               <button
                 type="button"
@@ -177,33 +189,25 @@ export default function CompetitionsFilterBar({
 
       {!searchParams.get("q")?.trim() && (
         <div
-          className="flex min-w-0 flex-wrap items-center justify-end gap-2"
+          className="ml-auto flex min-w-0 items-center gap-2"
           role="group"
           aria-label="Sort competitions"
         >
-          <span className="eyebrow mr-1">Sort</span>
-          {sortOptions.map((option) => {
-            const isActive = option.value === sort;
-
-            return (
-              <Badge
-                key={option.value}
-                asChild
-                variant={isActive ? "heritage" : "outline"}
-                className="px-2.5 py-1"
-              >
-                <button
-                  type="button"
-                  aria-pressed={isActive}
-                  disabled={isPending}
-                  onClick={() => setSort(option.value)}
-                  className="disabled:cursor-wait"
-                >
-                  {option.label}
-                </button>
-              </Badge>
-            );
-          })}
+          <span className="text-xs text-muted-foreground">Sort by:</span>
+          <Select
+            value={sort}
+            disabled={isPending}
+            onValueChange={(value) => setSort(value as CompetitionSort)}
+          >
+            <SelectTrigger aria-label="Sort competitions" className="min-w-36">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="end">
+              {sortOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
 

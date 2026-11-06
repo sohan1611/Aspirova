@@ -6,7 +6,7 @@ const FOOTER_LINK_CLASSES =
 
 export default function AppFooter() {
   return (
-    <footer className="border-t border-border">
+    <footer className="border-t border-border bg-card">
       <div className="mx-auto max-w-[1680px] px-4 py-12 sm:px-6 lg:px-10 lg:py-14 xl:px-12">
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_1fr_1fr_1fr] lg:gap-12">
           <div>

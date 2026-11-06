@@ -20,7 +20,7 @@ export default function SignedInWelcome() {
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="eyebrow text-heritage">Your almanac</p>
+          <p className="eyebrow text-primary">Your almanac</p>
           <p className="mt-1.5 text-sm font-medium text-foreground">
             Welcome back. Pick up where you left off.
           </p>
@@ -31,7 +31,7 @@ export default function SignedInWelcome() {
             <Link
               key={href}
               href={href}
-              className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="inline-flex min-h-11 items-center rounded-full border border-border bg-card px-3 py-1.5 sm:min-h-9 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               {label}
             </Link>

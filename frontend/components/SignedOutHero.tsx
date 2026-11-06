@@ -18,10 +18,10 @@ export default function SignedOutHero() {
       className="auth-collapse-while-pending border-b border-border py-10 sm:py-14"
     >
       <div className="max-w-4xl">
-        <p className="eyebrow text-heritage">Est. 2026 · The Opportunity Almanac</p>
+        <p className="eyebrow text-primary">Est. 2026 · The Opportunity Almanac</p>
         <h1
           id="signed-out-hero-title"
-          className="mt-4 max-w-3xl text-3xl font-semibold leading-tight text-foreground sm:text-4xl"
+          className="mt-4 max-w-3xl font-serif text-3xl font-bold leading-tight text-foreground sm:text-4xl"
         >
           Every opportunity. One place.
         </h1>
