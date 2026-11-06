@@ -1,5 +1,5 @@
 import HoverPrefetchLink from "@/components/HoverPrefetchLink";
-import CompanyFavicon from "@/components/CompanyFavicon";
+import SourceCompanyLogo from "@/components/SourceCompanyLogo";
 import { Badge } from "@/components/ui/badge";
 import type { ExternalCompany } from "@/lib/externalCompanies";
 
@@ -15,15 +15,7 @@ export default function SourceCompanyCard({ company }: SourceCompanyCardProps) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="w-fit rounded-xl border border-border bg-secondary/40 p-1.5 shadow-soft">
-          <CompanyFavicon
-            company={{
-              slug: company.slug,
-              name: company.name,
-              domain: company.domain,
-              logo_url: null,
-            }}
-            size={56}
-          />
+          <SourceCompanyLogo company={company} size={56} />
         </div>
         <Badge variant="secondary">Straight to source</Badge>
       </div>

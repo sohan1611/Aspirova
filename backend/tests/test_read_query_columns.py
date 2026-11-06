@@ -5,8 +5,10 @@ from fastapi.routing import APIRoute
 from sqlalchemy import select
 from sqlalchemy.dialects import postgresql
 
+from api.company import router as company_router
 from api.feed import get_feed, router
 from api.middleware import _declared_query_param_names
+from api.trending import router as trending_router
 from core import models
 from core.cache import build_cache_key
 
@@ -37,7 +39,10 @@ def _compiled_sql(statement) -> str:
 
 
 @pytest.mark.parametrize("sort", ["student", "deadline", "prize"])
-def test_feed_list_query_does_not_select_heavy_opportunity_columns(sort: str) -> None:
+@pytest.mark.parametrize("prefer_logos", [False, True])
+def test_feed_list_query_does_not_select_heavy_opportunity_columns(
+    sort: str, prefer_logos: bool
+) -> None:
     db = _CaptureSession()
 
     response = get_feed(
@@ -50,6 +55,7 @@ def test_feed_list_query_does_not_select_heavy_opportunity_columns(sort: str) ->
         country=None,
         remote_abroad=False,
         prefer_country=None,
+        prefer_logos=prefer_logos,
         source=None,
         experience=None,
         # Called as a plain function, not through FastAPI, so an omitted
@@ -133,3 +139,24 @@ def test_role_filters_are_part_of_feed_response_cache_key() -> None:
     }.items():
         assert key in declared
         assert build_cache_key("/feed", [(key, value)], declared) != base
+
+
+@pytest.mark.parametrize(
+    "endpoint_router,path",
+    [
+        (router, "/feed"),
+        (company_router, "/companies/top"),
+        (trending_router, "/trending"),
+    ],
+)
+def test_logo_preference_is_part_of_response_cache_key(endpoint_router, path) -> None:
+    route = next(
+        route
+        for route in endpoint_router.routes
+        if isinstance(route, APIRoute) and route.path == path
+    )
+    declared = _declared_query_param_names(route)
+    assert declared is not None and "prefer_logos" in declared
+    assert build_cache_key(path, [], declared) != build_cache_key(
+        path, [("prefer_logos", "true")], declared
+    )

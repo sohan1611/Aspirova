@@ -1,5 +1,6 @@
 import { CalendarDays, ExternalLink, Timer } from "lucide-react";
 import HoverPrefetchLink from "@/components/HoverPrefetchLink";
+import CompanyFavicon from "@/components/CompanyFavicon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatProgrammeCategory, getProgrammeStatusDisplay, programmePath } from "@/lib/programmes";
@@ -24,7 +25,11 @@ export default function ProgrammeCard({ programme }: { programme: ProgrammeListI
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">{programme.organiser}</p>
         </div>
-        <span className="flex size-10 shrink-0 items-center justify-center rounded border border-border bg-secondary text-sm font-semibold" aria-hidden="true">{initials}</span>
+        {programme.company?.logo_url || programme.company?.domain ? (
+          <CompanyFavicon company={programme.company} size={40} />
+        ) : (
+          <span className="flex size-10 shrink-0 items-center justify-center rounded border border-border bg-secondary text-sm font-semibold" aria-hidden="true">{initials}</span>
+        )}
       </div>
       <div className="mt-5 flex flex-wrap gap-2">
         <Badge variant="secondary" className="max-w-full rounded-md bg-accent text-accent-foreground whitespace-normal">{formatProgrammeCategory(programme.category)}</Badge>

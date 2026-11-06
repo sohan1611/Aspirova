@@ -11,6 +11,7 @@ from api.filters import (
     exclude_stale_opportunities,
 )
 from api.opportunity_loading import opportunity_list_load_options
+from api.landing import famous_company_filter, landing_rows
 from api.schemas import (
     CompanyListItem,
     CompanyPage,
@@ -18,8 +19,24 @@ from api.schemas import (
     OpportunityListItem,
 )
 from core import models
+from core.external_companies import EXTERNAL_COMPANIES
+from pipeline.normalize import normalize_company_name
 
 router = APIRouter()
+
+
+@router.get("/companies/external", response_model=dict[str, CompanySummary])
+def external_companies(db: Session = Depends(get_db)) -> dict[str, CompanySummary]:
+    keys = {entry["slug"]: normalize_company_name(entry["name"]) for entry in EXTERNAL_COMPANIES}
+    companies = db.scalars(
+        select(models.Company).where(models.Company.name_normalized.in_(keys.values()))
+    ).all()
+    by_name = {company.name_normalized: company for company in companies}
+    return {
+        slug: CompanySummary.model_validate(by_name[key])
+        for slug, key in keys.items()
+        if key in by_name
+    }
 
 
 @router.get("/companies/search", response_model=list[CompanyListItem])
@@ -63,9 +80,10 @@ def search_companies(
 @router.get("/companies/top", response_model=list[CompanyListItem])
 def list_top_companies(
     limit: int = Query(12, ge=1, le=24),
+    prefer_logos: bool = Query(False),
     db: Session = Depends(get_db),
 ) -> list[CompanyListItem]:
-    rows = db.execute(
+    query = (
         select(
             models.Company.slug,
             models.Company.name,
@@ -81,7 +99,6 @@ def list_top_companies(
             & exclude_experienced_only_opportunities()
             & exclude_school_only_opportunities(),
         )
-        .where(models.Company.prestige_rank.is_not(None))
         .group_by(
             models.Company.id,
             models.Company.slug,
@@ -89,20 +106,33 @@ def list_top_companies(
             models.Company.domain,
             models.Company.logo_url,
             models.Company.prestige_rank,
+            models.Company.global_rank,
         )
-        .order_by(models.Company.prestige_rank.asc(), models.Company.name.asc())
-        .limit(limit)
-    ).all()
+    )
+    if prefer_logos:
+        query = query.where(models.Company.logo_url.is_not(None)).order_by(
+            func.coalesce(models.Company.prestige_rank, models.Company.global_rank)
+            .asc()
+            .nullslast(),
+            models.Company.name.asc(),
+            models.Company.id.asc(),
+        )
+        rows = landing_rows(db, query, famous_company_filter(), limit)
+    else:
+        query = query.where(models.Company.prestige_rank.is_not(None)).order_by(
+            models.Company.prestige_rank.asc(), models.Company.name.asc()
+        )
+        rows = db.execute(query.limit(limit)).all()
 
     return [
         CompanyListItem(
-            slug=slug,
-            name=name,
-            domain=domain,
-            logo_url=logo_url,
-            active_count=active_count,
+            slug=row.slug,
+            name=row.name,
+            domain=row.domain,
+            logo_url=row.logo_url,
+            active_count=row.active_count,
         )
-        for slug, name, domain, logo_url, active_count in rows
+        for row in rows
     ]
 
 

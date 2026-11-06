@@ -1,6 +1,6 @@
 import { ExternalLink } from "lucide-react";
 import Link from "next/link";
-import CompanyFavicon from "@/components/CompanyFavicon";
+import SourceCompanyLogo from "@/components/SourceCompanyLogo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { ExternalCompany } from "@/lib/externalCompanies";
@@ -22,15 +22,7 @@ export default function SourceCompanyDetail({ company }: SourceCompanyDetailProp
       <header className="mt-8 border-b border-border pb-10">
         <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:gap-7">
           <div className="rounded-lg border border-border bg-card p-2 shadow-soft">
-            <CompanyFavicon
-              company={{
-                slug: company.slug,
-                name: company.name,
-                domain: company.domain,
-                logo_url: null,
-              }}
-              size={72}
-            />
+            <SourceCompanyLogo company={company} size={72} />
           </div>
 
           <div className="min-w-0">

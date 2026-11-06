@@ -17,6 +17,7 @@ from api.filters import (
     experience_filters,
 )
 from api.middleware import client_ip
+from api.landing import famous_company_filter, landing_rows
 from api.opportunity_loading import opportunity_list_load_options
 from api.schemas import OpportunityListItem, TrendingResponse
 from core import models
@@ -128,6 +129,7 @@ def record_opportunity_action(
 @router.get("/trending", response_model=TrendingResponse)
 def get_trending(
     limit: int = Query(TRENDING_DEFAULT_LIMIT),
+    prefer_logos: bool = Query(False),
     db: Session = Depends(get_db),
 ) -> TrendingResponse:
     bounded_limit = max(1, min(limit, TRENDING_MAX_LIMIT))
@@ -153,8 +155,20 @@ def get_trending(
             *experience_filters("early"),
             models.OpportunityViewCount.views >= TRENDING_MIN_VIEWS,
         )
-        .order_by(models.OpportunityViewCount.views.desc(), models.Opportunity.id.desc())
-        .limit(bounded_limit)
     )
-    rows = db.execute(query).unique().scalars().all()
-    return TrendingResponse(items=[OpportunityListItem.from_model(row) for row in rows])
+    if prefer_logos:
+        query = query.where(models.Opportunity.company.has(models.Company.logo_url.is_not(None)))
+    ordering = [models.OpportunityViewCount.views.desc(), models.Opportunity.id.desc()]
+    query = query.order_by(*ordering)
+    if prefer_logos:
+        rows = landing_rows(
+            db,
+            query,
+            models.Opportunity.company.has(famous_company_filter()),
+            bounded_limit,
+            listing_order=ordering,
+        )
+        opportunities = [row.Opportunity for row in rows]
+    else:
+        opportunities = db.execute(query.limit(bounded_limit)).unique().scalars().all()
+    return TrendingResponse(items=[OpportunityListItem.from_model(row) for row in opportunities])

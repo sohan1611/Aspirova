@@ -276,6 +276,8 @@ class Programme(Base):
     slug: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     organiser: Mapped[str] = mapped_column(Text, nullable=False)
+    company_id: Mapped[int | None] = mapped_column(ForeignKey("companies.id"))
+    company: Mapped["Company | None"] = relationship()
     category: Mapped[str] = mapped_column(Text, nullable=False)
     url: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str | None] = mapped_column(Text)

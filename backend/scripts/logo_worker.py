@@ -361,15 +361,35 @@ def retry_filter(recheck_days: int) -> "ColumnElement[bool]":
 def select_companies(
     session: "Session", args: argparse.Namespace, overrides: dict
 ) -> list[tuple[int, int]]:
-    from sqlalchemy import func, select
+    from sqlalchemy import func, or_, select
 
-    from core.models import Company
+    from core.external_companies import EXTERNAL_COMPANIES
+    from core.models import Company, Programme
+    from pipeline.normalize import normalize_company_name
 
     counts = active_counts()
-    query = select(Company, counts.c.active_count).join(counts, counts.c.company_id == Company.id)
+    count = func.coalesce(counts.c.active_count, 0)
+    has_programme = (
+        select(Programme.id)
+        .where(Programme.company_id == Company.id, Programme.is_active.is_(True))
+        .exists()
+    )
+    query = (
+        select(Company, count)
+        .outerjoin(counts, counts.c.company_id == Company.id)
+        .where(
+            or_(
+                counts.c.active_count.is_not(None),
+                has_programme,
+                Company.name_normalized.in_(
+                    [normalize_company_name(entry["name"]) for entry in EXTERNAL_COMPANIES]
+                ),
+            )
+        )
+    )
     rows = session.execute(
         query.where(retry_filter(args.recheck_days))
-        .order_by(counts.c.active_count.desc(), Company.id)
+        .order_by(count.desc(), Company.id)
         .limit(args.limit)
     ).all()
     selected = {company.id: (company.id, count) for company, count in rows}
@@ -388,7 +408,7 @@ def select_companies(
 def recent_listing_texts(session: "Session", company_id: int) -> list[str]:
     from sqlalchemy import select
 
-    from core.models import Opportunity
+    from core.models import Opportunity, Programme
 
     rows = session.execute(
         select(Opportunity.apply_url, Opportunity.description_raw)
@@ -396,7 +416,14 @@ def recent_listing_texts(session: "Session", company_id: int) -> list[str]:
         .order_by(Opportunity.first_seen_at.desc(), Opportunity.id.desc())
         .limit(5)
     ).all()
-    return [f"{url or ''}\n{description or ''}" for url, description in rows]
+    texts = [f"{url or ''}\n{description or ''}" for url, description in rows]
+    programme_urls = session.scalars(
+        select(Programme.url)
+        .where(Programme.company_id == company_id, Programme.is_active.is_(True))
+        .order_by(Programme.id)
+        .limit(5)
+    ).all()
+    return texts + list(programme_urls)
 
 
 def domain_owner(session: "Session", company_id: int, domain: str) -> "Company | None":
@@ -526,8 +553,14 @@ def run_db(
 
     from core.models import Company, Opportunity
     from pipeline import revalidate
+    from pipeline.organiser_companies import link_organiser_companies
 
     started = time.monotonic()
+    if not args.dry_run:
+        # Existing production programmes predate the nullable link. Backfill in
+        # the write worker so API requests stay read-only. Dry runs never seed.
+        link_organiser_companies(session)
+        session.commit()
     selected = select_companies(session, args, overrides)
     guard = GenericGuard()
     for company in session.scalars(select(Company).where(Company.logo_status == "found")):

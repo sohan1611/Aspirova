@@ -1,0 +1,5 @@
+[
+  {"slug": "google", "name": "Google", "domain": "google.com"},
+  {"slug": "microsoft", "name": "Microsoft", "domain": "microsoft.com"},
+  {"slug": "apple", "name": "Apple", "domain": "apple.com"}
+]

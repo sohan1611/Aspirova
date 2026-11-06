@@ -62,6 +62,102 @@ def _opportunity(
     )
 
 
+@pytest.fixture
+def landing_trending_rows(db_session, monkeypatch):
+    suffix = uuid.uuid4().hex
+    rows = []
+    names = [
+        "blank",
+        "favicon",
+        "other-first",
+        "other-second",
+        "prestige",
+        "other-third",
+        "forbes",
+        "other-fourth",
+        "both",
+        "independent",
+        "famous-last",
+    ]
+    for index, name in enumerate(names):
+        company = models.Company(
+            slug=f"logo-trending-company-{name}-{suffix}",
+            name=name,
+            domain=f"{suffix}.example" if name == "favicon" else None,
+            logo_url=(
+                f"https://example.com/{name}.png" if name not in {"blank", "favicon"} else None
+            ),
+            prestige_rank=index if name in {"blank", "prestige", "both", "famous-last"} else None,
+            global_rank=1 if name in {"favicon", "forbes", "both"} else None,
+        )
+        row = _opportunity(suffix, f"logo-{name}", company)
+        row.title = "Software Intern"
+        if name == "independent":
+            row.company = None
+        db_session.add(row)
+        db_session.flush()
+        db_session.add(models.OpportunityViewCount(opportunity_id=row.id, views=10_000 - index))
+        rows.append(row)
+    db_session.flush()
+    monkeypatch.setattr(
+        trending,
+        "exclude_stale_opportunities",
+        lambda: models.Opportunity.id.in_([row.id for row in rows]),
+    )
+    return rows
+
+
+@pytest.mark.parametrize(
+    "limit,expected",
+    [
+        (1, [4]),
+        (5, [4, 2, 6, 3, 8]),
+        (6, [4, 2, 6, 3, 8, 5]),
+        (12, [4, 2, 6, 3, 8, 5, 10, 7]),
+    ],
+)
+def test_landing_widgets_require_logos_and_interleave_famous(
+    client, landing_trending_rows, limit, expected
+):
+    rows = landing_trending_rows
+    original = client.get("/trending", params={"limit": 12})
+    preferred = client.get("/trending", params={"limit": limit, "prefer_logos": "true"})
+    assert original.status_code == preferred.status_code == 200
+    assert [item["slug"] for item in original.json()["items"]] == [row.slug for row in rows]
+    assert [item["slug"] for item in preferred.json()["items"]] == [
+        rows[index].slug for index in expected
+    ]
+    assert all(item["company"]["logo_url"] is not None for item in preferred.json()["items"])
+
+
+@pytest.mark.parametrize("has_famous", [False, True])
+def test_landing_widgets_use_all_famous_when_fewer_than_half(
+    client, db_session, landing_trending_rows, has_famous
+):
+    rows = landing_trending_rows
+    for index in ([6, 8, 10] if has_famous else [4, 6, 8, 10]):
+        rows[index].company.prestige_rank = None
+        rows[index].company.global_rank = None
+    db_session.flush()
+    response = client.get("/trending", params={"limit": 8, "prefer_logos": "true"})
+    assert response.status_code == 200
+    expected = [4, 2, 3, 5, 6, 7, 8, 10] if has_famous else [2, 3, 4, 5, 6, 7, 8, 10]
+    assert [item["slug"] for item in response.json()["items"]] == [
+        rows[index].slug for index in expected
+    ]
+
+
+def test_landing_widgets_return_fewer_when_only_one_logo(client, db_session, landing_trending_rows):
+    rows = landing_trending_rows
+    for index, row in enumerate(rows):
+        if row.company is not None and index != 4:
+            row.company.logo_url = None
+    db_session.flush()
+    response = client.get("/trending", params={"limit": 8, "prefer_logos": "true"})
+    assert response.status_code == 200
+    assert [item["slug"] for item in response.json()["items"]] == [rows[4].slug]
+
+
 def test_opportunity_view_endpoint_increments_counter(
     client: TestClient,
     db_session: Session,

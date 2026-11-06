@@ -19,6 +19,16 @@ from pipeline.company_resolution import resolve_company
 from scripts import logo_worker as worker
 
 
+def test_shipped_overrides_are_domain_entries():
+    overrides = worker.load_overrides(worker.DEFAULT_OVERRIDES)
+    assert overrides
+    assert list(overrides) == sorted(overrides)
+    for slug, entry in overrides.items():
+        assert set(entry) == {"domain"}, slug
+        assert isinstance(entry["domain"], str), slug
+        assert entry["domain"] and entry["domain"] == entry["domain"].strip(), slug
+
+
 @pytest.fixture(scope="session", autouse=True)
 def _purge_isolation_test_residue():
     """DB tests use outer rollbacks. The offline test must not request an engine."""
@@ -73,6 +83,16 @@ def companies(db_session, monkeypatch):
         )
 
     monkeypatch.setattr(worker, "active_counts", counts)
+    original_select = worker.select_companies
+
+    def select_created(session, args, overrides):
+        # The shared test DB also holds organiser/external companies (for example
+        # one on google.com) that the organiser pass selects; keep each test to
+        # the rows it created.
+        ids = {company.id for company in created}
+        return [row for row in original_select(session, args, overrides) if row[0] in ids]
+
+    monkeypatch.setattr(worker, "select_companies", select_created)
 
     def create(*, active=True, **kwargs):
         suffix = uuid4().hex
