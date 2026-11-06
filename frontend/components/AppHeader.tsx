@@ -1,4 +1,3 @@
-import { Search } from "lucide-react";
 import HoverPrefetchLink from "@/components/HoverPrefetchLink";
 import HeaderAuth from "@/components/HeaderAuth";
 import HeaderNav from "@/components/HeaderNav";
@@ -17,12 +16,6 @@ export default function AppHeader() {
         </div>
         <HeaderNav />
         <div className="flex shrink-0 items-center gap-1 xl:gap-2">
-          <Button variant="outline" asChild className="size-11 p-0 sm:size-9 lg:w-auto lg:px-3">
-            <HoverPrefetchLink href="/#feed-search" aria-label="Search opportunities">
-              <Search className="size-4" aria-hidden="true" />
-              <span className="hidden lg:inline">Search</span>
-            </HoverPrefetchLink>
-          </Button>
           <Button variant="outline" asChild className="hidden px-3 md:inline-flex">
             <HoverPrefetchLink href="/pricing">Pricing</HoverPrefetchLink>
           </Button>
