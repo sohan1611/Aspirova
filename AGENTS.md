@@ -14,13 +14,46 @@
 ## The canon is law
 `docs/` is the single source of truth. `docs/README.md` is the index + append-only **Decision log** (never contradict a **Binding** row without an architect amendment). Docs 01-08 cover product/architecture/data/crawler/AI/pricing/roadmap/governance. Phase handoffs + reports live in `docs/handoffs/`. **Doc 08 §3 HARD RULES are the merge gate.**
 
-## Where things stand (2026-06-30)
-- **Phase 1 (Foundation + Ingestion + Read API + Frontend): DONE, reviewed (PASS), and DEPLOYED live.**
-  - Backend: FastAPI on **Render Singapore** → `https://aspirova-api.onrender.com`
-  - Frontend: Next.js on **Vercel** → `https://aspirova.vercel.app`
-  - DB: **Supabase Postgres, ap-south-1 (Mumbai)**; crawler on **GitHub Actions** (repo `sohan1611/Aspirova`)
-- **Phase 2 (Production-ready platform): HANDED OFF — start here.** Read `docs/handoffs/PHASE-2-HANDOFF.md`. Begin at **Part 2.1 (rate limiting + caching)** — most urgent, since the API is already public.
-  - Binding rulings carried in: **Lever-1** (crawler set-based bulk ops) must land *before* new adapters; **rate limiting is urgent**; **Lever-2** (Supabase→Singapore migration) is deferred pending isolated `X-DB-Time-Ms` measurement; **all AI is out of scope until Phase 3.**
+## Where things stand (2026-11-03)
+*Phases 1 and 2 are long done. This section drifted four months out of date and was rewritten to
+match `CLAUDE.md`; keep both current, because it is the first thing every session reads.*
+
+- **Live and healthy.** Backend on **Render Singapore** (`https://aspirova-api.onrender.com`),
+  frontend on **Vercel** at **`https://www.aspirova.org`** (the `aspirova.vercel.app` domain still
+  serves and canonicalises to it), crawler + digests on **GitHub Actions**. All production routes
+  answer 200.
+- **Database (since 2026-10-21): self-managed Postgres 17 on a DigitalOcean droplet,
+  `aspirova-db`, `168.144.242.186`, Singapore (SGP1), ~₹810/mo.** It moved off Supabase Pro
+  (₹2,900/mo). **Supabase still serves Auth and Storage (resume PDFs)**, on its Free plan since
+  2026-11-02; its old app tables are gone (final archive in R2, `archive/`). The app connects as `aspirova_app` (not a
+  superuser) over TLS; operate the box over SSH as root. Everything is in
+  `infra/db/RUNBOOK.md`: provisioning, rollback, disaster recovery. **Never run tests or write
+  scripts against it. It is production.**
+- **Scale:** 24,628 open opportunities across **16 sources** and 4,400 companies with an open
+  listing (public `/stats`, 2026-11-03; it counts open listings only since #133, so older totals
+  are not comparable). Auth is live (Google, GitHub, email). Application tracking, listing
+  filters/sort/search, and both digests all ship and work.
+- **The 6-batch site audit shipped: PRs #133 to #139 in `sohan1611/Aspirova`.** Pro sells only what
+  runs (#133, with privacy corrections in #134), India first (#135), pay and filters (#136),
+  competitions and scholarships (#137), sharing and browse pages (#138), follow companies and email
+  matches (#139). Details are in those PRs and the Decision log in `docs/README.md`. #135 to #139
+  each have an "After merge" section listing founder-run steps.
+- **The binding constraint is DISTRIBUTION, not engineering.** Features are not the bottleneck and
+  have not been for months — see the 2026-09-04 audit. Weigh any proposed supply-side work against
+  that. Usage numbers stay out of this file because the repo is public; the founder supplies
+  current user counts when a decision needs them.
+
+### Rulings that still bind day-to-day
+- **Lever-2 (moving the DB *for latency*) stays CLOSED.** Re-measured 2026-09-04: the variance
+  was database CPU, not the Mumbai hop, so fix query shape. The 2026-10-21 move was for **cost**.
+  It landed in Singapore only because Render runs there (decision log, 2026-10-21).
+- **Absence is evidence only when the crawl that missed a listing could have seen it.** Only
+  `FULL_INVENTORY_SOURCES` may retire on absence; see `pipeline/expire.py`. Violating this closed
+  ~2,000 live jobs in one crawl.
+- **All AI remains deferred by founder ruling.** Deterministic paths only; anything that writes
+  `summary` must respect `meta.summary_source` so the AI upgrade is not foreclosed.
+- **Nothing ships on a green gate alone** (Doc 08 §3): exercise a change against real production
+  data or a real rendered DOM and record the numbers in the PR.
 
 ## Local setup (after clone/unzip on a new machine)
 - **Backend:** Python 3.12+ and `uv`. `cd backend && uv sync`, then `uv run uvicorn api.main:app --reload`. Tests: `uv run pytest`. Migrations: `uv run alembic upgrade head`.
@@ -34,4 +67,4 @@
 - Branch for changes; commit/push when the work for a part is done and green (ruff + black + pytest for backend; eslint + tsc for frontend).
 
 ## Cloud infra (all under the user's accounts; secrets already configured)
-Supabase (Mumbai) · Render (Singapore, $7 Starter, `render.yaml` blueprint) · Vercel (Hobby) · GitHub Actions (crawler + CI). `DATABASE_URL` is set as a GitHub Actions secret. Phase 2 will add: Razorpay, Resend, Upstash, and R2/B2 (user creates these when prompted).
+DigitalOcean (Singapore droplet, the app database, daily backups) · Supabase (Mumbai, Auth + Storage only) · Render (Singapore, $7 Starter, `render.yaml` blueprint) · Vercel (Hobby) · GitHub Actions (crawler + CI). `DATABASE_URL` (the droplet) and `SUPABASE_DB_URL` (Supabase, used only for the nightly Auth backup) are GitHub Actions secrets. The code also integrates Resend (email), Upstash (cache and rate limits), Razorpay (payments) and R2 (backups).
