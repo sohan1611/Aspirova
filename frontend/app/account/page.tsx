@@ -19,6 +19,7 @@ import AccountSidebar, {
 } from "@/components/account/AccountSidebar";
 import NotificationsSection from "@/components/account/NotificationsSection";
 import ProfileSection from "@/components/account/ProfileSection";
+import ResumeSection from "@/components/account/ResumeSection";
 import SavedSearchesSection from "@/components/account/SavedSearchesSection";
 import SecuritySection from "@/components/account/SecuritySection";
 import SubscriptionSection from "@/components/account/SubscriptionSection";
@@ -267,7 +268,7 @@ function AccountPageContent() {
           Account
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Manage your profile, plan, preferences, and security.
+          Manage your profile, resume, plan, preferences, and security.
         </p>
       </div>
 
@@ -388,6 +389,14 @@ function AccountPageContent() {
                 account={account}
                 accessToken={authenticatedAccessToken}
                 user={session.user}
+                onAccountChange={setAccount}
+              />
+            )}
+            {activeSection === "resume" && (
+              <ResumeSection
+                account={account}
+                accessToken={authenticatedAccessToken}
+                userId={session.user.id}
                 onAccountChange={setAccount}
               />
             )}
