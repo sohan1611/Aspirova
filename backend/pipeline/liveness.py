@@ -2,7 +2,8 @@
 
 This covers the small slice of listings that cannot be refreshed by deadline
 logic and have not been confirmed by a real crawl in the last four days. Only
-404/410 responses and confirmed Greenhouse soft-404s mark a listing closed.
+404/410 responses, confirmed Greenhouse soft-404s and controlled Workday 403s
+mark a listing closed.
 Every completed check rotates out of the queue for three days.
 """
 
@@ -10,8 +11,9 @@ from collections.abc import Callable, Iterable
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from time import monotonic
-from typing import Literal
+from threading import Lock
+from time import monotonic, sleep
+from typing import Any, Literal
 from urllib.parse import parse_qs, urlsplit
 
 import httpx
@@ -19,7 +21,8 @@ from sqlalchemy import DateTime, cast, func, or_, select, text, update
 from sqlalchemy.orm import Session
 
 from core import models
-from crawlers.common import USER_AGENT
+from crawlers.common import USER_AGENT, request_with_retries
+from crawlers.workday import REQUEST_DELAY_SECONDS, cxs_endpoints, tenant_lock
 from pipeline.retirement import ROLLING_WINDOW_SOURCES
 
 DEFAULT_LIMIT = 1500
@@ -70,7 +73,71 @@ def _classify_status_code(status_code: int) -> LivenessStatus:
     return classify_liveness_status_code(status_code)
 
 
-def fetch_url_liveness_status(url: str, client: httpx.Client) -> LivenessStatus:
+class WorkdayLivenessChecker:
+    """Share tenant/site search controls across all workers and batches in a run."""
+
+    def __init__(self) -> None:
+        self._controls: dict[str, bool] = {}
+        self._control_lock = Lock()
+
+    def _request(
+        self, client: httpx.Client, method: str, url: str, **kwargs: Any
+    ) -> httpx.Response | None:
+        base = f"https://{urlsplit(url).hostname}"
+
+        def once() -> httpx.Response:
+            sleep(REQUEST_DELAY_SECONDS)
+            return client.request(
+                method, url, headers={"User-Agent": USER_AGENT}, follow_redirects=False, **kwargs
+            )
+
+        with tenant_lock(base):
+            return request_with_retries(once, max_retries=1, sleeper=sleep).response
+
+    def check(self, url: str, client: httpx.Client) -> LivenessStatus:
+        endpoints = cxs_endpoints(url)
+        if endpoints is None:
+            return "inconclusive"
+        search_url, detail_url = endpoints
+        response = self._request(client, "GET", detail_url)
+        if response is None:
+            return "inconclusive"
+        if response.status_code in {404, 410}:
+            return "closed"
+        if response.status_code == 200:
+            return "alive"
+        if response.status_code != 403:
+            return "inconclusive"
+        with self._control_lock:
+            if search_url not in self._controls:
+                control = self._request(
+                    client,
+                    "POST",
+                    search_url,
+                    json={
+                        "appliedFacets": {},
+                        "limit": 1,
+                        "offset": 0,
+                        "searchText": "intern",
+                    },
+                )
+                self._controls[search_url] = control is not None and control.status_code == 200
+            available = self._controls[search_url]
+        return "closed" if available else "inconclusive"
+
+
+def fetch_url_liveness_status(
+    url: str,
+    client: httpx.Client,
+    *,
+    workday_checker: WorkdayLivenessChecker | None = None,
+) -> LivenessStatus:
+    try:
+        host = urlsplit(url).hostname or ""
+    except ValueError:
+        return "inconclusive"
+    if host.endswith(".myworkdayjobs.com"):
+        return (workday_checker or WorkdayLivenessChecker()).check(url, client)
     try:
         response = client.get(url)
     except httpx.RequestError:
@@ -222,6 +289,7 @@ def check_listing_liveness(
     started_at = monotonic()
     candidates = _select_candidates(session, limit=limit)
     result = LivenessResult()
+    workday_checker = WorkdayLivenessChecker()
 
     for batch in _chunks(candidates, batch_size):
         elapsed_seconds = monotonic() - started_at
@@ -240,7 +308,9 @@ def check_listing_liveness(
             ) as client:
                 checks = _check_candidates(
                     batch,
-                    checker=lambda url: fetch_url_liveness_status(url, client),
+                    checker=lambda url: fetch_url_liveness_status(
+                        url, client, workday_checker=workday_checker
+                    ),
                     concurrency=concurrency,
                 )
         else:

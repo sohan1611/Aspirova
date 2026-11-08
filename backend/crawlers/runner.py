@@ -42,6 +42,7 @@ from crawlers.board_state import board_outcome
 from crawlers.devfolio import DevfolioAdapter
 from crawlers.devpost import DevpostAdapter
 from crawlers.greenhouse import GreenhouseAdapter
+from crawlers.github_lists import GithubListsAdapter
 from crawlers.hackerearth import HackerEarthAdapter
 from crawlers.himalayas import HimalayasAdapter
 from crawlers.jobicy import JobicyAdapter
@@ -52,6 +53,7 @@ from crawlers.lever import LeverAdapter
 from crawlers.remoteok import RemoteOkAdapter
 from crawlers.smartrecruiters import SmartRecruitersAdapter
 from crawlers.unstop import UnstopAdapter
+from crawlers.workday import WorkdayAdapter
 from pipeline.company_resolution import resolve_company
 from pipeline.expire import FULL_INVENTORY_SOURCES
 from pipeline.ingest import ingest_one, load_board_state, load_source_raw_listings
@@ -71,6 +73,7 @@ ATS_ADAPTERS: dict[str, type] = {
     "lever": LeverAdapter,
     "ashby": AshbyAdapter,
     "smartrecruiters": SmartRecruitersAdapter,
+    "workday": WorkdayAdapter,
 }
 
 # adapter_key -> adapter class, for aggregator sources (Doc 04 sec 1: a
@@ -86,6 +89,7 @@ AGGREGATOR_ADAPTERS: dict[str, type] = {
     "jobicy": JobicyAdapter,
     "remoteok": RemoteOkAdapter,
     "unstop": UnstopAdapter,
+    "github_lists": GithubListsAdapter,
 }
 
 ATS_FETCH_MAX_WORKERS = 10
@@ -104,6 +108,7 @@ AGGREGATOR_SOURCE_RESERVE_SECONDS: dict[str, float] = {
     "hackerearth": 60.0,
     "himalayas": 1100.0,
     "jobicy": 60.0,
+    "github_lists": 300.0,
     "remoteok": 300.0,
     "unstop": 1200.0,
 }
@@ -241,6 +246,8 @@ def _coverage_from_adapter(
             else:
                 status = status or "unknown"
                 note = note or "source declares no total"
+            if stopped_early or force_incomplete or health in {"broken", "degraded"}:
+                status = "partial"
             return _coverage_record(
                 fetched=fetched,
                 expected_total=expected_total,
@@ -599,7 +606,12 @@ def _fetch_with_zero_retry(
     raw_listings = list(adapter.fetch())
     health = adapter.health()
     retried_empty = False
-    if retry_empty_once and not raw_listings and health == "ok":
+    if (
+        retry_empty_once
+        and not raw_listings
+        and health == "ok"
+        and getattr(adapter, "last_board_state", None) != "ok"
+    ):
         retried_empty = True
         watchdog.beat(f"{activity}:zero-retry-start")
         raw_listings = list(adapter.fetch())
@@ -896,11 +908,7 @@ def crawl_company_board(
             ),
         )
         result["coverage"] = coverage
-        if (
-            coverage.get("mode") == "full_list"
-            and coverage.get("status") == "partial"
-            and result["status"] == "success"
-        ):
+        if coverage.get("status") == "partial" and result["status"] == "success":
             result["status"] = "partial"
 
         if (
@@ -1291,6 +1299,19 @@ def crawl_aggregator(
             and state is not None
             and state.last_content_hash == fingerprint
         ):
+            if source_label == "github_lists":
+                # Match the ATS unchanged path, refreshing returned raw IDs only.
+                external_ids = [raw.external_id for raw in raw_listings]
+                for start in range(0, len(external_ids), 5000):
+                    seen = select(models.RawListing.opportunity_id).where(
+                        models.RawListing.source_id == source_id,
+                        models.RawListing.external_id.in_(external_ids[start : start + 5000]),
+                    )
+                    session.execute(
+                        update(models.Opportunity)
+                        .where(models.Opportunity.id.in_(seen))
+                        .values(last_seen_at=func.now())
+                    )
             state.last_crawled_at = datetime.now(timezone.utc)
             session.commit()
             watchdog.beat(f"{activity}:unchanged-committed")
@@ -1492,6 +1513,10 @@ def crawl_aggregator(
             flush=True,
         )
         traceback.print_exc()
+
+    if source_label == "github_lists" and result["status"] != "success":
+        # Retirement reads coverage, so ingestion failures must also fail closed.
+        result["coverage"] = result["coverage"] | {"status": "partial"}
 
     try:
         _record_crawl_run(

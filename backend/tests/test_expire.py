@@ -1,14 +1,18 @@
 """Integration tests for positive-evidence opportunity expiry."""
 
+import json
 import uuid
 from datetime import datetime, timedelta, timezone
 from math import ceil
+from pathlib import Path
 
+import httpx
 import pytest
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from core import models
+from crawlers import github_lists
 from pipeline.expire import (
     FULL_INVENTORY_SOURCES,
     RETIRE_MIN_COVERAGE,
@@ -550,3 +554,106 @@ def test_absence_retirement_requires_recorded_coverage_to_be_complete(
     status, closed_at = _status_and_closed_at_for_slug(db_session, slug)
     assert status == "active"
     assert (closed_at is not None) is (coverage.get("status") == "complete")
+
+
+@pytest.mark.parametrize(
+    "listing_state,partial,should_close",
+    [("absent", False, True), ("absent", True, False), ("inactive", False, True)],
+)
+@pytest.mark.parametrize("company_ats", [None, "workday"])
+def test_github_lists_complete_inventory_closes_missing_and_inactive_but_partial_closes_nothing(
+    db_session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+    listing_state: str,
+    partial: bool,
+    should_close: bool,
+    company_ats: str | None,
+) -> None:
+    """Feed recorded JSON through the adapter before testing retirement evidence."""
+    fixture_path = Path(__file__).parent / "fixtures" / "github_lists_sample.json"
+    captured = json.loads(fixture_path.read_text(encoding="utf-8-sig"))
+    records_by_repo = {entry["repo"]: entry["records"] for entry in captured}
+    first_repo = github_lists.LIST_REPOS[0][0]
+    target = records_by_repo[first_repo][0].copy()
+    if listing_state == "absent":
+        records_by_repo[first_repo] = records_by_repo[first_repo][1:]
+    else:
+        records_by_repo[first_repo][0]["active"] = False
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        repo = "/".join(request.url.path.strip("/").split("/")[:2])
+        if partial and repo == github_lists.LIST_REPOS[-1][0]:
+            return httpx.Response(404)
+        rows = records_by_repo[repo]
+        closed = rows[-1]
+        assert closed["active"] is False
+        # Supply a realistic file size using inactive fixture-derived padding.
+        rows = rows + [
+            closed | {"id": f"fixture-closed-{index}"}
+            for index in range(github_lists.MIN_LIST_RECORDS - len(rows))
+        ]
+        return httpx.Response(200, json=rows)
+
+    adapter = github_lists.GithubListsAdapter()
+    adapter._client.close()
+    monkeypatch.setattr(github_lists, "sleep", lambda _delay: None)
+    with httpx.Client(
+        transport=httpx.MockTransport(respond), headers={"User-Agent": github_lists.USER_AGENT}
+    ) as client:
+        adapter._client = client
+        raw_listings = adapter.fetch()
+    assert all(raw.source_url != target["url"] for raw in raw_listings)
+    assert adapter.coverage()["status"] == ("partial" if partial else "complete")
+
+    now = datetime.now(timezone.utc)
+    suffix = str(uuid.uuid4())
+    assert "github_lists" in FULL_INVENTORY_SOURCES
+    opportunity = _seed_aggregator_opportunity(
+        db_session,
+        suffix,
+        "github-partial",
+        primary_source="github_lists",
+        last_seen_at=now - timedelta(hours=12),
+    )
+    opportunity.title = target["title"]
+    opportunity.apply_url = target["url"]
+    opportunity.company.ats_type = company_ats
+    db_session.flush()
+    slug = opportunity.slug
+    assert len(raw_listings) >= _good_coverage_for_primary_source(db_session, "github_lists")
+    _seed_aggregator_evidence(
+        db_session,
+        suffix,
+        "github-partial",
+        adapter_key="github_lists",
+        last_crawled_at=now - timedelta(hours=1),
+        crawl_runs=[(now - timedelta(hours=1), len(raw_listings))],
+        coverage=adapter.coverage(),
+    )
+    expire_missing_opportunities(db_session)
+    status, closed_at = _status_and_closed_at_for_slug(db_session, slug)
+    assert status == "active"
+    assert (closed_at is not None) is should_close
+
+
+def test_complete_workday_search_never_absence_retires_listing(db_session: Session) -> None:
+    now = datetime.now(timezone.utc)
+    suffix = uuid.uuid4().hex
+    opportunity = _seed_opportunity(
+        db_session,
+        suffix,
+        "workday-search",
+        last_seen_at=now - timedelta(days=5),
+        last_crawled_at=now - timedelta(hours=1),
+    )
+    company = db_session.get(models.Company, opportunity.company_id)
+    company.ats_type = "workday"
+    source = db_session.scalar(
+        select(models.Source).where(models.Source.adapter_key == f"expire-test-adapter-{suffix}")
+    )
+    source.adapter_key = "workday"
+    opportunity.primary_source = "workday"
+    db_session.flush()
+    slug = opportunity.slug
+    expire_missing_opportunities(db_session)
+    assert _status_and_closed_at_for_slug(db_session, slug) == ("active", None)
