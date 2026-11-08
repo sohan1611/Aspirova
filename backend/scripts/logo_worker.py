@@ -34,6 +34,7 @@ from core.logo_store import (
     logo_storage_configured,
     s3_client,
     upload_logo,
+    validate_and_normalize,
 )
 from pipeline.company_logos import (
     Fetcher,
@@ -369,6 +370,16 @@ def select_companies(
 
     counts = active_counts()
     count = func.coalesce(counts.c.active_count, 0)
+    if getattr(args, "renormalize", False):
+        return list(
+            session.execute(
+                select(Company.id, count)
+                .outerjoin(counts, counts.c.company_id == Company.id)
+                .where(Company.logo_status.in_(("found", "manual")), Company.logo_url.is_not(None))
+                .order_by(count.desc(), Company.id)
+                .limit(args.limit)
+            ).all()
+        )
     has_programme = (
         select(Programme.id)
         .where(Programme.company_id == Company.id, Programme.is_active.is_(True))
@@ -555,6 +566,9 @@ def run_db(
     from pipeline import revalidate
     from pipeline.organiser_companies import link_organiser_companies
 
+    if getattr(args, "renormalize", False):
+        return run_renormalize(session, args, fetcher, uploader)
+
     started = time.monotonic()
     if not args.dry_run:
         # Existing production programmes predate the nullable link. Backfill in
@@ -669,6 +683,86 @@ def run_db(
     print_missing(session)
     session.rollback()
     return list(outcomes.values())
+
+
+def run_renormalize(
+    session: "Session",
+    args: argparse.Namespace,
+    fetcher: Fetcher,
+    uploader: Callable[[str, NormalizedLogo], str],
+) -> list[Outcome]:
+    """Repack stored logos without discovery or changes to their provenance."""
+    from sqlalchemy import select, update
+
+    from core.models import Company, Opportunity
+    from pipeline import revalidate
+
+    started = time.monotonic()
+    selected = select_companies(session, args, {})
+    session.rollback()
+    outcomes = []
+    changed = set()
+    for company_id, _count in selected:
+        if time.monotonic() - started >= args.time_budget_min * 60:
+            print("Time budget reached")
+            break
+        company = session.get(Company, company_id, populate_existing=True)
+        if (
+            company is None
+            or company.logo_status not in ("found", "manual")
+            or not company.logo_url
+        ):
+            session.rollback()
+            continue
+        slug, old_url, status = company.slug, company.logo_url, company.logo_status
+        old_evidence = company.logo_evidence
+        evidence = dict(old_evidence or {})
+        result = Outcome(status, company.logo_source, company.domain, evidence)
+        session.rollback()  # no transaction or row lock during fetch or upload
+        try:
+            fetched = fetcher.get(old_url) if http_url(old_url) else None
+            logo = validate_and_normalize(fetched) if fetched is not None else None
+            if logo is None:
+                result.error = True
+            elif logo.png_bytes != fetched.content:
+                result.logo = logo
+                if not args.dry_run:
+                    new_url = uploader(slug, logo)
+                    # A concurrent override or worker decision wins. Never
+                    # overwrite its URL, status or evidence with our snapshot.
+                    saved = session.execute(
+                        update(Company)
+                        .where(
+                            Company.id == company_id,
+                            Company.logo_url == old_url,
+                            Company.logo_status == status,
+                            (
+                                Company.logo_evidence == old_evidence
+                                if old_evidence is not None
+                                else Company.logo_evidence.is_(None)
+                            ),
+                        )
+                        .values(logo_url=new_url, logo_evidence={**evidence, "sha256": logo.sha256})
+                        .execution_options(synchronize_session=False)
+                    )
+                    session.commit()
+                    if saved.rowcount:
+                        changed.add(company_id)
+                print(f"{'Would re-normalize' if args.dry_run else 'Re-normalized'} {slug}")
+        except Exception as exc:
+            session.rollback()
+            result.error = True
+            print(f"Re-normalization failed for {slug} ({type(exc).__name__})")
+        outcomes.append(result)
+    if changed:
+        slugs = session.scalars(
+            select(Opportunity.slug).where(Opportunity.company_id.in_(changed), *active_filters())
+        ).all()
+        session.rollback()
+        revalidate.notify_changed(slugs)
+    print_summary(outcomes, started)
+    session.rollback()
+    return outcomes
 
 
 def report_row(company: dict, result: Outcome) -> dict:
@@ -790,11 +884,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--limit", type=int, default=1500)
     parser.add_argument("--time-budget-min", type=float, default=45)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--renormalize", action="store_true")
     parser.add_argument("--recheck-days", type=int, default=30)
     parser.add_argument("--from-api-json", type=Path)
     parser.add_argument("--report", type=Path)
     parser.add_argument("--overrides", type=Path, default=DEFAULT_OVERRIDES)
     args = parser.parse_args(argv)
+    if getattr(args, "renormalize", False) and args.from_api_json:
+        parser.error("--renormalize is only supported in DB mode")
     if args.from_api_json and not args.report:
         parser.error("--report is required with --from-api-json")
     if args.limit < 0 or args.time_budget_min <= 0 or args.recheck_days < 0:
@@ -813,7 +910,7 @@ def main(argv: list[str] | None = None) -> int:
         missing = [name.upper() for name in STORAGE_FIELDS if not getattr(settings, name).strip()]
         print(f"Logo storage is not configured. Missing settings {', '.join(missing)}")
         return 2
-    overrides = load_overrides(args.overrides)
+    overrides = {} if getattr(args, "renormalize", False) else load_overrides(args.overrides)
     # Keep these imports below the offline return and the storage preflight.
     from sqlalchemy.orm import Session
 

@@ -20,6 +20,10 @@ name: Logos
         description: "Compute decisions without saving or uploading"
         default: false
         type: boolean
+      renormalize:
+        description: "Re-normalize already stored logos"
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -59,9 +63,13 @@ jobs:
           LOGO_LIMIT: ${{ inputs.limit || '1500' }}
           LOGO_TIME_BUDGET_MIN: ${{ inputs.time_budget_min || '45' }}
           LOGO_DRY_RUN: ${{ inputs.dry_run == true && 'true' || 'false' }}
+          LOGO_RENORMALIZE: ${{ inputs.renormalize == true && 'true' || 'false' }}
         run: |
           args=(--limit "$LOGO_LIMIT" --time-budget-min "$LOGO_TIME_BUDGET_MIN")
           if [ "$LOGO_DRY_RUN" = "true" ]; then
             args+=(--dry-run)
+          fi
+          if [ "$LOGO_RENORMALIZE" = "true" ]; then
+            args+=(--renormalize)
           fi
           uv run python -m scripts.logo_worker "${args[@]}"
