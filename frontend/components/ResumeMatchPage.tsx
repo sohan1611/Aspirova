@@ -66,13 +66,22 @@ import {
   uploadResume,
 } from "@/lib/api";
 import { computeAtsScore, type AtsResult } from "@/lib/atsScore";
-import { formatDate } from "@/lib/date";
 import { useFieldProfile } from "@/lib/fieldProfile";
 import { extractPdfText, PdfTextExtractionError } from "@/lib/pdfText";
 import { storeSkillNames } from "@/lib/personalizationSkills";
 import { extractSkills } from "@/lib/resumeSkills";
+import {
+  formatSavedResumeUploadedAt,
+  getSkillKey,
+  MAX_PROFILE_SKILLS,
+  mergeSkills,
+  openResumePdf,
+  removeResumePdf,
+  uploadResumePdf,
+  validateResumePdf,
+  type ProfileSkill,
+} from "@/lib/savedResume";
 import { catalogSkills } from "@/lib/skillsCatalog";
-import { createClient } from "@/lib/supabase/client";
 import { expandToSearchTerms, getDivision, getStream, interestsFor, type FieldProfile } from "@/lib/taxonomy";
 import type { AccountMe, MatchItem, ResumeMeta } from "@/lib/types";
 import { useSession } from "@/lib/useSession";
@@ -80,8 +89,6 @@ import { cn } from "@/lib/utils";
 
 // Embeddings are not generated while AI is deferred.
 const RESUME_MATCHES_ENABLED = false;
-
-type ProfileSkill = NonNullable<AccountMe["skills"]>[number];
 
 type ExposureValues = {
   experience: string;
@@ -92,55 +99,7 @@ const EMPTY_EXPOSURE: ExposureValues = {
   experience: "",
   notes: "",
 };
-const MAX_PROFILE_SKILLS = 100;
-const MAX_RESUME_PDF_BYTES = 5 * 1024 * 1024;
-const RESUME_BUCKET = "resumes";
 const RESUME_PDF_INPUT_ID = "resume-pdf";
-const RESUME_STORAGE_FILENAME = "resume.pdf";
-
-function getStoredResumePath(userId: string): string {
-  return `${userId}/${RESUME_STORAGE_FILENAME}`;
-}
-
-function getSkillKey(name: string): string {
-  return name.trim().toLowerCase();
-}
-
-function mergeSkills(
-  ...groups: Array<readonly ProfileSkill[] | null | undefined>
-): ProfileSkill[] {
-  const merged: ProfileSkill[] = [];
-  const indexByName = new Map<string, number>();
-
-  for (const group of groups) {
-    if (!group) continue;
-
-    for (const skill of group) {
-      const name = skill.name.trim();
-      const key = getSkillKey(name);
-      if (!key) continue;
-
-      const source = skill.source === "manual" ? "manual" : "resume";
-      const existingIndex = indexByName.get(key);
-
-      if (existingIndex !== undefined) {
-        if (source === "manual" && merged[existingIndex].source !== "manual") {
-          merged[existingIndex] = { name, source };
-        }
-        continue;
-      }
-
-      if (merged.length >= MAX_PROFILE_SKILLS) {
-        continue;
-      }
-
-      indexByName.set(key, merged.length);
-      merged.push({ name, source });
-    }
-  }
-
-  return merged;
-}
 
 function areSkillsEqual(left: readonly ProfileSkill[], right: readonly ProfileSkill[]): boolean {
   return (
@@ -174,11 +133,6 @@ function areExposuresEqual(left: ExposureValues, right: ExposureValues): boolean
   return (
     savedLeft.experience === savedRight.experience && savedLeft.notes === savedRight.notes
   );
-}
-
-function formatSavedResumeUploadedAt(uploadedAt: string): string {
-  const formattedDate = formatDate(uploadedAt);
-  return formattedDate ? `Uploaded ${formattedDate}` : "Upload date unavailable";
 }
 
 function getAtsStatusLabel(status: "pass" | "partial" | "fail"): string {
@@ -374,24 +328,18 @@ function SignedInResumeWorkspace({
     event.target.value = "";
     if (!file || readingPdf || removingResume || savingResumeDetails) return;
 
-    try {
-      if (await file.slice(0, 5).text() !== "%PDF-") {
-        toast.error("Choose a PDF resume to continue.");
-        return;
-      }
-    } catch {
-      toast.error("Choose a PDF resume to continue.");
+    const validationError = await validateResumePdf(file);
+    if (validationError === "Choose a PDF resume to continue.") {
+      toast.error(validationError);
       return;
     }
 
+    // Preserve the extraction reset after the PDF signature check, even for an
+    // oversized file or a filename that is too long.
     setShortPdfExtraction(false);
     setHasPdfExtraction(false);
-    if (file.size > MAX_RESUME_PDF_BYTES) {
-      toast.error("Resume PDFs must be 5 MB or smaller.");
-      return;
-    }
-    if (file.name.length > 255) {
-      toast.error("Use a shorter PDF filename before uploading.");
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
 
@@ -404,23 +352,13 @@ function SignedInResumeWorkspace({
       const suggestedSkills = getSuggestedResumeSkills(extractedText);
       const nextSkills = mergeSkills(skills, suggestedSkills);
       const nextAtsResult = computeAtsScore(extractedText, profileTerms);
-      const resumePath = getStoredResumePath(userId);
 
       setResumeText(extractedText);
       setShortPdfExtraction(extractedText.trim().length < 50);
       setHasPdfExtraction(true);
       setSkills(nextSkills);
 
-      const { error: uploadError } = await createClient()
-        .storage.from(RESUME_BUCKET)
-        .upload(resumePath, file, {
-          upsert: true,
-          contentType: "application/pdf",
-        });
-
-      if (uploadError) {
-        throw uploadError;
-      }
+      const resumePath = await uploadResumePdf(userId, file);
       uploaded = true;
 
       const resumeMeta: ResumeMeta = {
@@ -444,8 +382,8 @@ function SignedInResumeWorkspace({
         let removed = false;
         if (!savedResume) {
           try {
-            const { error: removeError } = await createClient().storage.from(RESUME_BUCKET).remove([uploadedMeta.path]);
-            removed = !removeError;
+            await removeResumePdf(uploadedMeta.path);
+            removed = true;
           } catch {
             // Keep a retry path if cleanup could not be confirmed.
           }
@@ -550,15 +488,7 @@ function SignedInResumeWorkspace({
 
     setOpeningResume(true);
     try {
-      const { data, error } = await createClient()
-        .storage.from(RESUME_BUCKET)
-        .createSignedUrl(resumeToView.path, 60);
-
-      if (error || !data?.signedUrl) {
-        throw error ?? new Error("Missing signed URL");
-      }
-
-      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+      await openResumePdf(resumeToView.path);
     } catch {
       toast.error("We couldn't open your saved resume. Please try again.");
     } finally {
@@ -573,11 +503,7 @@ function SignedInResumeWorkspace({
     setRemovingResume(true);
     let fileRemoved = false;
     try {
-      const { error } = await createClient()
-        .storage.from(RESUME_BUCKET)
-        .remove([resumeToRemove.path]);
-
-      if (error) throw error;
+      await removeResumePdf(resumeToRemove.path);
       fileRemoved = true;
       setPendingResumeSave(null);
 
