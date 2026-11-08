@@ -433,9 +433,10 @@ def test_ats_prefetch_is_bounded_and_isolates_failed_boards(monkeypatch) -> None
 
     prefetched = runner._prefetch_ats_boards(jobs)
 
-    assert set(prefetched) == {
-        f"company-{board_token}" for board_token in board_tokens if board_token != "bad-board"
-    }
+    assert set(prefetched) == {f"company-{board_token}" for board_token in board_tokens}
+    failed_board = prefetched["company-bad-board"]
+    assert failed_board.health == "degraded"
+    assert failed_board.coverage["board_outcome"]["board_state"] == "error"
     assert 1 < peak_fetches <= runner.ATS_FETCH_MAX_WORKERS
 
 
@@ -664,6 +665,9 @@ def test_run_tier_ingests_other_boards_when_one_prefetch_fails(monkeypatch) -> N
         prefetched_health,
         **_kwargs,
     ):
+        if prefetched_health == "degraded":
+            assert not prefetched
+            return {}
         assert prefetched_health == "ok"
         ingested_ids.append(prefetched[0].external_id)
         return {}
@@ -678,7 +682,9 @@ def test_run_tier_ingests_other_boards_when_one_prefetch_fails(monkeypatch) -> N
     runner.run_tier(1, group="ats")
 
     assert ingested_ids == ["good-one", "good-two"]
-    assert len(session_factory.sessions) == 3  # gather + one session per successful board
+    # gather + one session per board: the failed prefetch still records its
+    # degraded/error run so dead-board evidence is never silently dropped.
+    assert len(session_factory.sessions) == 4
 
 
 class _AggregatorAdapter:

@@ -8,6 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
 from core.db import make_engine, verify_connection_guards
+from pipeline.retirement import find_dead_boards
 
 STALE_AFTER_HOURS = 48.0
 
@@ -104,6 +105,7 @@ def _rows_to_staleness(now: datetime, conn: Connection) -> list[SourceStaleness]
 def print_staleness_summary(now: datetime | None = None, conn: Connection | None = None) -> int:
     checked_at = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     sources = _load_staleness(checked_at, conn)
+    print_dead_board_summary(checked_at, conn)
     stale_sources = [source for source in sources if source.stale]
 
     print(
@@ -133,6 +135,28 @@ def print_staleness_summary(now: datetime | None = None, conn: Connection | None
         print("CRAWL STALENESS ALARM: all enabled sources are within threshold", flush=True)
 
     return len(stale_sources)
+
+
+def print_dead_board_summary(now: datetime, conn: Connection | None = None) -> None:
+    """Board death is a warning only; it never contributes to the stale alarm."""
+    try:
+        if conn is not None:
+            boards = find_dead_boards(conn, now=now)
+        else:
+            engine = make_engine()
+            try:
+                with engine.connect() as owned:
+                    boards = find_dead_boards(owned, now=now)
+            finally:
+                engine.dispose()
+        detail = "; ".join(
+            f"token={board.token} ats={board.ats} state={board.state} "
+            f"since={_format_timestamp(board.since)}"
+            for board in boards
+        )
+        print(f"DEAD BOARDS: {detail or 'none'}", flush=True)
+    except Exception as exc:
+        print(f"DEAD BOARDS: warning: report unavailable ({type(exc).__name__})", flush=True)
 
 
 def main() -> None:

@@ -50,6 +50,14 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
+      - name: Relocate audited ATS boards
+        continue-on-error: true
+        timeout-minutes: 10
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONUNBUFFERED: "1"
+        run: uv run python -m scripts.relocate_boards --apply
+
       - name: Run ATS crawl (tier 1)
         id: ats_crawl
         # Hard cap only catches hangs. The runner's 7200s soft ATS budget should

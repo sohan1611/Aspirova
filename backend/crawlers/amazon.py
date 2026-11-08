@@ -27,7 +27,7 @@ _BASE_URL = "https://www.amazon.jobs"
 _SEARCH_URL = f"{_BASE_URL}/en/search.json"
 _SEARCH_TERMS = ("intern", "new grad", "graduate")
 _PAGE_SIZE = 100
-_PER_QUERY_CAP = 300
+_PER_QUERY_CAP = 1000
 _REQUEST_DELAY_SECONDS = 0.5
 _REMOTE_PATTERN = re.compile(r"\b(remote|virtual)\b(?!\s+(?:sensing|sensors?)\b)", re.IGNORECASE)
 

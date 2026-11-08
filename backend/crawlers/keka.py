@@ -52,12 +52,15 @@ class KekaAdapter:
         return f"https://{self.board_token}.keka.com/careers/jobdetails/{job_id}"
 
     def fetch(self) -> list[RawListing]:
+        self.last_board_state = "error"
+        self.last_http_status: int | None = None
         try:
             careers_response = self._client.get(self._careers_url)
         except httpx.RequestError:
             self._last_health = "degraded"
             return []
 
+        self.last_http_status = careers_response.status_code
         if careers_response.status_code == 404:
             self._last_health = "broken"
             return []
@@ -75,13 +78,16 @@ class KekaAdapter:
             self._last_health = "broken"
             return []
 
+        self.last_http_status = None
         try:
             jobs_response = self._client.get(self._active_jobs_url(uuid_match.group(0)))
         except httpx.RequestError:
             self._last_health = "degraded"
             return []
 
-        if jobs_response.status_code == 404:
+        self.last_http_status = jobs_response.status_code
+        if jobs_response.status_code in {404, 410}:
+            self.last_board_state = "not_found"
             self._last_health = "broken"
             return []
         if jobs_response.status_code != 200:
@@ -98,6 +104,8 @@ class KekaAdapter:
         if not isinstance(payload, list):
             self._last_health = "broken"
             return []
+
+        self.last_board_state = "ok" if payload else "empty"
 
         def build_job(job: Any) -> RawListing:
             if not isinstance(job, dict):
@@ -118,6 +126,8 @@ class KekaAdapter:
 
         listings = build_listings(payload, build_job, source_slug=self.source_slug)
         self._last_health = "ok"
+        if len(listings) != len(payload):
+            self.last_board_state = "error"
         return listings
 
     def parse(self, raw: RawListing) -> NormalizedListing:

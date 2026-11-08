@@ -38,6 +38,8 @@ class LeverAdapter:
         self._last_health: Literal["ok", "degraded", "broken"] = "ok"
 
     def fetch(self) -> list[RawListing]:
+        self.last_board_state = "error"
+        self.last_http_status: int | None = None
         url = f"https://api.lever.co/v0/postings/{self.board_token}?mode=json"
         try:
             response = self._client.get(url)
@@ -45,7 +47,9 @@ class LeverAdapter:
             self._last_health = "degraded"
             return []
 
-        if response.status_code == 404:
+        self.last_http_status = response.status_code
+        if response.status_code in {404, 410}:
+            self.last_board_state = "not_found"
             self._last_health = "broken"
             return []
         if response.status_code != 200:
@@ -63,9 +67,10 @@ class LeverAdapter:
             self._last_health = "broken"
             return []
 
+        self.last_board_state = "ok" if postings else "empty"
         self._last_health = "ok"
 
-        return build_listings(
+        listings = build_listings(
             postings,
             lambda posting: RawListing(
                 source_slug=self.source_slug,
@@ -76,6 +81,9 @@ class LeverAdapter:
             ),
             source_slug=self.source_slug,
         )
+        if len(listings) != len(postings):
+            self.last_board_state = "error"
+        return listings
 
     def parse(self, raw: RawListing) -> NormalizedListing:
         posting = raw.raw_payload

@@ -16,6 +16,7 @@ from typing import Callable, Iterable
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from core.adapters import RawListing
 from core.db import make_engine
 from core.models import Company
 from crawlers.runner import ATS_ADAPTERS
@@ -42,6 +43,7 @@ class Verification:
     health: str | None
     listings_count: int | None
     reason: str | None = None
+    listings: tuple[RawListing, ...] = field(default=(), repr=False, compare=False)
 
 
 @dataclass(frozen=True)
@@ -157,6 +159,7 @@ def verify_candidate(
         accepted=True,
         health=health,
         listings_count=len(listings),
+        listings=tuple(listings),
     )
 
 

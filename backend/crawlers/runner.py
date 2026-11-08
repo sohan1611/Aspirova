@@ -38,6 +38,7 @@ from crawlers import watchdog
 from crawlers.amazon import AmazonAdapter
 from crawlers.arbeitnow import ArbeitnowAdapter
 from crawlers.ashby import AshbyAdapter
+from crawlers.board_state import board_outcome
 from crawlers.devfolio import DevfolioAdapter
 from crawlers.devpost import DevpostAdapter
 from crawlers.greenhouse import GreenhouseAdapter
@@ -693,28 +694,38 @@ def _fetch_company_board(
     if _is_stop_requested(should_stop):
         return None
 
-    listings, health, empty_after_retry = _fetch_with_zero_retry(
-        adapter,
-        activity=activity,
-        retry_empty_once=job.previously_had_listings,
-    )
+    try:
+        listings, health, empty_after_retry = _fetch_with_zero_retry(
+            adapter,
+            activity=activity,
+            retry_empty_once=job.previously_had_listings,
+        )
+    except Exception as exc:
+        # Persist an error run through the normal ingest path, rather than
+        # dropping the run and accidentally preserving a dead-board streak.
+        print(f"ERROR: {activity} fetch failed: {type(exc).__name__}: {exc}", flush=True)
+        adapter.last_board_state = "error"
+        listings, health, empty_after_retry = [], "degraded", False
     watchdog.beat(f"{activity}:fetched")
     return _PrefetchedBoard(
         listings=listings,
         health=health,
-        coverage=_coverage_from_adapter(
-            adapter,
-            getattr(adapter, "source_slug", job.adapter_key),
-            len(listings),
-            health=health,
-            board_name=job.board_token,
-            force_incomplete=empty_after_retry,
-            incomplete_note=(
-                "previously populated board returned zero listings after one retry"
-                if empty_after_retry
-                else None
+        coverage={
+            **_coverage_from_adapter(
+                adapter,
+                getattr(adapter, "source_slug", job.adapter_key),
+                len(listings),
+                health=health,
+                board_name=job.board_token,
+                force_incomplete=empty_after_retry,
+                incomplete_note=(
+                    "previously populated board returned zero listings after one retry"
+                    if empty_after_retry
+                    else None
+                ),
             ),
-        ),
+            "board_outcome": board_outcome(adapter),
+        },
     )
 
 
@@ -833,6 +844,7 @@ def crawl_company_board(
     }
     run_changed_slugs = changed_slugs if changed_slugs is not None else set()
     committed_changed_slugs: set[str] = set()
+    outcome = {"board_state": "error", "http_status": None}
 
     try:
         adapter = adapter_class(board_token=board_token, company_name=company_name)
@@ -854,6 +866,11 @@ def crawl_company_board(
         else:
             raw_listings = prefetched
             health = prefetched_health if prefetched_health is not None else adapter.health()
+        outcome = (
+            prefetched_coverage.get("board_outcome", outcome)
+            if prefetched is not None and prefetched_coverage
+            else board_outcome(adapter)
+        )
         result["listings_found"] = len(raw_listings)
         board_external_ids = [raw.external_id for raw in raw_listings]
 
@@ -897,7 +914,18 @@ def crawl_company_board(
             # the expiry sweep below would retire live listings.
             session.execute(
                 update(models.Opportunity)
-                .where(models.Opportunity.company_id == company.id)
+                .where(
+                    models.Opportunity.company_id == company.id,
+                    # Only listings actually returned by this board were seen.
+                    # Touching the whole company would keep migrated-board and
+                    # aggregator rows fresh forever on unchanged crawls.
+                    models.Opportunity.id.in_(
+                        select(models.RawListing.opportunity_id).where(
+                            models.RawListing.source_id == source_id,
+                            models.RawListing.external_id.in_(board_external_ids),
+                        )
+                    ),
+                )
                 .values(last_seen_at=func.now())
             )
             state.last_crawled_at = datetime.now(timezone.utc)
@@ -918,6 +946,7 @@ def crawl_company_board(
                             "company_slug": company_slug,
                             "board_token": board_token,
                             "skipped_unchanged": True,
+                            **outcome,
                         },
                         result["coverage"],
                     ),
@@ -1085,6 +1114,7 @@ def crawl_company_board(
             pass
         result["status"] = "failed"
         result["errors"] += 1
+        outcome = {**outcome, "board_state": "error"}
         # A bare `except Exception:` here used to discard the exception
         # entirely, so a source could report "failed, 1 error" with no cause
         # anywhere - not in the workflow log, not in crawl_runs. Crawl
@@ -1111,7 +1141,7 @@ def crawl_company_board(
             new_opps=result["new_opps"],
             errors=result["errors"],
             log=_log_with_coverage(
-                {"company_slug": company_slug, "board_token": board_token},
+                {"company_slug": company_slug, "board_token": board_token, **outcome},
                 result["coverage"],
                 result.get("failure_reason"),
             ),

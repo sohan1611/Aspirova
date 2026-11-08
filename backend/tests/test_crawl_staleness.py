@@ -28,8 +28,35 @@ from scripts.report_crawl_staleness import (
     _load_staleness,
     print_staleness_summary,
 )
+from pipeline.retirement import DeadBoard
 
 NOW = datetime(2026, 8, 30, 12, 0, tzinfo=timezone.utc)
+
+
+def test_dead_board_warning_does_not_contribute_to_alarm(monkeypatch, capsys):
+    from scripts import report_crawl_staleness as report
+
+    monkeypatch.setattr(report, "_load_staleness", lambda now, conn: [])
+    monkeypatch.setattr(
+        report,
+        "find_dead_boards",
+        lambda conn, now: [DeadBoard(1, "greenhouse", "audit", "empty", NOW)],
+    )
+    assert report.print_staleness_summary(NOW, conn=object()) == 0
+    output = capsys.readouterr().out
+    assert "DEAD BOARDS: token=audit ats=greenhouse state=empty since=" in output
+
+
+def test_dead_board_report_error_is_only_a_warning(monkeypatch, capsys):
+    from scripts import report_crawl_staleness as report
+
+    def fail(conn, now):
+        raise RuntimeError("fixture failure")
+
+    monkeypatch.setattr(report, "_load_staleness", lambda now, conn: [])
+    monkeypatch.setattr(report, "find_dead_boards", fail)
+    assert report.print_staleness_summary(NOW, conn=object()) == 0
+    assert "DEAD BOARDS: warning:" in capsys.readouterr().out
 
 
 @pytest.fixture

@@ -2,8 +2,8 @@
 
 This covers the small slice of listings that cannot be refreshed by deadline
 logic and have not been confirmed by a real crawl in the last four days. Only
-404/410 responses mark a listing closed; every blocked or transient response is
-left untouched.
+404/410 responses and confirmed Greenhouse soft-404s mark a listing closed.
+Every completed check rotates out of the queue for three days.
 """
 
 from collections.abc import Callable, Iterable
@@ -12,13 +12,15 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from time import monotonic
 from typing import Literal
+from urllib.parse import parse_qs, urlsplit
 
 import httpx
-from sqlalchemy import func, select, text, update
+from sqlalchemy import DateTime, cast, func, or_, select, text, update
 from sqlalchemy.orm import Session
 
 from core import models
 from crawlers.common import USER_AGENT
+from pipeline.retirement import ROLLING_WINDOW_SOURCES
 
 DEFAULT_LIMIT = 1500
 DEFAULT_MAX_SECONDS = 600
@@ -73,6 +75,19 @@ def fetch_url_liveness_status(url: str, client: httpx.Client) -> LivenessStatus:
         response = client.get(url)
     except httpx.RequestError:
         return "inconclusive"
+    final_url = urlsplit(str(response.url))
+    if (
+        200 <= response.status_code < 400
+        and final_url.hostname
+        in {
+            "boards.greenhouse.io",
+            "job-boards.greenhouse.io",
+            "boards.eu.greenhouse.io",
+            "job-boards.eu.greenhouse.io",
+        }
+        and "true" in parse_qs(final_url.query).get("error", [])
+    ):
+        return "closed"
     return classify_liveness_status_code(response.status_code)
 
 
@@ -81,6 +96,7 @@ def _fetch_liveness_status(apply_url: str, client: httpx.Client) -> LivenessStat
 
 
 def _select_candidates(session: Session, *, limit: int) -> list[LivenessCandidate]:
+    checked_at = models.Opportunity.meta["liveness_checked_at"].astext
     rows = session.execute(
         select(models.Opportunity.id, models.Opportunity.apply_url)
         .where(
@@ -88,8 +104,20 @@ def _select_candidates(session: Session, *, limit: int) -> list[LivenessCandidat
             models.Opportunity.deadline.is_(None),
             models.Opportunity.closed_at.is_(None),
             models.Opportunity.last_seen_at < func.now() - text("interval '4 days'"),
+            or_(
+                models.Opportunity.primary_source.is_(None),
+                models.Opportunity.primary_source.not_in(ROLLING_WINDOW_SOURCES),
+            ),
+            or_(
+                checked_at.is_(None),
+                cast(checked_at, DateTime(timezone=True)) < func.now() - text("interval '3 days'"),
+            ),
         )
-        .order_by(models.Opportunity.last_seen_at.asc(), models.Opportunity.id.asc())
+        .order_by(
+            checked_at.asc().nulls_first(),
+            models.Opportunity.last_seen_at.asc(),
+            models.Opportunity.id.asc(),
+        )
         .limit(limit)
     ).all()
     return [LivenessCandidate(id=row.id, apply_url=row.apply_url) for row in rows]
@@ -148,6 +176,26 @@ def _mark_closed(session: Session, *, opportunity_ids: list[int], detected_at: d
     return int(result.rowcount or 0)
 
 
+def _stamp_checked(session: Session, opportunity_ids: list[int], detected_at: datetime) -> None:
+    # JSONB merge preserves summary_source and other metadata. Neither meta nor
+    # closed_at changes text columns guarded by migration e5a9c2f1b6d3, so the
+    # search trigger returns without recomputing search_tsv.
+    session.execute(
+        update(models.Opportunity)
+        .where(models.Opportunity.id.in_(opportunity_ids))
+        .values(
+            meta=func.coalesce(
+                func.nullif(models.Opportunity.meta, text("'null'::jsonb")), text("'{}'::jsonb")
+            ).op("||")(
+                func.jsonb_build_object(
+                    "liveness_checked_at", detected_at.astimezone(timezone.utc).isoformat()
+                )
+            )
+        )
+        .execution_options(synchronize_session=False)
+    )
+
+
 def check_listing_liveness(
     session: Session,
     *,
@@ -160,7 +208,7 @@ def check_listing_liveness(
     now: datetime | None = None,
     checker: Callable[[str], LivenessStatus] | None = None,
 ) -> LivenessResult:
-    """Check stale undated listings and optionally mark confirmed 404/410s closed."""
+    """Check stale undated listings, rotating checks and closing proven dead URLs."""
     if limit < 1:
         raise ValueError("limit must be at least 1")
     if max_seconds < 1:
@@ -209,12 +257,13 @@ def check_listing_liveness(
                 result.inconclusive += 1
 
         if apply:
+            _stamp_checked(session, [candidate.id for candidate, _ in checks], detected_at)
             result.closed += _mark_closed(
                 session,
                 opportunity_ids=closed_ids,
                 detected_at=detected_at,
             )
-            if closed_ids and commit_each_batch:
+            if checks and commit_each_batch:
                 session.commit()
         else:
             result.closed += len(closed_ids)

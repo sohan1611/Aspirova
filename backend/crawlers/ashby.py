@@ -38,6 +38,8 @@ class AshbyAdapter:
         self._last_health: Literal["ok", "degraded", "broken"] = "ok"
 
     def fetch(self) -> list[RawListing]:
+        self.last_board_state = "error"
+        self.last_http_status: int | None = None
         url = f"https://api.ashbyhq.com/posting-api/job-board/{self.board_token}"
         try:
             response = self._client.get(url)
@@ -45,7 +47,9 @@ class AshbyAdapter:
             self._last_health = "degraded"
             return []
 
-        if response.status_code == 404:
+        self.last_http_status = response.status_code
+        if response.status_code in {404, 410}:
+            self.last_board_state = "not_found"
             self._last_health = "broken"
             return []
         if response.status_code != 200:
@@ -68,9 +72,10 @@ class AshbyAdapter:
             return []
 
         jobs = payload["jobs"]
+        self.last_board_state = "ok" if jobs else "empty"
         self._last_health = "ok"
 
-        return build_listings(
+        listings = build_listings(
             jobs,
             lambda job: RawListing(
                 source_slug=self.source_slug,
@@ -81,6 +86,9 @@ class AshbyAdapter:
             ),
             source_slug=self.source_slug,
         )
+        if len(listings) != len(jobs):
+            self.last_board_state = "error"
+        return listings
 
     def parse(self, raw: RawListing) -> NormalizedListing:
         job = raw.raw_payload
