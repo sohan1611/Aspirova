@@ -12,6 +12,7 @@ from core import models
 from core.config import get_settings
 from core.email_components import greeting, grouped_cards
 from core.email_templates import email_layout, text_footer
+from core.unsubscribe import list_unsubscribe_headers, unsubscribe_url
 from pipeline.notifications import send_email
 
 logger = logging.getLogger(__name__)
@@ -81,6 +82,7 @@ def _saved_search_url(params: dict) -> str:
 def _render_saved_search_alert(
     saved_search: models.SavedSearch,
     opportunities: list[models.Opportunity],
+    unsub_url: str | None = None,
     *,
     display_name: str | None = None,
     now: datetime | None = None,
@@ -97,6 +99,7 @@ def _render_saved_search_alert(
     html = email_layout(
         title="New matches for your saved search",
         kind_label="Saved search",
+        unsubscribe_url=unsub_url,
         greeting=greeting(display_name),
         summary=summary,
         preheader=summary,
@@ -104,7 +107,7 @@ def _render_saved_search_alert(
         cta_label="See all matches",
         cta_url=_saved_search_url(params),
     )
-    return html, "\n\n".join([greeting(display_name), summary, cards_text, text_footer()])
+    return html, "\n\n".join([greeting(display_name), summary, cards_text, text_footer(unsub_url)])
 
 
 def send_saved_search_alerts(
@@ -157,14 +160,25 @@ def send_saved_search_alerts(
                 result["skipped_empty"] += 1
                 continue
 
+            preference_key = f"saved_search:{saved_search.id}"
             html, text = _render_saved_search_alert(
-                saved_search, opportunities, display_name=user.display_name, now=now
+                saved_search,
+                opportunities,
+                unsubscribe_url(user.id, preference_key),
+                display_name=user.display_name,
+                now=now,
             )
             subject = (
                 f"{len(opportunities)} new match"
                 f"{'es' if len(opportunities) > 1 else ''} for your saved search"
             )
-            sent = send_email(user.email, subject, html, text)
+            sent = send_email(
+                user.email,
+                subject,
+                html,
+                text,
+                headers=list_unsubscribe_headers(user.id, preference_key),
+            )
             saved_search.last_alerted_at = now
             session.add(
                 models.Notification(

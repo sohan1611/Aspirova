@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 import pipeline.notifications as notifications_module
 from core import models
+from core.unsubscribe import unsubscribe_url, verify_token
 from pipeline.notifications import (
     send_closing_soon_alerts,
     send_company_alerts,
@@ -48,6 +49,9 @@ def sent_emails(monkeypatch):
         calls.append({"to": to, "subject": subject, "html": html, "text": text, "headers": headers})
         return True
 
+    monkeypatch.setattr(
+        "core.unsubscribe._signing_key", lambda: b"pinned-test-key-do-not-use-in-prod"
+    )
     monkeypatch.setattr(notifications_module, "send_email", _fake_send)
     return calls
 
@@ -1155,6 +1159,15 @@ def test_closing_soon_alert_includes_only_bookmarked_opportunities_in_window(
     assert emails_to_user[0]["subject"] == "'Test Opportunity' closes in 2 days"
     assert closing_soon.deadline.strftime("%d %b %Y") in emails_to_user[0]["html"]
     assert closing_soon.apply_url in emails_to_user[0]["html"]
+    email = emails_to_user[0]
+    url = unsubscribe_url(user.id, "closing_soon")
+    assert f'href="{url}"' in email["html"] and ">Unsubscribe</a>" in email["html"]
+    assert url in email["text"]
+    assert email["headers"] == {
+        "List-Unsubscribe": f"<{url}>",
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    }
+    assert verify_token(url.split("token=", 1)[1]) == (str(user.id), "closing_soon")
     assert result["users_notified"] >= 1
     assert result["opportunities"] >= 1
 
@@ -1259,7 +1272,9 @@ def test_closing_soon_alert_respects_notification_preference(
 def test_closing_soon_failed_send_records_failed_status(
     db_session, monkeypatch, source_and_company
 ) -> None:
-    monkeypatch.setattr(notifications_module, "send_email", lambda to, subject, html, text: False)
+    monkeypatch.setattr(
+        notifications_module, "send_email", lambda to, subject, html, text, headers=None: False
+    )
     _source, company = source_and_company
     now = datetime(2026, 7, 11, 12, tzinfo=timezone.utc)
     user = _make_user(db_session)

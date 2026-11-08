@@ -202,12 +202,34 @@ def _apply_unsubscribe(token: str, db: Session) -> _UnsubscribeOutcome:
         return "invalid"
 
     user_id, preference_key = verified
+    saved_search_id = None
+    if preference_key.startswith("saved_search:"):
+        try:
+            saved_search_id = int(preference_key.partition(":")[2])
+        except ValueError:
+            return "invalid"
+        # Generated IDs are positive Postgres bigint values. Reject overflow before SQL.
+        if not 0 < saved_search_id < 2**63:
+            return "invalid"
+
     try:
         user = db.get(models.User, uuid.UUID(user_id))
     except (ValueError, AttributeError, TypeError):
         return "invalid"
     if user is None:
         return "no_user"
+
+    if saved_search_id is not None:
+        saved_search = db.scalar(
+            select(models.SavedSearch).where(
+                models.SavedSearch.id == saved_search_id,
+                models.SavedSearch.user_id == user.id,
+            )
+        )
+        if saved_search is not None:
+            saved_search.alerts_enabled = False
+            db.commit()
+        return "unsubscribed"
 
     # Merge rather than replace: this turns off exactly the one list the reader
     # clicked from, and leaves every other preference untouched.
@@ -217,10 +239,21 @@ def _apply_unsubscribe(token: str, db: Session) -> _UnsubscribeOutcome:
 
 
 def _unsubscribe_detail(preference_key: str) -> str:
+    if preference_key.startswith("saved_search:"):
+        return (
+            "You won't get alerts for this saved search any more. "
+            "You can turn them back on under Saved searches in your account."
+        )
+    if preference_key == "closing_soon":
+        return (
+            "You won't get deadline reminders for your saved opportunities any more. "
+            "You can turn them back on in your account settings."
+        )
     list_name = {
         "daily_digest": "the daily digest (opportunities and hackathons)",
         "hackathon_digest": "the hackathon digest",
         "instant_alerts": "alerts for companies you follow",
+        "weekly_report": "the weekly career report",
     }.get(preference_key, "these emails")
     return (
         f"You won't get {list_name} any more. " "You can turn it back on in your account settings."

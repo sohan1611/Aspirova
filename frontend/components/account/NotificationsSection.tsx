@@ -34,7 +34,14 @@ const NOTIFICATIONS = [
     label: "Daily digest",
     description: "A concise daily roundup of new opportunities selected for you.",
   },
+  {
+    key: "closing_soon",
+    label: "Deadline reminders",
+    description: "An email when an opportunity you saved is about to close.",
+  },
 ] as const;
+
+const ALWAYS_AVAILABLE_KEYS = new Set<string>(["instant_alerts", "closing_soon"]);
 
 export default function NotificationsSection({
   account,
@@ -87,9 +94,9 @@ export default function NotificationsSection({
       </CardHeader>
       <CardContent className="divide-y divide-border">
         {NOTIFICATIONS.map((notification) => {
-          // Every plan receives followed-company alerts; instant_alerts only decides their
-          // timing, so a free account must still be able to turn them off.
-          const locked = notification.key !== "instant_alerts"
+          // Every plan receives followed-company alerts and saved-opportunity reminders.
+          // instant_alerts only decides followed-company delivery timing.
+          const locked = !ALWAYS_AVAILABLE_KEYS.has(notification.key)
             && entitlementKnown
             && planFeatures[notification.key] !== true;
           const enabled = !locked && notificationPrefs[notification.key] !== false;

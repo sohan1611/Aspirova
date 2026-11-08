@@ -12,6 +12,7 @@ from api.filters import STALE_AFTER_DAYS
 from core import models
 from core.ai_client import GenerationResult
 from core.config import get_settings
+from core.unsubscribe import unsubscribe_url, verify_token
 from pipeline.weekly_report import send_weekly_reports
 
 
@@ -37,12 +38,17 @@ def blank_anthropic_key(monkeypatch) -> None:
 
 @pytest.fixture
 def sent_emails(monkeypatch):
-    calls: list[dict[str, str]] = []
+    calls: list[dict] = []
 
-    def fake_send(to: str, subject: str, html: str, text: str) -> bool:
-        calls.append({"to": to, "subject": subject, "html": html, "text": text})
+    def fake_send(
+        to: str, subject: str, html: str, text: str, headers: dict[str, str] | None = None
+    ) -> bool:
+        calls.append({"to": to, "subject": subject, "html": html, "text": text, "headers": headers})
         return True
 
+    monkeypatch.setattr(
+        "core.unsubscribe._signing_key", lambda: b"pinned-test-key-do-not-use-in-prod"
+    )
     monkeypatch.setattr(weekly_report_module, "send_email", fake_send)
     return calls
 
@@ -193,7 +199,15 @@ def test_paid_user_gets_templated_precomputed_report_and_free_user_does_not(
     text = paid_deliveries[0]["text"]
     assert ">View &amp; Apply</a>" in paid_deliveries[0]["html"]
     assert ">Weekly report</td>" in paid_deliveries[0]["html"]
-    assert ">Unsubscribe</a>" not in paid_deliveries[0]["html"]
+    email = paid_deliveries[0]
+    url = unsubscribe_url(paid_user.id, "weekly_report")
+    assert f'href="{url}"' in email["html"] and ">Unsubscribe</a>" in email["html"]
+    assert url in email["text"]
+    assert email["headers"] == {
+        "List-Unsubscribe": f"<{url}>",
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    }
+    assert verify_token(url.split("token=", 1)[1]) == (str(paid_user.id), "weekly_report")
     assert "Dream-company matches" in text
     assert "Closing soon" in text
     assert "New hidden opportunities" in text

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 import pipeline.saved_search_alerts as saved_search_alerts_module
 from core import models
+from core.unsubscribe import unsubscribe_url, verify_token
 from pipeline.saved_search_alerts import send_saved_search_alerts
 
 
@@ -31,10 +32,13 @@ def sent_emails(monkeypatch):
 
     calls = []
 
-    def _fake_send(to, subject, html, text):
-        calls.append({"to": to, "subject": subject, "html": html, "text": text})
+    def _fake_send(to, subject, html, text, headers=None):
+        calls.append({"to": to, "subject": subject, "html": html, "text": text, "headers": headers})
         return True
 
+    monkeypatch.setattr(
+        "core.unsubscribe._signing_key", lambda: b"pinned-test-key-do-not-use-in-prod"
+    )
     monkeypatch.setattr(saved_search_alerts_module, "send_email", _fake_send)
     return calls
 
@@ -125,6 +129,16 @@ def test_saved_search_alert_sends_new_match_and_records_notification(
 
     emails_to_user = [email for email in sent_emails if email["to"] == user.email]
     assert len(emails_to_user) == 1
+    email = emails_to_user[0]
+    key = f"saved_search:{saved_search.id}"
+    url = unsubscribe_url(user.id, key)
+    assert f'href="{url}"' in email["html"] and ">Unsubscribe</a>" in email["html"]
+    assert url in email["text"]
+    assert email["headers"] == {
+        "List-Unsubscribe": f"<{url}>",
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    }
+    assert verify_token(url.split("token=", 1)[1]) == (str(user.id), key)
     assert result["searches"] >= 1
     assert result["emailed"] >= 1
 
@@ -186,7 +200,7 @@ def test_saved_search_alert_leaves_last_alerted_at_when_no_new_matches(
 def test_saved_search_alert_records_failed_delivery_and_advances_window(
     db_session, monkeypatch
 ) -> None:
-    monkeypatch.setattr(saved_search_alerts_module, "send_email", lambda *args: False)
+    monkeypatch.setattr(saved_search_alerts_module, "send_email", lambda *args, **kwargs: False)
     now = datetime(2026, 7, 20, 12, tzinfo=timezone.utc)
     user = _make_user(db_session)
     company = _make_company(db_session)
@@ -350,7 +364,7 @@ def test_saved_search_alert_html_escapes_opportunity_title(db_session, sent_emai
     assert "Research &lt;script&gt; &amp; Development" in email["html"]
     assert ">View &amp; Apply</a>" in email["html"]
     assert ">Saved search</td>" in email["html"]
-    assert ">Unsubscribe</a>" not in email["html"]
+    assert ">Unsubscribe</a>" in email["html"]
     assert "Research <script>" not in email["html"]
 
 
