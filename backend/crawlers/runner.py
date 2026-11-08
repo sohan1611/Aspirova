@@ -1312,7 +1312,10 @@ def crawl_aggregator(
             try:
                 normalized = adapter.parse(raw)
                 company = resolve_company(
-                    session, normalized.company_name, normalized.company_domain
+                    session,
+                    normalized.company_name,
+                    normalized.company_domain,
+                    logo_hint_url=normalized.company_logo_url,
                 )
                 if shared_raw_by_external_id is None:
                     shared_raw_by_external_id = load_source_raw_listings(session, source_id)

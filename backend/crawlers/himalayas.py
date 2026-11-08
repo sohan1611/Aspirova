@@ -7,6 +7,7 @@ from typing import Any, Literal
 import httpx
 
 from core.adapters import NormalizedListing, RawListing
+from core.domains import http_url
 from crawlers.common import (
     USER_AGENT,
     build_http_timeout,
@@ -186,6 +187,7 @@ class HimalayasAdapter:
     def parse(self, raw: RawListing) -> NormalizedListing:
         job = raw.raw_payload
         title = extract_text(_job_title(job))
+        company_name = _company_name(job)
         seniority = _job_seniority(job) or None
         categories = _text_values(job.get("categories"))
         locations = _location_values(job)
@@ -200,8 +202,9 @@ class HimalayasAdapter:
             external_id=raw.external_id,
             source_url=source_url,
             title=title,
-            company_name=_company_name(job) or "Himalayas",
+            company_name=company_name or "Himalayas",
             company_domain=_company_domain(job),
+            company_logo_url=http_url(job.get("companyLogo")) if company_name else None,
             location=", ".join(locations) if locations else None,
             is_remote=_remote_value(job),
             category=classify_student_role(title, seniority),

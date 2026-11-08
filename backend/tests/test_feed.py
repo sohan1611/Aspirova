@@ -1,4 +1,5 @@
 import uuid
+from collections import Counter
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -6,7 +7,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from api import middleware
+from api import feed, middleware, trending
 from api.deps import get_db
 from api.filters import ROLE_TERMS, STALE_AFTER_DAYS, role_match_expression
 from api.main import app
@@ -34,6 +35,302 @@ def client(db_session: Session, monkeypatch):
         yield TestClient(app)
     finally:
         app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.fixture
+def logo_feed_rows(db_session: Session, monkeypatch):
+    suffix = uuid.uuid4().hex
+    now = datetime.now(UTC)
+    rows = []
+    names = [
+        "blank",
+        "favicon",
+        "other-first",
+        "other-second",
+        "prestige",
+        "other-third",
+        "forbes",
+        "other-fourth",
+        "both",
+        "independent",
+        "famous-last",
+    ]
+    for index, name in enumerate(names):
+        company = None
+        if name != "independent":
+            company = models.Company(
+                slug=f"logo-feed-company-{name}-{suffix}",
+                name=name,
+                domain=f"{suffix}.example" if name == "favicon" else None,
+                logo_url=(
+                    f"https://example.com/{name}.png" if name not in {"blank", "favicon"} else None
+                ),
+                prestige_rank=(
+                    index if name in {"blank", "prestige", "both", "famous-last"} else None
+                ),
+                global_rank=1 if name in {"favicon", "forbes", "both"} else None,
+            )
+        row = models.Opportunity(
+            slug=f"logo-feed-{name}-{suffix}",
+            title="Software Intern",
+            company=company,
+            category="internship",
+            location=suffix,
+            country="IN",
+            primary_source="greenhouse",
+            apply_url=f"https://example.com/{suffix}/{name}",
+            status="active",
+            first_seen_at=now,
+            last_seen_at=now - timedelta(minutes=index),
+            deadline=now + timedelta(days=index + 1),
+        )
+        db_session.add(row)
+        rows.append(row)
+    db_session.flush()
+    # Keep this endpoint request unfiltered while isolating its candidate set.
+    monkeypatch.setattr(
+        feed,
+        "exclude_stale_opportunities",
+        lambda: models.Opportunity.id.in_([row.id for row in rows]),
+    )
+    return rows
+
+
+@pytest.mark.parametrize(
+    "limit,expected",
+    [
+        (1, [4]),
+        (3, [4, 2, 6]),
+        (5, [4, 2, 6, 3, 8]),
+        (6, [4, 2, 6, 3, 8, 5]),
+        (100, [4, 2, 6, 3, 8, 5, 10, 7]),
+    ],
+)
+def test_feed_logo_preference_excludes_logoless_and_interleaves_famous(
+    client, logo_feed_rows, limit, expected
+):
+    params = {"kind": "roles", "limit": 100}
+    original = client.get("/feed", params=params)
+    preferred = client.get("/feed", params={**params, "prefer_logos": "true", "limit": limit})
+    assert original.status_code == preferred.status_code == 200
+    original_body, preferred_body = original.json(), preferred.json()
+    original_items = original_body["items"]
+    assert [item["slug"] for item in original_items] == [row.slug for row in logo_feed_rows]
+    assert [item["slug"] for item in preferred_body["items"]] == [
+        logo_feed_rows[index].slug for index in expected
+    ]
+    assert all(item["company"]["logo_url"] is not None for item in preferred_body["items"])
+    assert original_body["total"] == original_body["open_total"] == 11
+    assert preferred_body["total"] == preferred_body["open_total"] == 8
+
+
+@pytest.mark.parametrize("has_famous", [False, True])
+def test_feed_logo_preference_uses_all_available_famous(
+    client, db_session, logo_feed_rows, has_famous
+):
+    for index in ([6, 8, 10] if has_famous else [4, 6, 8, 10]):
+        logo_feed_rows[index].company.prestige_rank = None
+        logo_feed_rows[index].company.global_rank = None
+    db_session.flush()
+    response = client.get("/feed", params={"prefer_logos": "true", "limit": 8})
+    assert response.status_code == 200
+    expected = [4, 2, 3, 5, 6, 7, 8, 10] if has_famous else [2, 3, 4, 5, 6, 7, 8, 10]
+    assert [item["slug"] for item in response.json()["items"]] == [
+        logo_feed_rows[index].slug for index in expected
+    ]
+
+
+def test_feed_keeps_more_famous_already_in_natural_page(client, db_session, logo_feed_rows):
+    for index in [2, 3]:
+        logo_feed_rows[index].company.global_rank = 100
+    db_session.flush()
+    response = client.get("/feed", params={"prefer_logos": "true", "limit": 6})
+    assert response.status_code == 200
+    assert [item["slug"] for item in response.json()["items"]] == [
+        logo_feed_rows[index].slug for index in [2, 5, 3, 7, 4, 6]
+    ]
+
+
+def test_feed_famous_selection_preserves_source_diversity_order(client, db_session, logo_feed_rows):
+    logo_feed_rows[4].primary_source = "lever"
+    logo_feed_rows[4].last_seen_at = datetime.now(UTC) - timedelta(days=1)
+    db_session.flush()
+    response = client.get("/feed", params={"prefer_logos": "true", "limit": 6})
+    assert response.status_code == 200
+    assert [item["slug"] for item in response.json()["items"]] == [
+        logo_feed_rows[index].slug for index in [4, 2, 6, 3, 8, 5]
+    ]
+
+
+def test_feed_logo_preference_returns_fewer_when_only_one_logo(client, db_session, logo_feed_rows):
+    for index, row in enumerate(logo_feed_rows):
+        if row.company is not None and index != 4:
+            row.company.logo_url = None
+    db_session.flush()
+    response = client.get("/feed", params={"prefer_logos": "true", "limit": 6})
+    assert response.status_code == 200
+    assert [item["slug"] for item in response.json()["items"]] == [logo_feed_rows[4].slug]
+    assert response.json()["total"] == response.json()["open_total"] == 1
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"page": 2, "limit": 2},
+        {"sort": "recent"},
+        {"sort": "deadline"},
+        {"category": "internship"},
+        {"remote": "false"},
+        {"country": "IN"},
+        {"part_time": "false"},
+    ],
+)
+def test_feed_logo_preference_ignores_other_views(client, logo_feed_rows, params):
+    original = client.get("/feed", params=params)
+    preferred = client.get("/feed", params={**params, "prefer_logos": "true"})
+    assert original.status_code == preferred.status_code == 200
+    assert original.json() == preferred.json()
+
+
+@pytest.fixture
+def diverse_landing_rows(db_session, monkeypatch):
+    suffix = uuid.uuid4().hex
+    now = datetime.now(UTC)
+    companies = {}
+    opportunities = []
+    for company_index, (name, count, famous) in enumerate(
+        [
+            ("leader", 20, True),
+            ("famous-b", 3, True),
+            ("famous-c", 3, True),
+            ("famous-d", 3, True),
+            ("other-a", 20, False),
+            ("other-b", 3, False),
+            ("other-c", 3, False),
+        ]
+    ):
+        company = models.Company(
+            slug=f"diverse-{name}-{suffix}",
+            name=name,
+            logo_url=f"https://example.com/{suffix}/{name}.png",
+            global_rank=company_index + 1 if famous else None,
+        )
+        companies[name] = company
+        for index in range(count):
+            seen_at = now - timedelta(minutes=len(opportunities))
+            row = models.Opportunity(
+                slug=f"diverse-{name}-{index}-{suffix}",
+                title="Software Intern",
+                company=company,
+                category="internship",
+                primary_source="greenhouse",
+                apply_url=f"https://example.com/{suffix}/{name}/{index}",
+                status="active",
+                first_seen_at=now,
+                last_seen_at=seen_at,
+            )
+            db_session.add(row)
+            opportunities.append(row)
+    db_session.flush()
+    db_session.add_all(
+        models.OpportunityViewCount(opportunity_id=row.id, views=10_000 - index)
+        for index, row in enumerate(opportunities)
+    )
+    db_session.flush()
+    for module in [feed, trending]:
+        monkeypatch.setattr(
+            module,
+            "exclude_stale_opportunities",
+            lambda: models.Opportunity.id.in_([row.id for row in opportunities]),
+        )
+    return companies
+
+
+@pytest.mark.parametrize("path", ["/feed", "/trending"])
+@pytest.mark.parametrize("limit", [2, 5, 8, 12])
+@pytest.mark.parametrize("all_famous", [False, True])
+def test_landing_caps_dominant_company_and_spaces_items_before_famous_quota(
+    client, db_session, diverse_landing_rows, path, limit, all_famous
+):
+    companies = diverse_landing_rows
+    if all_famous:
+        for company in companies.values():
+            company.prestige_rank = 1
+        db_session.flush()
+    params = {"prefer_logos": "true", "limit": limit}
+    response = client.get(path, params=params)
+    assert response.status_code == 200
+    items = response.json()["items"]
+    company_slugs = [item["company"]["slug"] for item in items]
+    counts = Counter(company_slugs)
+    famous = {
+        company.slug
+        for company in companies.values()
+        if company.prestige_rank is not None or company.global_rank is not None
+    }
+    assert len(items) == limit
+    assert counts[companies["leader"].slug] <= 2
+    assert max(counts.values()) <= 2
+    assert all(left != right for left, right in zip(company_slugs, company_slugs[1:]))
+    assert sum(slug in famous for slug in company_slugs) >= (limit + 1) // 2
+    assert all(item["company"]["logo_url"] is not None for item in items)
+    assert client.get(path, params=params).json() == response.json()
+
+
+@pytest.mark.parametrize("path", ["/feed", "/trending"])
+@pytest.mark.parametrize("other_name,expected_other", [("other-a", 4), ("other-b", 3)])
+def test_landing_relaxes_company_cap_only_to_fill_short_candidates(
+    client, db_session, diverse_landing_rows, path, other_name, expected_other
+):
+    companies = diverse_landing_rows
+    for name, company in companies.items():
+        if name not in {"leader", other_name}:
+            company.logo_url = None
+    db_session.flush()
+    response = client.get(path, params={"prefer_logos": "true", "limit": 8})
+    assert response.status_code == 200
+    company_slugs = [item["company"]["slug"] for item in response.json()["items"]]
+    counts = Counter(company_slugs)
+    assert len(company_slugs) == 8
+    assert counts[companies[other_name].slug] == expected_other
+    assert counts[companies["leader"].slug] == 8 - expected_other
+    repeats = sum(left == right for left, right in zip(company_slugs, company_slugs[1:]))
+    assert repeats == max(0, 2 * max(counts.values()) - len(company_slugs) - 1)
+
+
+@pytest.mark.parametrize("path", ["/feed", "/trending"])
+def test_landing_applies_company_cap_before_reserving_famous(
+    client, db_session, diverse_landing_rows, path
+):
+    companies = diverse_landing_rows
+    for name, company in companies.items():
+        if name != "leader":
+            company.global_rank = None
+    db_session.flush()
+    response = client.get(path, params={"prefer_logos": "true", "limit": 8})
+    assert response.status_code == 200
+    counts = Counter(item["company"]["slug"] for item in response.json()["items"])
+    assert sum(counts.values()) == 8
+    assert counts[companies["leader"].slug] == 2
+    assert max(counts.values()) <= 2
+
+
+@pytest.mark.parametrize("path", ["/feed", "/trending"])
+def test_company_cap_is_opt_in(client, diverse_landing_rows, path):
+    response = client.get(path, params={"limit": 8})
+    assert response.status_code == 200
+    assert [item["company"]["slug"] for item in response.json()["items"]] == [
+        diverse_landing_rows["leader"].slug
+    ] * 8
+
+
+def test_company_spacing_looks_ahead_to_avoid_a_duplicate_tail():
+    from types import SimpleNamespace
+
+    from api.landing import _separate_companies
+
+    rows = [SimpleNamespace(Opportunity=SimpleNamespace(company_id=value)) for value in "ABACC"]
+    assert [row.Opportunity.company_id for row in _separate_companies(rows)] == list("ABCAC")
 
 
 def test_promoted_surfaces_exclude_stale_rows_but_detail_remains_reachable(

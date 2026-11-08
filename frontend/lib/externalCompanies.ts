@@ -19,7 +19,7 @@ export interface FlagshipProgram {
 export interface ExternalCompany {
   slug: string;
   name: string;
-  /** Drives the logo via CompanyFavicon. */
+  /** Official identity, also seeded into companies by the backend logo worker. */
   domain: string;
   careersUrl: string;
   careersLabel: string;

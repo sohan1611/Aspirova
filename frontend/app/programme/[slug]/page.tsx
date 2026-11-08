@@ -2,6 +2,7 @@ import { CalendarDays, ExternalLink, Globe2 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import CompanyFavicon from "@/components/CompanyFavicon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getProgramme } from "@/lib/api";
@@ -181,7 +182,13 @@ export default async function ProgrammePage({ params }: PageProps) {
           <h1 className="mt-3 break-words font-serif text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl">
             {programme.name}
           </h1>
-          <p className="mt-3 break-words text-sm font-medium text-muted-foreground sm:text-base">
+          <p className="mt-3 flex items-center gap-3 break-words text-sm font-medium text-muted-foreground sm:text-base">
+            <CompanyFavicon company={programme.company ?? {
+              slug: programme.slug,
+              name: programme.organiser,
+              domain: null,
+              logo_url: null,
+            }} size={40} />
             {programme.organiser}
           </p>
 

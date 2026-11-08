@@ -176,6 +176,7 @@ export function loadFeedData(
     {
       ...request.filters,
       prefer_country: request.prefer_country ?? request.filters.prefer_country,
+      prefer_logos: request.isCleanDefaultFeed ? true : undefined,
       kind: request.kind,
       sort: request.sort,
       page: request.page,

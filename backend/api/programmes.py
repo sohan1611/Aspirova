@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import Text, and_, any_, bindparam, cast, false, func, literal, or_, select
 from sqlalchemy.dialects.postgresql import ARRAY
-from sqlalchemy.orm import Session, aliased, selectinload
+from sqlalchemy.orm import Session, aliased, joinedload, selectinload
 
 from api.deps import get_db
 from api.schemas import ProgrammeDetail, ProgrammeListItem, ProgrammeListResponse
@@ -244,6 +244,7 @@ def list_programmes(
 
     query = (
         select(models.Programme, current_edition, total_count, match_count)
+        .options(joinedload(models.Programme.company))
         .outerjoin(
             current_edition,
             and_(
@@ -272,7 +273,7 @@ def list_programmes(
 def get_programme(slug: str, db: Session = Depends(get_db)) -> ProgrammeDetail:
     programme = db.scalar(
         select(models.Programme)
-        .options(selectinload(models.Programme.editions))
+        .options(selectinload(models.Programme.editions), joinedload(models.Programme.company))
         .where(
             models.Programme.slug == slug,
             models.Programme.is_active.is_(True),

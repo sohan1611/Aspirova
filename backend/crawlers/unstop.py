@@ -9,6 +9,7 @@ import httpx
 
 from core.adapters import NormalizedListing, RawListing
 from core.eligibility import ELIGIBLE_EXPERIENCED_ONLY_META_KEY, is_eligible_experienced_only
+from core.domains import http_url
 from crawlers.common import (
     RetriedResponse,
     USER_AGENT,
@@ -353,6 +354,11 @@ class UnstopAdapter:
             title=extract_text(_as_text(opportunity.get("title"))),
             company_name=organizer or "Unstop",
             company_domain=None,
+            company_logo_url=(
+                (http_url(organization.get("logoUrl2")) or http_url(organization.get("logoUrl")))
+                if organizer
+                else None
+            ),
             location=location,
             country=role_fields["country"] if role_fields else None,
             is_remote=(

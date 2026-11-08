@@ -1,0 +1,67 @@
+# Separate workflow so logo failures never affect the crawl. Public-repo
+# GitHub-hosted runner minutes are free, so this has its own time budget.
+name: Logos
+
+"on":
+  workflow_run:
+    workflows: ["Crawl Tier 1"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Maximum companies"
+        default: "1500"
+        type: string
+      time_budget_min:
+        description: "Worker time budget in minutes"
+        default: "45"
+        type: string
+      dry_run:
+        description: "Compute decisions without saving or uploading"
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: logos
+  cancel-in-progress: false
+
+jobs:
+  logos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      LOGO_S3_ENDPOINT_URL: ${{ secrets.LOGO_S3_ENDPOINT_URL }}
+      LOGO_S3_ACCESS_KEY_ID: ${{ secrets.LOGO_S3_ACCESS_KEY_ID }}
+      LOGO_S3_SECRET_ACCESS_KEY: ${{ secrets.LOGO_S3_SECRET_ACCESS_KEY }}
+      LOGO_S3_BUCKET: ${{ secrets.LOGO_S3_BUCKET }}
+      LOGO_PUBLIC_BASE_URL: ${{ secrets.LOGO_PUBLIC_BASE_URL }}
+      REVALIDATE_URL: ${{ secrets.REVALIDATE_URL }}
+      REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        run: pip install uv
+      - name: Install dependencies
+        run: uv sync --frozen
+      - name: Find company logos
+        env:
+          LOGO_LIMIT: ${{ inputs.limit || '1500' }}
+          LOGO_TIME_BUDGET_MIN: ${{ inputs.time_budget_min || '45' }}
+          LOGO_DRY_RUN: ${{ inputs.dry_run == true && 'true' || 'false' }}
+        run: |
+          args=(--limit "$LOGO_LIMIT" --time-budget-min "$LOGO_TIME_BUDGET_MIN")
+          if [ "$LOGO_DRY_RUN" = "true" ]; then
+            args+=(--dry-run)
+          fi
+          uv run python -m scripts.logo_worker "${args[@]}"

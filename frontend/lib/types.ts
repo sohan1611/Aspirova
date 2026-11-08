@@ -153,6 +153,7 @@ export interface ProgrammeListItem {
   slug: string;
   name: string;
   organiser: string;
+  company?: CompanySummary | null;
   category: string;
   country: string | null;
   url: string;

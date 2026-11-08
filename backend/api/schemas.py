@@ -123,6 +123,7 @@ class ProgrammeListItem(BaseModel):
     slug: str
     name: str
     organiser: str
+    company: CompanySummary | None = None
     category: str
     country: str | None
     url: str
@@ -144,6 +145,7 @@ class ProgrammeListItem(BaseModel):
             slug=programme.slug,
             name=programme.name,
             organiser=programme.organiser,
+            company=CompanySummary.model_validate(programme.company) if programme.company else None,
             category=programme.category,
             country=programme.country,
             url=programme.url,

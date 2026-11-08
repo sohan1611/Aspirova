@@ -1,0 +1,350 @@
+{
+ "entities": {
+  "Q48740825": {
+   "type": "item",
+   "id": "Q48740825",
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "WorldQuant"
+    }
+   },
+   "aliases": {},
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "hash": "b7fc6c9f46efeede3bf483f3a5b0c45c7be77936",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 783794,
+         "id": "Q783794"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "id": "Q48740825$1A255363-46DC-4B31-8C8D-26C4649B8EB4",
+      "rank": "normal"
+     },
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "hash": "0f127ba6e8a0d42abd134099e1e7f89c3e68cbf4",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 3487908,
+         "id": "Q3487908"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "id": "Q48740825$5963E4C0-C404-4A32-BC2D-1B7BB696E246",
+      "rank": "normal"
+     }
+    ],
+    "P856": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P856",
+       "hash": "2a1df50765faef2c5c51a705199163052e38a975",
+       "datavalue": {
+        "value": "https://www.worldquant.com/home/",
+        "type": "string"
+       },
+       "datatype": "url"
+      },
+      "type": "statement",
+      "id": "Q48740825$2CF18284-C21E-46B0-956D-A2F7446CC6AF",
+      "rank": "normal",
+      "references": [
+       {
+        "hash": "8376f30b5026372f3de6e088bc360d24dac42263",
+        "snaks": {
+         "P143": [
+          {
+           "snaktype": "value",
+           "property": "P143",
+           "hash": "e4f6d9441d0600513c4533c672b5ab472dc73694",
+           "datavalue": {
+            "value": {
+             "entity-type": "item",
+             "numeric-id": 328,
+             "id": "Q328"
+            },
+            "type": "wikibase-entityid"
+           },
+           "datatype": "wikibase-item"
+          }
+         ],
+         "P4656": [
+          {
+           "snaktype": "value",
+           "property": "P4656",
+           "hash": "914c99f7c0d143382ed26566aaf2d3694ad691f5",
+           "datavalue": {
+            "value": "https://en.wikipedia.org/w/index.php?title=WorldQuant&oldid=867255812",
+            "type": "string"
+           },
+           "datatype": "url"
+          }
+         ]
+        },
+        "snaks-order": [
+         "P143",
+         "P4656"
+        ]
+       }
+      ]
+     }
+    ],
+    "P154": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P154",
+       "hash": "405d4cba7da233b6fc27ce2f2ba2b52dbde7b8d9",
+       "datavalue": {
+        "value": "WorldQuant Text Logo 2022.jpg",
+        "type": "string"
+       },
+       "datatype": "commonsMedia"
+      },
+      "type": "statement",
+      "id": "Q48740825$B4C39372-C8EB-4CD0-BE36-6EF7B40B858E",
+      "rank": "normal"
+     }
+    ]
+   }
+  },
+  "Q39057357": {
+   "type": "item",
+   "id": "Q39057357",
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "WorldQuant University"
+    }
+   },
+   "aliases": {},
+   "claims": {
+    "P154": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P154",
+       "hash": "6ad7e31dfe3fca2f7388dcf599856c2a4c466948",
+       "datavalue": {
+        "value": "WQU logo.jpg",
+        "type": "string"
+       },
+       "datatype": "commonsMedia"
+      },
+      "type": "statement",
+      "id": "Q39057357$531CBC76-742E-421E-A876-27146C97D1F1",
+      "rank": "normal",
+      "references": [
+       {
+        "hash": "bd59a9706134aa33cda1e01098f1eaf1d72aed3d",
+        "snaks": {
+         "P143": [
+          {
+           "snaktype": "value",
+           "property": "P143",
+           "hash": "e4f6d9441d0600513c4533c672b5ab472dc73694",
+           "datavalue": {
+            "value": {
+             "entity-type": "item",
+             "numeric-id": 328,
+             "id": "Q328"
+            },
+            "type": "wikibase-entityid"
+           },
+           "datatype": "wikibase-item"
+          }
+         ],
+         "P4656": [
+          {
+           "snaktype": "value",
+           "property": "P4656",
+           "hash": "4ae154a8b07e6aa57f01838dc83a72cf0f2431d4",
+           "datavalue": {
+            "value": "https://en.wikipedia.org/w/index.php?title=WorldQuant_University&oldid=827554561",
+            "type": "string"
+           },
+           "datatype": "url"
+          }
+         ]
+        },
+        "snaks-order": [
+         "P143",
+         "P4656"
+        ]
+       }
+      ]
+     }
+    ],
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "hash": "3ebea73e7d4442b6583923edd5bc96aeb4c42a95",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 4671277,
+         "id": "Q4671277"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "id": "Q39057357$9BE97F3D-3484-499A-A38A-517D4EE30A16",
+      "rank": "normal"
+     }
+    ]
+   }
+  },
+  "Q140876358": {
+   "type": "item",
+   "id": "Q140876358",
+   "labels": {
+    "en": {
+     "language": "en",
+     "value": "WorldQuant Foundation"
+    }
+   },
+   "aliases": {},
+   "claims": {
+    "P31": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P31",
+       "hash": "5b555715d82fb2edce40e2f5a3854aa5b5ea0f76",
+       "datavalue": {
+        "value": {
+         "entity-type": "item",
+         "numeric-id": 163740,
+         "id": "Q163740"
+        },
+        "type": "wikibase-entityid"
+       },
+       "datatype": "wikibase-item"
+      },
+      "type": "statement",
+      "id": "Q140876358$3CD14616-98F9-4C16-A175-75BF52C71048",
+      "rank": "normal",
+      "references": [
+       {
+        "hash": "b5feb5fafe37bebd81cf7d36b374d0b1fd54a7d7",
+        "snaks": {
+         "P248": [
+          {
+           "snaktype": "value",
+           "property": "P248",
+           "hash": "9908ae5fd5a7c96ad881fc5a012968f5ec1ecff9",
+           "datavalue": {
+            "value": {
+             "entity-type": "item",
+             "numeric-id": 140822102,
+             "id": "Q140822102"
+            },
+            "type": "wikibase-entityid"
+           },
+           "datatype": "wikibase-item"
+          }
+         ],
+         "P6782": [
+          {
+           "snaktype": "value",
+           "property": "P6782",
+           "hash": "af961cb2803bd97641edf5c6385e159669203f25",
+           "datavalue": {
+            "value": "057ftxp55",
+            "type": "string"
+           },
+           "datatype": "external-id"
+          }
+         ]
+        },
+        "snaks-order": [
+         "P248",
+         "P6782"
+        ]
+       }
+      ]
+     }
+    ],
+    "P856": [
+     {
+      "mainsnak": {
+       "snaktype": "value",
+       "property": "P856",
+       "hash": "a5e6c0541ea40a8eb45b865b63a5d66b4f0312ad",
+       "datavalue": {
+        "value": "http://worldquant.org",
+        "type": "string"
+       },
+       "datatype": "url"
+      },
+      "type": "statement",
+      "id": "Q140876358$5AE297C9-DA91-4084-BDF3-731E3B705E2E",
+      "rank": "normal",
+      "references": [
+       {
+        "hash": "b5feb5fafe37bebd81cf7d36b374d0b1fd54a7d7",
+        "snaks": {
+         "P248": [
+          {
+           "snaktype": "value",
+           "property": "P248",
+           "hash": "9908ae5fd5a7c96ad881fc5a012968f5ec1ecff9",
+           "datavalue": {
+            "value": {
+             "entity-type": "item",
+             "numeric-id": 140822102,
+             "id": "Q140822102"
+            },
+            "type": "wikibase-entityid"
+           },
+           "datatype": "wikibase-item"
+          }
+         ],
+         "P6782": [
+          {
+           "snaktype": "value",
+           "property": "P6782",
+           "hash": "af961cb2803bd97641edf5c6385e159669203f25",
+           "datavalue": {
+            "value": "057ftxp55",
+            "type": "string"
+           },
+           "datatype": "external-id"
+          }
+         ]
+        },
+        "snaks-order": [
+         "P248",
+         "P6782"
+        ]
+       }
+      ]
+     }
+    ]
+   }
+  }
+ },
+ "success": 1
+}

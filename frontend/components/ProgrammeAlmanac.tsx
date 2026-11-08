@@ -1,5 +1,6 @@
 import { TrendingUp } from "lucide-react";
 import HoverPrefetchLink from "@/components/HoverPrefetchLink";
+import CompanyFavicon from "@/components/CompanyFavicon";
 import { programmePath } from "@/lib/programmes";
 import { programmeWindow } from "@/lib/programmeWindow";
 import type { ProgrammeListItem } from "@/lib/types";
@@ -45,7 +46,11 @@ export default function ProgrammeAlmanac({ programmes }: { programmes: Programme
           {rows.map(({ programme, window }) => <div key={programme.slug} role="row" className="grid grid-cols-[180px_minmax(0,1fr)] border-b border-border last:border-b-0">
             <div role="rowheader" className="sticky left-0 z-10 min-w-0 border-r border-border bg-card pr-3">
               <HoverPrefetchLink href={programmePath(programme.slug)} className="flex min-h-14 items-center gap-2 text-xs font-medium hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <span className="flex size-7 shrink-0 items-center justify-center rounded border border-border bg-secondary text-xs" aria-hidden="true">{programme.name.trim().split(/\s+/).slice(0, 2).map((word) => word[0]).join("").toUpperCase()}</span>
+                {programme.company?.logo_url || programme.company?.domain ? (
+                  <CompanyFavicon company={programme.company} size={28} />
+                ) : (
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded border border-border bg-secondary text-xs" aria-hidden="true">{programme.name.trim().split(/\s+/).slice(0, 2).map((word) => word[0]).join("").toUpperCase()}</span>
+                )}
                 <span className="line-clamp-2 break-words" title={programme.name}>{programme.name}</span>
               </HoverPrefetchLink>
             </div>
