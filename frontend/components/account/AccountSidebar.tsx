@@ -4,6 +4,7 @@ import {
   Bell,
   Bookmark,
   CreditCard,
+  FileText,
   Shield,
   UserRound,
   type LucideIcon,
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils";
 
 export const ACCOUNT_SECTIONS = [
   { key: "profile", label: "Profile", Icon: UserRound },
+  { key: "resume", label: "Resume", Icon: FileText },
   { key: "subscription", label: "Subscription", Icon: CreditCard },
   { key: "notifications", label: "Notifications", Icon: Bell },
   { key: "saved", label: "Saved searches", Icon: Bookmark },

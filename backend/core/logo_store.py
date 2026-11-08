@@ -8,7 +8,7 @@ from typing import Any
 
 import boto3
 import httpx
-from PIL import Image, ImageOps, IcoImagePlugin
+from PIL import Image, ImageChops, ImageOps, IcoImagePlugin
 
 from core.config import Settings
 from core.domains import http_url
@@ -24,6 +24,50 @@ class NormalizedLogo:
     width: int
     height: int
     url: str
+
+
+def trim_margins(image: Image.Image) -> Image.Image:
+    """Remove empty alpha and a uniform corner-coloured perimeter conservatively."""
+    bounds = image.getchannel("A").getbbox()
+    if bounds is None:
+        return image
+    image = image.crop(bounds)
+    corners = [
+        image.getpixel(point)
+        for point in (
+            (0, 0),
+            (image.width - 1, 0),
+            (0, image.height - 1),
+            (image.width - 1, image.height - 1),
+        )
+    ]
+    corner = corners[0]
+    if any(pixel[3] != 255 for pixel in corners):
+        return image
+    difference = ImageChops.difference(image, Image.new("RGBA", image.size, corner))
+    channels = difference.split()
+    difference_mask = ImageChops.lighter(ImageChops.lighter(channels[0], channels[1]), channels[2])
+    difference_mask = ImageChops.lighter(difference_mask, channels[3])
+    # A small colour tolerance absorbs near-white compression noise. Every
+    # perimeter pixel must agree, so marks touching an edge keep that edge.
+    foreground = difference_mask.point(lambda value: 255 if value > 8 else 0)
+    perimeter = (
+        (0, 0, image.width, 1),
+        (0, image.height - 1, image.width, image.height),
+        (0, 0, 1, image.height),
+        (image.width - 1, 0, image.width, image.height),
+    )
+    if any(foreground.crop(edge).getbbox() for edge in perimeter):
+        return image
+    bounds = foreground.getbbox()
+    if bounds is None:
+        return image
+    # Retain enough source pixels around small marks to keep a 16 px minimum.
+    left, top, right, bottom = bounds
+    width, height = max(16, right - left), max(16, bottom - top)
+    left = max(0, min(image.width - width, (left + right - width) // 2))
+    top = max(0, min(image.height - height, (top + bottom - height) // 2))
+    return image.crop((left, top, left + width, top + height))
 
 
 def validate_and_normalize(
@@ -55,7 +99,7 @@ def validate_and_normalize(
             # Ignore transparent padding and its hidden RGB values in the range check.
             opaque_mask = image.getchannel("A").point(lambda alpha: 255 if alpha >= 16 else 0)
             coverage = opaque_mask.histogram()[255] / (width * height)
-            if coverage < 0.01:
+            if not opaque_mask.getbbox():
                 return None
             histogram = image.convert("RGB").histogram(mask=opaque_mask)
             ranges = []
@@ -64,7 +108,12 @@ def validate_and_normalize(
                 ranges.append(values[-1] - values[0])
             if coverage >= 0.95 and max(ranges) < 12:
                 return None
-            image = ImageOps.contain(image, (128, 128), Image.Resampling.LANCZOS)
+            image = trim_margins(image)
+            if min(image.size) < 16:
+                return None
+            # Eight pixels per side is 6.25% of the final canvas. Always fit
+            # the cropped mark, preserving its proportions.
+            image = ImageOps.contain(image, (112, 112), Image.Resampling.LANCZOS)
             canvas = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
             canvas.paste(image, ((128 - image.width) // 2, (128 - image.height) // 2))
             output = BytesIO()

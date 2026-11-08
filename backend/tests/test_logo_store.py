@@ -7,7 +7,7 @@ from io import BytesIO
 from typing import Any
 
 import pytest
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageOps
 
 from core.config import Settings
 from core.logo_store import (
@@ -64,14 +64,61 @@ def test_normalized_png_dimensions_hash_padding_and_original_dimensions() -> Non
         assert normalized.size == (128, 128)
         assert normalized.format == "PNG"
         assert normalized.mode == "RGBA"
-        assert normalized.getchannel("A").getbbox() == (0, 32, 128, 96)
+        assert normalized.getchannel("A").getbbox() == (8, 36, 120, 92)
 
 
 def test_small_valid_logo_fits_canvas() -> None:
     logo = validate_and_normalize(image_result(patterned_image((32, 32))))
     assert logo is not None
     with Image.open(BytesIO(logo.png_bytes)) as normalized:
-        assert normalized.getchannel("A").getbbox() == (0, 0, 128, 128)
+        assert normalized.getchannel("A").getbbox() == (8, 8, 120, 120)
+
+
+@pytest.mark.parametrize("background", [(255, 255, 255, 255), (250, 251, 252, 255), (0, 0, 0, 0)])
+def test_large_blank_margins_are_trimmed(background: tuple[int, int, int, int]) -> None:
+    image = Image.new("RGBA", (512, 512), background)
+    image.paste(patterned_image((32, 24)), (240, 244))
+    logo = validate_and_normalize(image_result(image))
+    assert logo is not None
+    with Image.open(BytesIO(logo.png_bytes)) as normalized:
+        bounds = normalized.getchannel("A").getbbox()
+        assert bounds is not None
+        assert max(bounds[2] - bounds[0], bounds[3] - bounds[1]) >= 128 * 0.85
+        assert bounds == (8, 22, 120, 106)
+
+
+def test_near_uniform_white_border_is_trimmed() -> None:
+    image = Image.new("RGBA", (128, 128), (255, 255, 255, 255))
+    for y in range(1, 128, 2):
+        ImageDraw.Draw(image).line((0, y, 127, y), fill=(249, 250, 251, 255))
+    image.paste(patterned_image((32, 32)), (48, 48))
+    logo = validate_and_normalize(image_result(image))
+    assert logo is not None
+    with Image.open(BytesIO(logo.png_bytes)) as normalized:
+        assert normalized.getchannel("A").getbbox() == (8, 8, 120, 120)
+
+
+@pytest.mark.parametrize("touch_corner", [False, True])
+def test_corner_colour_does_not_crop_an_edge_touching_mark(touch_corner: bool) -> None:
+    image = Image.new("RGBA", (64, 64), "white")
+    ImageDraw.Draw(image).rectangle((0, 0 if touch_corner else 8, 39, 55), fill="blue")
+    logo = validate_and_normalize(image_result(image))
+    assert logo is not None
+    expected = Image.new("RGBA", (128, 128))
+    expected.paste(ImageOps.contain(image, (112, 112), Image.Resampling.LANCZOS), (8, 8))
+    with Image.open(BytesIO(logo.png_bytes)) as normalized:
+        assert normalized.tobytes() == expected.tobytes()
+
+
+def test_full_bleed_logo_keeps_proportions_and_pixels() -> None:
+    image = patterned_image((256, 128))
+    logo = validate_and_normalize(image_result(image))
+    assert logo is not None
+    with Image.open(BytesIO(logo.png_bytes)) as normalized:
+        assert (
+            normalized.crop((8, 36, 120, 92)).tobytes()
+            == image.resize((112, 56), Image.Resampling.LANCZOS).tobytes()
+        )
 
 
 @pytest.mark.parametrize("size", [(16, 16), (31, 64), (320, 64), (64, 320)])

@@ -303,7 +303,7 @@ export default async function OpportunityPage({ params }: PageProps) {
 
             <header className="mt-4 sm:mt-6">
               <div className="flex flex-wrap items-start gap-3 sm:gap-4">
-                <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border border-border bg-card sm:size-14">
+                <div className="flex size-12 shrink-0 items-center justify-center sm:size-14 [&>img]:size-full [&>div]:size-full">
                   <CompanyFavicon company={opportunity.company} />
                 </div>
                 <div className="min-w-0 flex-1 basis-48">

@@ -63,7 +63,7 @@ function CompanyFaviconImage({
       loading="lazy"
       referrerPolicy="no-referrer"
       onError={() => setCandidateIndex((index) => index + 1)}
-      className="h-11 w-11 shrink-0 rounded-lg border border-border bg-card object-contain p-1.5"
+      className="h-11 w-11 shrink-0 rounded-md object-contain dark:bg-white/90"
       style={size === 44 ? undefined : { height: size, width: size }}
     />
   );

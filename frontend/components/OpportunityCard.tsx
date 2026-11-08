@@ -156,8 +156,8 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
             </div>
           ) : (
             <div className="relative flex min-h-11 min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5 pr-14">
-              <div aria-hidden="true" className="absolute right-0 top-0 flex size-11 shrink-0 items-center justify-center rounded-md border border-border bg-card">
-                <CompanyFavicon company={item.company} size={40} />
+              <div aria-hidden="true" className="absolute right-0 top-0 flex size-11 shrink-0 items-center justify-center">
+                <CompanyFavicon company={item.company} size={44} />
               </div>
               {categoryLabel && (
                 <Badge variant="secondary" className="font-semibold">{categoryLabel}</Badge>
