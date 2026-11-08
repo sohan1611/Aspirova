@@ -1,0 +1,188 @@
+[
+  {
+    "repo": "SimplifyJobs/Summer2027-Internships",
+    "records": [
+      {
+        "source": "Simplify",
+        "category": "AI/ML/Data",
+        "company_name": "TikTok",
+        "id": "df86468a-0723-4315-bf56-0803134d3889",
+        "title": "Data Analyst Project Intern",
+        "active": true,
+        "terms": [
+          "Summer 2026"
+        ],
+        "date_updated": 1773411495,
+        "date_posted": 1773411495,
+        "url": "https://lifeattiktok.com/search/7616659899507591477",
+        "locations": [
+          "London, UK"
+        ],
+        "company_url": "https://simplify.jobs/c/TikTok",
+        "is_visible": true,
+        "sponsorship": "Other",
+        "degrees": [
+          "Bachelor's",
+          "Master's",
+          "MBA",
+          "PhD",
+          "JD",
+          "MD"
+        ]
+      },
+      {
+        "source": "Simplify",
+        "category": "Quant",
+        "company_name": "Fanatics",
+        "id": "9609650c-e6a6-42c1-87ab-3b9293ce3259",
+        "title": "Collectibles Intern - Product - Physical Trading Cards",
+        "active": true,
+        "terms": [
+          "Summer 2026"
+        ],
+        "date_updated": 1773439685,
+        "date_posted": 1773439685,
+        "url": "https://fa-exki-saasfaprod1.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/job/27190",
+        "locations": [
+          "Coppell, TX"
+        ],
+        "company_url": "https://simplify.jobs/c/Fanatics",
+        "is_visible": true,
+        "sponsorship": "Other",
+        "degrees": [
+          "Bachelor's"
+        ]
+      },
+      {
+        "source": "Simplify",
+        "category": "Software",
+        "company_name": "Neuralink",
+        "id": "6f0099e1-42bd-4acc-879d-6d5959f30133",
+        "title": "Software Engineer Intern - Internal Apps",
+        "active": true,
+        "terms": [
+          "Summer 2026"
+        ],
+        "date_updated": 1773451568,
+        "date_posted": 1773451568,
+        "url": "https://boards.greenhouse.io/neuralink/jobs/6083322003",
+        "locations": [
+          "Fremont, CA",
+          "Austin, TX"
+        ],
+        "company_url": "https://simplify.jobs/c/Neuralink",
+        "is_visible": true,
+        "sponsorship": "Other",
+        "degrees": []
+      },
+      {
+        "source": "Simplify",
+        "category": "AI/ML/Data",
+        "company_name": "Realty Income",
+        "id": "ef9bf69c-f804-4350-aba5-90ae25f51f92",
+        "title": "Operational Excellence Intern",
+        "active": false,
+        "terms": [
+          "Summer 2026"
+        ],
+        "date_updated": 1773411708,
+        "date_posted": 1773411708,
+        "url": "https://realtyincome.wd108.myworkdayjobs.com/realty_income_careers/job/San-Diego-California/Operational-Excellence-Intern_R-100094",
+        "locations": [
+          "San Diego, CA"
+        ],
+        "company_url": "https://simplify.jobs/c/Realty-Income",
+        "is_visible": true,
+        "sponsorship": "Other",
+        "degrees": [
+          "Bachelor's"
+        ]
+      }
+    ]
+  },
+  {
+    "repo": "SimplifyJobs/New-Grad-Positions",
+    "records": [
+      {
+        "source": "Simplify",
+        "category": "Quant",
+        "company_name": "WTW",
+        "id": "b2033af5-2c15-43b1-a6cb-14008a8ecdc5",
+        "title": "Investment Analyst",
+        "active": true,
+        "date_updated": 1774044588,
+        "date_posted": 1774044588,
+        "url": "https://eedu.fa.em3.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1003/job/202601653",
+        "locations": [
+          "Toronto, ON, Canada"
+        ],
+        "company_url": "https://simplify.jobs/c/WTW",
+        "is_visible": true,
+        "sponsorship": "Other",
+        "degrees": [
+          "Bachelor's"
+        ]
+      },
+      {
+        "source": "Simplify",
+        "category": "Product",
+        "company_name": "Stripe",
+        "id": "3f12b8ac-a406-4397-9458-ea07e6d144b3",
+        "title": "Product Manager",
+        "active": true,
+        "date_updated": 1774255374,
+        "date_posted": 1774055248,
+        "url": "https://stripe.com/jobs/search?gh_jid=7737124",
+        "locations": [
+          "Seattle, WA",
+          "SF",
+          "NYC"
+        ],
+        "company_url": "https://simplify.jobs/c/Stripe",
+        "is_visible": true,
+        "sponsorship": "Other",
+        "degrees": [
+          "Bachelor's"
+        ]
+      },
+      {
+        "source": "Simplify",
+        "category": "Software",
+        "company_name": "Konrad Group",
+        "id": "7553023b-466e-4a6c-a382-0087b6fe7877",
+        "title": "Software Developer - Entry Level",
+        "active": true,
+        "date_updated": 1773843544,
+        "date_posted": 1773843544,
+        "url": "https://boards.greenhouse.io/embed/job_app?token=7669159003",
+        "locations": [
+          "London, UK"
+        ],
+        "company_url": "https://simplify.jobs/c/Konrad-Group",
+        "is_visible": true,
+        "sponsorship": "Other",
+        "degrees": []
+      },
+      {
+        "source": "Simplify",
+        "category": "Software",
+        "company_name": "GE Vernova",
+        "id": "864b1c6f-7b8f-4d7b-9233-04c32b767c63",
+        "title": "Software Engineer",
+        "active": false,
+        "date_updated": 1773411566,
+        "date_posted": 1773411566,
+        "url": "https://gevernova.wd5.myworkdayjobs.com/only_confidential_executive_recruiting/job/Rugby/Software-Engineer---Visor_R5035143-1",
+        "locations": [
+          "Rugby, UK"
+        ],
+        "company_url": "https://simplify.jobs/c/GE-Vernova",
+        "is_visible": true,
+        "sponsorship": "Other",
+        "degrees": [
+          "Bachelor's"
+        ]
+      }
+    ]
+  }
+]

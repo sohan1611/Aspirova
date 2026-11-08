@@ -20,7 +20,12 @@ from pipeline.retirement import aggregator_primary_provenance
 # remoteok/himalayas/arbeitnow/jobicy are rolling windows: found/still-open/closed
 # was 100/100/1001, 73/56/772, 54/52/165, and 3/2/43. Adding a source here
 # without verifying full enumeration will silently close live listings.
-FULL_INVENTORY_SOURCES = frozenset({"unstop", "devpost", "devfolio"})
+# github_lists files enumerate every listing, flipping closed ones to active:false.
+# Ingestion has no age filter. Only active/visible, ATS-hosted and wrapped-link
+# exclusions apply (plus dedup). Excluded records are never ingested, so they
+# cannot be currently open here. Complete coverage requires every configured
+# file to parse with >1000 records, before the retirement guards below apply.
+FULL_INVENTORY_SOURCES = frozenset({"unstop", "devpost", "devfolio", "github_lists"})
 
 # Fail-safe, not a tuning knob: a crawl that saw less than half of what is
 # currently open is not evidence of mass closure.
@@ -47,6 +52,9 @@ def expire_missing_opportunities(session: Session) -> int:
             models.Opportunity.closed_at.is_(None),
             models.Opportunity.company_id == models.Company.id,
             ~aggregator_primary_provenance(),
+            # Workday searches are bounded, even when every requested term finishes.
+            # Missing search results are checked through the CXS liveness endpoint.
+            models.Source.adapter_key != "workday",
             models.Source.adapter_key == models.Company.ats_type,
             models.SourceState.source_id == models.Source.id,
             models.SourceState.page_key == models.Company.ats_board_id,
@@ -116,7 +124,8 @@ def expire_missing_opportunities(session: Session) -> int:
             models.Opportunity.status == "active",
             models.Opportunity.closed_at.is_(None),
             models.Opportunity.company_id == models.Company.id,
-            models.Company.ats_type.is_(None),
+            # Full-list provenance remains authoritative after discovery attaches
+            # an ATS board to this company. The ATS branch protects aggregator rows.
             models.Opportunity.primary_source.is_not(None),
             models.Opportunity.primary_source.in_(FULL_INVENTORY_SOURCES),
             models.Opportunity.primary_source == models.Source.adapter_key,

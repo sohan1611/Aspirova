@@ -58,6 +58,21 @@ jobs:
           PYTHONUNBUFFERED: "1"
         run: uv run python -m scripts.relocate_boards --apply
 
+      - name: Seed crawler source rows
+        continue-on-error: true
+        timeout-minutes: 5
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: uv run python -m scripts.seed_companies --sources-only
+
+      - name: Discover student-hiring ATS boards
+        continue-on-error: true
+        timeout-minutes: 20
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONUNBUFFERED: "1"
+        run: uv run python -m scripts.discover_boards --apply --max-new 40
+
       - name: Run ATS crawl (tier 1)
         id: ats_crawl
         # Hard cap only catches hangs. The runner's 7200s soft ATS budget should

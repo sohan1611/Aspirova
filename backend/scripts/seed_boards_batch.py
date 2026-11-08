@@ -1,17 +1,22 @@
 """Verify candidate ATS boards, then safely attach or seed their companies.
 
-This is intentionally dry-run by default. A board is accepted solely when
-its adapter reports health ``ok``; a well-formed empty board is still valid.
+This is dry-run by default. Healthy full-board inventories may be empty.
+Workday verification requires a positive intern search result.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
+from time import sleep
 from typing import Callable, Iterable
+from uuid import uuid4
+
+import httpx
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -20,6 +25,8 @@ from core.adapters import RawListing
 from core.db import make_engine
 from core.models import Company
 from crawlers.runner import ATS_ADAPTERS
+from crawlers.common import USER_AGENT, build_http_timeout, request_with_retries
+from crawlers.workday import WorkdayAdapter
 from pipeline.normalize import normalize_company_name
 
 CANDIDATES_PATH = Path(__file__).resolve().parents[1] / "data" / "company_boards.json"
@@ -126,8 +133,14 @@ def verify_candidate(
     candidate: BoardCandidate,
     *,
     timeout: float = VERIFY_TIMEOUT_SECONDS,
+    max_jobs: int | None = None,
+    bogus_control: bool = False,
 ) -> Verification:
     """Ask the adapter whether a candidate is a valid board, not whether it has jobs."""
+    if max_jobs is not None or bogus_control or candidate.ats_type == "workday":
+        return _verify_inventory(
+            candidate, timeout=timeout, max_jobs=max_jobs, bogus_control=bogus_control
+        )
     try:
         adapter_class = ATS_ADAPTERS[candidate.ats_type]
         adapter = adapter_class(
@@ -161,6 +174,100 @@ def verify_candidate(
         listings_count=len(listings),
         listings=tuple(listings),
     )
+
+
+def _inventory_probe(candidate: BoardCandidate, *, timeout: float) -> tuple[str, int | None]:
+    """Count the live board without downloading SmartRecruiters/Workday details.
+
+    A failed control (429/5xx/network) is inconclusive, never a successful
+    negative control. Unknown-token error objects are distinguished from lists.
+    """
+    if candidate.ats_type == "workday":
+        adapter = WorkdayAdapter(candidate.board_token, candidate.company_name, timeout)
+        try:
+            count = adapter.student_count()
+            if count is not None:
+                return "valid", count
+            return (
+                ("invalid", None) if adapter.last_board_state == "not_found" else ("failed", None)
+            )
+        finally:
+            adapter._client.close()
+    token = candidate.board_token
+    endpoints = {
+        "greenhouse": (f"https://boards-api.greenhouse.io/v1/boards/{token}/jobs", "jobs"),
+        "lever": (f"https://api.lever.co/v0/postings/{token}?mode=json", None),
+        "ashby": (f"https://api.ashbyhq.com/posting-api/job-board/{token}", "jobs"),
+        "workable": (f"https://apply.workable.com/api/v1/widget/accounts/{token}", "jobs"),
+        "smartrecruiters": (
+            f"https://api.smartrecruiters.com/v1/companies/{token}/postings?limit=1",
+            "content",
+        ),
+        "recruitee": (f"https://{token}.recruitee.com/api/offers/", "offers"),
+    }
+    if candidate.ats_type not in endpoints:
+        return "failed", None
+    url, key = endpoints[candidate.ats_type]
+    with httpx.Client(
+        timeout=build_http_timeout(timeout), headers={"User-Agent": USER_AGENT}
+    ) as client:
+
+        def request_once() -> httpx.Response:
+            # Discovery is sequential; pace every request, including retries.
+            sleep(0.5)
+            return client.get(url)
+
+        result = request_with_retries(request_once, max_retries=2, sleeper=sleep)
+    response = result.response
+    if response is None:
+        return "failed", None
+    if response.status_code in {400, 404, 422}:
+        return "invalid", None
+    if response.status_code != 200:
+        return "failed", None
+    try:
+        payload = response.json()
+    except ValueError:
+        return "failed", None
+    rows = payload.get(key) if isinstance(payload, dict) and key else payload
+    if not isinstance(rows, list):
+        return "invalid", None
+    if candidate.ats_type == "smartrecruiters":
+        total = payload.get("totalFound")
+        if not isinstance(total, int) or isinstance(total, bool) or total < len(rows):
+            return "failed", None
+        return "valid", total
+    return "valid", len(rows)
+
+
+def _verify_inventory(
+    candidate: BoardCandidate,
+    *,
+    timeout: float,
+    max_jobs: int | None,
+    bogus_control: bool,
+) -> Verification:
+    try:
+        if bogus_control and candidate.ats_type != "workday":
+            bogus = f"aspirova-invalid-{uuid4().hex}"
+            control = BoardCandidate(candidate.company_name, candidate.ats_type, bogus, None)
+            control_status, _ = _inventory_probe(control, timeout=timeout)
+            if control_status != "invalid":
+                return Verification(
+                    candidate, False, "degraded", None, f"bogus_control_{control_status}"
+                )
+        status, count = _inventory_probe(candidate, timeout=timeout)
+    except Exception as exc:
+        return Verification(
+            candidate, False, "degraded", None, f"probe raised {type(exc).__name__}: {exc}"
+        )
+    if status != "valid" or count is None:
+        return Verification(candidate, False, "degraded", count, f"inventory_{status}")
+    if candidate.ats_type == "workday" and count < 1:
+        return Verification(candidate, False, "ok", count, "no_intern_results")
+    if candidate.ats_type != "workday" and max_jobs is not None and count > max_jobs:
+        return Verification(candidate, False, "ok", count, "too_large")
+    return Verification(candidate, True, "ok", count)
 
 
 def _safe_verify(candidate: BoardCandidate, verifier: Verifier) -> Verification:
@@ -207,15 +314,27 @@ def _matching_companies(
     companies: Iterable[Company],
 ) -> list[Company]:
     """Apply every duplicate guard before creating or changing a company."""
-    expected_slug = candidate.board_token.lower()
+    expected_slug = _board_slug(candidate.board_token)
     expected_name = normalize_company_name(candidate.company_name)
     matches: list[Company] = []
     for company in companies:
-        if company.slug == expected_slug or company.name_normalized == expected_name:
+        if (
+            company.slug.lower() == expected_slug
+            or normalize_company_name(company.name) == expected_name
+            or (company.ats_type or "").casefold() == candidate.ats_type.casefold()
+            and (company.ats_board_id or "").casefold() == candidate.board_token.casefold()
+        ):
             matches.append(company)
         elif candidate.domain is not None and company.domain == candidate.domain:
             matches.append(company)
     return matches
+
+
+def _board_slug(token: str) -> str:
+    # Preserve existing token slugs; Workday's composite id must be URL-safe.
+    if "|" not in token:
+        return token.lower()
+    return re.sub(r"[^a-z0-9_-]+", "-", token.lower()).strip("-")
 
 
 def run_batch(
@@ -242,7 +361,7 @@ def run_batch(
     )
     for verification in verifications:
         # Health is the adapter's board-validity contract; listing count is irrelevant.
-        if verification.health == "ok":
+        if verification.accepted and verification.health == "ok":
             summary.verified.append(verification)
         else:
             summary.rejected.append(verification)
@@ -262,7 +381,7 @@ def run_batch(
         if not matches:
             if apply:
                 company = Company(
-                    slug=candidate.board_token.lower(),
+                    slug=_board_slug(candidate.board_token),
                     name=candidate.company_name,
                     name_normalized=normalize_company_name(candidate.company_name),
                     domain=candidate.domain,
@@ -288,9 +407,9 @@ def run_batch(
                 wrote = True
             else:
                 summary.would_attach.append(candidate)
-        elif (
-            company.ats_type == candidate.ats_type and company.ats_board_id == candidate.board_token
-        ):
+        elif (company.ats_type or "").casefold() == candidate.ats_type.casefold() and (
+            company.ats_board_id or ""
+        ).casefold() == candidate.board_token.casefold():
             summary.unchanged.append(candidate)
         else:
             summary.conflicts.append(

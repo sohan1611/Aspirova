@@ -1,0 +1,46 @@
+{
+  "jobPostingInfo": {
+    "id": "93a4316fc85e1045a3568c095faa0000",
+    "title": "DFT Intern - 2027",
+    "jobDescription": "<p>DFT focus on strategy definition through logic design and insertion, pre-silicon verification, pattern generation, and ATE bringup for NVIDIA chips, with special emphasis on ATE bringup, pattern/generation and validation, yield debug, failure analysis and volume diagnosis for ramp to production.</p><br /><p>As a DFT intern at NVIDIA, you will help own the testing methodology from strategy definition through logic design and insertion, pre-silicon verification, pattern generation, and ATE bringup.</p><br /><p><b>What you’ll be doing:</b></p><ul><li>DFT logic implementation and verification</li><li>Maintain DFT flow and run regression</li><li>Run DFT verification</li><li>Pattern generation and bringup </li></ul><br /><p><b>What we need to see: </b></p><ul><li>Strong logic design and verification background</li><li>Possess very basic knowledge of DFT </li><li>Skilled in Perl/tcl programming</li><li>Proficient at Verilog HDL</li><li>Pursuing MS/PhD in EE</li></ul><br /><p><b>Ways to stand out from the crowd: </b></p><ul><li>Prefer to have experience with logic simulators and debug tools (such as vcs, ncsim, verdi)</li><li>Familiar with C/C , Makefile is a plus</li><li>Strong problem solving and analytical skills</li><li>Excellent communication skills and teamwork</li></ul><br /><p>NVIDIA is widely considered to be one of the technology world’s most desirable employers. We have some of the most forward-thinking and hardworking people in the world working for us. If you&#39;re creative and autonomous, we want to hear from you!</p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p>",
+    "location": "China, Shanghai",
+    "postedOn": "Posted 26 Days Ago",
+    "startDate": "2026-10-13",
+    "timeType": "Full time",
+    "jobReqId": "JR2027176",
+    "jobPostingId": "DFT-Intern---2027_JR2027176",
+    "jobPostingSiteId": "NVIDIAExternalCareerSite",
+    "country": {
+      "descriptor": "China",
+      "id": "6cb77610a8a543aea2d6bc10457e35d4"
+    },
+    "canApply": true,
+    "posted": true,
+    "includeResumeParsing": true,
+    "jobRequisitionLocation": {
+      "descriptor": "China, Shanghai",
+      "country": {
+        "descriptor": "China",
+        "id": "6cb77610a8a543aea2d6bc10457e35d4",
+        "alpha2Code": "CN"
+      }
+    },
+    "externalUrl": "https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite/job/China-Shanghai/DFT-Intern---2027_JR2027176",
+    "questionnaireId": "2f2764b3a82910064296831695150000"
+  },
+  "hiringOrganization": {
+    "name": "CN05 NVIDIA Shanghai WFOE",
+    "url": ""
+  },
+  "similarJobs": [
+    {
+      "title": "DFT Engineer",
+      "externalPath": "/job/China-Shanghai/DFT-Engineer_JR2027694",
+      "timeType": "Full time",
+      "locationsText": "China, Shanghai",
+      "postedOn": "Posted 20 Days Ago",
+      "startDate": "2026-10-19"
+    }
+  ],
+  "userAuthenticated": false
+}

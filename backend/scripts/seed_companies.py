@@ -10,6 +10,8 @@ without verifying it first, and remove any that start 404ing.
 Idempotent - safe to re-run. Usage: uv run python -m scripts.seed_companies
 """
 
+import argparse
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -332,6 +334,7 @@ _ADAPTER_SOURCES: dict[str, tuple[str, str, str, list[tuple[str, str, str | None
     ),
     "keka": ("keka", "Keka", "https://www.keka.com", KEKA_COMPANIES),
     "amazon": ("amazon", "Amazon", "https://www.amazon.jobs", AMAZON_COMPANIES),
+    "workday": ("workday", "Workday", "https://www.myworkdayjobs.com", []),
 }
 
 # Aggregator sources (Doc 04 sec 1: best-effort tier) have no fixed
@@ -347,10 +350,15 @@ _AGGREGATOR_SOURCES: dict[str, tuple[str, str, str]] = {
     "jobicy": ("jobicy", "Jobicy", "https://jobicy.com"),
     "remoteok": ("remoteok", "RemoteOK", "https://remoteok.com"),
     "unstop": ("unstop", "Unstop", "https://unstop.com"),
+    "github_lists": (
+        "github_lists",
+        "GitHub internship lists (SimplifyJobs)",
+        "https://github.com/SimplifyJobs",
+    ),
 }
 
 
-def seed() -> None:
+def seed(*, sources_only: bool = False) -> None:
     engine = make_engine()
     with Session(engine) as session:
         total_created, total_updated = 0, 0
@@ -371,7 +379,7 @@ def seed() -> None:
             else:
                 print(f"source already exists: {slug}")
 
-            for board_token, company_name, domain in companies:
+            for board_token, company_name, domain in ([] if sources_only else companies):
                 # Bare board_token, matching the already-seeded Greenhouse
                 # companies exactly (Doc 08: never change an existing
                 # identifier scheme without a real migration) - a
@@ -423,4 +431,8 @@ def seed() -> None:
 
 
 if __name__ == "__main__":
-    seed()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--sources-only", action="store_true", help="seed source rows without changing companies"
+    )
+    seed(sources_only=parser.parse_args().sources_only)
