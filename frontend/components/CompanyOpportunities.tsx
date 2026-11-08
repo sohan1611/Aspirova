@@ -48,9 +48,7 @@ export default function CompanyOpportunities({
 
       <header className="mt-8 border-b border-border pb-10">
         <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:gap-7">
-          <div className="rounded-lg border border-border bg-card p-2 shadow-soft">
-            <CompanyFavicon company={data.company} size={72} />
-          </div>
+          <CompanyFavicon company={data.company} size={90} />
 
           <div className="min-w-0">
             <p className="eyebrow">Company field note</p>

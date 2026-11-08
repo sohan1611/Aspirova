@@ -136,12 +136,13 @@ def run_worker(db_session, monkeypatch):
         uploads.append((slug, logo))
         return f"https://stored.example/{slug}-{logo.sha256}.png"
 
-    def run(*, overrides=None, dry_run=False, limit=1500, time_budget_min=45):
+    def run(*, overrides=None, dry_run=False, limit=1500, time_budget_min=45, renormalize=False):
         # Persist fixtures into the outer transaction, which the fixture alone
         # owns. Worker commits and rollbacks only release its own savepoints.
         db_session.commit()
         args = worker.parse_args(["--limit", str(limit), "--time-budget-min", str(time_budget_min)])
         args.dry_run = dry_run
+        args.renormalize = renormalize
         return worker.run_db(db_session, args, fetcher, overrides or {}, upload)
 
     run.fetcher = fetcher
@@ -158,6 +159,150 @@ def test_existing_logo_is_not_selected_or_fetched(db_session, companies, run_wor
     assert run_worker.uploads == []
     db_session.refresh(company)
     assert company.logo_url == "https://stored.example/existing.png"
+
+
+@pytest.mark.parametrize("status", ["found", "manual"])
+def test_renormalize_updates_only_url_and_hash(db_session, companies, run_worker, status):
+    url = "https://stored.example/old.png"
+    checked_at = datetime.now(UTC) - timedelta(days=5)
+    evidence = {"sha256": "old", "override": {"domain": "acme.example"}, "reason": "trusted"}
+    company = companies(
+        logo_url=url,
+        logo_status=status,
+        logo_source="override",
+        logo_evidence=evidence,
+        logo_checked_at=checked_at,
+        logo_hint_url="https://hint.example/logo.png",
+    )
+    run_worker.fetcher.image(url)
+    results = run_worker(renormalize=True)
+    db_session.refresh(company)
+    assert len(results) == len(run_worker.uploads) == 1
+    slug, logo = run_worker.uploads[0]
+    assert slug == company.slug
+    assert company.logo_url == f"https://stored.example/{slug}-{logo.sha256}.png"
+    assert company.logo_evidence == {**evidence, "sha256": logo.sha256}
+    assert company.logo_status == status
+    assert company.logo_source == "override"
+    assert company.logo_checked_at == checked_at
+    assert company.logo_hint_url == "https://hint.example/logo.png"
+    assert company.domain is None
+    assert run_worker.fetcher.calls == [(url, None)]
+    expected = db_session.scalars(
+        select(models.Opportunity.slug).where(models.Opportunity.company_id == company.id)
+    ).all()
+    assert run_worker.notifications == [expected]
+
+
+def test_renormalize_dry_run_leaves_everything_untouched(db_session, companies, run_worker):
+    url = "https://stored.example/dry.png"
+    company = companies(logo_url=url, logo_status="manual", logo_evidence={"sha256": "old"})
+    run_worker.fetcher.image(url)
+    results = run_worker(renormalize=True, dry_run=True)
+    db_session.refresh(company)
+    assert len(results) == 1 and results[0].logo is not None
+    assert company.logo_url == url
+    assert company.logo_evidence == {"sha256": "old"}
+    assert company.logo_status == "manual"
+    assert run_worker.uploads == run_worker.notifications == []
+
+
+def test_renormalize_unchanged_bytes_skip_upload(db_session, companies, run_worker):
+    url = "https://stored.example/normalized.png"
+    run_worker.fetcher.image(url)
+    logo = worker.validate_and_normalize(run_worker.fetcher.responses[url])
+    assert logo is not None
+    run_worker.fetcher.responses[url] = FetchResult(
+        200, url, {"content-type": "image/png"}, logo.png_bytes
+    )
+    company = companies(logo_url=url, logo_status="found", logo_evidence={"sha256": logo.sha256})
+    run_worker(renormalize=True)
+    db_session.refresh(company)
+    assert company.logo_url == url
+    assert run_worker.uploads == run_worker.notifications == []
+
+
+def test_renormalize_selects_stored_statuses_even_without_active_listings(db_session, companies):
+    selected = [
+        companies(active=False, logo_status=status, logo_url=f"https://stored.example/{status}.png")
+        for status in ("found", "manual")
+    ]
+    companies(logo_status="rejected_generic", logo_url="https://stored.example/rejected.png")
+    companies(logo_status="found")
+    args = worker.parse_args(["--renormalize"])
+    assert {row[0] for row in worker.select_companies(db_session, args, {})} == {
+        co.id for co in selected
+    }
+
+
+@pytest.mark.parametrize("failure", ["fetch", "invalid", "upload"])
+def test_renormalize_failure_preserves_row_and_continues(
+    db_session, companies, run_worker, failure, monkeypatch
+):
+    old = "https://stored.example/bad.png"
+    bad = companies(logo_status="manual", logo_url=old, logo_evidence={"sha256": "old"})
+    good_url = "https://stored.example/good.png"
+    good = companies(logo_status="found", logo_url=good_url)
+    run_worker.fetcher.image(good_url)
+    if failure == "invalid":
+        run_worker.fetcher.responses[old] = FetchResult(
+            200, old, {"content-type": "image/png"}, b"bad" * 100
+        )
+    if failure == "upload":
+        run_worker.fetcher.image(old)
+        original = worker.run_renormalize
+        bad_slug = bad.slug
+
+        def failing_upload(session, args, fetcher, uploader):
+            def upload(slug, logo):
+                if slug == bad_slug:
+                    raise RuntimeError("upload failed")
+                return uploader(slug, logo)
+
+            return original(session, args, fetcher, upload)
+
+        monkeypatch.setattr(worker, "run_renormalize", failing_upload)
+    results = run_worker(renormalize=True)
+    db_session.refresh(bad)
+    db_session.refresh(good)
+    assert any(result.error for result in results)
+    assert bad.logo_url == old
+    assert bad.logo_evidence == {"sha256": "old"}
+    assert bad.logo_status == "manual"
+    assert good.logo_url != good_url
+    assert len(run_worker.notifications) == 1
+
+
+def test_renormalize_network_runs_outside_transaction_and_concurrent_change_wins(
+    db_session, companies, run_worker, monkeypatch
+):
+    url = "https://stored.example/race.png"
+    company = companies(logo_status="found", logo_url=url, logo_evidence={"sha256": "old"})
+    company_id = company.id
+    run_worker.fetcher.image(url)
+    original = run_worker.fetcher.get
+
+    def concurrent_change(url, *, params=None):
+        assert not db_session.in_transaction()
+        row = db_session.get(models.Company, company_id)
+        row.logo_url = "https://stored.example/manual.png"
+        row.logo_status = "manual"
+        row.logo_evidence = {"reason": "new manual decision"}
+        db_session.commit()
+        return original(url, params=params)
+
+    monkeypatch.setattr(run_worker.fetcher, "get", concurrent_change)
+    run_worker(renormalize=True)
+    db_session.refresh(company)
+    assert company.logo_url == "https://stored.example/manual.png"
+    assert company.logo_status == "manual"
+    assert company.logo_evidence == {"reason": "new manual decision"}
+    assert run_worker.notifications == []
+
+
+def test_renormalize_rejects_offline_mode():
+    with pytest.raises(SystemExit):
+        worker.parse_args(["--renormalize", "--from-api-json", "companies.json", "--report", "out"])
 
 
 def test_negative_cache_and_new_hint_retry(db_session, companies, run_worker):
@@ -340,11 +485,13 @@ def test_guard_rejects_third_accept_and_post_pass_clears_first_two(
     assert all(result.status == "rejected_generic" for result in results)
 
 
+@pytest.mark.parametrize("argv", [[], ["--renormalize"]])
 def test_unconfigured_storage_exits_before_engine_and_changes_no_row(
     db_session,
     companies,
     monkeypatch,
     capsys,
+    argv,
 ):
     company = companies()
     db_session.commit()
@@ -355,7 +502,7 @@ def test_unconfigured_storage_exits_before_engine_and_changes_no_row(
         raise AssertionError("must not create an engine")
 
     monkeypatch.setattr("core.db.make_engine", forbidden_engine)
-    assert worker.main([]) == 2
+    assert worker.main(argv) == 2
     output = capsys.readouterr().out
     assert all(field.upper() in output for field in worker.STORAGE_FIELDS)
     db_session.refresh(company)

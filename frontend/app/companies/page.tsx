@@ -94,9 +94,7 @@ export default async function CompaniesPage() {
               href={companyPath(company.slug)}
               className="group flex min-h-44 flex-col rounded-lg border border-border bg-card p-5 shadow-soft transition-colors duration-300 ease-premium hover:border-primary/45 focus-visible:border-primary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
-              <div className="w-fit rounded-xl border border-border bg-secondary/40 p-1.5 shadow-soft">
-                <CompanyFavicon company={company} size={56} />
-              </div>
+              <CompanyFavicon company={company} size={70} />
 
               <div className="mt-auto pt-6">
                 <h2 className="min-w-0 break-words font-serif text-md font-bold leading-snug text-card-foreground transition-colors duration-300 ease-premium group-hover:text-primary group-focus-visible:text-primary">
