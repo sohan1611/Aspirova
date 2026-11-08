@@ -66,7 +66,7 @@ export function CountedMultiSelectGroup({
           <label
             key={option.value}
             className={cn(
-              "flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border bg-background px-3 py-2 text-sm transition-[background-color,border-color,box-shadow,color] duration-200 ease-[var(--ease-premium)]",
+              "flex min-h-11 cursor-pointer items-start gap-3 rounded-md border border-border bg-background px-3 py-3 text-sm transition-[background-color,border-color,box-shadow,color] duration-200 ease-[var(--ease-premium)]",
               "hover:border-primary/30 hover:bg-secondary/40",
               isActive && "border-primary bg-accent text-accent-foreground",
               isDisabled && "cursor-not-allowed opacity-55 hover:border-border hover:bg-background",
@@ -77,9 +77,9 @@ export function CountedMultiSelectGroup({
               checked={isActive}
               disabled={isDisabled}
               onChange={() => onToggle(option.value)}
-              className="h-4 w-4 shrink-0 rounded border-border bg-background accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed"
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-border bg-background accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed"
             />
-            <span className="min-w-0 flex-1 truncate">{option.label}</span>
+            <span className="min-w-0 flex-1 break-words" title={option.label}>{option.label}</span>
             <span className="tnum shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
               {option.count}
             </span>
@@ -123,13 +123,13 @@ export function CountedSingleSelectGroup({
             disabled={isDisabled}
             onClick={() => onSelect(isActive ? null : option.value)}
             className={cn(
-              "flex min-h-11 items-center gap-3 rounded-md border border-border bg-background px-3 py-2 text-left text-sm transition-[background-color,border-color,box-shadow,color] duration-200 ease-[var(--ease-premium)] disabled:cursor-wait",
+              "flex min-h-11 items-start gap-3 rounded-md border border-border bg-background px-3 py-3 text-left text-sm transition-[background-color,border-color,box-shadow,color] duration-200 ease-[var(--ease-premium)] disabled:cursor-wait",
               "hover:border-primary/30 hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
               isActive && "border-primary bg-accent text-accent-foreground",
               isDisabled && "opacity-55 hover:border-border hover:bg-background",
             )}
           >
-            <span className="min-w-0 flex-1 truncate">{option.label}</span>
+            <span className="min-w-0 flex-1 break-words" title={option.label}>{option.label}</span>
             <span className="tnum shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
               {option.count}
             </span>
