@@ -43,7 +43,7 @@ def sent_emails(monkeypatch):
         calls.append({"to": to, "subject": subject, "html": html, "text": text})
         return True
 
-    monkeypatch.setattr(weekly_report_module.email_client, "send_email", fake_send)
+    monkeypatch.setattr(weekly_report_module, "send_email", fake_send)
     return calls
 
 
@@ -191,6 +191,9 @@ def test_paid_user_gets_templated_precomputed_report_and_free_user_does_not(
     assert result["skipped_ineligible"] >= 1
 
     text = paid_deliveries[0]["text"]
+    assert ">View &amp; Apply</a>" in paid_deliveries[0]["html"]
+    assert ">Weekly report</td>" in paid_deliveries[0]["html"]
+    assert ">Unsubscribe</a>" not in paid_deliveries[0]["html"]
     assert "Dream-company matches" in text
     assert "Closing soon" in text
     assert "New hidden opportunities" in text

@@ -1,6 +1,7 @@
 name: Daily Digest
 
 # Four cron entries for ONE daily email, on deliberately ODD minutes.
+# Hackathons merged into this email on 2026-11-08 for Resend's 100/day free limit.
 #
 # GitHub does not promise to run a scheduled workflow at all. From their own
 # documentation:

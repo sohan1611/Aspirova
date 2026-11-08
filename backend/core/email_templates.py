@@ -1,24 +1,53 @@
-"""Shared, email-client-safe layout for Aspirova notification emails."""
+"""The single, inline-styled shell for Aspirova multipart emails."""
 
 from html import escape
 from html.parser import HTMLParser
+from typing import Literal
 
 from core.config import get_settings
+from core.email_components import (
+    BODY_FONT,
+    BORDER,
+    BRAND,
+    HEADING_FONT,
+    INK,
+    MUTED,
+    PAGE_BG,
+    TABLE,
+    _http_url,
+    button,
+    greeting as email_greeting,
+    status_panel,
+)
+
+# Only responsive overrides belong here. The complete base design is inline.
+RESPONSIVE_CSS = """
+@media only screen and (max-width:620px){
+.em-outer{padding:0!important}.em-pad{padding-left:16px!important;padding-right:16px!important}
+table.em-button,td.em-button{width:100%!important}
+a.em-button{display:block!important;box-sizing:border-box!important}
+.em-kind{display:none!important}
+}
+@media (prefers-color-scheme:dark){
+.em-page{background-color:#0b1220!important}.em-card{background-color:#111a2e!important}
+.em-ink{color:#e8eef8!important}.em-muted{color:#acb9ce!important}
+.em-card{border-color:#2c3b53!important}.em-link{color:#9cbcff!important}
+}
+[data-ogsc] .em-page{background-color:#0b1220!important}
+[data-ogsc] .em-card{background-color:#111a2e!important;border-color:#2c3b53!important}
+[data-ogsc] .em-ink{color:#e8eef8!important}
+[data-ogsc] .em-muted{color:#acb9ce!important}
+[data-ogsc] .em-link{color:#9cbcff!important}
+"""
 
 
 class _IntroTextParser(HTMLParser):
-    """Extract visible text for the inbox-preview preheader."""
-
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.parts: list[str] = []
 
     def handle_data(self, data: str) -> None:
         self.parts.append(data)
-
-
-def _site_url() -> str:
-    return get_settings().site_url.rstrip("/")
 
 
 def _preheader_text(intro_html: str) -> str:
@@ -28,24 +57,36 @@ def _preheader_text(intro_html: str) -> str:
     return " ".join(" ".join(parser.parts).split())
 
 
-def text_footer(unsubscribe_url: str | None = None) -> str:
-    """Return the shared plain-text footer for multipart email alternatives.
+def _site_url() -> str:
+    return (_http_url(get_settings().site_url) or "https://www.aspirova.org").rstrip("/")
 
-    `unsubscribe_url` is a per-recipient signed link, separate from "Manage
-    email preferences": that one goes to /account and needs a login, which is
-    fine for a human who still wants an account and useless to someone who just
-    wants out.
-    """
 
-    extra = [f"Unsubscribe from these emails: {unsubscribe_url}"] if unsubscribe_url else []
+def text_footer(
+    unsubscribe_url: str | None = None,
+    *,
+    variant: Literal["notification", "transactional"] = "notification",
+) -> str:
+    extra = [f"Unsubscribe from these emails: {url}"] if (url := _http_url(unsubscribe_url)) else []
+    receiving = (
+        "This is a service email about your Aspirova account."
+        if variant == "transactional"
+        else "You're receiving this because you have an Aspirova account."
+    )
+    disclaimer = (
+        []
+        if variant == "transactional"
+        else [
+            "Opportunities are gathered from public sources and can change — "
+            "always confirm details on the official page."
+        ]
+    )
     return "\n".join(
         [
-            "You're receiving this because you use Aspirova.",
             f"Manage email preferences: {_site_url()}/account?section=notifications",
             *extra,
-            "Opportunities are gathered from public sources and can change — "
-            "always confirm details on the official page.",
-            "Aspirova — every opportunity, one place.",
+            receiving,
+            *disclaimer,
+            f"Aspirova · Every opportunity. One place. · aspirova.org ({_site_url()})",
         ]
     )
 
@@ -53,96 +94,151 @@ def text_footer(unsubscribe_url: str | None = None) -> str:
 def email_layout(
     *,
     title: str,
-    intro_html: str,
+    intro_html: str = "",
     body_html: str,
     cta_label: str | None = None,
     cta_url: str | None = None,
     footer_note: str | None = None,
     unsubscribe_url: str | None = None,
+    preheader: str | None = None,
+    kind_label: str | None = None,
+    greeting: str | None = None,
+    summary: str | None = None,
+    variant: Literal["notification", "transactional"] = "notification",
+    cta_note: str | None = None,
+    receiving_note: str | None = None,
+    site_url: str | None = None,
+    show_preferences: bool = True,
 ) -> str:
-    """Wrap trusted, already-escaped content blocks in the shared email shell."""
+    """Content HTML is trusted and escaped by renderers. Text kwargs are escaped here.
 
-    site_url = _site_url()
-    preference_url = escape(f"{site_url}/account?section=notifications", quote=True)
-    preheader = escape(_preheader_text(intro_html), quote=True)
-    safe_title = escape(title, quote=True)
-
-    cta_html = ""
-    if cta_label and cta_url:
-        cta_html = (
-            '<table role="presentation" cellpadding="0" cellspacing="0" border="0" '
-            'align="center" style="margin:24px auto">'
-            '<tr><td align="center" bgcolor="#5e2b47" '
-            'style="background-color:#5e2b47;border-radius:8px;mso-padding-alt:12px 22px">'
-            f'<a href="{escape(cta_url, quote=True)}" '
-            'style="background-color:#5e2b47;border:1px solid #5e2b47;border-radius:8px;'
-            "color:#ffffff;display:inline-block;font-family:Arial,Helvetica,sans-serif;"
-            "font-size:15px;font-weight:700;line-height:20px;padding:12px 22px;"
-            'text-align:center;text-decoration:none">'
-            f"{escape(cta_label, quote=True)}</a>"
-            "</td></tr></table>"
+    site_url and receiving_note support the static Supabase dashboard handover.
+    """
+    site = _http_url(site_url or _site_url()) or "https://www.aspirova.org"
+    site = site.rstrip("/")
+    safe_site = escape(site, quote=True)
+    preference_url = escape(f"{site}/account?section=notifications", quote=True)
+    preview = preheader if preheader is not None else _preheader_text(intro_html)
+    preview = escape(preview, quote=True) + "&#847;&zwnj;&nbsp;" * 40
+    kind = (
+        '<td class="em-kind" align="right" style="color:#dbe6ff;font-size:12px">'
+        f"{escape(kind_label, quote=True)}</td>"
+        if kind_label
+        else ""
+    )
+    hero = ""
+    if greeting:
+        hero += (
+            f'<p class="em-ink" style="color:{INK};font-size:15px;line-height:23px;margin:0 0 8px">'
+            f"{escape(greeting, quote=True)}</p>"
         )
-
-    # A visible unsubscribe, separate from the List-Unsubscribe header. Gmail
-    # renders that header as its own control, but only in clients that support
-    # it; everyone else needs a link they can actually see, and the alternative
-    # to finding one is the spam button.
-    unsubscribe_html = ""
-    if unsubscribe_url:
-        unsubscribe_html = (
-            '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:12px;'
-            'line-height:18px;margin:0 0 8px">'
-            f'<a href="{escape(unsubscribe_url, quote=True)}" '
-            'style="color:#6b6259;text-decoration:underline">Unsubscribe</a>'
-            " from these emails.</p>"
+    if summary:
+        hero += (
+            f'<p class="em-ink" style="color:{INK};font-size:16px;font-weight:700;'
+            f'line-height:24px;margin:0 0 16px">{escape(summary, quote=True)}</p>'
         )
-
-    footer_note_html = ""
+    cta = ""
+    if cta_label and _http_url(cta_url):
+        cta = (
+            f'<table {TABLE} width="100%"><tr><td align="center" style="padding:24px 0 0">'
+            f"{button(cta_label, cta_url)}</td></tr></table>"
+        )
+        if cta_note:
+            cta += (
+                f'<p class="em-muted" style="color:{MUTED};font-size:12px;text-align:center">'
+                f"{escape(cta_note, quote=True)}</p>"
+            )
+    footer_link = f"color:{MUTED};text-decoration:underline"
+    unsubscribe = ""
+    if url := _http_url(unsubscribe_url):
+        unsubscribe = (
+            f' · <a class="em-muted" href="{escape(url, quote=True)}" '
+            f'style="{footer_link}">Unsubscribe</a>'
+        )
+    receiving = receiving_note or (
+        "This is a service email about your Aspirova account."
+        if variant == "transactional"
+        else "You're receiving this because you have an Aspirova account."
+    )
+    # Auth emails (Supabase handover) have no preference to manage, and service
+    # emails carry no opportunity data, so neither gets those lines.
+    footer_lines = (
+        [
+            f'<a class="em-muted" href="{preference_url}" style="{footer_link}">'
+            f"Manage email preferences</a>{unsubscribe}"
+        ]
+        if show_preferences
+        else []
+    )
     if footer_note:
-        footer_note_html = (
-            '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:12px;'
-            'line-height:18px;margin:0 0 10px">'
-            f"{escape(footer_note, quote=True)}</p>"
+        footer_lines.append(escape(footer_note, quote=True))
+    footer_lines.append(escape(receiving, quote=True))
+    if variant != "transactional":
+        footer_lines.append(
+            "Opportunities are gathered from public sources and can change — "
+            "always confirm details on the official page."
         )
-
+    footer_lines.append(
+        "Aspirova · Every opportunity. One place. · "
+        f'<a class="em-muted" href="{safe_site}" style="{footer_link}">aspirova.org</a>'
+    )
+    footer = "".join(f'<p style="margin:0 0 8px">{line}</p>' for line in footer_lines)
     return (
-        "<!doctype html>"
-        '<html lang="en">'
-        '<head><meta charset="utf-8"><meta name="viewport" '
-        'content="width=device-width, initial-scale=1.0"></head>'
-        '<body style="background-color:#faf7f0;margin:0;padding:0">'
-        '<span style="color:#faf7f0;display:none;font-size:1px;line-height:1px;'
-        'max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all">'
-        f"{preheader}</span>"
-        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
-        'style="background-color:#faf7f0;border-collapse:collapse;width:100%">'
-        '<tr><td align="center" style="padding:24px 12px">'
-        '<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" '
-        'style="background-color:#ffffff;border:1px solid #e7e0d4;border-collapse:separate;'
-        'border-radius:12px;border-spacing:0;max-width:600px;overflow:hidden;width:100%">'
-        '<tr><td style="padding:22px 24px 18px">'
-        "<p style=\"color:#5e2b47;font-family:Georgia,'Times New Roman',serif;font-size:22px;"
-        'font-weight:700;letter-spacing:-0.3px;line-height:26px;margin:0">Aspirova</p>'
-        "</td></tr>"
-        '<tr><td bgcolor="#5e2b47" '
-        'style="background-color:#5e2b47;font-size:2px;height:2px;line-height:2px">&nbsp;</td></tr>'
-        '<tr><td style="padding:28px 24px 4px">'
-        "<p style=\"color:#2b2620;font-family:Georgia,'Times New Roman',serif;font-size:22px;"
-        'font-weight:700;line-height:30px;margin:0 0 10px">'
-        f"{safe_title}</p>"
-        f"{intro_html}{body_html}{cta_html}"
-        "</td></tr>"
-        '<tr><td style="border-top:1px solid #e7e0d4;padding:18px 24px 22px">'
-        f"{footer_note_html}"
-        '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:12px;'
-        "line-height:18px;margin:0 0 8px\">You're receiving this because you use Aspirova. "
-        f'<a href="{preference_url}" style="color:#5e2b47;text-decoration:underline">'
-        "Manage email preferences</a>.</p>"
-        f"{unsubscribe_html}"
-        '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:12px;'
-        'line-height:18px;margin:0 0 8px">Opportunities are gathered from public sources and '
-        "can change — always confirm details on the official page.</p>"
-        '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:12px;'
-        'line-height:18px;margin:0">Aspirova — every opportunity, one place.</p>'
-        "</td></tr></table></td></tr></table></body></html>"
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+        '<meta name="color-scheme" content="light dark">'
+        '<meta name="supported-color-schemes" content="light dark">'
+        f"<title>{escape(title, quote=True)}</title><style>{RESPONSIVE_CSS}</style>"
+        "<!--[if mso]><style>*{font-family:Arial,Helvetica,sans-serif !important}"
+        "</style><![endif]--></head>"
+        f'<body class="em-page" style="margin:0;padding:0;background-color:{PAGE_BG};{BODY_FONT}">'
+        '<span style="display:none;max-height:0;max-width:0;overflow:hidden;mso-hide:all;'
+        f'opacity:0;font-size:1px;line-height:1px">{preview}</span>'
+        f'<table {TABLE} width="100%" class="em-page" bgcolor="{PAGE_BG}" '
+        f'style="background-color:{PAGE_BG};width:100%"><tr>'
+        '<td class="em-outer" align="center" style="padding:24px 12px">'
+        '<!--[if mso]><table role="presentation" width="600" align="center"><tr><td><![endif]-->'
+        f'<table {TABLE} width="600" style="width:100%;max-width:600px">'
+        f'<tr><td bgcolor="{BRAND}" class="em-pad" style="background-color:{BRAND};'
+        'padding:16px 24px;border-radius:12px 12px 0 0">'
+        f'<table {TABLE} width="100%"><tr><td width="32">'
+        f'<a href="{safe_site}"><img src="{safe_site}/logo.png" width="32" height="32" '
+        'alt="Aspirova" style="border-radius:50%;display:block;border:0"></a></td>'
+        f'<td style="padding-left:10px"><a href="{safe_site}" style="color:#ffffff;'
+        f'{HEADING_FONT}font-size:20px;font-weight:700;text-decoration:none">Aspirova</a></td>'
+        f'{kind}</tr></table></td></tr><tr><td class="em-card em-pad" bgcolor="#ffffff" '
+        f'style="background-color:#ffffff;padding:24px;border-bottom:1px solid {BORDER};'
+        'border-radius:0 0 12px 12px">'
+        f'<h1 class="em-ink" style="color:{INK};{HEADING_FONT}font-size:22px;'
+        f'line-height:30px;margin:0 0 16px">{escape(title, quote=True)}</h1>'
+        f"{hero}{intro_html}{body_html}{cta}</td></tr><tr>"
+        f'<td class="em-muted em-page" align="center" style="color:{MUTED};'
+        f'background-color:{PAGE_BG};font-size:12px;line-height:18px;padding:20px 24px 32px">'
+        f"{footer}</td></tr></table><!--[if mso]></td></tr></table><![endif]-->"
+        "</td></tr></table></body></html>"
+    )
+
+
+def subscription_layout(*, plan_name: str, active: bool, display_name: str | None = None) -> str:
+    """Pure account rendering shared by the payment handler and offline previews."""
+    site = _site_url()
+    title = "Your Aspirova Pro is active" if active else "We couldn't process your payment"
+    lines = (
+        [f"Your {plan_name} plan is now active.", "Your Pro features are ready whenever you are."]
+        if active
+        else [
+            f"We couldn't process the payment for your {plan_name} plan.",
+            "Please update your payment method. Pro features are paused until your payment "
+            "succeeds.",
+        ]
+    )
+    return email_layout(
+        title=title,
+        kind_label="Account",
+        variant="transactional",
+        greeting=email_greeting(display_name),
+        preheader=lines[0],
+        body_html=status_panel("success" if active else "urgent", lines),
+        cta_label="Open Aspirova" if active else "View your subscription",
+        cta_url=site if active else f"{site}/account?section=subscription",
     )

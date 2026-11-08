@@ -12,6 +12,12 @@ from pipeline.company_alert_email import CompanyAlertGroup, render_company_alert
 NOW = datetime(2026, 11, 4, 12, tzinfo=timezone.utc)
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _purge_isolation_test_residue():
+    """Keep transient-model rendering tests independent of the global DB cleanup."""
+    yield
+
+
 def _company(name="Google", slug="google", **kwargs):
     return models.Company(name=name, slug=slug, **kwargs)
 
@@ -86,9 +92,9 @@ def test_real_facts_skills_and_both_link_destinations():
         "Bengaluru · Remote",
         "Unpaid",
         "6 months",
-        "Possible",
-        "18 Nov 2026 (in 14 days)",
-        "You have 2 of the 5 skills listed",
+        "Job offer possible",
+        "Apply by 18 Nov",
+        "You have 2 of 5 skills listed",
         "Apply on the original listing",
         "https://example.com/apply",
         "https://example.com/unsubscribe?token=test",
@@ -98,7 +104,7 @@ def test_real_facts_skills_and_both_link_destinations():
         assert value in text
     assert html.index(">SQL</span>") < html.index(">Python</span>") < html.index(">Go</span>")
     assert "s2/favicons?domain=google.com&amp;sz=64" in html
-    assert "background-color:#5e2b47" in html
+    assert "background-color:#0b4fd6" in html
     assert "utm_" not in html
     assert "Unsubscribe</a>" in html
 
@@ -129,11 +135,12 @@ def test_deadline_calendar_day_wording(days, timing):
             )
         ]
     )
-    assert f"({timing})" in html + text
+    assert f"Closes {timing}" in html and f"Closes {timing}" in text
 
 
 @pytest.mark.parametrize(
-    "name,greeting", [(None, "Hi,"), ("priya@example.com", "Hi,"), (" Priya S ", "Hi Priya,")]
+    "name,greeting",
+    [(None, "Hi there,"), ("priya@example.com", "Hi there,"), (" Priya S ", "Hi Priya,")],
 )
 def test_greeting(name, greeting):
     _, html, text = _render(display_name=name)
@@ -157,7 +164,7 @@ def test_caps_share_cards_fairly_and_order_internships_first():
             CompanyAlertGroup(_company(f"Company {index}", f"company-{index}"), [], opportunities)
         )
     _, html, text = _render(groups)
-    assert html.count(">View details</a>") == 8
+    assert html.count(">View &amp; Apply</a>") == 8
     for index, shown in enumerate((3, 3, 2)):
         label = f"+{6 - shown} more new roles at Company {index}"
         assert label in html and label in text
@@ -165,7 +172,7 @@ def test_caps_share_cards_fairly_and_order_internships_first():
         assert f"Role {index}-0" in html
     assert html.index("Role 0-0") < html.index("Role 0-5")
     _, html, text = _render([groups[0]])
-    assert html.count(">View details</a>") == 4
+    assert html.count(">View &amp; Apply</a>") == 4
     assert "+2 more new roles" in html + text
 
 
@@ -201,9 +208,9 @@ def test_subject_and_summary_are_bounded_and_whitespace_collapsed():
 def test_identical_summary_is_omitted_and_initial_tile_is_used():
     opportunity = _opportunity(summary="Software Engineer Intern")
     _, html, _ = _render([CompanyAlertGroup(_company(), [], [opportunity])])
-    assert "src=" not in html
+    assert html.count("<img ") == 1  # Only the shared Aspirova header logo.
     assert ">G</td>" in html
-    assert html.count("Software Engineer Intern") == 2  # Shell title and linked card.
+    assert html.count("Software Engineer Intern") == 3  # Head title, hero and linked card.
 
 
 @pytest.mark.parametrize(
@@ -224,7 +231,7 @@ def test_location_is_bounded_and_prioritizes_india(location, expected):
         [CompanyAlertGroup(_company(), [], [_opportunity(location=location, is_remote=True)])]
     )
     assert expected + " · Remote" in html
-    assert f"Where: {expected} · Remote" in text
+    assert expected + " · Remote" in text
     if "more" in expected:
         assert location not in html + text
 
@@ -272,8 +279,8 @@ def test_one_listed_skill_overlap_is_singular():
         [CompanyAlertGroup(_company(), [], [_opportunity(skills=["Python"])])],
         user_skills=[{"name": "python", "source": "manual"}],
     )
-    assert "You have the 1 skill listed" in html
-    assert "You have the 1 skill listed" in text
+    assert "You have 1 of 1 skill listed" in html
+    assert "You have 1 of 1 skill listed" in text
     assert "1 skills" not in html + text
 
 
@@ -287,7 +294,8 @@ def test_identity_fields_preserve_names_that_look_like_placeholders(company, tit
     assert f">{company}</p>" in html
     assert f">{title}</a>" in html
     assert f"{company}\nFollowing for all domains" in text
-    assert f"Internship: {title}" in text
+    assert f"{title} — {company}" in text
+    assert "Internship" in text
     assert f"you follow {company} on Aspirova" in html + text
 
 
@@ -316,7 +324,7 @@ def test_early_career_cards_precede_newer_senior_roles_without_dropping_them():
         assert definitions[1][0] not in part
         assert definitions[2][0] not in part
         assert "+2 more new roles at Google" in part
-    assert html.count(">View details</a>") == 4
+    assert html.count(">View &amp; Apply</a>") == 4
     assert len(opportunities) == 6
 
 

@@ -1,10 +1,10 @@
 """Notification worker entrypoint (Doc handoffs/PHASE-2-HANDOFF.md sec
 5). Runs on GitHub Actions cron, never the Render web dyno (Doc 02 sec
 3.3's "crawler never runs on the API process" principle, extended here).
+The daily digest combines opportunities and hackathons in one email.
 
 Usage:
   uv run python -m scripts.notification_worker --digest
-  uv run python -m scripts.notification_worker --hackathon-digest
   uv run python -m scripts.notification_worker --instant-alerts
   uv run python -m scripts.notification_worker --company-alerts
   uv run python -m scripts.notification_worker --closing-soon
@@ -21,7 +21,6 @@ from pipeline.notifications import (
     send_closing_soon_alerts,
     send_company_alerts,
     send_daily_digests,
-    send_hackathon_digests,
     send_instant_alerts,
 )
 from pipeline.saved_search_alerts import send_saved_search_alerts
@@ -31,7 +30,11 @@ from pipeline.weekly_report import send_weekly_reports
 def main() -> None:
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--digest", action="store_true", help="Send daily digest emails")
+    group.add_argument(
+        "--digest",
+        action="store_true",
+        help="Send the combined daily opportunity and hackathon digest",
+    )
     group.add_argument("--company-alerts", action="store_true", help="Send grouped company alerts")
     group.add_argument(
         "--instant-alerts", action="store_true", help="Send instant dream-company alerts"
@@ -44,11 +47,6 @@ def main() -> None:
         action="store_true",
         help="Send saved-search alert emails",
     )
-    group.add_argument(
-        "--hackathon-digest",
-        action="store_true",
-        help="Send the daily hackathon/competition digest",
-    )
     group.add_argument("--weekly", action="store_true", help="Send weekly career reports")
     args = parser.parse_args()
 
@@ -60,9 +58,6 @@ def main() -> None:
         elif args.company_alerts:
             result = send_company_alerts(session)
             print(f"company alerts: {result}", flush=True)
-        elif args.hackathon_digest:
-            result = send_hackathon_digests(session)
-            print(f"hackathon digests: {result}", flush=True)
         elif args.saved_search_alerts:
             result = send_saved_search_alerts(session)
             print(f"saved-search alerts: {result}", flush=True)

@@ -218,7 +218,7 @@ def _apply_unsubscribe(token: str, db: Session) -> _UnsubscribeOutcome:
 
 def _unsubscribe_detail(preference_key: str) -> str:
     list_name = {
-        "daily_digest": "the daily opportunity digest",
+        "daily_digest": "the daily digest (opportunities and hackathons)",
         "hackathon_digest": "the hackathon digest",
         "instant_alerts": "alerts for companies you follow",
     }.get(preference_key, "these emails")

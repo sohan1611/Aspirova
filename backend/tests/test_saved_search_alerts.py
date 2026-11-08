@@ -348,6 +348,9 @@ def test_saved_search_alert_html_escapes_opportunity_title(db_session, sent_emai
 
     email = next(email for email in sent_emails if email["to"] == user.email)
     assert "Research &lt;script&gt; &amp; Development" in email["html"]
+    assert ">View &amp; Apply</a>" in email["html"]
+    assert ">Saved search</td>" in email["html"]
+    assert ">Unsubscribe</a>" not in email["html"]
     assert "Research <script>" not in email["html"]
 
 

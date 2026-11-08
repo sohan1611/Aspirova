@@ -153,6 +153,8 @@ def test_digest_html_escapes_crawled_opportunity_title(db_session, source_and_co
     html, _text = notifications_module._render_digest([opportunity])
 
     assert "Research &lt;script&gt; &amp; Development" in html
+    assert ">View &amp; Apply</a>" in html
+    assert ">Daily digest</td>" in html
     assert "Research <script>" not in html
     assert "Aspirova" in html
     assert "/account?section=notifications" in html
@@ -190,6 +192,7 @@ def test_digest_prefers_dream_company_matches_over_generic(
         )
     )
     assert notification.meta["opportunity_ids"] == [dream_opp.id]
+    assert "hackathon_ids" in notification.meta
 
 
 def test_dream_company_digest_allows_multiple_roles_from_same_company(
@@ -220,7 +223,7 @@ def test_dream_company_digest_allows_multiple_roles_from_same_company(
             models.Notification.user_id == user.id, models.Notification.type == "digest"
         )
     )
-    assert notification.meta["opportunity_ids"] == [newer.id, older.id]
+    assert notification.meta == {"opportunity_ids": [newer.id, older.id], "hackathon_ids": []}
 
 
 def test_digest_excludes_already_instant_alerted_opportunities(
@@ -919,7 +922,7 @@ def test_company_alert_groups_companies_records_beyond_cap_and_deduplicates(
     send_company_alerts(db_session, now=now)
     emails = [email for email in sent_emails if email["to"] == user.email]
     assert len(emails) == 1
-    assert emails[0]["html"].count(">View details</a>") == 8
+    assert emails[0]["html"].count(">View &amp; Apply</a>") == 8
     assert emails[0]["headers"]["List-Unsubscribe-Post"] == "List-Unsubscribe=One-Click"
     assert {row.opportunity_id for row in _alert_rows(db_session, user)} == {
         o.id for o in opportunities

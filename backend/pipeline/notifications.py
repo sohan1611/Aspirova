@@ -2,8 +2,9 @@
 
 Company alerts are grouped once per user per run: paid users receive them
 following crawls and on daily runs; free users receive at most one per UTC
-day. Daily digests exclude listings already delivered as company alerts.
-Closing-soon and hackathon digests retain their independent preferences.
+day. The daily digest excludes prior company alerts from its per-user
+opportunity list and appends shared hackathon picks. Legacy hackathon opt-outs
+suppress those picks. Closing-soon reminders keep their own preference.
 All entitlements use can(), and sent notification rows provide deduplication.
 """
 
@@ -12,7 +13,6 @@ import random
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from html import escape
 
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session, aliased
@@ -27,7 +27,14 @@ from api.filters import (
 )
 from core import models
 from core.config import get_settings
-from core.email_client import send_email
+from core.email_components import (
+    MUTED,
+    _utc,
+    greeting,
+    grouped_cards,
+    opportunity_card,
+    section,
+)
 from core.email_templates import email_layout, text_footer
 from core.gating import can
 from core.organisers import REPUTED_ORGANISER_REGEX
@@ -45,6 +52,10 @@ logger = logging.getLogger(__name__)
 COMPANY_ALERT_LOOKBACK = timedelta(hours=72)
 DIGEST_GENERIC_SAMPLE_SIZE = 5
 DIGEST_RANKED_COMPANY_RESERVE_SIZE = 2
+DAILY_DIGEST_SUBJECT = "Your Aspirova daily digest"
+HACKATHON_DIGEST_SUBJECT = "Your Daily Dose of Hackathons 🚀"
+COMBINED_DIGEST_SUBJECT = "Your Aspirova daily digest + hackathons 🚀"
+_HACKATHON_CATEGORIES = {"hackathon", "competition"}
 
 
 def _record_notification(
@@ -91,32 +102,6 @@ def _already_sent_today(session: Session, user_id, notification_type: str, now: 
                 models.Notification.type == notification_type,
                 models.Notification.status == "sent",
                 func.date(models.Notification.sent_at) == now.date(),
-            )
-            .limit(1)
-        )
-        is not None
-    )
-
-
-def _sent_within(
-    session: Session, user_id, notification_type: str, now: datetime, window: timedelta
-) -> bool:
-    """Did this user get `notification_type` inside the last `window`?
-
-    Unlike _already_sent_today this IS a rolling window, deliberately: it asks
-    "was the other email just now", which is a question about elapsed time, not
-    about the calendar day. It cannot ratchet a daily send, because it only ever
-    defers within the day - the calendar-day cap is still what decides whether
-    the email happens at all.
-    """
-    return (
-        session.scalar(
-            select(models.Notification.id)
-            .where(
-                models.Notification.user_id == user_id,
-                models.Notification.type == notification_type,
-                models.Notification.status == "sent",
-                models.Notification.sent_at >= now - window,
             )
             .limit(1)
         )
@@ -275,57 +260,86 @@ def _generic_recent_opportunities(
     )
 
 
-def _company_name(opportunity: models.Opportunity) -> str:
-    return opportunity.company.name if opportunity.company else "Unknown"
+def send_email(
+    to: str, subject: str, html: str, text: str, headers: dict[str, str] | None = None
+) -> bool:
+    """Load the transport only on an actual send, keeping offline rendering pure."""
+    from core.email_client import send_email as deliver
+
+    return deliver(to, subject, html, text, headers=headers)
 
 
 def _render_digest(
-    opportunities: list[models.Opportunity], unsub_url: str | None = None
+    opportunities: list[models.Opportunity],
+    unsub_url: str | None = None,
+    *,
+    display_name: str | None = None,
+    now: datetime | None = None,
+    hackathons: list[models.Opportunity] | None = None,
 ) -> tuple[str, str]:
-    lines = [f"- {o.title} at {_company_name(o)}: {o.apply_url}" for o in opportunities]
-    text = (
-        "Fresh opportunities matched to your interests — take a look while they're still open.\n\n"
-        + "\n".join(lines)
-        + "\n\n"
-        + text_footer(unsub_url)
-    )
-    html_rows = "".join(
-        (
-            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
-            'style="border:1px solid #e7e0d4;border-collapse:separate;border-radius:8px;'
-            'border-spacing:0;margin:0 0 12px;width:100%">'
-            '<tr><td style="padding:16px">'
-            "<p style=\"color:#2b2620;font-family:Georgia,'Times New Roman',serif;font-size:17px;"
-            'font-weight:700;line-height:23px;margin:0 0 4px">'
-            f"{escape(opportunity.title, quote=True)}</p>"
-            '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
-            'line-height:20px;margin:0 0 10px">'
-            f"at {escape(_company_name(opportunity), quote=True)}</p>"
-            f'<a href="{escape(opportunity.apply_url, quote=True)}" '
-            'style="color:#5e2b47;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
-            'font-weight:700;text-decoration:underline">View &amp; apply &rarr;</a>'
-            "</td></tr></table>"
+    current = now or datetime.now(timezone.utc)
+    jobs = [o for o in opportunities if o.category not in _HACKATHON_CATEGORIES]
+    events = [o for o in opportunities if o.category in _HACKATHON_CATEGORIES]
+    existing_ids = {o.id for o in opportunities if o.id is not None}
+    events.extend(o for o in (hackathons or []) if o.id is None or o.id not in existing_ids)
+    job_count, event_count = len(jobs), len(events)
+    opportunity_noun = "opportunity" if job_count == 1 else "opportunities"
+    hackathon_noun = "hackathon" if event_count == 1 else "hackathons"
+    if jobs and events:
+        summary = (
+            f"{job_count} new {opportunity_noun} and {event_count} {hackathon_noun} "
+            "picked for you today"
         )
-        for opportunity in opportunities
-    )
+    elif events:
+        event_noun = (
+            "hackathon or competition" if event_count == 1 else "hackathons and competitions"
+        )
+        summary = f"{event_count} {event_noun} you can still enter"
+    else:
+        summary = f"{job_count} new {opportunity_noun} picked for you today"
+    body, cards_text, first_card = grouped_cards(jobs, now=current)
+    if events:
+        cards = [
+            opportunity_card(
+                o,
+                now=current,
+                button_url=o.apply_url,
+                button_label="View & Enter",
+                deadline_policy="any",
+            )
+            for o in events
+        ]
+        body += section(
+            "Hackathons & competitions",
+            event_count,
+            "".join(h for h, _ in cards),
+            see_all_url=f"{get_settings().site_url.rstrip('/')}/competitions",
+        )
+        event_text = "Hackathons & competitions\n\n" + "\n\n".join(t for _, t in cards)
+        cards_text = "\n\n".join(part for part in [cards_text, event_text] if part)
+        if not first_card:
+            company = events[0].company.name if events[0].company else "Unknown"
+            first_card = f"{events[0].title} at {company}"
     html = email_layout(
         title="Your daily opportunity digest",
-        intro_html=(
-            '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:15px;'
-            'line-height:22px;margin:0 0 20px">Fresh opportunities matched to your interests — '
-            "take a look while they're still open.</p>"
-        ),
-        body_html=html_rows,
+        kind_label="Daily digest",
+        greeting=greeting(display_name),
+        summary=summary,
+        preheader=summary + (f" — {first_card}" if first_card else ""),
+        body_html=body,
         unsubscribe_url=unsub_url,
-        cta_label="Browse all opportunities",
+        cta_label="See all on Aspirova",
         cta_url=get_settings().site_url,
     )
+    text = "\n\n".join([greeting(display_name), summary, cards_text, text_footer(unsub_url)])
     return html, text
 
 
 def _render_closing_soon(
     opportunities: list[models.Opportunity],
     now: datetime,
+    *,
+    display_name: str | None = None,
 ) -> tuple[str, str]:
     if len(opportunities) == 1:
         opportunity = opportunities[0]
@@ -341,57 +355,57 @@ def _render_closing_soon(
     else:
         subject = f"{len(opportunities)} opportunities closing soon"
 
-    html_rows = "".join(
-        (
-            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
-            'style="border:1px solid #e7e0d4;border-collapse:separate;border-radius:8px;'
-            'border-spacing:0;margin:0 0 12px;width:100%">'
-            '<tr><td style="padding:16px">'
-            "<p style=\"color:#2b2620;font-family:Georgia,'Times New Roman',serif;font-size:17px;"
-            'font-weight:700;line-height:23px;margin:0 0 6px">'
-            f"{escape(opportunity.title, quote=True)}</p>"
-            '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
-            'line-height:20px;margin:0 0 10px">'
-            f"Deadline: {escape(opportunity.deadline.strftime('%d %b %Y'), quote=True)}</p>"
-            f'<a href="{escape(opportunity.apply_url, quote=True)}" '
-            'style="color:#5e2b47;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
-            'font-weight:700;text-decoration:underline">View &amp; apply &rarr;</a>'
-            "</td></tr></table>"
-        )
-        for opportunity in opportunities
-        if opportunity.deadline is not None
+    items = sorted(
+        (o for o in opportunities if o.deadline is not None), key=lambda o: _utc(o.deadline)
     )
-    body_html = (
-        html_rows + '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
-        'line-height:20px;margin:8px 0 0">Deadlines can change. Please verify them at the '
-        "linked source.</p>"
+    cards = [
+        opportunity_card(o, now=now, button_url=o.apply_url, deadline_policy="any")[0]
+        for o in items
+    ]
+    count = len(opportunities)
+    summary = (
+        f"{count} saved {'opportunity closes' if count == 1 else 'opportunities close'} "
+        "in the next 3 days"
     )
     html = email_layout(
         title="Opportunities closing soon",
-        intro_html=(
-            '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:15px;'
-            'line-height:22px;margin:0 0 20px">A quick reminder to review your saved '
-            "opportunities before their deadlines pass.</p>"
+        kind_label="Closing soon",
+        greeting=greeting(display_name),
+        summary=summary,
+        preheader=summary,
+        body_html="".join(cards)
+        + (
+            f'<p class="em-muted" style="color:{MUTED};font-size:14px;line-height:20px">'
+            "Deadlines can change. Please verify them at the linked source.</p>"
         ),
-        body_html=body_html,
         cta_label="Review your saved opportunities",
         cta_url=f"{get_settings().site_url.rstrip('/')}/saved",
     )
     return subject, html
 
 
-def _render_closing_soon_text(opportunities: list[models.Opportunity]) -> str:
-    lines = [
-        f"- {opportunity.title} — deadline {opportunity.deadline.strftime('%d %b %Y')}: "
-        f"{opportunity.apply_url}"
-        for opportunity in opportunities
-        if opportunity.deadline is not None
+def _render_closing_soon_text(
+    opportunities: list[models.Opportunity],
+    *,
+    display_name: str | None = None,
+    now: datetime | None = None,
+) -> str:
+    current = now or datetime.now(timezone.utc)
+    items = sorted(
+        (o for o in opportunities if o.deadline is not None), key=lambda o: _utc(o.deadline)
+    )
+    cards = [
+        opportunity_card(o, now=current, button_url=o.apply_url, deadline_policy="any")[1]
+        for o in items
     ]
-    return (
-        "Your bookmarked opportunities are closing soon:\n\n"
-        + "\n".join(lines)
-        + "\n\nDeadlines can change. Please verify them at the linked source.\n\n"
-        + text_footer()
+    return "\n\n".join(
+        [
+            greeting(display_name),
+            "Your bookmarked opportunities are closing soon:",
+            *cards,
+            "Deadlines can change. Please verify them at the linked source.",
+            text_footer(),
+        ]
     )
 
 
@@ -400,6 +414,7 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
     since = now - timedelta(hours=24)
 
     result = {"sent": 0, "failed": 0, "skipped_capped": 0, "skipped_empty": 0}
+    picks = _hackathon_digest_opportunities(session, now)
 
     for user in session.scalars(select(models.User)).all():
         try:
@@ -430,14 +445,34 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
                     )
                     if not _already_alerted(session, user.id, o.id)
                 ]
-            if not opportunities:
+            job_ids = {o.id for o in opportunities}
+            hackathons = (
+                [o for o in picks if o.id not in job_ids] if wants(user, "hackathon_digest") else []
+            )
+            if not opportunities and not hackathons:
                 result["skipped_empty"] += 1
                 continue
 
-            html, text = _render_digest(opportunities, unsubscribe_url(user.id, "daily_digest"))
+            has_jobs = any(o.category not in _HACKATHON_CATEGORIES for o in opportunities)
+            has_hackathons = bool(hackathons) or any(
+                o.category in _HACKATHON_CATEGORIES for o in opportunities
+            )
+            if has_jobs and has_hackathons:
+                subject = COMBINED_DIGEST_SUBJECT
+            elif has_hackathons:
+                subject = HACKATHON_DIGEST_SUBJECT
+            else:
+                subject = DAILY_DIGEST_SUBJECT
+            html, text = _render_digest(
+                opportunities,
+                unsubscribe_url(user.id, "daily_digest"),
+                display_name=user.display_name,
+                now=now,
+                hackathons=hackathons,
+            )
             sent = send_email(
                 user.email,
-                "Your Aspirova daily digest",
+                subject,
                 html,
                 text,
                 headers=list_unsubscribe_headers(user.id, "daily_digest"),
@@ -448,7 +483,10 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
                 "digest",
                 opportunity_id=None,
                 status="sent" if sent else "failed",
-                meta={"opportunity_ids": [o.id for o in opportunities]},
+                meta={
+                    "opportunity_ids": [o.id for o in opportunities],
+                    "hackathon_ids": [o.id for o in hackathons],
+                },
             )
             result["sent" if sent else "failed"] += 1
         except Exception:
@@ -630,8 +668,8 @@ def send_closing_soon_alerts(
             if not opportunities:
                 continue
 
-            subject, html = _render_closing_soon(opportunities, now)
-            text = _render_closing_soon_text(opportunities)
+            subject, html = _render_closing_soon(opportunities, now, display_name=user.display_name)
+            text = _render_closing_soon_text(opportunities, display_name=user.display_name, now=now)
             sent = send_email(user.email, subject, html, text)
             status = "sent" if sent else "failed"
             for opportunity in opportunities:
@@ -658,28 +696,18 @@ def send_closing_soon_alerts(
 
 
 # ---------------------------------------------------------------------------
-# Hackathon digest
+# Hackathon picks for the single daily digest
 #
-# A separate daily email from send_daily_digests(). It exists because the
-# generic digest ranks across the WHOLE corpus, and with ~24k jobs against ~740
-# competitions a hackathon effectively never wins a slot - verified in
-# production, where a digest of five internships went out while IIT Bhubaneswar
-# and IIT Delhi hackathons sat active and unmentioned.
+# Selected once per run and appended after each user's opportunity sections.
+# This preserves a dedicated competition selection pool even when jobs dominate
+# the corpus. A legacy hackathon opt-out suppresses the appended picks, while
+# the daily-digest preference and UTC calendar-day cap control the one email.
+# Merged on 2026-11-08 to stay within Resend's 100-emails/day free limit.
 #
-# Two rules distinguish it from the generic digest:
-#   1. Only listings a reader can still ENTER. exclude_closed_competitions()
-#      keeps a 14-day grace window, which is right for browsing (a page you can
-#      still read) and wrong for an email telling you to go and apply.
-#   2. At least HACKATHON_DIGEST_REPUTED_RESERVE slots are reserved for
-#      top-tier organisers, so an inbox never fills with unknown college events
-#      while an IIT hackathon closes unmentioned.
+# Only still-enterable listings qualify, with the minimum lead and freshness
+# window below. Reputed organisers retain reserved slots, and the existing
+# source caps, deadline-day diversity and date-seeded shuffle remain in use.
 # ---------------------------------------------------------------------------
-
-# Subject line, kept as a constant so it cannot drift from anything that refers
-# to it later. Note the emoji is a deliberate founder choice: it slightly pushes
-# Gmail toward the Promotions tab, which is the placement DMARC was just added to
-# improve, so the two pull against each other a little.
-HACKATHON_DIGEST_SUBJECT = "Your Daily Dose of Hackathons 🚀"
 
 HACKATHON_DIGEST_SIZE = 5
 HACKATHON_DIGEST_REPUTED_RESERVE = 2
@@ -696,21 +724,6 @@ HACKATHON_DIGEST_MIN_LEAD = timedelta(days=2)
 # crawl but not two; measured stale Unstop rows last seen 2-3 days earlier were
 # still being emailed with countdowns after the source had stopped listing them.
 HACKATHON_DIGEST_MAX_STALENESS = timedelta(hours=36)
-
-# Minimum spacing between a user's daily digest and their hackathon digest.
-#
-# These began life as two consecutive steps of one workflow, so they arrived
-# about a minute apart - two emails from the same sender landing together, which
-# reads as a burst and is the shape recipients unsubscribe from (and Gmail
-# groups). Scheduling alone cannot guarantee the gap here: GitHub's cron is
-# best-effort and drifts by hours on this repo, so a late daily run can land on
-# top of an on-time hackathon run.
-#
-# So the gap is enforced per user at send time, and the two workflows are merely
-# scheduled apart. A user inside the window is skipped, not dropped: the
-# hackathon workflow has several cron slots through the day and a later one
-# sends, still bounded by the once-per-calendar-day cap.
-HACKATHON_DIGEST_MIN_GAP = timedelta(hours=2)
 
 # Aspirova's audience is college students. Unstop carries school-level quizzes
 # ("The Pi Quiz Juniors: 6th to 8th") that are real, active and entirely wrong
@@ -1081,148 +1094,3 @@ def _hackathon_digest_opportunities(
 
     candidates = _fetch([], quality_order)
     return _deadline_diverse_selection(candidates)
-
-
-def _render_hackathon_digest(
-    opportunities: list[models.Opportunity], now: datetime, unsub_url: str | None = None
-) -> tuple[str, str]:
-    """Deadline is the headline here, unlike the generic digest.
-
-    A job listing is browsable for weeks; a hackathon is a date. Showing days
-    remaining is the single most useful thing this email can say.
-    """
-
-    def _closes_in(opportunity: models.Opportunity) -> str:
-        if opportunity.deadline is None:
-            return "no stated deadline"
-        deadline = opportunity.deadline
-        if deadline.tzinfo is None:
-            deadline = deadline.replace(tzinfo=timezone.utc)
-        days = (deadline - now).days
-        if days <= 0:
-            return "closes today"
-        if days == 1:
-            return "closes tomorrow"
-        return f"closes in {days} days"
-
-    lines = [
-        f"- {o.title} ({_company_name(o)}) - {_closes_in(o)}: {o.apply_url}" for o in opportunities
-    ]
-    text = (
-        "Hackathons and competitions open right now - entries close on the dates below.\n\n"
-        + "\n".join(lines)
-        + "\n\n"
-        + text_footer(unsub_url)
-    )
-
-    html_rows = "".join(
-        (
-            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
-            'style="border:1px solid #e7e0d4;border-collapse:separate;border-radius:8px;'
-            'border-spacing:0;margin:0 0 12px;width:100%">'
-            '<tr><td style="padding:16px">'
-            "<p style=\"color:#2b2620;font-family:Georgia,'Times New Roman',serif;font-size:17px;"
-            'font-weight:700;line-height:23px;margin:0 0 4px">'
-            f"{escape(opportunity.title, quote=True)}</p>"
-            '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
-            'line-height:20px;margin:0 0 6px">'
-            f"by {escape(_company_name(opportunity), quote=True)}</p>"
-            '<p style="color:#8a4b2f;font-family:Arial,Helvetica,sans-serif;font-size:13px;'
-            'font-weight:700;line-height:18px;margin:0 0 10px">'
-            f"{escape(_closes_in(opportunity), quote=True)}</p>"
-            f'<a href="{escape(opportunity.apply_url, quote=True)}" '
-            'style="color:#5e2b47;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
-            'font-weight:700;text-decoration:underline">View &amp; enter &rarr;</a>'
-            "</td></tr></table>"
-        )
-        for opportunity in opportunities
-    )
-
-    html = email_layout(
-        title="Hackathons open right now",
-        intro_html=(
-            '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:15px;'
-            'line-height:22px;margin:0 0 20px">Hackathons and competitions you can still '
-            "enter, spread across upcoming deadlines.</p>"
-        ),
-        body_html=html_rows,
-        cta_label="Browse all competitions",
-        cta_url=f"{get_settings().site_url}/competitions",
-        unsubscribe_url=unsub_url,
-    )
-    return html, text
-
-
-def send_hackathon_digests(session: Session, *, now: datetime | None = None) -> dict:
-    """One hackathon digest per user per ~24h.
-
-    Entitlement reuses the free-tier daily_digest feature rather than adding a
-    plan key: this is free for everyone by design, and a new key would need a
-    plans migration to say the same thing. The opt-out is its own preference,
-    so a reader can silence hackathons while keeping the daily digest.
-    """
-    now = now or datetime.now(timezone.utc)
-
-    result = {
-        "sent": 0,
-        "failed": 0,
-        "skipped_capped": 0,
-        "skipped_empty": 0,
-        "skipped_too_soon": 0,
-    }
-
-    opportunities = _hackathon_digest_opportunities(session, now)
-    if not opportunities:
-        # Nothing enterable today - send nobody an empty email.
-        result["skipped_empty"] = len(list(session.scalars(select(models.User)).all()))
-        return result
-
-    # Selection stays hoisted - that is the query, and it is identical for
-    # everyone. Rendering moves into the loop because the unsubscribe link is
-    # per-recipient: one shared body would hand every reader the same token.
-    opportunity_ids = [opportunity.id for opportunity in opportunities]
-
-    for user in session.scalars(select(models.User)).all():
-        try:
-            if not can(session, user, "daily_digest"):
-                continue
-            if not wants(user, "hackathon_digest"):
-                continue
-            if _already_sent_today(session, user.id, "hackathon_digest", now):
-                result["skipped_capped"] += 1
-                continue
-            # "digest" is the type the worker records for the daily digest -
-            # see _notification_copy in api/notifications.py, where the legacy
-            # name is kept readable alongside daily_digest.
-            if _sent_within(
-                session, user.id, "digest", now, HACKATHON_DIGEST_MIN_GAP
-            ) or _sent_within(session, user.id, "daily_digest", now, HACKATHON_DIGEST_MIN_GAP):
-                result["skipped_too_soon"] += 1
-                continue
-
-            html, text = _render_hackathon_digest(
-                opportunities, now, unsubscribe_url(user.id, "hackathon_digest")
-            )
-            sent = send_email(
-                user.email,
-                HACKATHON_DIGEST_SUBJECT,
-                html,
-                text,
-                headers=list_unsubscribe_headers(user.id, "hackathon_digest"),
-            )
-            _record_notification(
-                session,
-                user.id,
-                "hackathon_digest",
-                opportunity_id=None,
-                status="sent" if sent else "failed",
-                meta={"opportunity_ids": opportunity_ids},
-            )
-            result["sent" if sent else "failed"] += 1
-        except Exception:
-            session.rollback()
-            logger.exception("hackathon digest failed for user %s", user.id)
-            result["failed"] += 1
-            continue
-
-    return result

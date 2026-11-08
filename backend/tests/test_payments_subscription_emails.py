@@ -41,6 +41,7 @@ class FakeSession:
         self.user = SimpleNamespace(
             id=self.subscription.user_id,
             email="subscription-email-test@example.com",
+            display_name="Priya Sharma",
         )
         self.plan = SimpleNamespace(id=self.subscription.plan_id, key="pro_lite_monthly")
         self.added: list[models.Notification] = []
@@ -141,6 +142,10 @@ def test_non_active_to_active_sends_one_activation_email(
     assert sent_emails[0]["to"] == fake_db.user.email
     assert sent_emails[0]["subject"] == "Your Aspirova Pro is active"
     assert "Pro Lite Monthly" in sent_emails[0]["html"]
+    assert "Hi Priya," in sent_emails[0]["html"]
+    assert "#e8f5ee" in sent_emails[0]["html"]
+    assert "This is a service email about your Aspirova account." in sent_emails[0]["html"]
+    assert ">Unsubscribe</a>" not in sent_emails[0]["html"]
     assert "https://aspirova.test" in sent_emails[0]["html"]
 
     notification = fake_db.added[0]
@@ -182,6 +187,9 @@ def test_transition_to_past_due_sends_payment_failed_email(
     assert len(sent_emails) == 1
     assert sent_emails[0]["subject"] == "We couldn't process your payment"
     assert "update your payment method" in sent_emails[0]["text"]
+    assert "#fdecea" in sent_emails[0]["html"]
+    assert "View your subscription</a>" in sent_emails[0]["html"]
+    assert "account?section=subscription" in sent_emails[0]["html"]
     assert "Pro features are paused until your payment succeeds" in sent_emails[0]["text"]
 
     notification = fake_db.added[0]

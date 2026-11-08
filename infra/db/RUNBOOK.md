@@ -56,7 +56,8 @@ becomes the first real run against the new server.
 Supabase until 3e. At this hour that should be close to nothing.
 
 ```bash
-for w in crawl-tier1 notifications-digest notifications-hackathon weekly-report backup enrich; do gh workflow disable "$w.yml"; done
+# Hackathons merged into the daily email on 2026-11-08 for Resend's 100/day free limit.
+for w in crawl-tier1 notifications-digest weekly-report backup enrich; do gh workflow disable "$w.yml"; done
 gh run list --status in_progress   # must be empty
 ```
 
@@ -116,7 +117,7 @@ should be clean.
 **3g. Unfreeze.**
 
 ```bash
-for w in crawl-tier1 notifications-digest notifications-hackathon weekly-report backup enrich; do gh workflow enable "$w.yml"; done
+for w in crawl-tier1 notifications-digest weekly-report backup enrich; do gh workflow enable "$w.yml"; done
 gh workflow run backup.yml   # a backup object must land in R2
 ```
 

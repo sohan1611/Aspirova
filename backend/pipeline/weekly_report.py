@@ -10,17 +10,17 @@ import logging
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from html import escape
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from api.filters import exclude_stale_opportunities, followed_company_match
-from core import ai_budget, ai_client, email_client, models
+from core import ai_budget, ai_client, models
 from core.config import get_settings
+from core.email_components import MUTED, TABLE, greeting, opportunity_card, section, status_panel
 from core.email_templates import email_layout, text_footer
 from core.gating import can
-from pipeline.notifications import wants
+from pipeline.notifications import send_email, wants
 
 logger = logging.getLogger(__name__)
 
@@ -70,10 +70,6 @@ def _already_sent_this_week(session: Session, user_id: uuid.UUID, now: datetime)
         )
         is not None
     )
-
-
-def _company_name(opportunity: models.Opportunity) -> str:
-    return opportunity.company.name if opportunity.company else "Unknown organization"
 
 
 def _recent_dream_company_matches(
@@ -139,187 +135,66 @@ def _recent_hidden_opportunities(
     )
 
 
-def _deadline_note(opportunity: models.Opportunity) -> str:
-    if opportunity.deadline is None:
-        return ""
-    date = opportunity.deadline.strftime("%d %b %Y")
-    if opportunity.deadline_confidence == "inferred":
-        return f"Estimated deadline: {date}"
-    if opportunity.deadline_confidence == "unknown":
-        return f"Deadline (verify at source): {date}"
-    return f"Deadline: {date}"
-
-
-def _render_text_section(
-    heading: str,
-    opportunities: list[models.Opportunity],
-    empty_message: str,
-    *,
-    include_deadline: bool = False,
-) -> str:
-    lines = [heading]
-    if not opportunities:
-        lines.append(empty_message)
-        return "\n".join(lines)
-
-    for opportunity in opportunities:
-        detail = f" — {_deadline_note(opportunity)}" if include_deadline else ""
-        lines.append(
-            f"- {opportunity.title} at {_company_name(opportunity)}{detail}\n"
-            f"  Source: {opportunity.apply_url}"
-        )
-    return "\n".join(lines)
-
-
-def _render_html_section(
-    heading: str,
-    opportunities: list[models.Opportunity],
-    empty_message: str,
-    *,
-    include_deadline: bool = False,
-) -> str:
-    if not opportunities:
-        body = (
-            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
-            'style="background-color:#faf7f0;border:1px solid #e7e0d4;border-collapse:separate;'
-            'border-radius:8px;border-spacing:0;width:100%">'
-            '<tr><td style="padding:14px 16px">'
-            '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
-            'line-height:20px;margin:0">'
-            f"{escape(empty_message, quote=True)}</p>"
-            "</td></tr></table>"
-        )
-    else:
-        rows: list[str] = []
-        for opportunity in opportunities:
-            deadline = ""
-            if include_deadline:
-                deadline = (
-                    '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
-                    'line-height:20px;margin:0 0 8px">'
-                    f"{escape(_deadline_note(opportunity), quote=True)}</p>"
-                )
-            rows.append(
-                '<tr><td style="border-bottom:1px solid #e7e0d4;padding:14px 0">'
-                "<p style=\"color:#2b2620;font-family:Georgia,'Times New Roman',"
-                "serif;font-size:16px;"
-                'font-weight:700;line-height:22px;margin:0 0 4px">'
-                f"{escape(opportunity.title, quote=True)}</p>"
-                '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
-                'line-height:20px;margin:0 0 8px">'
-                f"at {escape(_company_name(opportunity), quote=True)}</p>"
-                f"{deadline}"
-                f'<a href="{escape(opportunity.apply_url, quote=True)}" '
-                'style="color:#5e2b47;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
-                'font-weight:700;text-decoration:underline">View at source</a>'
-                "</td></tr>"
-            )
-        body = (
-            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
-            'style="border-collapse:collapse;width:100%">'
-            f"{''.join(rows)}"
-            "</table>"
-        )
-
-    return (
-        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
-        'style="border-collapse:collapse;width:100%">'
-        '<tr><td style="border-top:1px solid #e7e0d4;padding:20px 0">'
-        "<p style=\"color:#2b2620;font-family:Georgia,'Times New Roman',serif;font-size:18px;"
-        'font-weight:700;line-height:24px;margin:0 0 10px">'
-        f"{escape(heading, quote=True)}</p>"
-        f"{body}"
-        "</td></tr></table>"
-    )
-
-
-def _render_weekly_report(user: models.User, data: WeeklyReportData) -> tuple[str, str]:
+def _render_weekly_report(
+    user: models.User, data: WeeklyReportData, *, now: datetime | None = None
+) -> tuple[str, str]:
     """Render a source-linked report without generating any body content."""
-    greeting_name = (user.display_name or "").strip() or "there"
-    text_parts = [
-        "Your Aspirova weekly career report",
-        f"Hi {greeting_name},",
+    current = now or datetime.now(timezone.utc)
+    sections = [
+        (
+            "Dream-company matches",
+            data.dream_company_matches,
+            "No new dream-company matches this week.",
+        ),
+        (
+            "Closing soon",
+            data.closing_soon,
+            "No tracked opportunities close in the next seven days.",
+        ),
+        (
+            "New hidden opportunities",
+            data.hidden_opportunities,
+            "No new hidden opportunities this week.",
+        ),
     ]
-    html_intro_parts = [
-        '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:15px;'
-        'line-height:22px;margin:0 0 18px">'
-        f"Hi {escape(greeting_name, quote=True)},</p>"
-    ]
+    count = sum(len(items) for _, items, _ in sections)
+    summary = f"{count} {'pick' if count == 1 else 'picks'} for you this week"
+    text_parts = ["Your Aspirova weekly career report", greeting(user.display_name), summary]
+    html_parts = []
     if data.intro:
         text_parts.append(f"AI-assisted overview: {data.intro}")
-        html_intro_parts.append(
-            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
-            'style="background-color:#faf7f0;border:1px solid #e7e0d4;border-collapse:separate;'
-            'border-radius:8px;border-spacing:0;margin:0 0 20px;width:100%">'
-            '<tr><td style="padding:14px 16px">'
-            '<p style="color:#2b2620;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
-            'line-height:20px;margin:0"><strong>AI-assisted overview:</strong> '
-            f"{escape(data.intro, quote=True)}</p>"
-            "</td></tr></table>"
-        )
-
-    text_parts.extend(
-        [
-            _render_text_section(
-                "Dream-company matches",
-                data.dream_company_matches,
-                "No new dream-company matches this week.",
-            ),
-            _render_text_section(
-                "Closing soon",
-                data.closing_soon,
-                "No tracked opportunities close in the next seven days.",
-                include_deadline=True,
-            ),
-            _render_text_section(
-                "New hidden opportunities",
-                data.hidden_opportunities,
-                "No new hidden opportunities this week.",
-            ),
-            "Opportunity details can change. Always verify them at the linked source.",
-            text_footer(),
+        html_parts.append(status_panel("accent", ["AI-assisted overview:", data.intro]))
+    for heading, items, empty_message in sections:
+        cards = [
+            opportunity_card(o, now=current, button_url=o.apply_url, deadline_policy="any")
+            for o in items
         ]
+        body = "".join(h for h, _ in cards)
+        if not items:
+            body = (
+                f'<table {TABLE} width="100%" class="em-card" bgcolor="#ffffff" '
+                'style="border:1px solid #e2e7f0;border-radius:8px;margin-bottom:12px">'
+                f'<tr><td class="em-muted" style="color:{MUTED};padding:16px;font-size:14px;'
+                f'line-height:20px">{empty_message}</td></tr></table>'
+            )
+        html_parts.append(section(heading, len(items), body))
+        text_parts.append(heading + "\n\n" + ("\n\n".join(t for _, t in cards) or empty_message))
+    note = "Opportunity details can change. Always verify them at the linked source."
+    html_parts.append(
+        f'<p class="em-muted" style="color:{MUTED};font-size:12px;line-height:18px">{note}</p>'
     )
-    text = "\n\n".join(text_parts)
-
-    html_sections = "".join(
-        [
-            _render_html_section(
-                "Dream-company matches",
-                data.dream_company_matches,
-                "No new dream-company matches this week.",
-            ),
-            _render_html_section(
-                "Closing soon",
-                data.closing_soon,
-                "No tracked opportunities close in the next seven days.",
-                include_deadline=True,
-            ),
-            _render_html_section(
-                "New hidden opportunities",
-                data.hidden_opportunities,
-                "No new hidden opportunities this week.",
-            ),
-        ]
-    )
-    body_html = (
-        html_sections
-        + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
-        'style="border-collapse:collapse;width:100%">'
-        '<tr><td style="padding:18px 0 0">'
-        '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:12px;'
-        'line-height:18px;margin:0">Opportunity details can change. Always verify them at the '
-        "linked source.</p>"
-        "</td></tr></table>"
-    )
+    text_parts.extend([note, text_footer()])
     html = email_layout(
         title="Your weekly career report",
-        intro_html="".join(html_intro_parts),
-        body_html=body_html,
+        kind_label="Weekly report",
+        greeting=greeting(user.display_name),
+        summary=summary,
+        preheader=summary,
+        body_html="".join(html_parts),
         cta_label="Open Aspirova",
         cta_url=get_settings().site_url,
     )
-    return html, text
+    return html, "\n\n".join(text_parts)
 
 
 def _cohort_intro(
@@ -436,8 +311,8 @@ def send_weekly_reports(session: Session, *, now: datetime | None = None) -> dic
                     now=current,
                 ),
             )
-            html, text = _render_weekly_report(user, data)
-            sent = email_client.send_email(
+            html, text = _render_weekly_report(user, data, now=current)
+            sent = send_email(
                 user.email,
                 "Your Aspirova weekly career report",
                 html,
