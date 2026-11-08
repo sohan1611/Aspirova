@@ -296,7 +296,7 @@ def test_post_still_unsubscribes_in_one_shot(db_session):
     db_session.refresh(user)
 
     assert response.status_code == 200
-    assert "daily opportunity digest" in response.body.decode()
+    assert "daily digest (opportunities and hackathons)" in response.body.decode()
     assert user.notification_prefs["daily_digest"] is False
 
 
@@ -311,3 +311,17 @@ def test_missing_user_is_presented_as_success(db_session):
     assert response.status_code == 200
     assert "You've been unsubscribed." in response.body.decode()
     assert "hackathon digest" in response.body.decode()
+
+
+@pytest.mark.parametrize("key", ["daily_digest", "instant_alerts", "hackathon_digest"])
+def test_shared_shell_keeps_signed_unsubscribe_destination(key):
+    from core.email_templates import email_layout, text_footer
+
+    url = unsubscribe_url(_UID_A, key)
+    html = email_layout(title="Preferences", body_html="", unsubscribe_url=url)
+    assert f'href="{url}"' in html
+    assert ">Unsubscribe</a>" in html
+    assert url in text_footer(url)
+    assert "account?section=notifications" in html
+    assert verify_token(url.split("token=", 1)[1]) == (str(_UID_A), key)
+    assert ">Unsubscribe</a>" not in email_layout(title="Account", body_html="")

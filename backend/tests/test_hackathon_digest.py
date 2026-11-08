@@ -1,4 +1,4 @@
-"""Tests for the hackathon digest (pipeline/notifications.py).
+"""Tests for hackathon selection and the merged daily digest (pipeline/notifications.py).
 
 send_email is monkeypatched, as in test_notifications.py - the logic under test
 is selection and eligibility, never Resend's delivery.
@@ -20,14 +20,16 @@ from sqlalchemy.orm import Session
 import api.filters as filters_module
 import pipeline.notifications as notifications_module
 from core import models
+from core.unsubscribe import unsubscribe_url, verify_token
 from pipeline.notifications import (
+    COMBINED_DIGEST_SUBJECT,
+    DAILY_DIGEST_SUBJECT,
     HACKATHON_DIGEST_MAX_PER_SOURCE,
-    HACKATHON_DIGEST_SIZE,
-    HACKATHON_DIGEST_MIN_GAP,
     HACKATHON_DIGEST_REPUTED_RESERVE,
+    HACKATHON_DIGEST_SIZE,
     HACKATHON_DIGEST_SUBJECT,
     _hackathon_digest_opportunities,
-    send_hackathon_digests,
+    send_daily_digests,
 )
 
 # Far enough in the future that every real row in the database has expired, so
@@ -58,7 +60,7 @@ def db_session(engine):
 
 @pytest.fixture(autouse=True)
 def free_plan(db_session: Session):
-    """send_hackathon_digests() gates on the free plan's daily_digest feature,
+    """send_daily_digests() gates on the free plan's daily_digest feature,
     so the plan has to exist for the sending tests to mean anything. Reuses the
     existing row rather than inserting a second one - plans.key is unique."""
     plan = db_session.scalar(select(models.Plan).where(models.Plan.key == "free"))
@@ -553,336 +555,278 @@ def test_one_slot_per_organiser(db_session, company_factory, competition_factory
 # --------------------------------------------------------------- sending
 
 
-def test_opt_out_is_respected(db_session, monkeypatch, company_factory, competition_factory):
-    sent: list[str] = []
-    monkeypatch.setattr(
-        notifications_module, "send_email", lambda to, *a, **k: sent.append(to) or True
-    )
+@pytest.fixture
+def digest_deliveries(monkeypatch):
+    """Control the job pool while exercising the shared hackathon selector."""
+    calls = []
 
-    company = company_factory("Indian Institute of Technology (IIT), Madras")
-    competition_factory(company, title="Opt Out Test Event", days_to_deadline=9)
+    def fake_send(to, subject, html, text, headers=None):
+        calls.append({"to": to, "subject": subject, "html": html, "text": text, "headers": headers})
+        return True
 
-    opted_in = models.User(email=f"hd-in-{uuid.uuid4()}@example.com")
-    opted_out = models.User(
-        email=f"hd-out-{uuid.uuid4()}@example.com",
-        notification_prefs={"hackathon_digest": False},
-    )
-    db_session.add_all([opted_in, opted_out])
-    db_session.flush()
-
-    send_hackathon_digests(db_session, now=NOW)
-
-    assert opted_out.email not in sent
-
-
-def test_absent_preference_means_subscribed(db_session, company_factory, competition_factory):
-    """New users get it without having to opt in - 'every user, every day'."""
-    user = models.User(email=f"hd-default-{uuid.uuid4()}@example.com")
-    db_session.add(user)
-    db_session.flush()
-
-    assert notifications_module.wants(user, "hackathon_digest") is True
-
-
-def test_running_twice_sends_only_once(
-    db_session, monkeypatch, company_factory, competition_factory
-):
-    """The digest workflow now has FOUR cron entries, because GitHub's scheduler
-    delayed one run by 11 hours and dropped the next entirely. That is only safe
-    because a second run inside the frequency cap sends nothing.
-
-    If the cap is ever removed or the notification type renamed, this fails -
-    which is the point. Without it, four crons means four emails per user.
-
-    Uses the real clock rather than this module's far-future NOW: the cap is
-    checked against the injected `now`, but _record_notification() stamps
-    sent_at from datetime.now() and ignores it. Those agree in production and
-    only diverge under an injected clock, so testing the cap needs a realistic
-    one - the assertion below counts only this test's own user, so real rows
-    being selectable does not affect it.
-    """
-    sent: list[str] = []
-    monkeypatch.setattr(
-        notifications_module, "send_email", lambda to, *a, **k: sent.append(to) or True
-    )
-
-    real_now = datetime.now(timezone.utc)
-    company = company_factory("Indian Institute of Technology (IIT), Kanpur")
-    competition_factory(company, title="Idempotency Test Event", days_to_deadline=9)
-
-    user = models.User(email=f"hd-once-{uuid.uuid4()}@example.com")
-    db_session.add(user)
-    db_session.flush()
-
-    send_hackathon_digests(db_session, now=real_now)
-    second = send_hackathon_digests(db_session, now=real_now + timedelta(hours=1))
-
-    assert sent.count(user.email) == 1, "a retry inside the cap must not re-send"
-    assert second["skipped_capped"] >= 1
-
-
-def test_a_late_send_yesterday_does_not_suppress_today(
-    db_session, monkeypatch, company_factory, competition_factory
-):
-    """The exact production failure this cap replaced.
-
-    A digest sent late at 15:12 UTC pushed the old rolling 20h window to 11:12
-    the next day, so the morning run at 10:17 skipped all 11 users and nobody
-    received that day's email. A rolling window ratchets: each late send pushes
-    the next later or kills it. A calendar-day cap cannot.
-
-    Times are pinned rather than derived from the clock: "19 hours ago" lands on
-    yesterday or today depending on when the suite runs, which would make this
-    pass or fail by time of day.
-    """
-    sent: list[str] = []
-    monkeypatch.setattr(
-        notifications_module, "send_email", lambda to, *a, **k: sent.append(to) or True
-    )
-
-    today = datetime.now(timezone.utc).date()
-    run_at = datetime.combine(today, time(10, 17), tzinfo=timezone.utc)
-    sent_yesterday_late = run_at - timedelta(hours=19, minutes=5)
-    assert sent_yesterday_late.date() != run_at.date(), "fixture must span midnight"
-
-    company = company_factory("Indian Institute of Technology (IIT), Guwahati")
-    competition_factory(company, title="Ratchet Test Event", days_to_deadline=9)
-
-    user = models.User(email=f"hd-ratchet-{uuid.uuid4()}@example.com")
-    db_session.add(user)
-    db_session.flush()
-    db_session.add(
-        models.Notification(
-            user_id=user.id,
-            type="hackathon_digest",
-            opportunity_id=None,
-            status="sent",
-            sent_at=sent_yesterday_late,
-        )
-    )
-    db_session.flush()
-
-    send_hackathon_digests(db_session, now=run_at)
-
-    assert user.email in sent, "yesterday's late send must not suppress today - this is the ratchet"
-
-
-def test_digest_carries_the_list_unsubscribe_header(
-    db_session, monkeypatch, company_factory, competition_factory
-):
-    """Gmail requires List-Unsubscribe on bulk mail and will accept-then-discard
-    without it - which is what happened here: Resend reported `delivered` for
-    every recipient while the message was in nobody's mailbox, spam included.
-
-    Asserted at the send boundary rather than in core/unsubscribe, because the
-    failure mode is the wiring coming undone, not the token being wrong.
-    """
+    monkeypatch.setattr(notifications_module, "send_email", fake_send)
+    monkeypatch.setattr(notifications_module, "_dream_company_opportunities", lambda *args: [])
+    monkeypatch.setattr(notifications_module, "_generic_recent_opportunities", lambda *args: [])
     monkeypatch.setattr(
         "core.unsubscribe._signing_key", lambda: b"pinned-test-key-do-not-use-in-prod"
     )
-    captured: list[tuple[str, dict | None]] = []
+    return calls
 
-    def _fake_send(to, subject, html, text, headers=None):
-        captured.append((subject, headers))
-        return True
 
-    monkeypatch.setattr(notifications_module, "send_email", _fake_send)
-
-    company = company_factory("Indian Institute of Technology (IIT), Roorkee")
-    competition_factory(company, title="Header Test Event", days_to_deadline=9)
-    user = models.User(email=f"hd-hdr-{uuid.uuid4()}@example.com")
+def _subscriber(db_session, preferences=None):
+    user = models.User(
+        email=f"hd-reader-{uuid.uuid4()}@example.com",
+        notification_prefs=preferences,
+    )
     db_session.add(user)
     db_session.flush()
-
-    send_hackathon_digests(db_session, now=datetime.now(timezone.utc))
-
-    assert captured, "expected at least one send"
-    subject, headers = captured[0]
-    assert headers, "bulk mail must carry List-Unsubscribe"
-    assert headers["List-Unsubscribe"].startswith("<http")
-    assert headers["List-Unsubscribe-Post"] == "List-Unsubscribe=One-Click"
-
-    # Subject and headers are asserted together on purpose. They are set in one
-    # call and were lost independently once already: this rename branch was cut
-    # before List-Unsubscribe existed, so rebasing it produced a conflict where
-    # taking either side silently dropped the other - the branch's side would
-    # have shipped the new subject with no headers, reinstating the exact Gmail
-    # accept-then-discard bug that PR #101 fixed.
-    assert subject == HACKATHON_DIGEST_SUBJECT
-    assert subject == "Your Daily Dose of Hackathons \U0001f680"
+    return user
 
 
-# --------------------------------------------------- visible unsubscribe link
-
-
-def test_body_carries_a_visible_unsubscribe_link(
-    db_session, monkeypatch, company_factory, competition_factory
-):
-    """The List-Unsubscribe header is only rendered as a control by clients that
-    support it. Everyone else needs a link they can see, and the alternative to
-    finding one is the spam button - which costs domain reputation far more than
-    an unsubscribe does.
-    """
-    monkeypatch.setattr(
-        "core.unsubscribe._signing_key", lambda: b"pinned-test-key-do-not-use-in-prod"
-    )
-    captured: list[tuple[str, str]] = []
-
-    def _fake_send(to, subject, html, text, headers=None):
-        captured.append((html, text))
-        return True
-
-    monkeypatch.setattr(notifications_module, "send_email", _fake_send)
-
-    company = company_factory("IIT Kanpur")
-    competition_factory(company, title="Visible Link Event", days_to_deadline=9)
-    user = models.User(email=f"hd-vis-{uuid.uuid4()}@example.com")
-    db_session.add(user)
-    db_session.flush()
-
-    send_hackathon_digests(db_session, now=datetime.now(timezone.utc))
-
-    assert captured, "expected at least one send"
-    html, text = captured[0]
-    assert ">Unsubscribe</a>" in html
-    assert "/notifications/unsubscribe?token=" in html
-    assert "/notifications/unsubscribe?token=" in text, "plain-text part needs it too"
-
-
-def test_each_recipient_gets_their_own_unsubscribe_token(
-    db_session, monkeypatch, company_factory, competition_factory
-):
-    """The body used to be rendered ONCE outside the recipient loop and shared.
-    That is correct only while the body is identical for everybody - the moment
-    it carries a per-user token, one shared render hands every reader the same
-    link, and the first person to click unsubscribes somebody else.
-    """
-    monkeypatch.setattr(
-        "core.unsubscribe._signing_key", lambda: b"pinned-test-key-do-not-use-in-prod"
-    )
-    captured: list[str] = []
-
-    def _fake_send(to, subject, html, text, headers=None):
-        captured.append(html)
-        return True
-
-    monkeypatch.setattr(notifications_module, "send_email", _fake_send)
-
-    company = company_factory("IIT Madras")
-    competition_factory(company, title="Two Reader Event", days_to_deadline=9)
-    for _ in range(2):
-        db_session.add(models.User(email=f"hd-two-{uuid.uuid4()}@example.com"))
-    db_session.flush()
-
-    send_hackathon_digests(db_session, now=datetime.now(timezone.utc))
-
-    assert len(captured) >= 2, "need two recipients to compare"
-    tokens = {body.split("unsubscribe?token=")[1].split('"')[0] for body in captured}
-    assert len(tokens) == len(captured), "every recipient must get a distinct token"
-
-
-# --------------------------------------------------- spacing from the daily digest
-
-
-def test_skipped_when_the_daily_digest_just_went_out(
-    db_session, monkeypatch, company_factory, competition_factory
-):
-    """These shipped as consecutive steps of one workflow and arrived ~60s
-    apart. Scheduling alone cannot fix it - GitHub's cron drifts by hours here -
-    so the gap is enforced per user at send time.
-    """
-    monkeypatch.setattr(notifications_module, "send_email", lambda *a, **k: True)
-
-    company = company_factory("IIT Bombay")
-    competition_factory(company, title="Gap Event", days_to_deadline=9)
-    user = models.User(email=f"hd-gap-{uuid.uuid4()}@example.com")
-    db_session.add(user)
-    db_session.flush()
-
-    now = datetime.now(timezone.utc)
-    db_session.add(
-        models.Notification(
-            user_id=user.id,
-            type="digest",
-            status="sent",
-            sent_at=now - timedelta(minutes=1),
-        )
-    )
-    db_session.flush()
-
-    result = send_hackathon_digests(db_session, now=now)
-
-    assert result["skipped_too_soon"] >= 1
-    assert not _sent_hackathon_to(db_session, user.id)
-
-
-def test_sends_once_the_gap_has_elapsed(
-    db_session, monkeypatch, company_factory, competition_factory
-):
-    """Skipped is deferred, not dropped. A later cron slot must still deliver,
-    otherwise the gap silently cancels the hackathon digest on any day the daily
-    one is late."""
-    monkeypatch.setattr(notifications_module, "send_email", lambda *a, **k: True)
-
-    company = company_factory("IIT Kharagpur")
-    competition_factory(company, title="Later Slot Event", days_to_deadline=9)
-    user = models.User(email=f"hd-later-{uuid.uuid4()}@example.com")
-    db_session.add(user)
-    db_session.flush()
-
-    now = datetime.now(timezone.utc)
-    db_session.add(
-        models.Notification(
-            user_id=user.id,
-            type="digest",
-            status="sent",
-            sent_at=now - HACKATHON_DIGEST_MIN_GAP - timedelta(minutes=5),
-        )
-    )
-    db_session.flush()
-
-    result = send_hackathon_digests(db_session, now=now)
-
-    assert result["skipped_too_soon"] == 0
-    assert _sent_hackathon_to(db_session, user.id)
-
-
-def test_gap_also_recognises_the_daily_digest_under_its_other_type_name(
-    db_session, monkeypatch, company_factory, competition_factory
-):
-    """The worker records the daily digest as `digest`, but `daily_digest` is
-    the specified name and both appear in api/notifications.py. Checking only
-    one would let the other slip through and land the emails together again."""
-    monkeypatch.setattr(notifications_module, "send_email", lambda *a, **k: True)
-
-    company = company_factory("IIT Roorkee")
-    competition_factory(company, title="Alias Event", days_to_deadline=9)
-    user = models.User(email=f"hd-alias-{uuid.uuid4()}@example.com")
-    db_session.add(user)
-    db_session.flush()
-
-    now = datetime.now(timezone.utc)
-    db_session.add(
-        models.Notification(
-            user_id=user.id,
-            type="daily_digest",
-            status="sent",
-            sent_at=now - timedelta(minutes=1),
-        )
-    )
-    db_session.flush()
-
-    assert send_hackathon_digests(db_session, now=now)["skipped_too_soon"] >= 1
-
-
-def _sent_hackathon_to(session, user_id) -> bool:
-    return (
-        session.scalar(
-            select(models.Notification.id).where(
-                models.Notification.user_id == user_id,
-                models.Notification.type == "hackathon_digest",
-                models.Notification.status == "sent",
+def _digest_rows(db_session, user):
+    return list(
+        db_session.scalars(
+            select(models.Notification).where(
+                models.Notification.user_id == user.id,
+                models.Notification.type == "digest",
             )
         )
-        is not None
     )
+
+
+def test_jobs_and_hackathons_arrive_in_one_email(
+    db_session, monkeypatch, company_factory, competition_factory, digest_deliveries
+):
+    company = company_factory("IIT Madras")
+    hackathon = competition_factory(company, title="Merged Campus Sprint", days_to_deadline=9)
+    job = competition_factory(company, title="Graduate Software Engineer", category="job")
+    user = _subscriber(db_session)
+    monkeypatch.setattr(
+        notifications_module,
+        "_dream_company_opportunities",
+        lambda session, user_id, *args: [job] if user_id == user.id else [],
+    )
+
+    send_daily_digests(db_session, now=NOW)
+
+    deliveries = [email for email in digest_deliveries if email["to"] == user.email]
+    assert len(deliveries) == 1
+    email = deliveries[0]
+    assert email["subject"] == COMBINED_DIGEST_SUBJECT
+    assert email["subject"] == "Your Aspirova daily digest + hackathons 🚀"
+    assert job.title in email["html"] and hackathon.title in email["html"]
+    assert ">View &amp; Apply</a>" in email["html"]
+    assert ">View &amp; Enter</a>" in email["html"]
+    rows = _digest_rows(db_session, user)
+    assert len(rows) == 1 and rows[0].status == "sent"
+    assert rows[0].meta == {"opportunity_ids": [job.id], "hackathon_ids": [hackathon.id]}
+
+
+def test_hackathons_only_still_send_the_founder_subject(
+    db_session, company_factory, competition_factory, digest_deliveries
+):
+    company = company_factory("IIT Delhi")
+    hackathon = competition_factory(company, title="No Jobs Campus Sprint", days_to_deadline=9)
+    user = _subscriber(db_session)
+
+    send_daily_digests(db_session, now=NOW)
+
+    deliveries = [email for email in digest_deliveries if email["to"] == user.email]
+    assert len(deliveries) == 1
+    assert deliveries[0]["subject"] == HACKATHON_DIGEST_SUBJECT
+    assert deliveries[0]["subject"] == "Your Daily Dose of Hackathons 🚀"
+    assert hackathon.title in deliveries[0]["html"]
+    assert ">Daily digest</td>" in deliveries[0]["html"]
+    assert _digest_rows(db_session, user)[0].meta == {
+        "opportunity_ids": [],
+        "hackathon_ids": [hackathon.id],
+    }
+
+
+def test_jobs_only_keep_the_daily_subject(
+    db_session, monkeypatch, company_factory, competition_factory, digest_deliveries
+):
+    company = company_factory("Jobs Only Company")
+    job = competition_factory(company, title="Student Product Intern", category="internship")
+    user = _subscriber(db_session)
+    monkeypatch.setattr(notifications_module, "_hackathon_digest_opportunities", lambda *args: [])
+    monkeypatch.setattr(
+        notifications_module,
+        "_dream_company_opportunities",
+        lambda session, user_id, *args: [job] if user_id == user.id else [],
+    )
+
+    send_daily_digests(db_session, now=NOW)
+
+    deliveries = [email for email in digest_deliveries if email["to"] == user.email]
+    assert len(deliveries) == 1
+    assert deliveries[0]["subject"] == DAILY_DIGEST_SUBJECT == "Your Aspirova daily digest"
+    assert "Hackathons &amp; competitions" not in deliveries[0]["html"]
+    assert _digest_rows(db_session, user)[0].meta == {
+        "opportunity_ids": [job.id],
+        "hackathon_ids": [],
+    }
+
+
+@pytest.mark.parametrize("has_jobs", [True, False])
+def test_legacy_hackathon_opt_out_suppresses_picks(
+    db_session, monkeypatch, company_factory, competition_factory, digest_deliveries, has_jobs
+):
+    company = company_factory("IIT Kanpur")
+    hackathon = competition_factory(company, title="Opted Out Campus Sprint", days_to_deadline=9)
+    job = competition_factory(company, title="Student Analyst", category="job")
+    user = _subscriber(db_session, {"hackathon_digest": False})
+    monkeypatch.setattr(
+        notifications_module,
+        "_dream_company_opportunities",
+        lambda session, user_id, *args: [job] if has_jobs and user_id == user.id else [],
+    )
+
+    result = send_daily_digests(db_session, now=NOW)
+
+    deliveries = [email for email in digest_deliveries if email["to"] == user.email]
+    if has_jobs:
+        assert len(deliveries) == 1
+        assert deliveries[0]["subject"] == DAILY_DIGEST_SUBJECT
+        assert "Hackathons &amp; competitions" not in deliveries[0]["html"]
+        assert hackathon.title not in deliveries[0]["html"] + deliveries[0]["text"]
+        assert _digest_rows(db_session, user)[0].meta["hackathon_ids"] == []
+    else:
+        assert deliveries == [] and _digest_rows(db_session, user) == []
+        assert result["skipped_empty"] >= 1
+
+
+def test_daily_opt_out_stops_the_whole_email(
+    db_session, company_factory, competition_factory, digest_deliveries
+):
+    company = company_factory("IIT Bombay")
+    competition_factory(company, title="Daily Opt Out Sprint", days_to_deadline=9)
+    user = _subscriber(db_session, {"daily_digest": False, "hackathon_digest": True})
+
+    send_daily_digests(db_session, now=NOW)
+
+    assert not [email for email in digest_deliveries if email["to"] == user.email]
+    assert _digest_rows(db_session, user) == []
+
+
+def test_both_empty_skip_without_a_notification(db_session, monkeypatch, digest_deliveries):
+    user = _subscriber(db_session)
+    monkeypatch.setattr(notifications_module, "_hackathon_digest_opportunities", lambda *args: [])
+
+    result = send_daily_digests(db_session, now=NOW)
+
+    assert set(result) == {"sent", "failed", "skipped_capped", "skipped_empty"}
+    assert result["skipped_empty"] >= 1
+    assert not [email for email in digest_deliveries if email["to"] == user.email]
+    assert _digest_rows(db_session, user) == []
+
+
+def test_second_run_on_the_same_day_is_capped(
+    db_session, monkeypatch, company_factory, competition_factory, digest_deliveries
+):
+    company = company_factory("IIT Roorkee")
+    hackathon = competition_factory(company, title="One Daily Email Sprint", days_to_deadline=9)
+    user = _subscriber(db_session)
+    monkeypatch.setattr(
+        notifications_module, "_hackathon_digest_opportunities", lambda *args: [hackathon]
+    )
+    # Delivery rows use the wall clock. Keep the injected run on that UTC date.
+    current = datetime.combine(datetime.now(timezone.utc).date(), time(12), tzinfo=timezone.utc)
+
+    send_daily_digests(db_session, now=current)
+    second = send_daily_digests(db_session, now=current + timedelta(minutes=1))
+
+    assert len([email for email in digest_deliveries if email["to"] == user.email]) == 1
+    assert second["skipped_capped"] >= 1
+    assert len(_digest_rows(db_session, user)) == 1
+
+
+def test_yesterdays_late_digest_does_not_suppress_today(
+    db_session, monkeypatch, company_factory, competition_factory, digest_deliveries
+):
+    company = company_factory("IIT Guwahati")
+    hackathon = competition_factory(company, title="Next UTC Day Sprint", days_to_deadline=9)
+    user = _subscriber(db_session)
+    monkeypatch.setattr(
+        notifications_module, "_hackathon_digest_opportunities", lambda *args: [hackathon]
+    )
+    current = datetime.combine(datetime.now(timezone.utc).date(), time(10, 17), tzinfo=timezone.utc)
+    db_session.add(
+        models.Notification(
+            user_id=user.id,
+            type="digest",
+            status="sent",
+            sent_at=current - timedelta(hours=19, minutes=5),
+        )
+    )
+    db_session.flush()
+
+    send_daily_digests(db_session, now=current)
+
+    assert len([email for email in digest_deliveries if email["to"] == user.email]) == 1
+
+
+def test_selection_runs_once_and_each_reader_gets_their_own_daily_unsubscribe(
+    db_session, monkeypatch, company_factory, competition_factory, digest_deliveries
+):
+    company = company_factory("IIT Madras")
+    hackathon = competition_factory(company, title="Two Readers Sprint", days_to_deadline=9)
+    users = [_subscriber(db_session), _subscriber(db_session)]
+    original_selector = notifications_module._hackathon_digest_opportunities
+    selections = []
+
+    def select_once(session, now):
+        selections.append(now)
+        return original_selector(session, now)
+
+    monkeypatch.setattr(notifications_module, "_hackathon_digest_opportunities", select_once)
+
+    send_daily_digests(db_session, now=NOW)
+
+    assert selections == [NOW]
+    urls = []
+    for user in users:
+        deliveries = [email for email in digest_deliveries if email["to"] == user.email]
+        assert len(deliveries) == 1
+        email = deliveries[0]
+        url = unsubscribe_url(user.id, "daily_digest")
+        urls.append(url)
+        assert email["headers"]["List-Unsubscribe"] == f"<{url}>"
+        assert email["headers"]["List-Unsubscribe-Post"] == "List-Unsubscribe=One-Click"
+        assert f'href="{url}"' in email["html"] and url in email["text"]
+        assert ">Unsubscribe</a>" in email["html"]
+        assert verify_token(url.split("token=", 1)[1]) == (str(user.id), "daily_digest")
+        assert _digest_rows(db_session, user)[0].meta["hackathon_ids"] == [hackathon.id]
+    assert len(set(urls)) == 2
+
+
+def test_hackathon_already_in_the_job_list_is_not_appended_again(
+    db_session, monkeypatch, company_factory, competition_factory, digest_deliveries
+):
+    company = company_factory("IIT Delhi")
+    hackathon = competition_factory(company, title="Followed Company Sprint", days_to_deadline=9)
+    user = _subscriber(db_session)
+    monkeypatch.setattr(
+        notifications_module,
+        "_dream_company_opportunities",
+        lambda session, user_id, *args: [hackathon] if user_id == user.id else [],
+    )
+
+    send_daily_digests(db_session, now=NOW)
+
+    deliveries = [email for email in digest_deliveries if email["to"] == user.email]
+    assert len(deliveries) == 1
+    email = deliveries[0]
+    assert email["subject"] == HACKATHON_DIGEST_SUBJECT
+    assert email["html"].count(">View &amp; Enter</a>") == 1
+    assert email["html"].count("Hackathons &amp; competitions") == 1
+    assert _digest_rows(db_session, user)[0].meta == {
+        "opportunity_ids": [hackathon.id],
+        "hackathon_ids": [],
+    }
+
+
+def test_absent_preferences_mean_subscribed(db_session):
+    user = _subscriber(db_session)
+    assert notifications_module.wants(user, "daily_digest") is True
+    assert notifications_module.wants(user, "hackathon_digest") is True

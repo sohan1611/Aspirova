@@ -35,6 +35,7 @@ def test_daily_digest_isolates_per_user_render_failure(
     opportunities_by_user = {
         user.id: _make_opportunity(db_session, company, first_seen_at=now) for user in users
     }
+    monkeypatch.setattr(notifications_module, "_hackathon_digest_opportunities", lambda *_args: [])
     failed_opportunity = opportunities_by_user[failed_user.id]
     rollback_calls = []
 
@@ -124,7 +125,7 @@ def test_weekly_report_isolates_per_user_render_failure(db_session, monkeypatch)
         lambda *_args, **_kwargs: None,
     )
 
-    def render_weekly_report(user, data):
+    def render_weekly_report(user, data, **kwargs):
         if user.id == failed_user.id:
             raise RuntimeError("weekly report render failed")
         return "<p>Weekly report</p>", "Weekly report"
@@ -134,7 +135,7 @@ def test_weekly_report_isolates_per_user_render_failure(db_session, monkeypatch)
         return True
 
     monkeypatch.setattr(weekly_report_module, "_render_weekly_report", render_weekly_report)
-    monkeypatch.setattr(weekly_report_module.email_client, "send_email", send_email)
+    monkeypatch.setattr(weekly_report_module, "send_email", send_email)
     monkeypatch.setattr(db_session, "rollback", lambda: rollback_calls.append(True))
 
     result = weekly_report_module.send_weekly_reports(

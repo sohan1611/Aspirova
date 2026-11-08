@@ -33,7 +33,7 @@ from api.deps import get_db
 from core import models
 from core.config import get_settings
 from core.email_client import send_email
-from core.email_templates import email_layout, text_footer
+from core.email_templates import subscription_layout, text_footer
 from core.gating import active_subscription_filters
 
 router = APIRouter()
@@ -100,56 +100,31 @@ def _send_subscription_status_email(
 
         if new_status == "active":
             subject = "Your Aspirova Pro is active"
-            html = email_layout(
-                title="Your Aspirova Pro is active",
-                intro_html=(
-                    '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:15px;'
-                    'line-height:22px;margin:0 0 20px">'
-                    f"Your {plan_name} plan is now active."
-                    "</p>"
-                ),
-                body_html=(
-                    '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:15px;'
-                    'line-height:22px;margin:0 0 20px">'
-                    "Your Pro features are ready whenever you are."
-                    "</p>"
-                ),
-                cta_label="Open Aspirova",
-                cta_url=site_url,
+            html = subscription_layout(
+                plan_name=plan.key.replace("_", " ").title(),
+                active=True,
+                display_name=user.display_name,
             )
             text = (
                 f"Your {plan_name} plan is now active.\n\n"
                 "Your Pro features are ready whenever you are.\n"
                 f"Open Aspirova: {site_url}\n\n"
-                f"{text_footer()}"
+                f"{text_footer(variant='transactional')}"
             )
             notification_type = "subscription_activated"
         else:
             subject = "We couldn't process your payment"
-            html = email_layout(
-                title="We couldn't process your payment",
-                intro_html=(
-                    '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:15px;'
-                    'line-height:22px;margin:0 0 20px">'
-                    f"We couldn't process the payment for your {plan_name} plan."
-                    "</p>"
-                ),
-                body_html=(
-                    '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:15px;'
-                    'line-height:22px;margin:0 0 20px">'
-                    "Please update your payment method. Pro features are paused until your payment "
-                    "succeeds."
-                    "</p>"
-                ),
-                cta_label="View your subscription",
-                cta_url=f"{site_url}/account?section=subscription",
+            html = subscription_layout(
+                plan_name=plan.key.replace("_", " ").title(),
+                active=False,
+                display_name=user.display_name,
             )
             text = (
                 f"We couldn't process the payment for your {plan_name} plan.\n\n"
                 "Please update your payment method. Pro features are paused until your payment "
                 "succeeds.\n"
                 f"View your subscription: {site_url}/account?section=subscription\n\n"
-                f"{text_footer()}"
+                f"{text_footer(variant='transactional')}"
             )
             notification_type = "subscription_payment_failed"
 

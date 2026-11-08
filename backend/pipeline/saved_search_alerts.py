@@ -2,7 +2,6 @@
 
 import logging
 from datetime import datetime, timezone
-from html import escape
 from urllib.parse import urlencode
 
 from sqlalchemy import func, select
@@ -11,14 +10,11 @@ from sqlalchemy.orm import Session, joinedload
 from api.filters import saved_search_base_filters
 from core import models
 from core.config import get_settings
-from core.email_client import send_email
+from core.email_components import greeting, grouped_cards
 from core.email_templates import email_layout, text_footer
+from pipeline.notifications import send_email
 
 logger = logging.getLogger(__name__)
-
-
-def _company_name(opportunity: models.Opportunity) -> str:
-    return opportunity.company.name if opportunity.company else "Unknown"
 
 
 def _filter_summary(params: dict) -> str:
@@ -85,6 +81,9 @@ def _saved_search_url(params: dict) -> str:
 def _render_saved_search_alert(
     saved_search: models.SavedSearch,
     opportunities: list[models.Opportunity],
+    *,
+    display_name: str | None = None,
+    now: datetime | None = None,
 ) -> tuple[str, str]:
     params = saved_search.params
     label = (
@@ -92,48 +91,20 @@ def _render_saved_search_alert(
         if saved_search.name and saved_search.name.strip()
         else _filter_summary(params)
     )
-    text_rows = [
-        f"- {opportunity.title} at {_company_name(opportunity)}: "
-        f"View & apply: {opportunity.apply_url}"
-        for opportunity in opportunities
-    ]
-    text = (
-        f"New opportunities matching '{label}' —\n\n"
-        + "\n".join(text_rows)
-        + "\n\n"
-        + text_footer()
-    )
-    html_rows = "".join(
-        (
-            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
-            'style="border:1px solid #e7e0d4;border-collapse:separate;border-radius:8px;'
-            'border-spacing:0;margin:0 0 12px;width:100%">'
-            '<tr><td style="padding:16px">'
-            "<p style=\"color:#2b2620;font-family:Georgia,'Times New Roman',serif;font-size:17px;"
-            'font-weight:700;line-height:23px;margin:0 0 4px">'
-            f"{escape(opportunity.title, quote=True)}</p>"
-            '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
-            'line-height:20px;margin:0 0 10px">'
-            f"at {escape(_company_name(opportunity), quote=True)}</p>"
-            f'<a href="{escape(opportunity.apply_url, quote=True)}" '
-            'style="color:#5e2b47;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
-            'font-weight:700;text-decoration:underline">View &amp; apply &rarr;</a>'
-            "</td></tr></table>"
-        )
-        for opportunity in opportunities
-    )
+    count = len(opportunities)
+    summary = f"{count} new {'match' if count == 1 else 'matches'} for ‘{label}’"
+    body, cards_text, _ = grouped_cards(opportunities, now=now or datetime.now(timezone.utc))
     html = email_layout(
         title="New matches for your saved search",
-        intro_html=(
-            '<p style="color:#6b6259;font-family:Arial,Helvetica,sans-serif;font-size:15px;'
-            'line-height:22px;margin:0 0 20px">'
-            f"New opportunities matching &lsquo;{escape(label, quote=True)}&rsquo; &mdash;</p>"
-        ),
-        body_html=html_rows,
+        kind_label="Saved search",
+        greeting=greeting(display_name),
+        summary=summary,
+        preheader=summary,
+        body_html=body,
         cta_label="See all matches",
         cta_url=_saved_search_url(params),
     )
-    return html, text
+    return html, "\n\n".join([greeting(display_name), summary, cards_text, text_footer()])
 
 
 def send_saved_search_alerts(
@@ -186,7 +157,9 @@ def send_saved_search_alerts(
                 result["skipped_empty"] += 1
                 continue
 
-            html, text = _render_saved_search_alert(saved_search, opportunities)
+            html, text = _render_saved_search_alert(
+                saved_search, opportunities, display_name=user.display_name, now=now
+            )
             subject = (
                 f"{len(opportunities)} new match"
                 f"{'es' if len(opportunities) > 1 else ''} for your saved search"
