@@ -20,6 +20,7 @@ from core.config import get_settings
 from core.email_components import MUTED, TABLE, greeting, opportunity_card, section, status_panel
 from core.email_templates import email_layout, text_footer
 from core.gating import can
+from core.unsubscribe import list_unsubscribe_headers, unsubscribe_url
 from pipeline.notifications import send_email, wants
 
 logger = logging.getLogger(__name__)
@@ -136,7 +137,11 @@ def _recent_hidden_opportunities(
 
 
 def _render_weekly_report(
-    user: models.User, data: WeeklyReportData, *, now: datetime | None = None
+    user: models.User,
+    data: WeeklyReportData,
+    unsub_url: str | None = None,
+    *,
+    now: datetime | None = None,
 ) -> tuple[str, str]:
     """Render a source-linked report without generating any body content."""
     current = now or datetime.now(timezone.utc)
@@ -183,10 +188,11 @@ def _render_weekly_report(
     html_parts.append(
         f'<p class="em-muted" style="color:{MUTED};font-size:12px;line-height:18px">{note}</p>'
     )
-    text_parts.extend([note, text_footer()])
+    text_parts.extend([note, text_footer(unsub_url)])
     html = email_layout(
         title="Your weekly career report",
         kind_label="Weekly report",
+        unsubscribe_url=unsub_url,
         greeting=greeting(user.display_name),
         summary=summary,
         preheader=summary,
@@ -311,12 +317,15 @@ def send_weekly_reports(session: Session, *, now: datetime | None = None) -> dic
                     now=current,
                 ),
             )
-            html, text = _render_weekly_report(user, data, now=current)
+            html, text = _render_weekly_report(
+                user, data, unsub_url=unsubscribe_url(user.id, "weekly_report"), now=current
+            )
             sent = send_email(
                 user.email,
                 "Your Aspirova weekly career report",
                 html,
                 text,
+                headers=list_unsubscribe_headers(user.id, "weekly_report"),
             )
             _record_delivery(session, user, data, now=current, sent=sent)
             result["sent" if sent else "failed"] += 1

@@ -325,3 +325,138 @@ def test_shared_shell_keeps_signed_unsubscribe_destination(key):
     assert "account?section=notifications" in html
     assert verify_token(url.split("token=", 1)[1]) == (str(_UID_A), key)
     assert ">Unsubscribe</a>" not in email_layout(title="Account", body_html="")
+
+
+@pytest.fixture
+def unsubscribe_searches(db_session):
+    owner = models.User(
+        email=f"unsub-search-owner-{uuid.uuid4()}@example.com",
+        notification_prefs={"daily_digest": True, "closing_soon": True},
+    )
+    other = models.User(
+        email=f"unsub-search-other-{uuid.uuid4()}@example.com",
+        notification_prefs={"weekly_report": True},
+    )
+    db_session.add_all([owner, other])
+    db_session.flush()
+    searches = [
+        models.SavedSearch(user_id=owner.id, name="First", params={}, alerts_enabled=True),
+        models.SavedSearch(user_id=owner.id, name="Second", params={}, alerts_enabled=True),
+        models.SavedSearch(user_id=other.id, name="Other user's", params={}, alerts_enabled=True),
+    ]
+    db_session.add_all(searches)
+    db_session.flush()
+    return owner, other, searches
+
+
+def test_saved_search_unsubscribe_disables_only_the_named_search(db_session, unsubscribe_searches):
+    from api.notifications import _apply_unsubscribe
+
+    owner, other, searches = unsubscribe_searches
+    target, second, foreign = searches
+    key = f"saved_search:{target.id}"
+    token = make_token(owner.id, key)
+    assert verify_token(token) == (str(owner.id), key)
+
+    assert _apply_unsubscribe(token, db_session) == "unsubscribed"
+    assert _apply_unsubscribe(token, db_session) == "unsubscribed"
+
+    for row in [owner, other, *searches]:
+        db_session.refresh(row)
+    assert target.alerts_enabled is False
+    assert second.alerts_enabled is True and foreign.alerts_enabled is True
+    assert owner.notification_prefs == {"daily_digest": True, "closing_soon": True}
+    assert other.notification_prefs == {"weekly_report": True}
+
+
+def test_saved_search_unsubscribe_cannot_disable_another_users_search(
+    db_session, unsubscribe_searches
+):
+    from api.notifications import _apply_unsubscribe
+
+    owner, other, searches = unsubscribe_searches
+    token = make_token(owner.id, f"saved_search:{searches[2].id}")
+
+    assert _apply_unsubscribe(token, db_session) == "unsubscribed"
+
+    for row in [owner, other, *searches]:
+        db_session.refresh(row)
+    assert all(search.alerts_enabled is True for search in searches)
+    assert owner.notification_prefs == {"daily_digest": True, "closing_soon": True}
+    assert other.notification_prefs == {"weekly_report": True}
+
+
+def test_deleted_saved_search_unsubscribe_is_a_safe_noop(db_session, unsubscribe_searches):
+    from api.notifications import _apply_unsubscribe
+
+    owner, _, searches = unsubscribe_searches
+    token = make_token(owner.id, f"saved_search:{searches[0].id}")
+    db_session.delete(searches[0])
+    db_session.flush()
+
+    assert _apply_unsubscribe(token, db_session) == "unsubscribed"
+
+    db_session.refresh(owner)
+    for search in searches[1:]:
+        db_session.refresh(search)
+        assert search.alerts_enabled is True
+    assert owner.notification_prefs == {"daily_digest": True, "closing_soon": True}
+
+
+@pytest.mark.parametrize("suffix", ["abc", "", "1:2", "-1", "0", str(2**63)])
+def test_malformed_saved_search_ids_are_invalid(db_session, unsubscribe_searches, suffix):
+    from api.notifications import _apply_unsubscribe
+
+    owner, _, searches = unsubscribe_searches
+    token = make_token(owner.id, f"saved_search:{suffix}")
+
+    assert _apply_unsubscribe(token, db_session) == "invalid"
+
+    db_session.refresh(owner)
+    for search in searches:
+        db_session.refresh(search)
+        assert search.alerts_enabled is True
+    assert owner.notification_prefs == {"daily_digest": True, "closing_soon": True}
+
+
+@pytest.mark.parametrize("key", ["closing_soon", "weekly_report"])
+def test_new_notification_unsubscribe_changes_only_the_named_preference(db_session, key):
+    from api.notifications import _apply_unsubscribe
+
+    original = {"daily_digest": True, "closing_soon": True, "weekly_report": True}
+    user = models.User(
+        email=f"unsub-new-key-{uuid.uuid4()}@example.com", notification_prefs=original
+    )
+    db_session.add(user)
+    db_session.flush()
+
+    assert _apply_unsubscribe(make_token(user.id, key), db_session) == "unsubscribed"
+
+    db_session.refresh(user)
+    assert user.notification_prefs == {**original, key: False}
+
+
+@pytest.mark.parametrize(
+    "key,expected",
+    [
+        (
+            "closing_soon",
+            "You won't get deadline reminders for your saved opportunities any more. "
+            "You can turn them back on in your account settings.",
+        ),
+        (
+            "weekly_report",
+            "You won't get the weekly career report any more. "
+            "You can turn it back on in your account settings.",
+        ),
+        (
+            "saved_search:42",
+            "You won't get alerts for this saved search any more. "
+            "You can turn them back on under Saved searches in your account.",
+        ),
+    ],
+)
+def test_new_unsubscribe_confirmation_copy(key, expected):
+    from api.notifications import _unsubscribe_detail
+
+    assert _unsubscribe_detail(key) == expected

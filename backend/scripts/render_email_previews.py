@@ -237,17 +237,25 @@ def preview_variants() -> dict[str, tuple[str, str, str]]:
     )
     for opportunity, days in zip(closing, [0, 1, 3]):
         opportunity.deadline = NOW + timedelta(days=days)
-    subject, html = _render_closing_soon(closing, NOW, display_name=user.display_name)
+    subject, html = _render_closing_soon(
+        closing, NOW, unsub_url=UNSUBSCRIBE, display_name=user.display_name
+    )
     variants["closing-soon"] = (
         subject,
         html,
-        _render_closing_soon_text(closing, now=NOW, display_name=user.display_name),
+        _render_closing_soon_text(
+            closing, unsub_url=UNSUBSCRIBE, now=NOW, display_name=user.display_name
+        ),
     )
     saved = models.SavedSearch(name="Early-career roles in India", params={"country": "IN"})
     variants["saved-search"] = (
         "7 new matches for your saved search",
         *_render_saved_search_alert(
-            saved, sample_opportunities(7, numbered=False), display_name=user.display_name, now=NOW
+            saved,
+            sample_opportunities(7, numbered=False),
+            unsub_url=UNSUBSCRIBE,
+            display_name=user.display_name,
+            now=NOW,
         ),
     )
     weekly = sample_opportunities(5, numbered=False)
@@ -264,6 +272,7 @@ def preview_variants() -> dict[str, tuple[str, str, str]]:
                     "and review the earliest deadlines first."
                 ),
             ),
+            unsub_url=UNSUBSCRIBE,
             now=NOW,
         ),
     )

@@ -6,6 +6,8 @@ from datetime import datetime, timedelta, timezone
 from html import escape
 from html.parser import HTMLParser
 from pathlib import Path
+from unittest.mock import Mock
+from uuid import UUID
 
 import pytest
 import sqlalchemy
@@ -271,7 +273,8 @@ def test_all_preview_variants_are_client_safe_and_have_correct_unsubscribe_scope
             slug not in previews.auth_templates() and not slug.startswith("payment-")
         )
         assert (">Unsubscribe</a>" in html) == (
-            slug.startswith("daily-digest") or slug == "company-alert"
+            slug.startswith("daily-digest")
+            or slug in {"company-alert", "closing-soon", "saved-search", "weekly-report"}
         )
         if slug.startswith("payment-"):
             assert "This is a service email about your Aspirova account." in html
@@ -295,7 +298,7 @@ def test_largest_realistic_emails_stay_below_90kb():
         item.id += 100
     largest = {
         "daily": _render_digest(items[:5], previews.UNSUBSCRIBE, now=NOW, hackathons=picks)[0],
-        "saved": _render_saved_search_alert(saved, items[:10], now=NOW)[0],
+        "saved": _render_saved_search_alert(saved, items[:10], previews.UNSUBSCRIBE, now=NOW)[0],
         "company": render_company_alert(
             display_name=user.display_name,
             user_skills=[{"name": "Python"}],
@@ -308,6 +311,7 @@ def test_largest_realistic_emails_stay_below_90kb():
             WeeklyReportData(
                 items[:5], items[5:10], items[10:], intro="Plan your applications. " * 25
             ),
+            unsub_url=previews.UNSUBSCRIBE,
             now=NOW,
         )[0],
         "hackathon-only": _render_digest(
@@ -316,7 +320,7 @@ def test_largest_realistic_emails_stay_below_90kb():
             now=NOW,
             hackathons=previews.sample_opportunities(8, categories=["hackathon", "competition"]),
         )[0],
-        "closing": _render_closing_soon(items[:10], NOW)[1],
+        "closing": _render_closing_soon(items[:10], NOW, previews.UNSUBSCRIBE)[1],
     }
     assert largest["company"].count(">View &amp; Apply</a>") == 8
     assert largest["weekly"].count(">View &amp; Apply</a>") == 15
@@ -477,3 +481,52 @@ def test_merged_digest_moves_events_after_all_job_sections_without_duplicates():
     assert "10 Nov 2026" not in html + text  # Inferred job deadline stays hidden.
     for item in items + events:
         assert f'href="{item.apply_url}"' in html and item.apply_url in text
+
+
+@pytest.mark.parametrize("kind", ["closing_soon", "saved_search", "weekly_report"])
+def test_missing_signing_key_omits_unsubscribe_links_and_headers(kind, monkeypatch):
+    import pipeline.notifications as notifications
+    import pipeline.saved_search_alerts as saved_alerts
+    import pipeline.weekly_report as weekly_report
+
+    monkeypatch.setattr("core.unsubscribe._signing_key", lambda: b"")
+    user = models.User(
+        id=UUID("00000000-0000-0000-0000-000000000123"),
+        display_name="Priya Sharma",
+        email="priya@example.com",
+    )
+    item = previews.sample_opportunities(1)[0]
+    session = Mock()
+    users = Mock()
+    users.all.return_value = [user]
+    send = Mock(return_value=True)
+    if kind == "closing_soon":
+        opportunities = Mock()
+        opportunities.all.return_value = [item]
+        session.scalars.side_effect = [users, opportunities]
+        monkeypatch.setattr(notifications, "_already_alerted", lambda *args, **kwargs: False)
+        monkeypatch.setattr(notifications, "_record_notification", Mock())
+        monkeypatch.setattr(notifications, "send_email", send)
+        notifications.send_closing_soon_alerts(session, now=NOW)
+    elif kind == "saved_search":
+        saved = models.SavedSearch(id=42, user_id=user.id, params={}, created_at=NOW)
+        session.execute.return_value.all.return_value = [(saved, user)]
+        session.scalars.return_value.unique.return_value.all.return_value = [item]
+        monkeypatch.setattr(saved_alerts, "send_email", send)
+        saved_alerts.send_saved_search_alerts(session, now=NOW)
+    else:
+        session.scalars.return_value = users
+        monkeypatch.setattr(weekly_report, "can", lambda *args: True)
+        monkeypatch.setattr(weekly_report, "_already_sent_this_week", lambda *args: False)
+        monkeypatch.setattr(weekly_report, "_closing_soon_opportunities", lambda *args: [item])
+        monkeypatch.setattr(weekly_report, "_recent_hidden_opportunities", lambda *args: [])
+        monkeypatch.setattr(weekly_report, "_recent_dream_company_matches", lambda *args: [])
+        monkeypatch.setattr(weekly_report, "_cohort_intro", lambda *args, **kwargs: None)
+        monkeypatch.setattr(weekly_report, "_record_delivery", Mock())
+        monkeypatch.setattr(weekly_report, "send_email", send)
+        weekly_report.send_weekly_reports(session, now=NOW)
+    send.assert_called_once()
+    assert send.call_args.kwargs["headers"] == {}
+    assert ">Unsubscribe</a>" not in send.call_args.args[2]
+    assert 'href=""' not in send.call_args.args[2]
+    assert "Unsubscribe from these emails:" not in send.call_args.args[3]

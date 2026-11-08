@@ -338,6 +338,7 @@ def _render_digest(
 def _render_closing_soon(
     opportunities: list[models.Opportunity],
     now: datetime,
+    unsub_url: str | None = None,
     *,
     display_name: str | None = None,
 ) -> tuple[str, str]:
@@ -370,6 +371,7 @@ def _render_closing_soon(
     html = email_layout(
         title="Opportunities closing soon",
         kind_label="Closing soon",
+        unsubscribe_url=unsub_url,
         greeting=greeting(display_name),
         summary=summary,
         preheader=summary,
@@ -386,6 +388,7 @@ def _render_closing_soon(
 
 def _render_closing_soon_text(
     opportunities: list[models.Opportunity],
+    unsub_url: str | None = None,
     *,
     display_name: str | None = None,
     now: datetime | None = None,
@@ -404,7 +407,7 @@ def _render_closing_soon_text(
             "Your bookmarked opportunities are closing soon:",
             *cards,
             "Deadlines can change. Please verify them at the linked source.",
-            text_footer(),
+            text_footer(unsub_url),
         ]
     )
 
@@ -668,9 +671,20 @@ def send_closing_soon_alerts(
             if not opportunities:
                 continue
 
-            subject, html = _render_closing_soon(opportunities, now, display_name=user.display_name)
-            text = _render_closing_soon_text(opportunities, display_name=user.display_name, now=now)
-            sent = send_email(user.email, subject, html, text)
+            unsub_url = unsubscribe_url(user.id, "closing_soon")
+            subject, html = _render_closing_soon(
+                opportunities, now, unsub_url, display_name=user.display_name
+            )
+            text = _render_closing_soon_text(
+                opportunities, unsub_url, display_name=user.display_name, now=now
+            )
+            sent = send_email(
+                user.email,
+                subject,
+                html,
+                text,
+                headers=list_unsubscribe_headers(user.id, "closing_soon"),
+            )
             status = "sent" if sent else "failed"
             for opportunity in opportunities:
                 _record_notification(
