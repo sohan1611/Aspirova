@@ -37,6 +37,8 @@ class SmartRecruitersAdapter:
         return self._last_health
 
     def fetch(self) -> list[RawListing]:
+        self.last_board_state = "error"
+        self.last_http_status: int | None = None
         self._expected_total = None
         posting_ids = self._fetch_posting_ids()
         if posting_ids is None:
@@ -68,6 +70,10 @@ class SmartRecruitersAdapter:
             listings.extend(detail_listings)
 
         self._last_health = "degraded" if degraded else "ok"
+        if degraded:
+            self.last_board_state = "error"
+        elif posting_ids:
+            self.last_board_state = "ok"
         return listings
 
     def coverage(self) -> dict[str, Any]:
@@ -106,6 +112,7 @@ class SmartRecruitersAdapter:
         limit = 100
 
         while True:
+            self.last_http_status = None
             try:
                 response = self._client.get(
                     f"https://api.smartrecruiters.com/v1/companies/" f"{self.board_token}/postings",
@@ -115,7 +122,9 @@ class SmartRecruitersAdapter:
                 self._last_health = "degraded"
                 return None
 
-            if response.status_code == 404:
+            self.last_http_status = response.status_code
+            if response.status_code in {404, 410}:
+                self.last_board_state = "not_found" if offset == 0 else "error"
                 self._last_health = "broken"
                 return None
             if response.status_code != 200:
@@ -138,6 +147,12 @@ class SmartRecruitersAdapter:
                 self._last_health = "broken"
                 return None
             if not content:
+                if offset == 0:
+                    try:
+                        if int(payload.get("totalFound", 0)) == 0:
+                            self.last_board_state = "empty"
+                    except (TypeError, ValueError):
+                        self.last_board_state = "error"
                 self._last_health = "ok"
                 return posting_ids
 

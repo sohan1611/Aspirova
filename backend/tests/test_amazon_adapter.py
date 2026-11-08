@@ -92,17 +92,46 @@ def test_coverage_reports_capped_query_as_partial_without_summed_denominator(
     adapter._declared_hits_by_query = {
         "intern": 192,
         "new grad": 0,
-        "graduate": 301,
+        "graduate": 1001,
     }
 
     coverage = adapter.coverage()
 
     assert coverage["status"] == "partial"
     assert coverage["expected_total"] is None
-    assert coverage["details"]["declared_hits_by_query"]["graduate"] == 301
+    assert coverage["details"]["declared_hits_by_query"]["graduate"] == 1001
     assert coverage["details"]["capped_queries"] == ["graduate"]
     assert "overlap" in coverage["note"]
     assert "not a valid distinct-listing denominator" in coverage["note"]
+
+
+def test_fetch_pages_past_300_until_declared_hits(adapter, fixture_payload, monkeypatch):
+    requests = []
+    template = fixture_payload["jobs"][0]
+
+    def get(url, *, params):
+        requests.append(params)
+        offset = params["offset"]
+        jobs = [
+            {**template, "id": f"{params['base_query']}-{index}"}
+            for index in range(offset, min(offset + 100, 705))
+        ]
+        return httpx.Response(
+            200, json={"jobs": jobs, "hits": 705}, request=httpx.Request("GET", url)
+        )
+
+    monkeypatch.setattr(adapter._client, "get", get)
+    delays = []
+    monkeypatch.setattr("crawlers.amazon.time.sleep", delays.append)
+    listings = adapter.fetch()
+    assert len(listings) == 3 * 705
+    for query in ("intern", "new grad", "graduate"):
+        assert [params["offset"] for params in requests if params["base_query"] == query] == list(
+            range(0, 800, 100)
+        )
+    assert len(delays) == len(requests) - 1
+    assert all(delay == 0.5 for delay in delays)
+    assert adapter.coverage()["status"] == "complete"
 
 
 def test_coverage_reports_uncapped_queries_complete_without_summed_denominator(

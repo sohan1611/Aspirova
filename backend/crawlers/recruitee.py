@@ -35,13 +35,17 @@ class RecruiteeAdapter(SourceAdapter):
         return f"https://{self.board_token}.recruitee.com/api/offers/"
 
     def fetch(self) -> list[RawListing]:
+        self.last_board_state = "error"
+        self.last_http_status: int | None = None
         try:
             response = self.client.get(self.offers_url)
         except httpx.RequestError:
             self._last_health = "degraded"
             return []
 
-        if response.status_code == 404:
+        self.last_http_status = response.status_code
+        if response.status_code in {404, 410}:
+            self.last_board_state = "not_found"
             self._last_health = "broken"
             return []
 
@@ -65,6 +69,7 @@ class RecruiteeAdapter(SourceAdapter):
             self._last_health = "broken"
             return []
 
+        self.last_board_state = "ok" if offers else "empty"
         listings = build_listings(
             (offer for offer in offers if self._is_published(offer)),
             lambda offer: RawListing(
@@ -78,6 +83,10 @@ class RecruiteeAdapter(SourceAdapter):
         )
 
         self._last_health = "ok"
+        if any(not isinstance(offer, dict) for offer in offers) or len(listings) != sum(
+            self._is_published(offer) for offer in offers
+        ):
+            self.last_board_state = "error"
         return listings
 
     def parse(self, raw: RawListing) -> NormalizedListing:

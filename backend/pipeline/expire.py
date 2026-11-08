@@ -13,6 +13,7 @@ from sqlalchemy import func, or_, select, text, update
 from sqlalchemy.orm import Session
 
 from core import models
+from pipeline.retirement import aggregator_primary_provenance
 
 # A source belongs here ONLY if one crawl enumerates its complete open inventory,
 # so a listing's absence is evidence it is gone. Production on 2026-09-04 proved
@@ -45,6 +46,7 @@ def expire_missing_opportunities(session: Session) -> int:
             models.Opportunity.status == "active",
             models.Opportunity.closed_at.is_(None),
             models.Opportunity.company_id == models.Company.id,
+            ~aggregator_primary_provenance(),
             models.Source.adapter_key == models.Company.ats_type,
             models.SourceState.source_id == models.Source.id,
             models.SourceState.page_key == models.Company.ats_board_id,
