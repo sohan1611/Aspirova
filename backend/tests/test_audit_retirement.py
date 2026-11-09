@@ -12,6 +12,8 @@ from crawlers import runner
 from crawlers.ashby import AshbyAdapter
 from pipeline.expire import expire_missing_opportunities
 from pipeline.retirement import (
+    ROLLING_WINDOW_SOURCES,
+    ROLLING_WINDOW_TTL_DAYS,
     find_dead_boards,
     retire_dead_board_listings,
     retire_rolling_window_listings,
@@ -117,6 +119,8 @@ def test_dead_streak_guards_and_provenance(db_session, board, states, hours, clo
     assert counts.get(f"greenhouse/{token}", 0) == int(closes)
     db_session.expire_all()
     assert (dead.closed_at is not None) == closes
+    if closes:
+        assert dead.meta["closed_reason"] == "dead_board"
     assert aggregator.closed_at is None
     assert another_board.closed_at is None
     assert merged.closed_at is None
@@ -129,6 +133,7 @@ def test_only_the_last_three_runs_count(db_session, board):
     assert matches[0].state == "empty"
 
 
+@pytest.mark.parametrize("source_key", sorted(ROLLING_WINDOW_TTL_DAYS))
 @pytest.mark.parametrize(
     "status,age_days,close",
     [
@@ -140,17 +145,19 @@ def test_only_the_last_three_runs_count(db_session, board):
     ],
 )
 def test_rolling_feed_requires_recent_contact_and_preserves_fresh_rows(
-    db_session, board, status, age_days, close
+    db_session, board, status, age_days, close, source_key
 ):
     _, company, _ = board
-    source = models.Source(slug=uuid.uuid4().hex, adapter_key="remoteok")
+    ttl = ROLLING_WINDOW_TTL_DAYS[source_key]
+    assert ROLLING_WINDOW_SOURCES == frozenset(ROLLING_WINDOW_TTL_DAYS)
+    source = models.Source(slug=uuid.uuid4().hex, adapter_key=source_key)
     other = models.Source(slug=uuid.uuid4().hex, adapter_key="ashby")
     db_session.add_all([source, other])
     db_session.flush()
-    stale = _opportunity(db_session, company, "remoteok")
-    fresh = _opportunity(db_session, company, "remoteok", days=29)
-    merged = _opportunity(db_session, company, "remoteok")
-    canonical_fresh = _opportunity(db_session, company, "remoteok", days=1)
+    stale = _opportunity(db_session, company, source_key, days=ttl + 10)
+    fresh = _opportunity(db_session, company, source_key, days=ttl - 1)
+    merged = _opportunity(db_session, company, source_key, days=ttl + 10)
+    canonical_fresh = _opportunity(db_session, company, source_key, days=1)
     # A fresh company ATS board must not bypass the feed outage/TTL guards.
     db_session.add(
         models.SourceState(
@@ -172,9 +179,38 @@ def test_rolling_feed_requires_recent_contact_and_preserves_fresh_rows(
     retire_rolling_window_listings(db_session)
     db_session.expire_all()
     assert (stale.closed_at is not None) == close
+    if close:
+        assert stale.meta["closed_reason"] == "rolling_window_ttl"
     assert fresh.closed_at is None
     assert merged.closed_at is None
     assert canonical_fresh.closed_at is None
+
+
+@pytest.mark.parametrize(
+    "source_key,days,closes",
+    [("himalayas", 45, False), ("himalayas", 61, True), ("remoteok", 31, True)],
+)
+@pytest.mark.parametrize("metadata", [None, {"keep": {"nested": True}}])
+def test_source_ttl_and_closure_metadata(db_session, board, source_key, days, closes, metadata):
+    _, company, _ = board
+    source = models.Source(slug=uuid.uuid4().hex, adapter_key=source_key)
+    db_session.add(source)
+    db_session.flush()
+    now = datetime.now(timezone.utc)
+    db_session.add(
+        models.CrawlRun(source_id=source.id, status="success", started_at=now, finished_at=now)
+    )
+    row = _opportunity(db_session, company, source_key, days=days)
+    row.meta = metadata
+    db_session.flush()
+    retire_rolling_window_listings(db_session)
+    db_session.expire_all()
+    assert (row.closed_at is not None) == closes
+    assert row.status == "active"
+    if closes:
+        assert row.meta == {**(metadata or {}), "closed_reason": "rolling_window_ttl"}
+    else:
+        assert row.meta == metadata
 
 
 def test_relocated_old_rows_retire_only_after_complete_new_board_crawl(db_session, board):
