@@ -19,11 +19,13 @@ from core.db import make_engine
 from core.models import Company
 from crawlers.common import USER_AGENT, build_http_timeout
 from crawlers.github_lists import canonical_url, company_domain, fetch_lists
+from crawlers.workday import WorkdayAdapter
 from scripts.seed_boards_batch import (
     BoardCandidate,
     BatchSummary,
     Verification,
     Verifier,
+    VERIFY_TIMEOUT_SECONDS,
     _print_summary,
     run_batch,
     verify_candidate,
@@ -124,6 +126,20 @@ def discover_candidates(
 
 
 def verify_discovered(candidate: BoardCandidate) -> Verification:
+    if candidate.ats_type == "workday":
+        adapter = WorkdayAdapter(
+            candidate.board_token, candidate.company_name, VERIFY_TIMEOUT_SECONDS
+        )
+        try:
+            if not adapter._robots_allowed():
+                reason = (
+                    "robots_disallowed"
+                    if "robots_disallowed" in adapter._failures
+                    else "robots_unavailable"
+                )
+                return Verification(candidate, False, adapter.health(), None, reason)
+        finally:
+            adapter._client.close()
     return verify_candidate(candidate, max_jobs=MAX_DISCOVERED_BOARD_JOBS, bogus_control=True)
 
 
@@ -193,13 +209,19 @@ def plan_discovery(
 
 
 def apply_plan(session: Session, plan: DiscoveryPlan, *, apply: bool = False) -> BatchSummary:
-    return run_batch(
+    summary = run_batch(
         session,
         plan.selected,
         apply=apply,
         verifier=plan.verifications.__getitem__,
         verify_workers=1,
     )
+    summary.rejected.extend(
+        verification
+        for verification in plan.verifications.values()
+        if verification.reason in {"robots_disallowed", "robots_unavailable"}
+    )
+    return summary
 
 
 def main(argv: list[str] | None = None) -> BatchSummary:

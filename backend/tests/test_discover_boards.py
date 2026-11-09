@@ -171,6 +171,7 @@ def test_bogus_control_must_fail_conclusively(monkeypatch, status):
 
 
 def test_workday_verifier_uses_one_probe_and_ignores_full_board_cap(monkeypatch):
+    monkeypatch.setattr(discovery.WorkdayAdapter, "_robots_allowed", lambda self: True)
     candidate = _candidate("Workday Co", "acme|wd5|Careers", "workday")
     tokens = []
 
@@ -190,6 +191,7 @@ def test_workday_verifier_uses_one_probe_and_ignores_full_board_cap(monkeypatch)
 
 
 def test_workday_zero_intern_hits_are_rejected(monkeypatch):
+    monkeypatch.setattr(discovery.WorkdayAdapter, "_robots_allowed", lambda self: True)
     monkeypatch.setattr(seed, "_inventory_probe", lambda *args, **kwargs: ("valid", 0))
     candidate = _candidate("Workday Co", "acme|wd5|Careers", "workday")
     result = discovery.verify_discovered(candidate)
@@ -215,7 +217,8 @@ def test_rejected_candidates_stop_at_max_verify():
     assert discovery.plan_discovery(boards, verifier=reject, max_verify=0).rows == []
 
 
-def test_workday_inventory_probe_posts_only_intern_search(monkeypatch):
+@pytest.mark.parametrize("robots_status", [200, 404])
+def test_workday_discovery_checks_robots_before_intern_search(monkeypatch, robots_status):
     import json
     from pathlib import Path
     from crawlers import workday
@@ -230,6 +233,9 @@ def test_workday_inventory_probe_posts_only_intern_search(monkeypatch):
 
     def respond(request):
         requests.append(request)
+        if request.url.path == "/robots.txt":
+            assert request.method == "GET"
+            return httpx.Response(robots_status, text="User-agent: *\nAllow: /\n")
         assert request.method == "POST"
         assert json.loads(request.content)["searchText"] == "intern"
         return httpx.Response(200, json=captured | {"total": 2887})
@@ -243,7 +249,41 @@ def test_workday_inventory_probe_posts_only_intern_search(monkeypatch):
     candidate = _candidate("Workday Co", "acme|wd5|Careers", "workday")
     result = discovery.verify_discovered(candidate)
     assert result.accepted and result.listings_count == 2887
+    assert len(requests) == 2
+    assert requests[0].url.path == "/robots.txt"
+    assert requests[1].url.path == "/wday/cxs/acme/Careers/jobs"
+    assert all(request.headers["User-Agent"] == workday.USER_AGENT for request in requests)
+
+
+def test_workday_robots_disallowed_rejects_without_search_and_counts_max_verify(monkeypatch):
+    from crawlers import workday
+
+    requests = []
+    real_client = httpx.Client
+
+    def respond(request):
+        requests.append(request)
+        assert request.method == "GET" and request.url.path == "/robots.txt"
+        return httpx.Response(200, text="User-agent: *\nDisallow: /Careers/\n")
+
+    monkeypatch.setattr(workday, "sleep", lambda _delay: None)
+    monkeypatch.setattr(
+        workday.httpx,
+        "Client",
+        lambda **kwargs: real_client(transport=httpx.MockTransport(respond), **kwargs),
+    )
+    candidate = _candidate("Workday Co", "acme|wd5|Careers", "workday")
+    later = _candidate("Later", "later")
+    plan = discovery.plan_discovery(
+        [discovery.DiscoveredBoard(candidate, 4), discovery.DiscoveredBoard(later, 3)],
+        max_verify=1,
+    )
     assert len(requests) == 1
+    assert len(plan.rows) == 1 and plan.rows[0][1] == "robots_disallowed"
+    assert not plan.selected and later not in plan.verifications
+    summary = discovery.apply_plan(FakeSession(), plan)
+    assert summary.rejected == [plan.verifications[candidate]]
+    assert summary.rejected[0].reason == "robots_disallowed"
 
 
 def test_smartrecruiters_probe_counts_declared_total_without_detail_fetch(monkeypatch):

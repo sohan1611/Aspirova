@@ -14,12 +14,12 @@ from core import models
 
 DEAD_BOARD_MIN_RUNS = 3
 DEAD_BOARD_MIN_SPAN_HOURS = 48
-ROLLING_WINDOW_SOURCES = frozenset({"remoteok", "himalayas", "arbeitnow", "jobicy"})
-ROLLING_WINDOW_TTL_DAYS = 30
-"""This is NOT absence-as-evidence: rolling feeds expose only their newest
-window. An unconfirmed listing is presumed expired after 30 days, just as
-exclude_stale_opportunities presumes age. A source outage freezes closure.
-"""
+ROLLING_WINDOW_TTL_DAYS = {"remoteok": 30, "arbeitnow": 30, "jobicy": 30, "himalayas": 60}
+ROLLING_WINDOW_SOURCES = frozenset(ROLLING_WINDOW_TTL_DAYS)
+# Rolling feeds expose only their newest window. A source outage freezes closure.
+# Himalayas expires jobs at pubDate + 60 days. We see only its newest window,
+# with last_seen_at within ~2.5 days of pubDate, so 60 days from last_seen_at
+# never closes a listing before Himalayas does.
 
 
 @dataclass(frozen=True)
@@ -164,7 +164,13 @@ def retire_dead_board_listings(session: Session, *, now: datetime | None = None)
                 ),
                 ~other_link,
             )
-            .values(closed_at=func.now())
+            .values(
+                closed_at=func.now(),
+                meta=func.coalesce(
+                    func.nullif(models.Opportunity.meta, text("'null'::jsonb")),
+                    text("'{}'::jsonb"),
+                ).op("||")(func.jsonb_build_object("closed_reason", "dead_board")),
+            )
             .execution_options(synchronize_session=False)
         )
         counts[f"{board.ats}/{board.token}"] = int(result.rowcount or 0)
@@ -174,8 +180,8 @@ def retire_dead_board_listings(session: Session, *, now: datetime | None = None)
 def retire_rolling_window_listings(session: Session) -> dict[str, int]:
     """Apply the age presumption only while the corresponding feed is running."""
     counts = {}
-    cutoff = func.now() - text(f"interval '{ROLLING_WINDOW_TTL_DAYS} days'")
     for source in sorted(ROLLING_WINDOW_SOURCES):
+        cutoff = func.now() - text(f"interval '{ROLLING_WINDOW_TTL_DAYS[source]} days'")
         recent_contact = (
             select(models.CrawlRun.id)
             .join(models.Source, models.Source.id == models.CrawlRun.source_id)
@@ -212,7 +218,13 @@ def retire_rolling_window_listings(session: Session) -> dict[str, int]:
                 recent_contact,
                 ~fresher_link,
             )
-            .values(closed_at=func.now())
+            .values(
+                closed_at=func.now(),
+                meta=func.coalesce(
+                    func.nullif(models.Opportunity.meta, text("'null'::jsonb")),
+                    text("'{}'::jsonb"),
+                ).op("||")(func.jsonb_build_object("closed_reason", "rolling_window_ttl")),
+            )
             .execution_options(synchronize_session=False)
         )
         counts[source] = int(result.rowcount or 0)
