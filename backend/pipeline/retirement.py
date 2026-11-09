@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import and_, func, or_, select, text, update
+from sqlalchemy import and_, case, func, or_, select, text, update
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
@@ -29,6 +29,17 @@ class DeadBoard:
     token: str
     state: str
     since: datetime
+
+
+def meta_without_closed_reason() -> ColumnElement[Any]:
+    """Remove closure provenance from objects, preserving legacy non-object meta."""
+    return case(
+        (
+            func.jsonb_typeof(models.Opportunity.meta) == "object",
+            models.Opportunity.meta.op("-")(text("'closed_reason'")),
+        ),
+        else_=models.Opportunity.meta,
+    )
 
 
 def aggregator_primary_provenance() -> ColumnElement[bool]:

@@ -5,12 +5,12 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta, timezone
 
-from sqlalchemy import case, func, select, text, update
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from core.db import make_engine
 from core.models import Opportunity
-from pipeline.retirement import ROLLING_WINDOW_TTL_DAYS
+from pipeline.retirement import ROLLING_WINDOW_TTL_DAYS, meta_without_closed_reason
 
 
 @dataclass
@@ -73,13 +73,7 @@ def reopen_rolling_ttl(
             .where(Opportunity.id.in_(candidate_ids))
             .values(
                 closed_at=None,
-                meta=case(
-                    (
-                        func.jsonb_typeof(Opportunity.meta) == "object",
-                        Opportunity.meta.op("-")(text("'closed_reason'")),
-                    ),
-                    else_=Opportunity.meta,
-                ),
+                meta=meta_without_closed_reason(),
             )
             .execution_options(synchronize_session=False)
         )

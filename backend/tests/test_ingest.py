@@ -788,6 +788,125 @@ def test_aggregator_seen_listing_reopens_only_with_full_inventory_and_no_past_de
     assert refreshed.deadline == deadline
 
 
+@pytest.mark.parametrize("source_key", ["himalayas", "remoteok"])
+@pytest.mark.parametrize("deadline_days", [1, -1, None])
+@pytest.mark.parametrize("closed_reason", ["rolling_window_ttl", "dead_board", None])
+@pytest.mark.parametrize("status", ["active", "expired"])
+@pytest.mark.parametrize("unchanged", [False, True])
+def test_aggregator_seen_rolling_listing_reopens_only_explicit_ttl_closures(
+    db_session: Session,
+    seeded,
+    monkeypatch: pytest.MonkeyPatch,
+    source_key: str,
+    deadline_days: int | None,
+    closed_reason: str | None,
+    status: str,
+    unchanged: bool,
+) -> None:
+    source, _other, company = seeded
+    source.adapter_key = source_key
+    source.type = "aggregator"
+    source.crawl_tier = 1
+    now = datetime.now(UTC)
+    deadline = now + timedelta(days=deadline_days) if deadline_days is not None else None
+    raw = _raw("reseen-rolling-role", "https://acme.example/jobs/reseen-rolling").model_copy(
+        update={"source_slug": source_key}
+    )
+    normalized = _normalized("Junior Software Engineer", raw.source_url).model_copy(
+        update={"source_slug": source_key, "deadline": deadline}
+    )
+    opportunity, _ = _ingest(db_session, source.id, company.id, raw, normalized)
+    closed_at = now - timedelta(days=2)
+    assert opportunity.primary_source == source_key
+    opportunity.closed_at = closed_at
+    opportunity.last_seen_at = now - timedelta(days=90)
+    opportunity.status = status
+    meta = {"keep": {"nested": True}, "liveness_checked_at": now.isoformat()}
+    if closed_reason is not None:
+        meta["closed_reason"] = closed_reason
+    opportunity.meta = meta
+    db_session.flush()
+    opportunity_id = opportunity.id
+    if unchanged:
+        db_session.add(
+            models.SourceState(
+                source_id=source.id,
+                page_key="aggregator",
+                last_content_hash=runner._board_fingerprint([raw]),
+            )
+        )
+        db_session.flush()
+
+    class SeenAdapter:
+        def fetch(self):
+            return [raw]
+
+        def parse(self, _raw):
+            assert not unchanged, "unchanged feeds must skip parsing"
+            return normalized
+
+        def health(self):
+            return "ok"
+
+    monkeypatch.setattr(runner, "resolve_company", lambda *_args, **_kwargs: company)
+    result = runner.crawl_aggregator(db_session, source, SeenAdapter)
+    assert result["status"] == "success"
+    assert result["errors"] == 0
+    db_session.expire_all()
+    refreshed = db_session.get(models.Opportunity, opportunity_id)
+    should_reopen = (
+        closed_reason == "rolling_window_ttl" and deadline_days != -1 and status == "active"
+    )
+    assert refreshed.closed_at == (None if should_reopen else closed_at)
+    assert refreshed.meta == (
+        {key: value for key, value in meta.items() if key != "closed_reason"}
+        if should_reopen
+        else meta
+    )
+    assert refreshed.deadline == deadline
+    assert refreshed.status == status
+    assert refreshed.last_seen_at > now - timedelta(days=1)
+
+
+def test_aggregator_full_inventory_reopen_removes_closed_reason(
+    db_session: Session, seeded, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source, _other, company = seeded
+    source.adapter_key = "unstop"
+    source.type = "aggregator"
+    source.crawl_tier = 1
+    raw = _raw("reseen-unstop-role", "https://acme.example/jobs/reseen-unstop").model_copy(
+        update={"source_slug": "unstop"}
+    )
+    normalized = _normalized("Junior Software Engineer", raw.source_url).model_copy(
+        update={"source_slug": "unstop"}
+    )
+    opportunity, _ = _ingest(db_session, source.id, company.id, raw, normalized)
+    opportunity.closed_at = datetime.now(UTC) - timedelta(days=2)
+    opportunity.meta = {"closed_reason": "dead_board", "keep": {"nested": True}}
+    db_session.flush()
+    opportunity_id = opportunity.id
+
+    class SeenAdapter:
+        def fetch(self):
+            return [raw]
+
+        def parse(self, _raw):
+            return normalized
+
+        def health(self):
+            return "ok"
+
+    monkeypatch.setattr(runner, "resolve_company", lambda *_args, **_kwargs: company)
+    result = runner.crawl_aggregator(db_session, source, SeenAdapter)
+    assert result["status"] == "success"
+    assert result["errors"] == 0
+    db_session.expire_all()
+    refreshed = db_session.get(models.Opportunity, opportunity_id)
+    assert refreshed.closed_at is None
+    assert refreshed.meta == {"keep": {"nested": True}}
+
+
 def test_ingest_prefers_explicit_normalized_country(db_session: Session, seeded) -> None:
     source, _other, company = seeded
     raw = _raw("explicit-country", "https://acme.example/jobs/explicit-country")
