@@ -28,7 +28,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import func, select, update
+from sqlalchemy import Select, func, select, update
 from sqlalchemy.orm import Session
 
 from core import models
@@ -57,6 +57,7 @@ from crawlers.workday import WorkdayAdapter
 from pipeline.company_resolution import resolve_company
 from pipeline.expire import FULL_INVENTORY_SOURCES
 from pipeline.ingest import ingest_one, load_board_state, load_source_raw_listings
+from pipeline.retirement import ROLLING_WINDOW_SOURCES, meta_without_closed_reason
 from pipeline.revalidate import notify_changed
 from scripts.match_prestige import match_prestige
 
@@ -1165,6 +1166,21 @@ def crawl_company_board(
     return result
 
 
+def _reopen_seen_rolling_listings(session: Session, seen_ids: list[int] | Select) -> None:
+    """Feed presence reverses only an explicit rolling-window TTL closure."""
+    session.execute(
+        update(models.Opportunity)
+        .where(
+            models.Opportunity.id.in_(seen_ids),
+            models.Opportunity.closed_at.is_not(None),
+            models.Opportunity.meta["closed_reason"].astext == "rolling_window_ttl",
+            (models.Opportunity.deadline.is_(None)) | (models.Opportunity.deadline > func.now()),
+            models.Opportunity.status == "active",
+        )
+        .values(closed_at=None, meta=meta_without_closed_reason())
+    )
+
+
 def crawl_aggregator(
     session: Session,
     source: models.Source,
@@ -1299,7 +1315,7 @@ def crawl_aggregator(
             and state is not None
             and state.last_content_hash == fingerprint
         ):
-            if source_label == "github_lists":
+            if source_label == "github_lists" or source_label in ROLLING_WINDOW_SOURCES:
                 # Match the ATS unchanged path, refreshing returned raw IDs only.
                 external_ids = [raw.external_id for raw in raw_listings]
                 for start in range(0, len(external_ids), 5000):
@@ -1312,6 +1328,8 @@ def crawl_aggregator(
                         .where(models.Opportunity.id.in_(seen))
                         .values(last_seen_at=func.now())
                     )
+                    if source_label in ROLLING_WINDOW_SOURCES:
+                        _reopen_seen_rolling_listings(session, seen)
             state.last_crawled_at = datetime.now(timezone.utc)
             session.commit()
             watchdog.beat(f"{activity}:unchanged-committed")
@@ -1457,8 +1475,11 @@ def crawl_aggregator(
                             (models.Opportunity.deadline.is_(None))
                             | (models.Opportunity.deadline > func.now()),
                         )
-                        .values(closed_at=None)
+                        .values(closed_at=None, meta=meta_without_closed_reason())
                     )
+            if source_label in ROLLING_WINDOW_SOURCES:
+                for start in range(0, len(seen_ids), 5000):
+                    _reopen_seen_rolling_listings(session, seen_ids[start : start + 5000])
             session.commit()
 
         if stop_now():
