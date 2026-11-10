@@ -4,15 +4,19 @@ Company alerts are grouped once per user per run: paid users receive them
 following crawls and on daily runs; free users receive at most one per UTC
 day. The daily digest excludes prior company alerts from its per-user
 opportunity list and appends shared hackathon picks. Legacy hackathon opt-outs
-suppress those picks. Closing-soon reminders keep their own preference.
+suppress those picks. Each digest covers listings first seen since the
+reader's previous digest, never repeats what their last week of digests
+carried, and only carries listings that are still open; preview_daily_digest
+renders the same selection without sending or recording it. Closing-soon reminders keep their own preference.
 All entitlements use can(), and sent notification rows provide deduplication.
 """
 
 import logging
 import random
 from collections import Counter, defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from functools import cached_property
 
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session, aliased
@@ -55,6 +59,23 @@ DIGEST_RANKED_COMPANY_RESERVE_SIZE = 2
 DAILY_DIGEST_SUBJECT = "Your Aspirova daily digest"
 HACKATHON_DIGEST_SUBJECT = "Your Daily Dose of Hackathons 🚀"
 COMBINED_DIGEST_SUBJECT = "Your Aspirova daily digest + hackathons 🚀"
+
+# Daily digest window and repeat guard (spec N-05).
+#
+# Each digest covers listings first seen since this reader's previous
+# successful digest. A fixed "last 24 hours" window overlapped whenever the
+# scheduler ran late one day and early the next (the cron fires anywhere from
+# 04:47 to after 15:00 UTC), so the same listings went out twice; and a day the
+# scheduler skipped entirely dropped that day's listings for good. The window
+# is never longer than DIGEST_WINDOW_MAX, so a returning reader is not sent a
+# week of backlog in one email.
+DIGEST_WINDOW_DEFAULT = timedelta(hours=24)
+DIGEST_WINDOW_MAX = timedelta(hours=72)
+# Nothing that appeared in this reader's digest during the last week is sent to
+# them again. For the hackathon picks this is the rule that matters: they are
+# chosen per day from the same pool, so a strong listing otherwise reappears
+# every morning until it closes.
+DIGEST_REPEAT_LOOKBACK = timedelta(days=7)
 _HACKATHON_CATEGORIES = {"hackathon", "competition"}
 
 
@@ -130,8 +151,66 @@ def _already_alerted(
     )
 
 
+def _digest_open_filters(now: datetime) -> list:
+    """An email may only carry listings the reader can still act on.
+
+    status == "active" alone is not enough: a listing closed on absence keeps
+    status "active" with closed_at set for its 14-day grace (pipeline/expire.py),
+    and hidden rows are moderated out of every public surface.
+    """
+    return [
+        models.Opportunity.is_hidden.is_not(True),
+        models.Opportunity.closed_at.is_(None),
+        or_(models.Opportunity.deadline.is_(None), models.Opportunity.deadline > now),
+    ]
+
+
+def _not_in(ids: frozenset[int]) -> list:
+    return [models.Opportunity.id.not_in(sorted(ids))] if ids else []
+
+
+@dataclass(frozen=True)
+class DigestHistory:
+    """This reader's successful digests inside DIGEST_REPEAT_LOOKBACK."""
+
+    last_sent_at: datetime | None
+    recent_ids: frozenset[int]
+
+
+def _digest_history(session: Session, user_id, now: datetime) -> DigestHistory:
+    rows = session.execute(
+        select(models.Notification.sent_at, models.Notification.meta)
+        .where(
+            models.Notification.user_id == user_id,
+            models.Notification.type == "digest",
+            models.Notification.status == "sent",
+            models.Notification.sent_at >= now - DIGEST_REPEAT_LOOKBACK,
+        )
+        .order_by(models.Notification.sent_at.desc())
+    ).all()
+    recent: set[int] = set()
+    for row in rows:
+        meta = row.meta if isinstance(row.meta, dict) else {}
+        for key in ("opportunity_ids", "hackathon_ids"):
+            values = meta.get(key)
+            if isinstance(values, list):
+                recent.update(value for value in values if isinstance(value, int))
+    last_sent_at = _utc(rows[0].sent_at) if rows and rows[0].sent_at else None
+    return DigestHistory(last_sent_at=last_sent_at, recent_ids=frozenset(recent))
+
+
+def _digest_window_start(history: DigestHistory, now: datetime) -> datetime:
+    if history.last_sent_at is None:
+        return now - DIGEST_WINDOW_DEFAULT
+    return max(history.last_sent_at, now - DIGEST_WINDOW_MAX)
+
+
 def _dream_company_opportunities(
-    session: Session, user_id, since: datetime, now: datetime
+    session: Session,
+    user_id,
+    since: datetime,
+    now: datetime,
+    exclude_ids: frozenset[int] = frozenset(),
 ) -> list[models.Opportunity]:
     return list(
         session.scalars(
@@ -146,6 +225,8 @@ def _dream_company_opportunities(
                 models.Opportunity.status == "active",
                 models.Opportunity.first_seen_at >= since,
                 exclude_stale_opportunities(now),
+                *_digest_open_filters(now),
+                *_not_in(exclude_ids),
             )
             .order_by(models.Opportunity.first_seen_at.desc())
         ).all()
@@ -153,7 +234,11 @@ def _dream_company_opportunities(
 
 
 def _generic_recent_opportunities(
-    session: Session, since: datetime, limit: int, now: datetime
+    session: Session,
+    since: datetime,
+    limit: int,
+    now: datetime,
+    exclude_ids: frozenset[int] = frozenset(),
 ) -> list[models.Opportunity]:
     if limit <= 0:
         return []
@@ -182,6 +267,8 @@ def _generic_recent_opportunities(
             models.Opportunity.status == "active",
             models.Opportunity.first_seen_at >= since,
             exclude_stale_opportunities(now),
+            *_digest_open_filters(now),
+            *_not_in(exclude_ids),
             models.Opportunity.category.in_(["internship", "job"]),
             student_rank < 2,
         )
@@ -412,12 +499,126 @@ def _render_closing_soon_text(
     )
 
 
+class _HackathonPicks:
+    """The day's hackathon picks, re-chosen only for a reader who already saw one.
+
+    Every reader shares the default picks, selected once per run as before. A
+    reader whose recent digests already carried one of them gets picks chosen
+    with everything recently sent to them excluded, cached per exclusion set so
+    readers with the same history share one selection.
+    """
+
+    def __init__(self, session: Session, now: datetime) -> None:
+        self._session = session
+        self._now = now
+        self._excluding: dict[frozenset[int], list[models.Opportunity]] = {}
+
+    @cached_property
+    def default(self) -> list[models.Opportunity]:
+        return _hackathon_digest_opportunities(self._session, self._now)
+
+    def for_reader(self, recent_ids: frozenset[int]) -> list[models.Opportunity]:
+        if not recent_ids.intersection(o.id for o in self.default):
+            return self.default
+        if recent_ids not in self._excluding:
+            # Positional on purpose: tests replace the selector with *args stubs.
+            self._excluding[recent_ids] = _hackathon_digest_opportunities(
+                self._session, self._now, HACKATHON_DIGEST_SIZE, recent_ids
+            )
+        return self._excluding[recent_ids]
+
+
+@dataclass
+class DigestDraft:
+    """One reader's digest as it would go out now. Empty means nothing to send."""
+
+    window_start: datetime
+    opportunities: list[models.Opportunity] = field(default_factory=list)
+    hackathons: list[models.Opportunity] = field(default_factory=list)
+    subject: str | None = None
+    html: str | None = None
+    text: str | None = None
+
+    @property
+    def empty(self) -> bool:
+        return not self.opportunities and not self.hackathons
+
+
+def compose_daily_digest(
+    session: Session, user: models.User, now: datetime, picks: _HackathonPicks
+) -> DigestDraft:
+    """Select and render one reader's digest. Sends nothing and records nothing."""
+    history = _digest_history(session, user.id, now)
+    since = _digest_window_start(history, now)
+
+    # Positional arguments on purpose: tests replace these selectors with
+    # (session, user_id, *args) stubs.
+    opportunities = [
+        o
+        for o in _dream_company_opportunities(session, user.id, since, now, history.recent_ids)
+        if not _already_alerted(session, user.id, o.id)
+    ]
+    if not opportunities:
+        # The generic fallback is a separate, unrelated query (all recent active
+        # opportunities, not just dream-company ones) - it must ALSO exclude
+        # already-alerted ones, or an opportunity excluded above (because a Pro
+        # user's dream company already got it as an instant alert) can leak
+        # right back in here, since it's still a perfectly real, recent, active
+        # opportunity as far as this second query is concerned.
+        opportunities = [
+            o
+            for o in _generic_recent_opportunities(
+                session, since, DIGEST_GENERIC_SAMPLE_SIZE, now, history.recent_ids
+            )
+            if not _already_alerted(session, user.id, o.id)
+        ]
+    job_ids = {o.id for o in opportunities}
+    hackathons = (
+        [o for o in picks.for_reader(history.recent_ids) if o.id not in job_ids]
+        if wants(user, "hackathon_digest")
+        else []
+    )
+    draft = DigestDraft(window_start=since, opportunities=opportunities, hackathons=hackathons)
+    if draft.empty:
+        return draft
+
+    has_jobs = any(o.category not in _HACKATHON_CATEGORIES for o in opportunities)
+    has_hackathons = bool(hackathons) or any(
+        o.category in _HACKATHON_CATEGORIES for o in opportunities
+    )
+    if has_jobs and has_hackathons:
+        draft.subject = COMBINED_DIGEST_SUBJECT
+    elif has_hackathons:
+        draft.subject = HACKATHON_DIGEST_SUBJECT
+    else:
+        draft.subject = DAILY_DIGEST_SUBJECT
+    draft.html, draft.text = _render_digest(
+        opportunities,
+        unsubscribe_url(user.id, "daily_digest"),
+        display_name=user.display_name,
+        now=now,
+        hackathons=hackathons,
+    )
+    return draft
+
+
+def preview_daily_digest(
+    session: Session, user: models.User, *, now: datetime | None = None
+) -> DigestDraft:
+    """What this reader's next digest would contain if it went out now.
+
+    Read-only: nothing is sent or recorded, so a preview never counts toward the
+    daily cap or the repeat guard.
+    """
+    now = _utc(now or datetime.now(timezone.utc))
+    return compose_daily_digest(session, user, now, _HackathonPicks(session, now))
+
+
 def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict:
-    now = now or datetime.now(timezone.utc)
-    since = now - timedelta(hours=24)
+    now = _utc(now or datetime.now(timezone.utc))
 
     result = {"sent": 0, "failed": 0, "skipped_capped": 0, "skipped_empty": 0}
-    picks = _hackathon_digest_opportunities(session, now)
+    picks = _HackathonPicks(session, now)
 
     for user in session.scalars(select(models.User)).all():
         try:
@@ -429,55 +630,16 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
                 result["skipped_capped"] += 1
                 continue
 
-            opportunities = _dream_company_opportunities(session, user.id, since, now)
-            opportunities = [
-                o for o in opportunities if not _already_alerted(session, user.id, o.id)
-            ]
-            if not opportunities:
-                # The generic fallback is a separate, unrelated query (all
-                # recent active opportunities, not just dream-company ones) -
-                # it must ALSO exclude already-alerted ones, or an opportunity
-                # excluded above (because a Pro user's dream company already
-                # got it as an instant alert) can leak right back in here,
-                # since it's still a perfectly real, recent, active
-                # opportunity as far as this second query is concerned.
-                opportunities = [
-                    o
-                    for o in _generic_recent_opportunities(
-                        session, since, DIGEST_GENERIC_SAMPLE_SIZE, now
-                    )
-                    if not _already_alerted(session, user.id, o.id)
-                ]
-            job_ids = {o.id for o in opportunities}
-            hackathons = (
-                [o for o in picks if o.id not in job_ids] if wants(user, "hackathon_digest") else []
-            )
-            if not opportunities and not hackathons:
+            draft = compose_daily_digest(session, user, now, picks)
+            if draft.empty:
                 result["skipped_empty"] += 1
                 continue
 
-            has_jobs = any(o.category not in _HACKATHON_CATEGORIES for o in opportunities)
-            has_hackathons = bool(hackathons) or any(
-                o.category in _HACKATHON_CATEGORIES for o in opportunities
-            )
-            if has_jobs and has_hackathons:
-                subject = COMBINED_DIGEST_SUBJECT
-            elif has_hackathons:
-                subject = HACKATHON_DIGEST_SUBJECT
-            else:
-                subject = DAILY_DIGEST_SUBJECT
-            html, text = _render_digest(
-                opportunities,
-                unsubscribe_url(user.id, "daily_digest"),
-                display_name=user.display_name,
-                now=now,
-                hackathons=hackathons,
-            )
             sent = send_email(
                 user.email,
-                subject,
-                html,
-                text,
+                draft.subject,
+                draft.html,
+                draft.text,
                 headers=list_unsubscribe_headers(user.id, "daily_digest"),
             )
             _record_notification(
@@ -487,8 +649,8 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
                 opportunity_id=None,
                 status="sent" if sent else "failed",
                 meta={
-                    "opportunity_ids": [o.id for o in opportunities],
-                    "hackathon_ids": [o.id for o in hackathons],
+                    "opportunity_ids": [o.id for o in draft.opportunities],
+                    "hackathon_ids": [o.id for o in draft.hackathons],
                 },
             )
             result["sent" if sent else "failed"] += 1
@@ -776,6 +938,7 @@ def _hackathon_digest_opportunities(
     session: Session,
     now: datetime,
     limit: int = HACKATHON_DIGEST_SIZE,
+    exclude_ids: frozenset[int] = frozenset(),
 ) -> list[models.Opportunity]:
     """Pick the day's hackathons across deadlines, organisers and sources.
 
@@ -788,6 +951,9 @@ def _hackathon_digest_opportunities(
     base_filters = [
         models.Opportunity.status == "active",
         models.Opportunity.is_hidden.is_not(True),
+        # Closed on absence keeps status "active" during the grace window.
+        models.Opportunity.closed_at.is_(None),
+        *_not_in(exclude_ids),
         models.Opportunity.category.in_(["hackathon", "competition"]),
         exclude_stale_opportunities(now),
         models.Opportunity.last_seen_at >= now - HACKATHON_DIGEST_MAX_STALENESS,

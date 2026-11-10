@@ -283,6 +283,23 @@ export interface AccountMe {
   invite_code: string | null;
   notification_prefs: Record<string, boolean>;
   plan: PlanState;
+  digest_status?: DigestStatus | null;
+}
+
+/** The reader's latest daily digest outcome. */
+export interface DigestStatus {
+  last_sent_at: string | null;
+  last_sent_count: number;
+  last_attempt_failed: boolean;
+}
+
+/** What the reader's next daily digest would contain if it went out now. */
+export interface DigestPreview {
+  subject: string | null;
+  html: string | null;
+  listing_count: number;
+  hackathon_count: number;
+  window_start: string;
 }
 
 export interface AccountUpdate {

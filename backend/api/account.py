@@ -11,11 +11,12 @@ from sqlalchemy.orm import Session
 from api.auth import get_current_user
 from api.deps import get_db
 from api.payments import _razorpay_client
-from api.schemas import AccountMe, AccountUpdate, PlanState
+from api.schemas import AccountMe, AccountUpdate, DigestPreview, DigestStatus, PlanState
 from core import models
 from core.gating import active_subscription_filters, get_features
 from core.ratelimit import check_rate_limit
 from core.redis_client import get_redis
+from pipeline.notifications import preview_daily_digest
 
 router = APIRouter()
 
@@ -68,6 +69,42 @@ def _active_subscription_query(user: models.User):
     )
 
 
+def _digest_status(db: Session, user: models.User) -> DigestStatus | None:
+    """The newest digest attempt and the last one that actually went out."""
+    newest = db.scalar(
+        select(models.Notification.status)
+        .where(models.Notification.user_id == user.id, models.Notification.type == "digest")
+        .order_by(models.Notification.id.desc())
+        .limit(1)
+    )
+    if newest is None:
+        return None
+    last_sent = db.execute(
+        select(models.Notification.sent_at, models.Notification.meta)
+        .where(
+            models.Notification.user_id == user.id,
+            models.Notification.type == "digest",
+            models.Notification.status == "sent",
+        )
+        .order_by(models.Notification.sent_at.desc().nullslast())
+        .limit(1)
+    ).first()
+    count = 0
+    if last_sent is not None and isinstance(last_sent.meta, dict):
+        for key in ("opportunity_ids", "hackathon_ids"):
+            values = last_sent.meta.get(key)
+            if isinstance(values, list):
+                count += len(values)
+    sent_at = last_sent.sent_at if last_sent is not None else None
+    if sent_at is not None and sent_at.tzinfo is None:
+        sent_at = sent_at.replace(tzinfo=UTC)
+    return DigestStatus(
+        last_sent_at=sent_at,
+        last_sent_count=count,
+        last_attempt_failed=newest == "failed",
+    )
+
+
 def _build_account_me(db: Session, user: models.User) -> AccountMe:
     features = get_features(db, user)
     active = db.execute(_active_subscription_query(user)).first()
@@ -108,6 +145,7 @@ def _build_account_me(db: Session, user: models.User) -> AccountMe:
             current_period_end=current_period_end,
             cancel_at_period_end=cancel_at_period_end,
         ),
+        digest_status=_digest_status(db, user),
     )
 
 
@@ -258,6 +296,48 @@ def update_account_me(
 
     db.commit()
     return _build_account_me(db, user)
+
+
+DIGEST_PREVIEW_PER_MINUTE = 6
+
+
+async def enforce_digest_preview_limit(
+    user: models.User = Depends(get_current_user),
+) -> models.User:
+    """A preview runs the full digest selection, so cap it per reader."""
+    result = await check_rate_limit(
+        get_redis(),
+        bucket="digest_preview",
+        identifier=str(user.id),
+        max_requests=DIGEST_PREVIEW_PER_MINUTE,
+        window_seconds=60,
+    )
+    if not result.allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many requests",
+            headers={"Retry-After": str(result.retry_after_seconds)},
+        )
+    return user
+
+
+@router.get("/account/digest-preview", response_model=DigestPreview)
+def digest_preview(
+    response: Response,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(enforce_digest_preview_limit),
+) -> DigestPreview:
+    """Render the reader's next daily digest without sending or recording it."""
+    draft = preview_daily_digest(db, user)
+    # The body carries this reader's own signed unsubscribe link.
+    response.headers["Cache-Control"] = "no-store"
+    return DigestPreview(
+        subject=draft.subject,
+        html=draft.html,
+        listing_count=len(draft.opportunities),
+        hackathon_count=len(draft.hackathons),
+        window_start=draft.window_start,
+    )
 
 
 @router.post("/subscription/cancel")

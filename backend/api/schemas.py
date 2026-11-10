@@ -494,6 +494,24 @@ class PlanState(BaseModel):
     cancel_at_period_end: bool = False
 
 
+class DigestStatus(BaseModel):
+    """The reader's latest daily digest outcome (spec N-05)."""
+
+    last_sent_at: datetime | None
+    last_sent_count: int
+    last_attempt_failed: bool
+
+
+class DigestPreview(BaseModel):
+    """What the reader's next digest would contain if it went out now."""
+
+    subject: str | None
+    html: str | None
+    listing_count: int
+    hackathon_count: int
+    window_start: datetime
+
+
 class AccountMe(BaseModel):
     email: str | None
     display_name: str | None
@@ -507,6 +525,7 @@ class AccountMe(BaseModel):
     exposure: dict | None
     resume: dict | None = None
     plan: PlanState
+    digest_status: DigestStatus | None = None
 
 
 class AccountUpdate(BaseModel):
