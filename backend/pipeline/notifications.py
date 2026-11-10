@@ -813,9 +813,17 @@ def send_closing_soon_alerts(
                         models.Bookmark.user_id == user.id,
                         models.Bookmark.status == "saved",
                         models.Opportunity.status == "active",
+                        # A listing confirmed closed keeps status 'active' through its
+                        # grace period, so status alone would still remind about it.
+                        models.Opportunity.closed_at.is_(None),
+                        models.Opportunity.is_hidden.is_not(True),
                         exclude_stale_opportunities(now),
-                        models.Opportunity.deadline.is_not(None),
-                        models.Opportunity.deadline.between(now, cutoff),
+                        # Only a deadline the source states: an inferred or unknown
+                        # date must not be emailed as "closes in N days".
+                        models.Opportunity.deadline_confidence == "explicit",
+                        # Same cut-off as everywhere else: deadline <= now has passed.
+                        models.Opportunity.deadline > now,
+                        models.Opportunity.deadline <= cutoff,
                     )
                     .order_by(models.Opportunity.deadline.asc(), models.Opportunity.id.asc())
                 ).all()
