@@ -1,4 +1,6 @@
-"""Publish stateful Google Indexing API notifications for job pages.
+"""Publish stateful Google Indexing API notifications for JobPosting pages.
+
+Opened pages require a source posting date and no passed deadline.
 
 Usage:
     uv run python -m scripts.notify_google_indexing
@@ -21,7 +23,7 @@ from sqlalchemy.engine import Row
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy.sql import Select
 
-from api.filters import exclude_stale_opportunities
+from api.filters import deadline_passed, exclude_stale_opportunities
 from core import models
 from core.config import get_settings
 from core.db import make_engine
@@ -88,6 +90,8 @@ def _opened_candidate_query() -> Select[tuple[int, str]]:
             models.Opportunity.category.in_(("job", "internship")),
             models.Opportunity.status == "active",
             models.Opportunity.closed_at.is_(None),
+            models.Opportunity.posted_at.is_not(None),
+            not_(deadline_passed()),
             exclude_stale_opportunities(),
             models.Opportunity.is_hidden.is_not(True),
             func.btrim(func.coalesce(models.Opportunity.title, "")) != "",
@@ -117,6 +121,8 @@ def _closed_candidate_query() -> Select[tuple[int, str]]:
         .where(
             or_(
                 models.Opportunity.closed_at.is_not(None),
+                models.Opportunity.posted_at.is_(None),
+                deadline_passed(),
                 models.Opportunity.is_hidden.is_(True),
                 not_(exclude_stale_opportunities()),
             ),

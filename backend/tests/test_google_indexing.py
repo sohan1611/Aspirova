@@ -189,6 +189,61 @@ def test_opened_notification_prevents_repeat_offer(
     assert opportunity.id not in selected
 
 
+def test_opened_candidates_require_source_posting_date(
+    db_session: Session,
+    company: models.Company,
+) -> None:
+    undated = _opportunity(db_session, company, name="undated")
+    undated.posted_at = None
+    dated = _opportunity(db_session, company, name="dated")
+    db_session.flush()
+
+    selected = _selected_ids(select_opened_candidates(db_session, limit=20))
+
+    assert undated.first_seen_at is not None
+    assert undated.id not in selected
+    assert dated.id in selected
+
+
+def test_missing_posting_date_becomes_closed_candidate_once(
+    db_session: Session,
+    company: models.Company,
+) -> None:
+    opportunity = _opportunity(db_session, company, name="undated-after-open")
+    _notification(db_session, opportunity, reason="opened")
+    opportunity.posted_at = None
+    db_session.flush()
+
+    assert opportunity.id in _selected_ids(select_closed_candidates(db_session, limit=20))
+
+    _notification(db_session, opportunity, reason="closed")
+
+    assert opportunity.id not in _selected_ids(select_closed_candidates(db_session, limit=20))
+
+
+@pytest.mark.parametrize("deadline_confidence", ["explicit", "inferred", "unknown"])
+def test_passed_deadline_excludes_opening_and_closes_once(
+    db_session: Session,
+    company: models.Company,
+    deadline_confidence: str,
+) -> None:
+    opportunity = _opportunity(db_session, company, name="deadline-passed")
+    opportunity.deadline = datetime.now(timezone.utc) - timedelta(days=1)
+    opportunity.deadline_confidence = deadline_confidence
+    db_session.flush()
+
+    assert opportunity.id not in _selected_ids(select_opened_candidates(db_session, limit=20))
+    assert opportunity.id not in _selected_ids(select_closed_candidates(db_session, limit=20))
+
+    _notification(db_session, opportunity, reason="opened")
+
+    assert opportunity.id in _selected_ids(select_closed_candidates(db_session, limit=20))
+
+    _notification(db_session, opportunity, reason="closed")
+
+    assert opportunity.id not in _selected_ids(select_closed_candidates(db_session, limit=20))
+
+
 def test_closed_candidates_require_opened_and_are_idempotent(
     db_session: Session,
     company: models.Company,
