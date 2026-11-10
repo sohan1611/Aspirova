@@ -40,29 +40,38 @@ import type { FeedResultData } from "@/lib/feedQuery";
 
 export interface ListingResultEntry {
   key: string;
-  /** `null` records a failed request. A failed fetch must still settle, or the
-   *  page shows skeletons forever. */
+  status: "loading" | "success" | "error";
   data: FeedResultData | null;
+  error: string | null;
+  retrying: boolean;
 }
 
 const MAX_ENTRIES = 30;
+const REQUEST_TIMEOUT_MS = 20_000;
+
+interface ListingRequestGroup {
+  attempts: Map<symbol, ReturnType<typeof setTimeout>>;
+  slow: boolean;
+}
 
 const entries = new Map<string, ListingResultEntry>();
-const inFlight = new Set<string>();
+const inFlight = new Map<string, ListingRequestGroup>();
+const latestKeyByScope = new Map<string, string>();
+const lastDataByScope = new Map<string, FeedResultData>();
 const listeners = new Set<() => void>();
 
 function emit() {
   for (const listener of listeners) listener();
 }
 
-function remember(key: string, data: FeedResultData | null) {
+function remember(entry: ListingResultEntry) {
   // Bounded so typing in the search box cannot grow this without limit. Map
   // preserves insertion order, so the first key is the oldest.
-  if (!entries.has(key) && entries.size >= MAX_ENTRIES) {
+  if (!entries.has(entry.key) && entries.size >= MAX_ENTRIES) {
     const oldest = entries.keys().next().value;
     if (oldest !== undefined) entries.delete(oldest);
   }
-  entries.set(key, { key, data });
+  entries.set(entry.key, entry);
   emit();
 }
 
@@ -82,24 +91,92 @@ function getEntry(key: string): ListingResultEntry | null {
   return entries.get(key) ?? null;
 }
 
-function loadOnce(key: string, load: () => Promise<FeedResultData>): void {
-  if (entries.has(key) || inFlight.has(key)) return;
-  inFlight.add(key);
+function loadOnce(
+  scope: string,
+  key: string,
+  load: () => Promise<FeedResultData>,
+  retry = false,
+): void {
+  latestKeyByScope.set(scope, key);
+  const existing = entries.get(key);
+  if (!retry && existing) {
+    if (existing.status === "success" && existing.data) lastDataByScope.set(scope, existing.data);
+    return;
+  }
+  // Ignore double-clicks while a retry is loading and callbacks from an error
+  // notice whose pending original request has already succeeded.
+  if (retry && (existing?.retrying || existing?.status === "success")) return;
+  if (!retry && inFlight.has(key)) return;
+  const requests: ListingRequestGroup = inFlight.get(key) ?? {
+    attempts: new Map(),
+    slow: false,
+  };
+  const token = Symbol(key);
+  inFlight.set(key, requests);
+  const previousData = entries.get(key)?.data ?? lastDataByScope.get(scope) ?? null;
+  remember({ key, status: "loading", data: previousData, error: null, retrying: retry });
 
-  void load()
-    .then((data) => {
-      remember(key, data);
-    })
-    .catch(() => {
-      remember(key, null);
-    })
-    .finally(() => {
-      inFlight.delete(key);
+  function discardGroup() {
+    for (const timer of requests.attempts.values()) clearTimeout(timer);
+    inFlight.delete(key);
+  }
+
+  function isCurrentGroup(): boolean {
+    if (inFlight.get(key) !== requests) return false;
+    if (latestKeyByScope.get(scope) === key) return true;
+    discardGroup();
+    entries.delete(key);
+    return false;
+  }
+
+  function finish(data: FeedResultData | null, error: string | null) {
+    if (!isCurrentGroup()) return;
+    clearTimeout(timeout);
+    requests.attempts.delete(token);
+    if (data) {
+      // The first success wins, including an original request arriving after
+      // its slow notice or during Retry. Later completions cannot replace it.
+      discardGroup();
+      lastDataByScope.set(scope, data);
+      remember({ key, status: "success", data, error: null, retrying: false });
+      return;
+    }
+    if (requests.attempts.size > 0 && !requests.slow) return;
+    if (requests.attempts.size === 0) discardGroup();
+    remember({
+      key,
+      status: "error",
+      data: previousData,
+      error: requests.attempts.size > 0 ? slowMessage : error,
+      retrying: false,
     });
+  }
+
+  const failureMessage = "We couldn't load listings. Check your connection and try again.";
+  const slowMessage = "This is taking longer than usual.";
+  const timeout = setTimeout(() => {
+    if (!isCurrentGroup()) return;
+    requests.slow = true;
+    remember({ key, status: "error", data: previousData, error: slowMessage, retrying: false });
+  }, REQUEST_TIMEOUT_MS);
+  requests.attempts.set(token, timeout);
+  void Promise.resolve()
+    .then(load)
+    .then(
+      (data) => finish(data, null),
+      (error: unknown) => {
+        // The existing API helpers report HTTP status in the Error message.
+        const rateLimited = error instanceof Error && /\b429\b/.test(error.message);
+        finish(
+          null,
+          rateLimited ? "Too many requests, wait a moment and retry." : failureMessage,
+        );
+      },
+    );
 }
 
 /**
- * Resolve the results for one listing view, fetching at most once per view.
+ * Resolve one listing view, fetching once unless the visitor explicitly retries.
  *
  * `scope` is the route the query belongs to. Without it `/jobs?q=data` and
  * `/internships?q=data` share the key `q=data` and one page serves the other's
@@ -115,7 +192,8 @@ export function useListingResults(
   queryKey: string,
   enabled: boolean,
   load: () => Promise<FeedResultData>,
-): ListingResultEntry | null {
+  initialData: FeedResultData,
+): { settled: ListingResultEntry | null; retry: () => void } {
   const key = `${scope}?${queryKey}`;
 
   const getSnapshot = useCallback(
@@ -134,9 +212,17 @@ export function useListingResults(
   // lookup. Keeping `load` in the deps rather than stashing it in a ref avoids
   // both a stale closure and a ref write during render.
   useEffect(() => {
-    if (!enabled) return;
-    loadOnce(key, load);
-  }, [key, enabled, load]);
+    if (!enabled) {
+      latestKeyByScope.set(scope, key);
+      lastDataByScope.set(scope, initialData);
+      return;
+    }
+    loadOnce(scope, key, load);
+  }, [scope, key, enabled, load, initialData]);
 
-  return settled;
+  const retry = useCallback(() => {
+    if (enabled) loadOnce(scope, key, load, true);
+  }, [scope, key, enabled, load]);
+
+  return { settled, retry };
 }
