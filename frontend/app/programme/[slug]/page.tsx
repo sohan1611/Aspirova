@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getProgramme } from "@/lib/api";
 import { formatDate } from "@/lib/date";
+import { safeExternalUrl } from "@/lib/safeUrl";
 import {
   formatProgrammeCategory,
   getProgrammeStatusDisplay,
@@ -83,6 +84,7 @@ function EditionRow({
 }) {
   const status = getProgrammeStatusDisplay(edition, null);
   const range = dateRangeLabel(edition);
+  const editionSourceUrl = safeExternalUrl(edition.source_url);
 
   return (
     <li className="rounded-xl border border-border bg-card p-5 shadow-soft">
@@ -104,9 +106,9 @@ function EditionRow({
           {range}
         </p>
       )}
-      {edition.source_url && (
+      {editionSourceUrl && (
         <a
-          href={edition.source_url}
+          href={editionSourceUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="mt-3 inline-flex max-w-full items-center gap-1.5 break-all text-sm font-medium text-primary underline-offset-4 transition-colors hover:text-primary/80 hover:underline"
@@ -158,7 +160,8 @@ export default async function ProgrammePage({ params }: PageProps) {
     programme.typical_window,
   );
   const isOpen = programme.current_edition?.status === "open";
-  const currentSourceUrl = programme.current_edition?.source_url?.trim() || null;
+  const currentSourceUrl = safeExternalUrl(programme.current_edition?.source_url);
+  const officialUrl = safeExternalUrl(programme.url) ?? undefined;
   const showEditionSource =
     currentSourceUrl !== null && currentSourceUrl !== programme.url;
   const programmeJsonLd = buildProgrammeJsonLd(programme);
@@ -220,7 +223,7 @@ export default async function ProgrammePage({ params }: PageProps) {
             <div className="flex flex-wrap gap-3">
               <Button size="lg" variant={isOpen ? "default" : "outline"} asChild>
                 <a
-                  href={programme.url}
+                  href={officialUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -232,7 +235,7 @@ export default async function ProgrammePage({ params }: PageProps) {
               {showEditionSource && (
                 <Button size="lg" variant="outline" asChild>
                   <a
-                    href={currentSourceUrl ?? programme.url}
+                    href={currentSourceUrl ?? officialUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -277,7 +280,7 @@ export default async function ProgrammePage({ params }: PageProps) {
             <section className="rounded-xl border border-border bg-card p-5 shadow-soft">
               <p className="eyebrow">Official home</p>
               <a
-                href={programme.url}
+                href={officialUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mt-3 inline-flex max-w-full items-center gap-1.5 break-all text-sm font-medium text-primary underline-offset-4 transition-colors hover:text-primary/80 hover:underline"

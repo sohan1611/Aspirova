@@ -6,7 +6,9 @@ ingestion pipeline never changes.
 from datetime import datetime
 from typing import Iterable, Literal, Protocol
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
+
+from core.domains import http_url
 
 
 class RawListing(BaseModel):
@@ -40,6 +42,19 @@ class NormalizedListing(BaseModel):
     deadline: datetime | None = None
     meta: dict | None = None
     deadline_confidence: Literal["explicit", "inferred", "unknown"] = "unknown"
+
+    @model_validator(mode="after")
+    def _apply_url_is_a_web_link(self) -> "NormalizedListing":
+        """Only an absolute http(s) Apply link may reach the site (SEC-03).
+
+        A `javascript:`, `data:`, relative or malformed apply_url falls back to
+        the listing's own source page when that one is a real web link. The
+        listing is still ingested, so no crawl batch is rolled back and a
+        full-inventory source does not read the listing as absent.
+        """
+        if http_url(self.apply_url) is None and http_url(self.source_url) is not None:
+            self.apply_url = self.source_url
+        return self
 
 
 class SourceAdapter(Protocol):

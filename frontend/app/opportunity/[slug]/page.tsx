@@ -42,6 +42,7 @@ import {
 } from "@/lib/descriptionBlocks";
 import { formatCompensation } from "@/lib/compensation";
 import { summarizeLocation } from "@/lib/location";
+import { safeExternalUrl } from "@/lib/safeUrl";
 import { getSourceLabel } from "@/lib/sourceLabel";
 import type { OpportunityDetail, OpportunityListItem } from "@/lib/types";
 
@@ -209,6 +210,7 @@ export default async function OpportunityPage({ params }: PageProps) {
   }
 
   const sourceLabel = getSourceLabel(opportunity.apply_url);
+  const applyHref = safeExternalUrl(opportunity.apply_url);
   const canonicalUrl = opportunityUrl(slug);
   const expires = hasExpiringDeadline(opportunity.category);
   const closedByDeadline =
@@ -388,9 +390,11 @@ export default async function OpportunityPage({ params }: PageProps) {
                     {closed ? (
                       <div className="flex flex-wrap items-center gap-3">
                         <span className="inline-flex min-h-11 items-center rounded-md border border-border bg-secondary px-4 py-2 text-sm font-medium text-muted-foreground">{closedStatusLabel}</span>
-                        <Button size="lg" variant="outline" className={SOURCE_LINK_CLASSES} asChild>
-                          <a href={opportunity.apply_url} target="_blank" rel="noopener noreferrer">{withoutArrow(verifyLabel)}<ArrowUpRight className="size-4 shrink-0" aria-hidden="true" /></a>
-                        </Button>
+                        {applyHref && (
+                          <Button size="lg" variant="outline" className={SOURCE_LINK_CLASSES} asChild>
+                            <a href={applyHref} target="_blank" rel="noopener noreferrer">{withoutArrow(verifyLabel)}<ArrowUpRight className="size-4 shrink-0" aria-hidden="true" /></a>
+                          </Button>
+                        )}
                       </div>
                     ) : stale ? (
                       <div className="flex flex-wrap items-center gap-3">
