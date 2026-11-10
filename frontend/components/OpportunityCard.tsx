@@ -64,7 +64,8 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
       ? getSourceLabel(item.apply_url)
       : null;
   const { short: location, hiddenCount, full } = summarizeLocation(item.location);
-  const countryFlag = isSinglePlace(item.location) ? getCountry(item.country)?.flag : null;
+  const country = getCountry(item.country);
+  const countryFlag = isSinglePlace(item.location) ? country?.flag : null;
   const categoryLabel = item.category ? CATEGORY_LABEL[item.category] ?? item.category : null;
   const isCompetition = isCompetitionCategory(item.category);
   const hasPrize = isCompetition || item.category === "scholarship";
@@ -95,9 +96,9 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
   const paletteIndex = slugHash % BANNER_PALETTE_COUNT;
   const bannerMotif = item.category === "hackathon" ? "comp-banner--hatch" : "comp-banner--rings";
   const locationText = (
-    <span className="min-w-0 break-words" title={full ?? undefined}>
+    <span className={isRole ? "min-w-0 truncate" : "min-w-0 break-words"} title={full ?? (isRole ? country?.name : undefined)}>
       {countryFlag && <span aria-hidden="true">{countryFlag} </span>}
-      {location}
+      {location ?? (isRole ? country?.name : null)}
       {hiddenCount > 0 && ` +${hiddenCount} more`}
     </span>
   );
@@ -130,6 +131,7 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
     <div className="relative min-w-0 h-full">
       <HoverPrefetchLink
         href={`/opportunity/${item.slug}`}
+        aria-label={item.title}
         className="group flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-soft transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         {isCompetition && (
@@ -233,18 +235,24 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
             </>
           ) : (
             <>
-              <div className="mt-auto flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-3 text-xs text-muted-foreground">
-                <span className="inline-flex min-w-0 items-center gap-1.5">
+              <div className={`mt-auto flex min-w-0 ${isRole ? "flex-nowrap" : "flex-wrap"} items-center gap-x-4 gap-y-2 border-t border-border pt-3 text-xs text-muted-foreground`}>
+                <span className={`inline-flex min-w-0 ${isRole ? "flex-1" : ""} items-center gap-1.5`}>
                   <span aria-hidden="true" className="ico ico-building size-3.5" />
-                  <span className="min-w-0 break-words">{companyName}</span>
+                  <span className={isRole ? "min-w-0 truncate" : "min-w-0 break-words"} title={companyName}>{companyName}</span>
                 </span>
                 {(location || countryFlag) && (
-                  <span className="inline-flex min-w-0 items-start gap-1.5">
+                  <span className={`inline-flex min-w-0 ${isRole ? "flex-1" : ""} items-start gap-1.5`}>
                     <span aria-hidden="true" className="ico ico-map-pin size-3.5" />{locationText}
                   </span>
                 )}
+                {isRole && !location && !country && !item.is_remote && (
+                  <span className="inline-flex min-w-0 flex-1 items-center gap-1.5">
+                    <span aria-hidden="true" className="ico ico-map-pin size-3.5" />
+                    <span className="min-w-0 truncate">Location not stated</span>
+                  </span>
+                )}
                 {item.is_remote && (
-                  <span className="inline-flex items-center gap-1.5">
+                  <span className="inline-flex shrink-0 items-center gap-1.5">
                     <span aria-hidden="true" className="ico ico-globe size-3.5" />Remote
                   </span>
                 )}
@@ -254,10 +262,13 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
               </div>
               <div className="flex min-h-11 min-w-0 flex-wrap items-center gap-1.5 pr-10 sm:min-h-8">
                 {(payText || prizeText) && (
-                  <span className="max-w-full break-words rounded-md bg-accent px-2 py-1 text-xs font-semibold text-accent-foreground">
+                  <span className={`${isRole ? "min-w-0 truncate" : "break-words"} max-w-full rounded-md bg-accent px-2 py-1 text-xs font-semibold text-accent-foreground`}>
                     <span className="sr-only">{payText ? "Pay " : "Prize pool "}</span>
                     {payText || prizeText}
                   </span>
+                )}
+                {isRole && !payText && (
+                  <span className="min-w-0 max-w-full truncate text-xs text-muted-foreground">Pay not disclosed</span>
                 )}
                 {secondaryBadges}
               </div>

@@ -19,11 +19,11 @@ function ageInDays(value: string): number | null {
 }
 
 function relativeAge(days: number | null): string {
-  if (days === null || days <= 0) return "· today";
-  if (days < 7) return `· ${days}d ago`;
-  if (days < 30) return `· ${Math.floor(days / 7)}w ago`;
-  if (days < 365) return `· ${Math.floor(days / 30)}mo ago`;
-  return `· ${Math.floor(days / 365)}y ago`;
+  if (days === null || days <= 0) return "today";
+  if (days < 7) return `${days}d ago`;
+  if (days < 30) return `${Math.floor(days / 7)}w ago`;
+  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
+  return `${Math.floor(days / 365)}y ago`;
 }
 
 export default function ListingFreshness({ postedAt, lastSeenAt, absoluteText }: ListingFreshnessProps) {
@@ -32,18 +32,19 @@ export default function ListingFreshness({ postedAt, lastSeenAt, absoluteText }:
   // on phones across twenty cards.
   const hydrated = useDeferredValue(useHydrated(), false);
   const value = postedAt ?? lastSeenAt;
+  const label = postedAt ? "Posted" : "Seen";
+  const title = postedAt
+    ? `Posted on ${absoluteText} by the source`
+    : `Last seen on the source ${absoluteText}`;
+  const days = hydrated ? ageInDays(value) : null;
+  const isNew = postedAt && days !== null && days >= 0 && days < 7;
 
-  if (!hydrated) {
-    return (
-      <span className="tnum text-xs text-muted-foreground">
-        <time dateTime={value}>{absoluteText}</time>
-      </span>
-    );
-  }
-
-  const days = ageInDays(value);
-  if (postedAt && days !== null && days >= 0 && days < 7) {
-    return <Badge className="bg-accent text-accent-foreground">New</Badge>;
-  }
-  return <span className="tnum text-xs text-muted-foreground">{relativeAge(days)}</span>;
+  return (
+    <span className="tnum inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+      {isNew && <Badge className="bg-accent text-accent-foreground">New</Badge>}
+      <time className="min-w-0 truncate" dateTime={value} title={title}>
+        {label} {hydrated && days !== null ? relativeAge(days) : absoluteText}
+      </time>
+    </span>
+  );
 }
