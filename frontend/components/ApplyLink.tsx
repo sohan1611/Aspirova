@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { pingOpportunityAction } from "@/lib/api";
+import { safeExternalUrl } from "@/lib/safeUrl";
 import { isAuthPending } from "@/lib/authPending";
 import { useSessionState } from "@/lib/useSession";
 
@@ -124,12 +125,22 @@ export default function ApplyLink({ slug, href, children, size, variant, classNa
     }
   }
 
+  // SEC-03: never render a crawled link that is not an absolute http(s) URL.
+  const safeHref = safeExternalUrl(href);
+  if (!safeHref) {
+    return (
+      <span className="inline-flex min-h-11 items-center rounded-md border border-border bg-secondary px-4 py-2 text-sm font-medium text-muted-foreground">
+        Original link unavailable
+      </span>
+    );
+  }
+
   return (
     <>
       {/* Keep Doc 04's real source link while gating clicks; Google's policy requires public job details. */}
       <Button size={size} variant={variant} className={className} asChild>
         <a
-          href={href}
+          href={safeHref}
           target="_blank"
           rel="noopener noreferrer"
           onClick={handleClick}
@@ -172,7 +183,7 @@ export default function ApplyLink({ slug, href, children, size, variant, classNa
           {session ? (
             <Button asChild>
               <a
-                href={href}
+                href={safeHref}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => {

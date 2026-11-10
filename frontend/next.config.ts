@@ -14,6 +14,31 @@ const nextConfig: NextConfig = {
   // production, where /jobs/page/1 rendered the not-found page with a 200 while
   // /companies/:slug/page/1 correctly returned 308 purely because of the rule
   // below. Adding a landing page means adding its rule here too.
+  // SEC-03. Only directives that cannot break a page are enforced. A full
+  // script-src policy would need per-request nonces, which turns every
+  // ISR-cached page dynamic (Vercel CPU budget), so it is deliberately absent.
+  // `form-action` is left out because Razorpay's checkout may post from this
+  // origin. Vercel already sends HSTS (max-age=63072000) for the domain.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: "frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
+          },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=(), browsing-topics=()",
+          },
+        ],
+      },
+    ];
+  },
   async redirects() {
     return [
       {

@@ -4,11 +4,13 @@ import CompanyFavicon from "@/components/CompanyFavicon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatProgrammeCategory, getProgrammeStatusDisplay, programmePath } from "@/lib/programmes";
+import { safeExternalUrl } from "@/lib/safeUrl";
 import type { ProgrammeListItem } from "@/lib/types";
 
 export default function ProgrammeCard({ programme }: { programme: ProgrammeListItem }) {
   const status = getProgrammeStatusDisplay(programme.current_edition, programme.typical_window);
   const open = programme.current_edition?.status === "open";
+  const officialUrl = safeExternalUrl(programme.url);
   const closesAt = programme.current_edition?.closes_at;
   const remaining = closesAt ? new Date(closesAt).getTime() - new Date().getTime() : 0;
   const days = Math.ceil(remaining / 86_400_000);
@@ -42,8 +44,8 @@ export default function ProgrammeCard({ programme }: { programme: ProgrammeListI
       </div>
       <p className="mt-3 line-clamp-2 text-sm leading-6 text-muted-foreground">{programme.description?.trim() || "Programme details vary by annual edition; verify dates and eligibility on the official page."}</p>
       <div className="mt-auto pt-5">
-        {open ? <>
-          <Button asChild className="min-h-11 w-full"><a href={programme.url} target="_blank" rel="noopener noreferrer">Apply now<ExternalLink className="size-4" aria-hidden="true" /></a></Button>
+        {open && officialUrl ? <>
+          <Button asChild className="min-h-11 w-full"><a href={officialUrl} target="_blank" rel="noopener noreferrer">Apply now<ExternalLink className="size-4" aria-hidden="true" /></a></Button>
           <HoverPrefetchLink href={path} className="mt-1 flex min-h-11 items-center justify-center text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Details<span className="sr-only"> for {programme.name}</span></HoverPrefetchLink>
         </> : <Button asChild variant="outline" className="min-h-11 w-full"><HoverPrefetchLink href={path}>View programme<span className="sr-only">: {programme.name}</span></HoverPrefetchLink></Button>}
       </div>
