@@ -2,6 +2,7 @@
 responses - the canonical opportunity page links to the real source, never
 mirrors it (Doc 01 sec 7 R1, Doc 04 sec 10)."""
 
+import re
 from datetime import datetime
 from typing import Annotated, Literal
 
@@ -565,11 +566,19 @@ class AccountUpdate(BaseModel):
         elif stream is not None:
             stream = None
 
-        return {
+        profile: dict[str, object] = {
             "stream": stream,
             "divisions": cls._normalize_field_profile_keys(value.get("divisions")),
             "interests": cls._normalize_field_profile_keys(value.get("interests")),
         }
+        # The browsing country (spec A-09), kept only when the client sent the
+        # key: update_account_me carries the stored country forward when it is
+        # absent, so an older client saving interests cannot erase it.
+        if "country" in value:
+            country = value.get("country")
+            country = country.strip().upper() if isinstance(country, str) else ""
+            profile["country"] = country if re.fullmatch(r"[A-Z]{2}", country) else None
+        return profile
 
     @staticmethod
     def _normalize_field_profile_keys(value: object) -> list[str]:

@@ -243,7 +243,16 @@ def update_account_me(
     if "resume" in request.model_fields_set:
         _validate_resume_metadata(request.resume)
 
-    for field in ("field_profile", "skills", "exposure", "resume"):
+    if "field_profile" in request.model_fields_set:
+        profile = request.field_profile
+        stored = user.field_profile if isinstance(user.field_profile, dict) else {}
+        if isinstance(profile, dict) and "country" not in profile and stored.get("country"):
+            # A client that does not send the country (an older tab saving
+            # interests) must not erase the one the member chose.
+            profile = {**profile, "country": stored["country"]}
+        user.field_profile = profile
+
+    for field in ("skills", "exposure", "resume"):
         if field in request.model_fields_set:
             setattr(user, field, getattr(request, field))
 

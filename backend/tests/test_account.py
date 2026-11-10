@@ -143,6 +143,35 @@ def test_patch_account_updates_profile_and_merges_preferences(
     assert user.notification_prefs == payload["notification_prefs"]
 
 
+def test_patch_account_keeps_the_browsing_country_in_the_field_profile(client) -> None:
+    profile = {"stream": "engineering", "divisions": ["cse"], "interests": ["web_dev"]}
+
+    saved = client.patch("/account/me", json={"field_profile": {**profile, "country": "us"}})
+    assert saved.status_code == 200
+    assert saved.json()["field_profile"] == {**profile, "country": "US"}
+
+    # A client that does not send the country (an older tab) keeps the stored one.
+    kept = client.patch(
+        "/account/me",
+        json={"field_profile": {**profile, "interests": ["cloud_devops"]}},
+    )
+    assert kept.json()["field_profile"] == {
+        **profile,
+        "interests": ["cloud_devops"],
+        "country": "US",
+    }
+
+    for junk in ("USA", "1N", "", 42):
+        response = client.patch("/account/me", json={"field_profile": {**profile, "country": junk}})
+        assert response.status_code == 200
+        assert response.json()["field_profile"]["country"] is None
+
+    client.patch("/account/me", json={"field_profile": {**profile, "country": "IN"}})
+    cleared = client.patch("/account/me", json={"field_profile": {**profile, "country": None}})
+    assert cleared.json()["field_profile"]["country"] is None
+    assert client.get("/account/me").json()["field_profile"] == cleared.json()["field_profile"]
+
+
 def test_patch_account_sets_and_replaces_smart_profile_data(client) -> None:
     first = client.patch(
         "/account/me",
