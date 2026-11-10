@@ -44,7 +44,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
   }
 
-  const data = await getCompanyPage(slug, 1, 1);
+  // Same URL as the page body, so one render makes one API call, not two.
+  const data = await getCompanyPage(slug, 1, LIMIT);
   if (!data) {
     return { title: "Company not found" };
   }

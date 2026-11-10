@@ -38,7 +38,8 @@ function totalPagesFor(total: number): number {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug, n } = await params;
   const page = parsePage(n);
-  const data = await getCompanyPage(slug, page, 1);
+  // Same URL as the page body, so one render makes one API call, not two.
+  const data = await getCompanyPage(slug, page, LIMIT);
   if (!data) {
     notFound();
   }
