@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import FeedCountryPreference from "@/components/FeedCountryPreference";
 import FeedGrid from "@/components/FeedGrid";
+import ListingResultsState, { listingEmptyDescription } from "@/components/ListingResultsState";
 import { FeedNavigationProvider } from "@/components/FeedNavigation";
 import FeedViewControls from "@/components/FeedViewControls";
 import ForYouControl from "@/components/ForYouControl";
@@ -56,19 +57,16 @@ export default function FeedResults({ initialData, trendingItems }: FeedResultsP
   // Results are held outside React, keyed by route plus query string - see
   // lib/listingResults.ts for why component state could not hold them on these
   // statically prerendered, useSearchParams-reading routes.
-  const settled = useListingResults(
+  const { settled, retry } = useListingResults(
     "/",
     queryKey,
     !request.canReusePrerenderedFeed || preference !== null,
     () => loadFeedData({ ...request, prefer_country: preference ?? undefined }),
+    initialData,
   );
 
   // A preference-only fetch keeps the prerendered list visible while it settles.
-  const isLoading = !request.canReusePrerenderedFeed && !settled;
-  // On a failed fetch (`settled.data === null`) this keeps the prerendered
-  // listings on screen rather than blanking the feed - the empty state would
-  // otherwise claim there are no matches when the real problem was a dead
-  // request.
+  const isLoading = !request.canReusePrerenderedFeed && (!settled || settled.status === "loading");
   const data = settled?.data ?? initialData;
 
   const sourceCompany = request.q ? findExternalCompany(request.q) : undefined;
@@ -124,13 +122,29 @@ export default function FeedResults({ initialData, trendingItems }: FeedResultsP
 
         <TopCompanies />
 
-        <FeedGrid
-          items={isLoading ? [] : data.items}
-          cols={request.cols}
+        <ListingResultsState
+          loading={isLoading}
+          error={settled?.error ?? null}
+          retry={retry}
+          retrying={settled?.retrying ?? false}
+          hasItems={data.items.length > 0}
           skeletonCount={data.items.length || Math.min(request.limit, 9)}
-        />
+          cols={request.cols}
+        >
+          <FeedGrid
+            items={data.items}
+            cols={request.cols}
+            skeletonCount={data.items.length || Math.min(request.limit, 9)}
+            emptyHref="/"
+            emptyActionLabel="Clear filters"
+            emptyDescription={listingEmptyDescription(
+              query,
+              "Try a broader search or clear your filters — the almanac updates daily.",
+            )}
+          />
+        </ListingResultsState>
 
-        {totalPages > 1 && (
+        {!isLoading && !settled?.error && totalPages > 1 && (
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
             <Button
               variant="outline"

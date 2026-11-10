@@ -1,5 +1,6 @@
 """Shared optional filters for opportunity query endpoints."""
 
+import re
 from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException
@@ -9,7 +10,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from core import models
 from core.eligibility import ELIGIBLE_EXPERIENCED_ONLY_META_KEY
 from core.organisers import ORGANISER_TYPE_LABELS, organiser_type_expression
-from pipeline.normalize import NEW_GRAD_TITLE_PATTERN
+from pipeline.normalize import NEW_GRAD_TITLE_PATTERN, _INTERNSHIP_PATTERN
 
 SOURCE_GROUPS = {
     "direct": ["greenhouse", "lever", "ashby", "smartrecruiters", "amazon"],
@@ -41,6 +42,24 @@ SENIOR_TITLE_PATTERN = (
     r"chief|cto|ceo|coo|cfo|cxo|head of|lead|manager|architect|distinguished|"
     r"fellow|executive|counsel)([^a-z]|$)"
 )
+
+# Reuse the category classifier's intern tokens, replacing Python's word
+# boundaries with boundaries shared by Python re and PostgreSQL ~*.
+EARLY_CAREER_TITLE_PATTERNS = (
+    NEW_GRAD_TITLE_PATTERN,
+    r"(^|[^a-z])"
+    + _INTERNSHIP_PATTERN.pattern.removeprefix(r"\b").removesuffix(r"\b")
+    + r"([^a-z]|$)",
+    r"(^|[^a-z])entry[ -]+level([^a-z]|$)",
+)
+
+
+def is_early_career_title(title: str) -> bool:
+    """Explicit student/graduate titles override broad senior-title matches."""
+    return not re.search(SENIOR_TITLE_PATTERN, title, re.IGNORECASE) or any(
+        re.search(pattern, title, re.IGNORECASE) for pattern in EARLY_CAREER_TITLE_PATTERNS
+    )
+
 
 CLEARLY_SENIOR_TITLE_PATTERN = (
     r"(^|[^a-z])(senior|sr|staff|principal|director|vp|vice president|president|"
@@ -189,11 +208,11 @@ def experience_filters(experience: str | None) -> list:
             func.coalesce(models.Opportunity.title_normalized, "").op("~*")(NEW_GRAD_TITLE_PATTERN),
         ]
     if experience == "early":
+        title = func.coalesce(models.Opportunity.title_normalized, "")
         return [
-            not_(
-                func.coalesce(models.Opportunity.title_normalized, "").op("~*")(
-                    SENIOR_TITLE_PATTERN
-                )
+            or_(
+                not_(title.op("~*")(SENIOR_TITLE_PATTERN)),
+                *[title.op("~*")(pattern) for pattern in EARLY_CAREER_TITLE_PATTERNS],
             )
         ]
     return []

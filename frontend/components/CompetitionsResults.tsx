@@ -10,6 +10,7 @@ import CompetitionsFilterBar from "@/components/CompetitionsFilterBar";
 import EmailMatchesButton from "@/components/EmailMatchesButton";
 import { hasSavedSearchParams, savedSearchParamsFromQuery } from "@/lib/savedSearchParams";
 import FeedGrid from "@/components/FeedGrid";
+import ListingResultsState, { listingEmptyDescription } from "@/components/ListingResultsState";
 import { FeedNavigationProvider } from "@/components/FeedNavigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,17 +48,15 @@ export default function CompetitionsResults({ initialData }: CompetitionsResults
   // Results are held outside React, keyed by the query string - see
   // lib/listingResults.ts for why component state could not hold them on this
   // statically prerendered, useSearchParams-reading route.
-  const settled = useListingResults(
+  const { settled, retry } = useListingResults(
     "/competitions",
     queryKey,
     !request.canReusePrerendered,
     () => loadCompetitions(request),
+    initialData,
   );
 
-  const isLoading = !request.canReusePrerendered && !settled;
-  // On a failed fetch (`settled.data === null`) keep the prerendered listings
-  // rather than blanking the grid; the empty state would otherwise claim nothing
-  // matched when the real problem was a dead request.
+  const isLoading = !request.canReusePrerendered && (!settled || settled.status === "loading");
   const data = settled?.data ?? initialData;
 
   const totalPages = competitionsTotalPages(data.total);
@@ -80,18 +79,32 @@ export default function CompetitionsResults({ initialData }: CompetitionsResults
 
       <CompetitionsActiveFilterChips facets={facets} />
 
-      <FeedGrid
-        items={isLoading ? [] : data.items}
-        cols={3}
-        competitionSkeleton
+      <ListingResultsState
+        loading={isLoading}
+        error={settled?.error ?? null}
+        retry={retry}
+        retrying={settled?.retrying ?? false}
+        hasItems={data.items.length > 0}
         skeletonCount={data.items.length || Math.min(COMPETITIONS_LIMIT, 9)}
-        emptyHref="/competitions"
-        emptyActionLabel="Clear filters"
-        emptyTitle="The next challenge is still being discovered."
-        emptyDescription="Check back soon as Aspirova indexes more competitions and hackathons."
-      />
+        cols={3}
+        competition
+      >
+        <FeedGrid
+          items={data.items}
+          cols={3}
+          competitionSkeleton
+          skeletonCount={data.items.length || Math.min(COMPETITIONS_LIMIT, 9)}
+          emptyHref="/competitions"
+          emptyActionLabel="Clear filters"
+          emptyTitle="The next challenge is still being discovered."
+          emptyDescription={listingEmptyDescription(
+            query,
+            "Check back soon as Aspirova indexes more competitions and hackathons. Try a broader search or clear your filters.",
+          )}
+        />
+      </ListingResultsState>
 
-      {totalPages > 1 && (
+      {!isLoading && !settled?.error && totalPages > 1 && (
         <nav
           className="mt-8 flex flex-wrap items-center justify-center gap-3 sm:gap-4"
           aria-label="Competitions pagination"

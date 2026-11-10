@@ -7,6 +7,7 @@ import FeedCountryPreference from "@/components/FeedCountryPreference";
 import EmailMatchesButton from "@/components/EmailMatchesButton";
 import { hasSavedSearchParams, savedSearchParamsFromQuery } from "@/lib/savedSearchParams";
 import FeedGrid from "@/components/FeedGrid";
+import ListingResultsState, { listingEmptyDescription } from "@/components/ListingResultsState";
 import { FeedNavigationProvider } from "@/components/FeedNavigation";
 import {
   OpportunityListingActiveFilterChips,
@@ -72,18 +73,16 @@ export default function OpportunityLandingResults({
   // Results are held outside React, keyed by the query string - see
   // lib/listingResults.ts for why component state could not hold them on these
   // statically prerendered, useSearchParams-reading routes.
-  const settled = useListingResults(
+  const { settled, retry } = useListingResults(
     basePath,
     queryKey,
     !request.canReusePrerendered || preference !== null,
     () => loadOpportunityListingData({ ...request, prefer_country: preference ?? undefined }),
+    initialData,
   );
 
   // A preference-only fetch keeps the prerendered list visible while it settles.
-  const isLoading = !request.canReusePrerendered && !settled;
-  // On a failed fetch (`settled.data === null`) keep the prerendered listings
-  // rather than blanking the grid; the empty state would otherwise claim nothing
-  // matched when the real problem was a dead request.
+  const isLoading = !request.canReusePrerendered && (!settled || settled.status === "loading");
   const data = settled?.data ?? initialData;
   const totalPages = Math.max(1, Math.ceil(data.total / request.limit));
 
@@ -121,17 +120,30 @@ export default function OpportunityLandingResults({
 
       <OpportunityListingRoleChips basePath={basePath} />
 
-      <FeedGrid
-        items={isLoading ? [] : data.items}
-        cols={3}
+      <ListingResultsState
+        loading={isLoading}
+        error={settled?.error ?? null}
+        retry={retry}
+        retrying={settled?.retrying ?? false}
+        hasItems={data.items.length > 0}
         skeletonCount={data.items.length || Math.min(request.limit, 9)}
-        emptyHref={basePath}
-        emptyActionLabel="Clear filters"
-        emptyTitle="Nothing open here - yet."
-        emptyDescription="Aspirova is always discovering more from public sources. Try a broader search or clear your filters."
-      />
+        cols={3}
+      >
+        <FeedGrid
+          items={data.items}
+          cols={3}
+          skeletonCount={data.items.length || Math.min(request.limit, 9)}
+          emptyHref={basePath}
+          emptyActionLabel="Clear filters"
+          emptyTitle="Nothing open here - yet."
+          emptyDescription={listingEmptyDescription(
+            query,
+            "Aspirova is always discovering more from public sources. Try a broader search or clear your filters.",
+          )}
+        />
+      </ListingResultsState>
 
-      {totalPages > 1 && (
+      {!isLoading && !settled?.error && totalPages > 1 && (
         <nav
           className="mt-8 flex flex-wrap items-center justify-center gap-3 sm:gap-4"
           aria-label="Opportunities pagination"
