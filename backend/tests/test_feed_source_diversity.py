@@ -114,7 +114,9 @@ def test_feed_recent_interleaves_sources_with_stable_pagination(
     db_session: Session,
 ) -> None:
     suffix = uuid.uuid4().hex
-    newest = datetime.now(UTC) - timedelta(days=30)
+    newest = datetime.now(UTC).replace(hour=12, minute=0, second=0, microsecond=0) - timedelta(
+        days=30
+    )
     location_token = f"SourceDiversityville-{suffix}"
     company = models.Company(
         slug=f"source-diversity-company-{suffix}",
@@ -137,6 +139,7 @@ def test_feed_recent_interleaves_sources_with_stable_pagination(
                     ),
                     primary_source=source_slug,
                     status="active",
+                    posted_at=newest - timedelta(minutes=source_offset + source_rank),
                     last_seen_at=newest - timedelta(minutes=source_offset + source_rank),
                 )
             )

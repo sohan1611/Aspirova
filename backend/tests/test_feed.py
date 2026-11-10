@@ -524,6 +524,9 @@ def test_prefer_country_reorders_without_filtering_or_promoting_closed_rows(
             status="active",
             first_seen_at=now,
             last_seen_at=now - timedelta(minutes=index),
+            # "recent" orders by posting time (S-07) and "student" by last_seen_at;
+            # give both the same order so the buckets are what this test compares.
+            posted_at=now - timedelta(minutes=index),
             deadline=now + timedelta(days=index + 1),
             closed_at=now - timedelta(days=1) if closed else None,
         )

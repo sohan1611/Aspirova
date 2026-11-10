@@ -101,6 +101,10 @@ def student_rank_expression():
     )
 
 
+def effective_posted_at():
+    return func.coalesce(models.Opportunity.posted_at, models.Opportunity.first_seen_at)
+
+
 def exclude_stale_opportunities(now: datetime | None = None):
     """Exclude old promoted listings unless a future deadline keeps them current.
 
@@ -113,11 +117,8 @@ def exclude_stale_opportunities(now: datetime | None = None):
         if now
         else current - text(f"interval '{STALE_AFTER_DAYS} days'")
     )
-    effective_posted_at = func.coalesce(
-        models.Opportunity.posted_at, models.Opportunity.first_seen_at
-    )
     stale = and_(
-        effective_posted_at < stale_cutoff,
+        effective_posted_at() < stale_cutoff,
         or_(
             models.Opportunity.deadline.is_(None),
             models.Opportunity.deadline <= current,
@@ -184,12 +185,20 @@ def exclude_closed_competitions():
     return or_(expired_deadline, detected_closed).is_not(True)
 
 
+def deadline_passed():
+    return and_(
+        models.Opportunity.deadline.is_not(None),
+        models.Opportunity.deadline <= func.now(),
+    )
+
+
+def listing_closed():
+    return or_(models.Opportunity.closed_at.is_not(None), deadline_passed())
+
+
 def exclude_closed_now():
     """Keep only listings without a closure signal, regardless of category."""
-    return and_(
-        models.Opportunity.closed_at.is_(None),
-        or_(models.Opportunity.deadline.is_(None), models.Opportunity.deadline > func.now()),
-    )
+    return not_(listing_closed())
 
 
 def open_opportunity_filters() -> list:
@@ -394,7 +403,7 @@ def competition_filters(
             filters.append(
                 and_(
                     models.Opportunity.deadline.is_not(None),
-                    models.Opportunity.deadline >= func.now(),
+                    not_(deadline_passed()),
                     models.Opportunity.deadline
                     <= func.now() + text(f"interval '{deadline_within} days'"),
                 )
@@ -567,10 +576,7 @@ def role_signal_filters(
     if posted_within is not None:
         if posted_within not in (1, 3, 7, 30):
             raise HTTPException(status_code=422, detail="posted_within must be 1, 3, 7 or 30")
-        filters.append(
-            func.coalesce(models.Opportunity.posted_at, models.Opportunity.first_seen_at)
-            >= func.now() - timedelta(days=posted_within)
-        )
+        filters.append(effective_posted_at() >= func.now() - timedelta(days=posted_within))
     if role is not None:
         filters.append(role_match_expression(role))
     return filters

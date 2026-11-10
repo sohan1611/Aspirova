@@ -712,6 +712,7 @@ def test_feed_orders_open_roles_and_competitions_and_excludes_closed(
 ) -> None:
     suffix = uuid.uuid4().hex
     now = datetime.now(UTC)
+    # posted_at mirrors last_seen_at: "recent" orders by posting time (S-07).
     location_token = f"OrderingFilterville-{suffix}"
     company = models.Company(
         slug=f"ordering-filter-company-{suffix}",
@@ -727,6 +728,7 @@ def test_feed_orders_open_roles_and_competitions_and_excludes_closed(
         deadline=now + timedelta(days=10),
         status="active",
         last_seen_at=now - timedelta(hours=3),
+        posted_at=now - timedelta(hours=3),
     )
     closed_internship = models.Opportunity(
         slug=f"ordering-filter-closed-internship-{suffix}",
@@ -738,6 +740,7 @@ def test_feed_orders_open_roles_and_competitions_and_excludes_closed(
         deadline=now - timedelta(days=2),
         status="active",
         last_seen_at=now,
+        posted_at=now,
     )
     no_deadline_job = models.Opportunity(
         slug=f"ordering-filter-no-deadline-job-{suffix}",
@@ -749,6 +752,7 @@ def test_feed_orders_open_roles_and_competitions_and_excludes_closed(
         deadline=None,
         status="active",
         last_seen_at=now - timedelta(hours=1),
+        posted_at=now - timedelta(hours=1),
     )
     ppi_competition = models.Opportunity(
         slug=f"ordering-filter-ppi-competition-{suffix}",
@@ -761,6 +765,7 @@ def test_feed_orders_open_roles_and_competitions_and_excludes_closed(
         meta={"offers_ppi": True},
         status="active",
         last_seen_at=now - timedelta(hours=2),
+        posted_at=now - timedelta(hours=2),
     )
     db_session.add_all(
         [

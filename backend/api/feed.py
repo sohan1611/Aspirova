@@ -10,7 +10,7 @@ measured p50 248-272ms / p95 up to 1254ms against the same real data.
 """
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import and_, case, func, or_, select
+from sqlalchemy import Date, and_, case, cast, func, select
 from sqlalchemy.orm import Session
 
 from api.deps import get_db
@@ -19,6 +19,7 @@ from api.filters import (
     SOURCE_GROUPS,
     competition_filters,
     competition_prize_expression,
+    effective_posted_at,
     exclude_closed_competitions,
     exclude_closed_now,
     exclude_experienced_only_opportunities,
@@ -26,6 +27,7 @@ from api.filters import (
     exclude_stale_opportunities,
     experience_filters,
     kind_filters,
+    listing_closed,
     location_scope_filters,
     opportunity_filters,
     role_signal_filters,
@@ -101,29 +103,24 @@ def get_feed(
     if source is not None:
         base_filters.append(models.Opportunity.primary_source.in_(SOURCE_GROUPS[source]))
 
-    is_closed = case(
-        (
-            or_(
-                models.Opportunity.closed_at.is_not(None),
-                and_(
-                    models.Opportunity.deadline.is_not(None),
-                    models.Opportunity.deadline < func.now(),
-                ),
-            ),
-            1,
-        ),
-        else_=0,
-    )
+    is_closed = case((listing_closed(), 1), else_=0)
     total_count = func.count().over().label("total_count")
     open_count = func.count().filter(is_closed == 0).over().label("open_count")
     source_rank = None
+    posted_at = effective_posted_at()
+    posted_day = cast(func.timezone("UTC", posted_at), Date)
     if sort not in {"deadline", "prize"}:
+        partition_by = [func.coalesce(models.Opportunity.primary_source, "")]
+        source_posted_at = models.Opportunity.last_seen_at
+        if sort == "recent":
+            partition_by.append(posted_day)
+            source_posted_at = posted_at
         source_rank = (
             func.row_number()
             .over(
-                partition_by=func.coalesce(models.Opportunity.primary_source, ""),
+                partition_by=partition_by,
                 order_by=[
-                    models.Opportunity.last_seen_at.desc(),
+                    source_posted_at.desc(),
                     models.Opportunity.id.desc(),
                 ],
             )
@@ -249,8 +246,9 @@ def get_feed(
     else:
         ordering.extend(
             [
+                posted_day.desc(),
                 source_rank.asc(),
-                models.Opportunity.last_seen_at.desc(),
+                posted_at.desc(),
                 models.Opportunity.id.desc(),
             ]
         )

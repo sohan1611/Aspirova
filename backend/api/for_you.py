@@ -6,7 +6,7 @@ provide a fast, shared ranking primitive without adding per-user state or AI.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import Text, and_, any_, bindparam, case, cast, func, or_, select
+from sqlalchemy import Text, any_, bindparam, case, cast, func, or_, select
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Session
 
@@ -16,6 +16,7 @@ from api.filters import (
     exclude_experienced_only_opportunities,
     exclude_school_only_opportunities,
     exclude_stale_opportunities,
+    listing_closed,
     location_scope_filters,
 )
 from api.opportunity_loading import opportunity_list_load_options
@@ -251,19 +252,7 @@ def get_for_you(
             models.Opportunity.id.desc(),
         )
     else:
-        is_closed = case(
-            (
-                or_(
-                    models.Opportunity.closed_at.is_not(None),
-                    and_(
-                        models.Opportunity.deadline.is_not(None),
-                        models.Opportunity.deadline < func.now(),
-                    ),
-                ),
-                1,
-            ),
-            else_=0,
-        )
+        is_closed = case((listing_closed(), 1), else_=0)
         query = query.order_by(
             is_closed.asc(),
             models.Opportunity.last_seen_at.desc(),
