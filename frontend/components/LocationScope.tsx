@@ -2,6 +2,7 @@
 
 import { Pencil } from "lucide-react";
 import { useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 import { CountryPicker } from "@/components/CountryPicker";
 import { useFeedNavigation } from "@/components/FeedNavigation";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { storeCountryCode, useStoredCountryCode } from "@/lib/country";
 import { getCountry } from "@/lib/countries";
 import { useHydrated } from "@/lib/useHydrated";
+import { useSession } from "@/lib/useSession";
 import { cn } from "@/lib/utils";
 
 type Scope = "abroad" | "domestic" | "both";
@@ -22,6 +24,7 @@ function getScope(value: string | null): Scope {
 }
 
 export default function LocationScope() {
+  const session = useSession();
   const searchParams = useSearchParams();
   const isHydrated = useHydrated();
   const { navigate, isFeedPending: isPending } = useFeedNavigation();
@@ -84,7 +87,9 @@ export default function LocationScope() {
 
     const isInitialSelection = !countryCode;
 
-    storeCountryCode(selectedCountry.code);
+    void storeCountryCode(selectedCountry.code, session?.access_token).catch(() => {
+      toast.error("Saved on this device, but we couldn't sync your country to your account.");
+    });
 
     if (isInitialSelection) {
       // A first-time selection opens the feed in the user's country context.

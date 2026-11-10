@@ -6,7 +6,6 @@ import {
   useId,
   useRef,
   useState,
-  useSyncExternalStore,
   useTransition,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -21,11 +20,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { updateAccount } from "@/lib/api";
+import { saveProfilePreferences, storeCountryCode, syncAccountPreferences, useStoredCountryCode } from "@/lib/country";
 import { getCountry } from "@/lib/countries";
 import {
   OPEN_ONBOARDING_EVENT,
-  storeFieldProfile,
   useFieldProfile,
 } from "@/lib/fieldProfile";
 import { markOnboardingComplete } from "@/lib/onboarding";
@@ -41,9 +39,6 @@ import {
 import { useSession } from "@/lib/useSession";
 import { cn } from "@/lib/utils";
 
-const COUNTRY_STORAGE_KEY = "aspirova.country";
-const COUNTRY_EVENT = "aspirova:country-change";
-
 type OnboardingStep = "stream" | "division" | "interests";
 
 interface FieldProfileDraft {
@@ -57,41 +52,6 @@ const EMPTY_FIELD_PROFILE_DRAFT: FieldProfileDraft = {
   division: null,
   interests: [],
 };
-
-let inMemoryCountryCode: string | null = null;
-
-function readStoredCountryCode(): string | null {
-  try {
-    return window.localStorage.getItem(COUNTRY_STORAGE_KEY);
-  } catch {
-    return inMemoryCountryCode;
-  }
-}
-
-function storeCountryCode(code: string): void {
-  inMemoryCountryCode = code;
-
-  try {
-    window.localStorage.setItem(COUNTRY_STORAGE_KEY, code);
-  } catch {
-    // Keep the rest of onboarding usable when persistent storage is unavailable.
-  }
-  window.dispatchEvent(new Event(COUNTRY_EVENT));
-}
-
-function subscribeToCountry(onStoreChange: () => void): () => void {
-  window.addEventListener(COUNTRY_EVENT, onStoreChange);
-  window.addEventListener("storage", onStoreChange);
-
-  return () => {
-    window.removeEventListener(COUNTRY_EVENT, onStoreChange);
-    window.removeEventListener("storage", onStoreChange);
-  };
-}
-
-function getServerCountryCode(): string | null {
-  return null;
-}
 
 function draftFromProfile(profile: FieldProfile): FieldProfileDraft {
   const stream = getStream(profile.stream);
@@ -110,7 +70,7 @@ function draftFromProfile(profile: FieldProfile): FieldProfileDraft {
   };
 }
 
-function profileFromDraft(draft: FieldProfileDraft): FieldProfile {
+function profileFromDraft(draft: FieldProfileDraft): Omit<FieldProfile, "country"> {
   const stream = getStream(draft.stream);
   const division = draft.division && getDivision(stream?.key, draft.division);
   if (!stream || !division) {
@@ -139,11 +99,7 @@ export default function OnboardingDialog() {
   const searchParams = useSearchParams();
   const session = useSession();
   const { profile: storedProfile, hydrated } = useFieldProfile();
-  const storedCountryCode = useSyncExternalStore(
-    subscribeToCountry,
-    readStoredCountryCode,
-    getServerCountryCode,
-  );
+  const storedCountryCode = useStoredCountryCode();
   const [requestedOpen, setRequestedOpen] = useState(false);
   const [draft, setDraft] = useState<FieldProfileDraft | null>(null);
   const [draftCountryCode, setDraftCountryCode] = useState<string | null>(null);
@@ -153,6 +109,26 @@ export default function OnboardingDialog() {
   const stepHeadingId = useId();
   const countryLabelId = useId();
   const stepHeadingRef = useRef<HTMLHeadingElement>(null);
+  const syncedUserRef = useRef<string | null>(null);
+  const accessToken = session?.access_token;
+  const userId = session?.user.id;
+
+  useEffect(() => {
+    if (!accessToken || !userId) {
+      syncedUserRef.current = null;
+      return;
+    }
+    if (syncedUserRef.current === userId) return;
+    let cancelled = false;
+    syncAccountPreferences(accessToken, () => !cancelled)
+      .then(() => {
+        if (!cancelled) syncedUserRef.current = userId;
+      })
+      .catch(() => {
+        // Background sync: stay quiet and try again on the next page load.
+      });
+    return () => { cancelled = true; };
+  }, [accessToken, userId]);
 
   const selectedDraft = draft ?? draftFromProfile(storedProfile);
   const selectedStream = getStream(selectedDraft.stream);
@@ -280,14 +256,19 @@ export default function OnboardingDialog() {
 
     setIsSaving(true);
     try {
-      storeFieldProfile(profile);
+      if (draftCountryCode && selectedCountry) await storeCountryCode(selectedCountry.code);
+      const changes: Partial<FieldProfile> = { ...profile };
+      if (draftCountryCode && selectedCountry) changes.country = selectedCountry.code;
+      else if (!session?.access_token) changes.country = storedCountryCode;
 
       if (session?.access_token) {
         try {
-          await updateAccount(session.access_token, { field_profile: profile });
+          await saveProfilePreferences(session.access_token, changes);
         } catch {
           toast.error("Saved on this device, but we couldn't sync your interests to your account.");
         }
+      } else {
+        await saveProfilePreferences(undefined, changes);
       }
 
       markOnboardingComplete();
@@ -298,14 +279,16 @@ export default function OnboardingDialog() {
       params.delete("q");
       params.delete("fields");
       params.set("view", "foryou");
-      const terms = buildFeedTerms(profile, readStoredSkillNames());
+      const terms = buildFeedTerms(
+        { ...profile, country: changes.country ?? storedCountryCode },
+        readStoredSkillNames(),
+      );
       if (terms.length > 0) {
         params.set("terms", terms.join(","));
       } else {
         params.delete("terms");
       }
       if (selectedCountry) {
-        storeCountryCode(selectedCountry.code);
         params.set("country", selectedCountry.code);
       }
       params.delete("page");

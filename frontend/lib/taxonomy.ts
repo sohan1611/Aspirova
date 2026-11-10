@@ -26,6 +26,7 @@ export type FieldProfile = {
   stream: string | null;
   divisions: string[];
   interests: string[];
+  country: string | null;
 };
 
 export function getStream(key: string | null | undefined): Stream | undefined {
