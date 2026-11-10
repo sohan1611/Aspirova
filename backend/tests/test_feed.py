@@ -436,7 +436,7 @@ def test_promoted_surfaces_exclude_stale_rows_but_detail_remains_reachable(
 
 
 @pytest.mark.parametrize("sort", ["student", "recent", "deadline"])
-def test_feed_total_includes_closed_rows_but_open_total_does_not(
+def test_feed_totals_exclude_closed_rows_immediately(
     client: TestClient, db_session: Session, sort: str
 ) -> None:
     suffix = uuid.uuid4().hex
@@ -466,26 +466,25 @@ def test_feed_total_includes_closed_rows_but_open_total_does_not(
     db_session.flush()
 
     slugs = []
-    for page in range(1, 5):
+    for page in range(1, 3):
         response = client.get(
             "/feed",
             params={"location": location_token, "sort": sort, "limit": 1, "page": page},
         )
         assert response.status_code == 200
         body = response.json()
-        assert body["total"] == 4
+        assert body["total"] == 2
         assert body["open_total"] == 2
         assert body["page"] == page
         assert body["limit"] == 1
         assert len(body["items"]) == 1
         slugs.append(body["items"][0]["slug"])
 
-    assert set(slugs[:2]) == {listing.slug for listing in listings[:2]}
-    assert set(slugs[2:]) == {listing.slug for listing in listings[2:]}
+    assert set(slugs) == {listing.slug for listing in listings[:2]}
 
     empty = client.get(
         "/feed",
-        params={"location": location_token, "sort": sort, "limit": 1, "page": 5},
+        params={"location": location_token, "sort": sort, "limit": 1, "page": 3},
     )
     assert empty.status_code == 200
     assert empty.json()["items"] == []
@@ -536,12 +535,12 @@ def test_prefer_country_reorders_without_filtering_or_promoting_closed_rows(
     preferred_response = client.get("/feed", params={**params, "prefer_country": "in"})
     assert global_response.status_code == preferred_response.status_code == 200
     global_body, preferred_body = global_response.json(), preferred_response.json()
-    assert global_body["total"] == preferred_body["total"] == 6
+    assert global_body["total"] == preferred_body["total"] == 5
     assert global_body["open_total"] == preferred_body["open_total"] == 5
     global_slugs = [item["slug"] for item in global_body["items"]]
     preferred_slugs = [item["slug"] for item in preferred_body["items"]]
     assert set(global_slugs) == set(preferred_slugs)
-    assert preferred_slugs[-1] == rows["closed-local"].slug
+    assert rows["closed-local"].slug not in preferred_slugs
     if sort == "deadline":
         assert preferred_slugs == global_slugs
     else:
@@ -554,7 +553,6 @@ def test_prefer_country_reorders_without_filtering_or_promoting_closed_rows(
                 "global-blank",
                 "foreign-remote",
                 "foreign-office",
-                "closed-local",
             ]
         ]
 

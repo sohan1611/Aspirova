@@ -12,7 +12,7 @@ from api.filters import (
     REGISTRATION_LABELS,
     competition_mode_expression,
     competition_open_expression,
-    exclude_closed_competitions,
+    exclude_closed_now,
     exclude_experienced_only_opportunities,
     exclude_school_only_opportunities,
     exclude_stale_opportunities,
@@ -84,7 +84,7 @@ def get_facets(
         exclude_stale_opportunities(),
         exclude_experienced_only_opportunities(),
         exclude_school_only_opportunities(),
-        exclude_closed_competitions(),
+        exclude_closed_now(),
     ]
     if opportunity_categories:
         base_filters.append(models.Opportunity.category.in_(opportunity_categories))

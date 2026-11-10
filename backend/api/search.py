@@ -22,6 +22,7 @@ from api.filters import (
     SOURCE_GROUPS,
     competition_filters,
     exclude_closed_competitions,
+    exclude_closed_now,
     exclude_experienced_only_opportunities,
     exclude_school_only_opportunities,
     exclude_stale_opportunities,
@@ -93,7 +94,7 @@ def search_opportunities(
         exclude_stale_opportunities(),
         exclude_experienced_only_opportunities(),
         exclude_school_only_opportunities(),
-        exclude_closed_competitions(),
+        exclude_closed_competitions() if status == "closed" else exclude_closed_now(),
         *extra_filters,
         *experience_filters(experience),
         *role_signal_filters(

@@ -82,7 +82,7 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
   const duration = item.meta?.duration_months;
   const deadlineExpires = hasExpiringDeadline(item.category);
   const estimated = item.deadline_confidence !== "explicit";
-  const openDeadlineLabel = isInternship ? "Apply by" : "Registers by";
+  const openDeadlineLabel = isRole ? "Apply by" : "Registers by";
   const closedDeadlineText = closedDeadlineLabel(item.category);
   const deadlineText = item.deadline
     ? deadlineExpires

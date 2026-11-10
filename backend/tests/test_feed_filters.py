@@ -706,7 +706,7 @@ def test_feed_top_filter_returns_ranked_companies_and_combines_with_category(
     assert {item["slug"] for item in top_10_internship["items"]} == expected_ranked_slugs
 
 
-def test_feed_orders_open_and_real_roles_before_closed_and_competitions(
+def test_feed_orders_open_roles_and_competitions_and_excludes_closed(
     client: TestClient,
     db_session: Session,
 ) -> None:
@@ -791,28 +791,25 @@ def test_feed_orders_open_and_real_roles_before_closed_and_competitions(
         params={"location": location_token, "sort": "recent", "limit": 10},
     ).json()
 
-    assert deadline_sorted["total"] == 2
+    assert deadline_sorted["total"] == 1
     assert [item["slug"] for item in deadline_sorted["items"]] == [
         open_internship.slug,
-        closed_internship.slug,
     ]
-    assert roles["total"] == 4
+    assert roles["total"] == 3
     assert [item["slug"] for item in roles["items"]] == [
         open_internship.slug,
         no_deadline_job.slug,
         ppi_competition.slug,
-        closed_internship.slug,
     ]
-    assert recent["total"] == 4
+    assert recent["total"] == 3
     assert [item["slug"] for item in recent["items"]] == [
         no_deadline_job.slug,
         ppi_competition.slug,
         open_internship.slug,
-        closed_internship.slug,
     ]
 
 
-def test_feed_keeps_grace_period_and_undated_rows_but_excludes_expired_categories(
+def test_feed_keeps_open_undated_rows_and_excludes_all_closure_signals(
     client: TestClient,
     db_session: Session,
 ) -> None:
@@ -996,42 +993,25 @@ def test_feed_keeps_grace_period_and_undated_rows_but_excludes_expired_categorie
         params={"kind": "roles", "location": location_token, "limit": 10},
     ).json()
 
-    assert all_opportunities["total"] == 9
+    assert all_opportunities["total"] == 4
     assert {item["slug"] for item in all_opportunities["items"]} == {
-        recently_closed_competition.slug,
-        earlier_closed_hackathon.slug,
         soon_hackathon.slug,
         future_hackathon.slug,
         no_deadline_competition.slug,
         ats_internship_without_deadline.slug,
-        past_deadline_role.slug,
-        recently_detected_closed_job.slug,
-        uncategorized_past_deadline.slug,
     }
-    recent_closed_job_item = next(
-        item
-        for item in all_opportunities["items"]
-        if item["slug"] == recently_detected_closed_job.slug
-    )
-    assert recent_closed_job_item["closed_at"] is not None
     assert stale_detected_closed_job.slug not in {
         item["slug"] for item in all_opportunities["items"]
     }
-    assert competitions["total"] == 5
+    assert competitions["total"] == 3
     assert [item["slug"] for item in competitions["items"]] == [
         soon_hackathon.slug,
         future_hackathon.slug,
         no_deadline_competition.slug,
-        recently_closed_competition.slug,
-        earlier_closed_hackathon.slug,
     ]
-    assert roles["total"] == 5
+    assert roles["total"] == 1
     assert {item["slug"] for item in roles["items"]} == {
-        recently_closed_competition.slug,
-        earlier_closed_hackathon.slug,
         ats_internship_without_deadline.slug,
-        past_deadline_role.slug,
-        recently_detected_closed_job.slug,
     }
 
 

@@ -191,6 +191,7 @@ def test_liveness_status_code_classification_is_conservative() -> None:
     assert _classify_status_code(403) == "inconclusive"
     assert _classify_status_code(429) == "inconclusive"
     assert _classify_status_code(500) == "inconclusive"
+    assert _classify_status_code(503) == "inconclusive"
 
 
 @pytest.mark.parametrize(

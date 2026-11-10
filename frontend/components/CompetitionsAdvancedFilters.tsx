@@ -251,14 +251,23 @@ function CompetitionFiltersPanel({
       </FilterPanelSection>
 
       <FilterPanelSection title="Status">
-        <CountedSingleSelectGroup
-          label="Status"
-          options={countedOptions(facets?.statuses)}
-          value={activeSingleValue(searchParams, "status")}
-          onSelect={(value) => setSingleParam("status", value)}
-          disabled={isPending || facetsStatus !== "loaded"}
-          emptyLabel={emptyLabel}
-        />
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Status">
+          {(["open", "closed"] as const).map((value) => {
+            const selected = activeSingleValue(searchParams, "status") === value;
+            return (
+              <Button
+                key={value}
+                type="button"
+                variant={selected ? "default" : "outline"}
+                aria-pressed={selected}
+                disabled={isPending}
+                onClick={() => setSingleParam("status", selected ? null : value)}
+              >
+                {value === "open" ? "Open now" : "Closed"}
+              </Button>
+            );
+          })}
+        </div>
       </FilterPanelSection>
 
       <FilterPanelSection title="Deadline">
@@ -485,7 +494,7 @@ export function CompetitionsActiveFilterChips({ facets }: { facets: Facets | nul
 
   const status = activeSingleValue(searchParams, "status");
   if (status) {
-    const label = optionLabel(facets?.statuses, status);
+    const label = status === "closed" ? "Closed" : "Open now";
     filters.push({
       id: "status",
       label,

@@ -8,7 +8,7 @@ export function hasExpiringDeadline(category: string | null): boolean {
   const isCompetition = isCompetitionCategory(category);
   const isInternship = category === "internship";
 
-  return isCompetition || isInternship || category === "scholarship";
+  return isCompetition || isInternship || category === "job" || category === "scholarship";
 }
 
 export function isDeadlinePast(value: string): boolean {
