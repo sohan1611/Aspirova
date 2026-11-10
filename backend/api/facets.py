@@ -1,7 +1,7 @@
 """Facet lists for picker-style feed filters."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import and_, case, func, select, text, true
+from sqlalchemy import and_, case, func, not_, select, text, true
 from sqlalchemy.orm import Session, aliased
 
 from api.deps import get_db
@@ -12,6 +12,7 @@ from api.filters import (
     REGISTRATION_LABELS,
     competition_mode_expression,
     competition_open_expression,
+    deadline_passed,
     exclude_closed_now,
     exclude_experienced_only_opportunities,
     exclude_school_only_opportunities,
@@ -356,7 +357,7 @@ def _deadline_within_facets(db: Session, base_filters: list) -> list[FacetOption
         .where(
             *base_filters,
             models.Opportunity.deadline.is_not(None),
-            models.Opportunity.deadline >= func.now(),
+            not_(deadline_passed()),
             models.Opportunity.deadline
             <= func.now() + text(f"interval '{DEADLINE_WITHIN_DAYS[-1]} days'"),
         )

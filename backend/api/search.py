@@ -13,7 +13,7 @@ distinguishes true zero-match queries from out-of-range pages.
 """
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
 from api.deps import get_db
@@ -21,12 +21,15 @@ from api.filters import (
     ROLE_QUERY_PATTERN,
     SOURCE_GROUPS,
     competition_filters,
+    competition_prize_expression,
+    effective_posted_at,
     exclude_closed_competitions,
     exclude_closed_now,
     exclude_experienced_only_opportunities,
     exclude_school_only_opportunities,
     exclude_stale_opportunities,
     experience_filters,
+    listing_closed,
     location_scope_filters,
     opportunity_filters,
     role_signal_filters,
@@ -50,6 +53,22 @@ def _count_matches(db: Session, base_filters: list, search_predicate) -> int:
         )
         or 0
     )
+
+
+def _search_ordering(sort: str, relevance) -> list:
+    ordering = []
+    if sort in {"recent", "deadline", "prize"}:
+        is_closed = case((listing_closed(), 1), else_=0)
+        ordering.append(is_closed.asc())
+        if sort == "recent":
+            ordering.append(effective_posted_at().desc())
+        elif sort == "deadline":
+            open_deadline = case((is_closed == 0, models.Opportunity.deadline), else_=None)
+            ordering.append(open_deadline.asc().nullslast())
+        else:
+            ordering.append(competition_prize_expression().desc().nullslast())
+    ordering.extend([relevance.desc(), models.Opportunity.id.desc()])
+    return ordering
 
 
 @router.get("/search", response_model=SearchResponse)
@@ -82,7 +101,6 @@ def search_opportunities(
     posted_within: int | None = Query(None),
     role: str | None = Query(None, pattern=ROLE_QUERY_PATTERN),
     top: int | None = Query(None, gt=0),
-    # Search stays relevance-ranked, but accepts the feed control's sort values.
     sort: str = Query("student", pattern="^(recent|deadline|student|prize)$"),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -136,7 +154,7 @@ def search_opportunities(
             .options(*opportunity_list_load_options())
             .where(*base_filters)
             .where(matches_fts)
-            .order_by(rank.desc(), models.Opportunity.id.desc())
+            .order_by(*_search_ordering(sort, rank))
         )
         opportunities = db.execute(fts_query.offset(offset).limit(limit)).unique().scalars().all()
         items = [OpportunityListItem.from_model(opportunity) for opportunity in opportunities]
@@ -153,7 +171,7 @@ def search_opportunities(
         .options(*opportunity_list_load_options())
         .where(*base_filters)
         .where(matches_trigram)
-        .order_by(similarity.desc(), models.Opportunity.id.desc())
+        .order_by(*_search_ordering(sort, similarity))
     )
     opportunities = db.execute(fallback_query.offset(offset).limit(limit)).unique().scalars().all()
 
