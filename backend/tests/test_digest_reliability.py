@@ -20,7 +20,7 @@ from api.account import DIGEST_PREVIEW_PER_MINUTE
 from api.auth import get_current_user
 from api.deps import get_db
 from api.main import app
-from core import models
+from core import models, ratelimit
 from pipeline.notifications import (
     DIGEST_WINDOW_MAX,
     _generic_recent_opportunities,
@@ -385,9 +385,11 @@ def test_account_reports_the_last_digest_and_serves_a_private_preview(
 
 
 def test_digest_preview_is_rate_limited_per_reader(
-    account_client, db_session, sent_emails, free_plan
+    account_client, db_session, sent_emails, free_plan, monkeypatch
 ):
     client, holder = account_client
+    # Fixed windows are epoch-aligned; pin the clock so all requests share one.
+    monkeypatch.setattr(ratelimit, "_now", lambda: 1_000_010.0)
     holder["user"] = _reader(db_session)
 
     for _ in range(DIGEST_PREVIEW_PER_MINUTE):
