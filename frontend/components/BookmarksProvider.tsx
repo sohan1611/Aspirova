@@ -40,6 +40,8 @@ export function BookmarksProvider({ children }: { children: React.ReactNode }) {
   const pendingSlugs = useRef(new Set<string>());
   const session = useSession();
   const accessToken = session?.access_token ?? null;
+  const currentAccessToken = useRef(accessToken);
+  const toggleVersions = useRef(new Map<string, number>());
   const [bookmarkState, setBookmarkState] = useState<BookmarkState>({
     accessToken: null,
     savedSlugs: EMPTY_SAVED_SLUGS,
@@ -48,6 +50,7 @@ export function BookmarksProvider({ children }: { children: React.ReactNode }) {
   });
 
   useEffect(() => {
+    currentAccessToken.current = accessToken;
     if (!accessToken) return;
 
     let cancelled = false;
@@ -93,6 +96,8 @@ export function BookmarksProvider({ children }: { children: React.ReactNode }) {
       }
       if (!ready || pendingSlugs.current.has(slug)) return;
       pendingSlugs.current.add(slug);
+      const version = (toggleVersions.current.get(slug) ?? 0) + 1;
+      toggleVersions.current.set(slug, version);
 
       const wasSaved = savedSlugs.has(slug);
       const previousStatus = bookmarkState.statuses.get(slug);
@@ -108,8 +113,56 @@ export function BookmarksProvider({ children }: { children: React.ReactNode }) {
       });
 
       try {
-        if (wasSaved) await removeBookmark(slug, accessToken);
-        else await addBookmark(slug, accessToken);
+        if (wasSaved) {
+          await removeBookmark(slug, accessToken);
+          if (currentAccessToken.current === accessToken) {
+            toast("Removed from saved opportunities", {
+              action: {
+                label: "Undo",
+                onClick: async () => {
+                  if (
+                    currentAccessToken.current !== accessToken ||
+                    toggleVersions.current.get(slug) !== version ||
+                    pendingSlugs.current.has(slug)
+                  ) return;
+                  pendingSlugs.current.add(slug);
+                  toggleVersions.current.set(slug, version + 1);
+                  const restoreState = (stage?: BookmarkStage) => {
+                    setBookmarkState((current) => {
+                      if (current.accessToken !== accessToken) return current;
+                      const savedSlugs = new Set(current.savedSlugs);
+                      const statuses = new Map(current.statuses);
+                      if (stage) {
+                        savedSlugs.add(slug);
+                        statuses.set(slug, stage);
+                      } else {
+                        savedSlugs.delete(slug);
+                        statuses.delete(slug);
+                      }
+                      return { ...current, savedSlugs, statuses };
+                    });
+                  };
+                  restoreState(previousStatus ?? "saved");
+                  let saved = false;
+                  try {
+                    await addBookmark(slug, accessToken);
+                    saved = true;
+                    if (previousStatus && previousStatus !== "saved") {
+                      await updateBookmarkStatus(slug, previousStatus, accessToken);
+                    }
+                  } catch {
+                    restoreState(saved ? "saved" : undefined);
+                    toast.error(saved
+                      ? "Saved again, but couldn't restore the application stage"
+                      : "Couldn't restore this saved opportunity");
+                  } finally {
+                    pendingSlugs.current.delete(slug);
+                  }
+                },
+              },
+            });
+          }
+        } else await addBookmark(slug, accessToken);
       } catch {
         setBookmarkState((current) => {
           if (current.accessToken !== accessToken) return current;
