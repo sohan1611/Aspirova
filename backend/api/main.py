@@ -76,7 +76,11 @@ app.include_router(waitlist.router)
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
+async def health() -> dict[str, str]:
+    # async on purpose: a sync handler waits for a worker thread, and when a burst
+    # of requests holds every thread waiting for a DB connection, Render's 5 s
+    # health check times out and restarts a working instance (2026-11-10 outage).
+    # This handler does no I/O, so it runs on the event loop and always answers.
     # Safe to expose: this is only a truncated hash of the domain-derived key,
     # not key material. Digest workers compare it before sending so mismatched
     # GitHub Actions/Render secrets fail the run instead of mailing broken links.
