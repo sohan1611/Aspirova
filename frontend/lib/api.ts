@@ -28,6 +28,7 @@ import type {
   SearchResponse,
   StatsResponse,
   TrendingResponse,
+  DigestPreview,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -699,6 +700,18 @@ export async function getAccount(accessToken: string): Promise<AccountMe> {
     cache: "no-store",
   });
   if (!res.ok) throw new Error(`Failed to load account: ${res.status}`);
+  return res.json();
+}
+
+export class DigestPreviewRateLimitError extends Error {}
+
+export async function getDigestPreview(accessToken: string): Promise<DigestPreview> {
+  const res = await fetch(`${API_URL}/account/digest-preview`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: "no-store",
+  });
+  if (res.status === 429) throw new DigestPreviewRateLimitError("Too many previews");
+  if (!res.ok) throw new Error(`Failed to load digest preview: ${res.status}`);
   return res.json();
 }
 

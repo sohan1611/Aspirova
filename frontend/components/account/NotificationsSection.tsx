@@ -11,11 +11,19 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import CompanyPicker from "@/components/CompanyPicker";
 import DomainPicker from "@/components/DomainPicker";
-import { companyAlertLimitMessage, FollowLimitError, getDreamCompanies, removeDreamCompany, saveCompanyAlerts, updateAccount } from "@/lib/api";
+import { companyAlertLimitMessage, DigestPreviewRateLimitError, FollowLimitError, getDigestPreview, getDreamCompanies, removeDreamCompany, saveCompanyAlerts, updateAccount } from "@/lib/api";
 import { companyAlertSavedMessage, formatDomains } from "@/lib/roleSignalQuery";
-import type { AccountMe, CompanyListItem, DreamCompanyItem } from "@/lib/types";
+import type { AccountMe, CompanyListItem, DigestPreview, DigestStatus, DreamCompanyItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const NOTIFICATIONS = [
@@ -120,6 +128,13 @@ export default function NotificationsSection({
                       : "One email a day when a company you follow posts a matching role. Paid plans get it as soon as we find the role."
                     : notification.description}
                 </p>
+                {notification.key === "daily_digest" && !locked && (
+                  <DigestDetails
+                    accessToken={accessToken}
+                    status={account.digest_status ?? null}
+                    enabled={enabled}
+                  />
+                )}
                 {locked && (
                   <p className="mt-1.5 text-xs font-medium text-primary">
                     Included with a paid plan{" "}
@@ -159,6 +174,110 @@ export default function NotificationsSection({
   );
 }
 
+
+const DIGEST_TIME_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+function plural(count: number, word: string): string {
+  return `${count} ${word}${count === 1 ? "" : "s"}`;
+}
+
+function digestStatusText(status: DigestStatus | null, enabled: boolean): string {
+  const lastSent = status?.last_sent_at ? new Date(status.last_sent_at) : null;
+  const delivered = lastSent && !Number.isNaN(lastSent.getTime())
+    ? `Last sent ${DIGEST_TIME_FORMATTER.format(lastSent)} with ${plural(status?.last_sent_count ?? 0, "listing")}.`
+    : null;
+  if (status?.last_attempt_failed) {
+    return `The latest digest could not be sent. ${enabled ? "It will be tried again at the next daily run. " : ""}${delivered ?? ""}`.trim();
+  }
+  if (delivered) return delivered;
+  return enabled ? "No digest has been sent to you yet." : "You are not receiving the daily digest.";
+}
+
+// Opens links from the preview in a new tab: inside the sandboxed frame they
+// would otherwise try to load the site in the frame, which it refuses.
+function withNewTabLinks(html: string): string {
+  const base = '<base target="_blank">';
+  return /<head(\s[^>]*)?>/i.test(html)
+    ? html.replace(/<head(\s[^>]*)?>/i, (head) => `${head}${base}`)
+    : `${base}${html}`;
+}
+
+function DigestDetails({
+  accessToken,
+  status,
+  enabled,
+}: {
+  accessToken: string;
+  status: DigestStatus | null;
+  enabled: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [preview, setPreview] = useState<DigestPreview | null>(null);
+  const [state, setState] = useState<"idle" | "loading" | "error" | "limited">("idle");
+
+  async function showPreview() {
+    setOpen(true);
+    setState("loading");
+    try {
+      setPreview(await getDigestPreview(accessToken));
+      setState("idle");
+    } catch (error) {
+      setState(error instanceof DigestPreviewRateLimitError ? "limited" : "error");
+    }
+  }
+
+  return (
+    <div className="mt-2 space-y-1.5">
+      <p className="text-xs text-muted-foreground" data-testid="digest-status">
+        {digestStatusText(status, enabled)}
+      </p>
+      <button
+        type="button"
+        onClick={() => void showPreview()}
+        className="inline-flex min-h-6 items-center text-xs font-medium text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      >
+        Preview your next digest
+      </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)] sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Your next digest</DialogTitle>
+            <DialogDescription>
+              What the email would contain if it went out now. Nothing is sent.
+            </DialogDescription>
+          </DialogHeader>
+          {state === "loading" ? (
+            <Skeleton className="h-[60dvh] w-full" />
+          ) : state === "limited" ? (
+            <p className="text-sm text-muted-foreground">
+              Too many previews in a minute. Try again shortly.
+            </p>
+          ) : state === "error" ? (
+            <p className="text-sm text-muted-foreground">
+              We couldn&apos;t load the preview. Try again in a minute.
+            </p>
+          ) : preview?.html ? (
+            <iframe
+              title="Preview of your next daily digest"
+              sandbox="allow-popups allow-popups-to-escape-sandbox"
+              srcDoc={withNewTabLinks(preview.html)}
+              className="h-[60dvh] w-full rounded-md border border-border bg-white"
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Nothing new since your last digest yet. New listings appear here after the next crawl.
+            </p>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
 
 function CompanyAlerts({ accessToken, limit, alertsEnabled }: { accessToken: string; limit: number | null; alertsEnabled: boolean }) {
   const domainsId = useId();
