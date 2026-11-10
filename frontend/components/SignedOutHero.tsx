@@ -26,14 +26,8 @@ export default function SignedOutHero() {
           Every opportunity. One place.
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:mt-4 sm:text-base sm:leading-relaxed">
-          An almanac of internships, jobs, fellowships and research programmes, indexed daily from
-          across the web — so you never miss the one that mattered.
-        </p>
-
-        <p className="mt-6 hidden max-w-3xl border-l border-border pl-4 text-sm leading-relaxed text-muted-foreground sm:block">
-          We index opportunities from company career pages — including Greenhouse, Lever, Ashby
-          and SmartRecruiters — plus public job boards, curated competitions, hackathons and research
-          fellowships, always linking you to the original listing.
+          Internships, jobs, hackathons, scholarships and research programmes, gathered from public
+          career pages and opportunity sites. Apply takes you to the original listing.
         </p>
 
         <div className="mt-5 flex flex-wrap items-center gap-2 sm:mt-7">
