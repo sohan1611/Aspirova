@@ -1,5 +1,6 @@
 import { useCallback, useSyncExternalStore } from "react";
 import { type FieldProfile } from "@/lib/taxonomy";
+import { normalizeProfile } from "@/lib/profilePreferences";
 import { useHydrated } from "@/lib/useHydrated";
 
 export const FIELD_PROFILE_STORAGE_KEY = "aspirova.field_profile";
@@ -15,6 +16,7 @@ const EMPTY_FIELD_PROFILE: FieldProfile = {
   stream: null,
   divisions: [],
   interests: [],
+  country: null,
 };
 const EMPTY_FIELD_PROFILE_SNAPSHOT: FieldProfileSnapshot = {
   profile: EMPTY_FIELD_PROFILE,
@@ -25,40 +27,6 @@ let cachedRawValue: string | null | undefined;
 let cachedSnapshot = EMPTY_FIELD_PROFILE_SNAPSHOT;
 let inMemoryRawValue: string | null = null;
 let storageUnavailable = false;
-
-function normalizeKey(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-
-  return value.trim() || null;
-}
-
-function normalizeKeys(values: unknown): string[] {
-  if (!Array.isArray(values)) return [];
-
-  const keys: string[] = [];
-  const seen = new Set<string>();
-  for (const item of values) {
-    const key = normalizeKey(item);
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    keys.push(key);
-  }
-
-  return keys;
-}
-
-function normalizeProfile(value: unknown): FieldProfile {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return EMPTY_FIELD_PROFILE;
-  }
-
-  const profile = value as Record<string, unknown>;
-  return {
-    stream: normalizeKey(profile.stream),
-    divisions: normalizeKeys(profile.divisions),
-    interests: normalizeKeys(profile.interests),
-  };
-}
 
 function readStoredValue(): string | null {
   if (typeof window === "undefined") return null;
@@ -90,10 +58,8 @@ function getFieldProfileSnapshot(): FieldProfileSnapshot {
       return cachedSnapshot;
     }
 
-    cachedSnapshot = {
-      profile: normalizeProfile(parsed),
-      hasStoredProfile: true,
-    };
+    const profile = normalizeProfile(parsed);
+    cachedSnapshot = { profile, hasStoredProfile: hasFieldProfileSelections(profile) };
   } catch {
     cachedSnapshot = EMPTY_FIELD_PROFILE_SNAPSHOT;
   }
@@ -126,7 +92,10 @@ export function storeFieldProfile(profile: FieldProfile): void {
   const rawValue = JSON.stringify(normalizedProfile);
 
   cachedRawValue = rawValue;
-  cachedSnapshot = { profile: normalizedProfile, hasStoredProfile: true };
+  cachedSnapshot = {
+    profile: normalizedProfile,
+    hasStoredProfile: hasFieldProfileSelections(normalizedProfile),
+  };
   inMemoryRawValue = rawValue;
 
   if (typeof window === "undefined") return;

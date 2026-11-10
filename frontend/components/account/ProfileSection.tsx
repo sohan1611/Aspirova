@@ -168,7 +168,9 @@ export default function ProfileSection({
 
   function handleCountrySelect(code: string) {
     if (code !== storedCountryCode && college.trim()) setCollegeCountryNotice(true);
-    storeCountryCode(code);
+    void storeCountryCode(code, accessToken).catch(() => {
+      toast.error("Saved on this device, but we couldn't sync your country to your account.");
+    });
     setCollegeEntryMode("list");
   }
 

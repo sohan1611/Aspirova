@@ -9,7 +9,6 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
-  useRef,
   useState,
 } from "react";
 import AccountAvatar from "@/components/account/AccountAvatar";
@@ -37,12 +36,10 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAccount, getBookmarks } from "@/lib/api";
 import { formatDate } from "@/lib/date";
-import { hasFieldProfileSelections, readStoredFieldProfile, storeFieldProfile } from "@/lib/fieldProfile";
 import {
   getProfileCompleteness,
   PROFILE_COMPLETENESS_TOTAL,
 } from "@/lib/profileCompleteness";
-import type { FieldProfile } from "@/lib/taxonomy";
 import type { AccountMe } from "@/lib/types";
 import { useSessionState } from "@/lib/useSession";
 
@@ -54,16 +51,6 @@ function planName(key: string): string {
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
-}
-
-function fieldProfilesMatch(left: FieldProfile, right: FieldProfile): boolean {
-  return (
-    left.stream === right.stream &&
-    left.divisions.length === right.divisions.length &&
-    left.divisions.every((division, index) => division === right.divisions[index]) &&
-    left.interests.length === right.interests.length &&
-    left.interests.every((interest, index) => interest === right.interests[index])
-  );
 }
 
 export default function AccountPage() {
@@ -91,58 +78,27 @@ function AccountPageContent() {
     inProgress: number;
   } | null>(null);
   const [bookmarkStatsLoading, setBookmarkStatsLoading] = useState(true);
-  const hydratedFieldProfileTokenRef = useRef<string | null>(null);
-
-  const seedFieldProfileFromAccount = useCallback(
-    (loadedAccount: AccountMe, localProfileAtRequest: FieldProfile) => {
-      if (!accessToken || hydratedFieldProfileTokenRef.current === accessToken) return;
-
-      const serverProfile = loadedAccount.field_profile;
-      if (!hasFieldProfileSelections(serverProfile)) {
-        hydratedFieldProfileTokenRef.current = accessToken;
-        return;
-      }
-
-      const currentLocalProfile = readStoredFieldProfile();
-      if (!fieldProfilesMatch(currentLocalProfile, localProfileAtRequest)) {
-        // The local profile changed while the account request was in flight.
-        hydratedFieldProfileTokenRef.current = accessToken;
-        return;
-      }
-
-      if (!fieldProfilesMatch(currentLocalProfile, serverProfile)) {
-        storeFieldProfile(serverProfile);
-      }
-      hydratedFieldProfileTokenRef.current = accessToken;
-    },
-    [accessToken],
-  );
-
   const refresh = useCallback(async () => {
     if (!accessToken) return;
     setLoading(true);
     setError(false);
-    const localProfileAtRequest = readStoredFieldProfile();
     try {
       const loadedAccount = await getAccount(accessToken);
-      seedFieldProfileFromAccount(loadedAccount, localProfileAtRequest);
       setAccount(loadedAccount);
     } catch {
       setError(true);
     } finally {
       setLoading(false);
     }
-  }, [accessToken, seedFieldProfileFromAccount]);
+  }, [accessToken]);
 
   useEffect(() => {
     if (!accessToken) return;
 
     let cancelled = false;
-    const localProfileAtRequest = readStoredFieldProfile();
     getAccount(accessToken)
       .then((loadedAccount) => {
         if (cancelled) return;
-        seedFieldProfileFromAccount(loadedAccount, localProfileAtRequest);
         setAccount(loadedAccount);
         setError(false);
         setLoading(false);
@@ -156,7 +112,7 @@ function AccountPageContent() {
     return () => {
       cancelled = true;
     };
-  }, [accessToken, seedFieldProfileFromAccount]);
+  }, [accessToken]);
 
   useEffect(() => {
     if (!accessToken) return;
