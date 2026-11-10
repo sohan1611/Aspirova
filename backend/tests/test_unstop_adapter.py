@@ -1346,3 +1346,28 @@ def test_parse_ignores_logo_when_company_falls_back_to_unstop(adapter, fixture_p
 
     assert normalized.company_name == "Unstop"
     assert normalized.company_logo_url is None
+
+
+@pytest.mark.parametrize(
+    "approved, expected",
+    [
+        # The live search API's format (checked 2026-11-10).
+        ("2026-11-10 17:47:40 GMT+0530", datetime(2026, 11, 10, 12, 17, 40, tzinfo=UTC)),
+        ("2026-11-10T17:47:40+05:30", datetime(2026, 11, 10, 12, 17, 40, tzinfo=UTC)),
+        # No offset is ambiguous (IST or UTC); future and junk values are unknown.
+        ("2026-11-10 17:47:40", None),
+        ("2100-01-01 00:00:00 GMT+0530", None),
+        ("soon", None),
+        (None, None),
+    ],
+)
+def test_parse_reads_approved_date_as_the_posting_date(
+    adapter, fixture_payload, approved, expected
+):
+    payload = {
+        **_open_fixture_item(fixture_payload, "jobs", "approved-date"),
+        "_aspirova_opportunity": "jobs",
+        "approved_date": approved,
+    }
+
+    assert adapter.parse(_raw_listing_for(payload)).posted_at == expected

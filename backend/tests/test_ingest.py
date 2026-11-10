@@ -1302,3 +1302,36 @@ def test_direct_slug_soft_merge_upgrades_a_board_link(db_session, seeded):
     assert updated.apply_url == normalized.apply_url
     assert updated.primary_source == "lever"
     assert changed == {updated.slug}
+
+
+def test_identity_path_fills_a_missing_posting_date_but_never_restamps(
+    db_session: Session, seeded
+) -> None:
+    """An adapter that learns to read a date the payload always carried (same raw
+    hash) fills posted_at on the next crawl; a later different date is ignored."""
+    source_a, _source_b, company = seeded
+    url = "https://acme.example/jobs/dated-later"
+    raw = _raw("dated-later", url)
+    undated = _normalized("Backend Intern", url)
+
+    opportunity, created = _ingest(db_session, source_a.id, company.id, raw, undated)
+    assert created and opportunity.posted_at is None
+
+    posted = datetime(2026, 11, 1, 9, tzinfo=UTC)
+    opportunity, created = _ingest(
+        db_session,
+        source_a.id,
+        company.id,
+        raw,
+        undated.model_copy(update={"posted_at": posted}),
+    )
+    assert not created and opportunity.posted_at == posted
+
+    opportunity, _ = _ingest(
+        db_session,
+        source_a.id,
+        company.id,
+        raw,
+        undated.model_copy(update={"posted_at": posted + timedelta(days=5)}),
+    )
+    assert opportunity.posted_at == posted

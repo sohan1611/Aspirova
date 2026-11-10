@@ -1,6 +1,7 @@
 """Unit tests for HimalayasAdapter using a fixture payload."""
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -515,3 +516,56 @@ def test_parse_ignores_logo_when_company_falls_back_to_source(adapter, fixture_p
 
     assert normalized.company_name == "Himalayas"
     assert normalized.company_logo_url is None
+
+
+LIVE_PUB_DATE = 1794327980  # a real pubDate from the live jobs API, 2026-11-10
+
+
+def test_parse_reads_the_live_api_unix_seconds_pub_date(
+    adapter: HimalayasAdapter, fixture_payload: dict
+) -> None:
+    """The live jobs API sends pubDate as Unix seconds (checked 2026-11-10).
+
+    Parsing only ISO text dropped every Himalayas posting date, so these pages
+    could never carry a truthful datePosted.
+    """
+    job = {
+        **fixture_payload["jobs"][0],
+        "id": "hm-epoch",
+        "publishedDate": None,
+        "pubDate": LIVE_PUB_DATE,
+    }
+
+    assert adapter.parse(_raw_listing_for(job)).posted_at == datetime.fromtimestamp(
+        LIVE_PUB_DATE, tz=UTC
+    )
+
+
+@pytest.mark.parametrize("value", [LIVE_PUB_DATE * 1000, str(LIVE_PUB_DATE)])
+def test_parse_reads_millisecond_and_text_epochs(
+    adapter: HimalayasAdapter, fixture_payload: dict, value: object
+) -> None:
+    job = {
+        **fixture_payload["jobs"][0],
+        "id": "hm-epoch-2",
+        "publishedDate": None,
+        "pubDate": value,
+    }
+
+    assert adapter.parse(_raw_listing_for(job)).posted_at == datetime.fromtimestamp(
+        LIVE_PUB_DATE, tz=UTC
+    )
+
+
+@pytest.mark.parametrize("value", [4102444800, 0, True, "not a date"])
+def test_parse_treats_future_implausible_or_junk_pub_dates_as_unknown(
+    adapter: HimalayasAdapter, fixture_payload: dict, value: object
+) -> None:
+    job = {
+        **fixture_payload["jobs"][0],
+        "id": "hm-epoch-3",
+        "publishedDate": None,
+        "pubDate": value,
+    }
+
+    assert adapter.parse(_raw_listing_for(job)).posted_at is None

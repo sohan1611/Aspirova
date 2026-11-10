@@ -1,6 +1,6 @@
 """Himalayas aggregator adapter using its public jobs API."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from time import sleep
 from typing import Any, Literal
 
@@ -424,15 +424,35 @@ def _remote_value(job: dict[str, Any]) -> bool | None:
 
 
 def _parse_datetime(value: Any) -> datetime | None:
+    """Parse a Himalayas date: Unix seconds (the live API's ``pubDate``) or ISO text.
+
+    The live jobs API sends ``pubDate`` as an integer number of seconds. Parsing
+    only ISO text dropped every Himalayas posting date (checked 2026-11-10).
+    """
+    if isinstance(value, bool):
+        return None
     text = _as_text(value)
     if not text:
         return None
-    try:
-        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
-    except ValueError:
+    if isinstance(value, int | float) or text.isdigit():
+        seconds = float(text)
+        if seconds > 10**12:  # milliseconds
+            seconds /= 1000
+        try:
+            parsed = datetime.fromtimestamp(seconds, tz=UTC)
+        except (OverflowError, OSError, ValueError):
+            return None
+    else:
+        try:
+            parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+    # A future or implausibly old posting date would pin a listing to the top
+    # of Newest or mislabel it, so treat it as unknown.
+    if parsed.year < 2000 or parsed > datetime.now(UTC) + timedelta(days=1):
         return None
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=UTC)
     return parsed
 
 
