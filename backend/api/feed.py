@@ -20,6 +20,7 @@ from api.filters import (
     competition_filters,
     competition_prize_expression,
     exclude_closed_competitions,
+    exclude_closed_now,
     exclude_experienced_only_opportunities,
     exclude_school_only_opportunities,
     exclude_stale_opportunities,
@@ -79,7 +80,7 @@ def get_feed(
         exclude_stale_opportunities(),
         exclude_experienced_only_opportunities(),
         exclude_school_only_opportunities(),
-        exclude_closed_competitions(),
+        exclude_closed_competitions() if status == "closed" else exclude_closed_now(),
         *opportunity_filters(category, remote, company, location, top),
         *experience_filters(experience),
         *role_signal_filters(

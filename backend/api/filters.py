@@ -165,6 +165,14 @@ def exclude_closed_competitions():
     return or_(expired_deadline, detected_closed).is_not(True)
 
 
+def exclude_closed_now():
+    """Keep only listings without a closure signal, regardless of category."""
+    return and_(
+        models.Opportunity.closed_at.is_(None),
+        or_(models.Opportunity.deadline.is_(None), models.Opportunity.deadline > func.now()),
+    )
+
+
 def open_opportunity_filters() -> list:
     """Return the shared definition of an open, student-facing listing."""
     return [
@@ -172,13 +180,8 @@ def open_opportunity_filters() -> list:
         exclude_stale_opportunities(),
         exclude_experienced_only_opportunities(),
         exclude_school_only_opportunities(),
-        exclude_closed_competitions(),
-        models.Opportunity.closed_at.is_(None),
+        exclude_closed_now(),
         models.Opportunity.is_hidden.is_not(True),
-        or_(
-            models.Opportunity.deadline.is_(None),
-            models.Opportunity.deadline > func.now(),
-        ),
     ]
 
 
@@ -328,10 +331,7 @@ def _mode_values(values: list[str] | None) -> list[str]:
 
 
 def competition_open_expression():
-    return and_(
-        models.Opportunity.closed_at.is_(None),
-        or_(models.Opportunity.deadline.is_(None), models.Opportunity.deadline >= func.now()),
-    )
+    return exclude_closed_now()
 
 
 def competition_prize_expression():
@@ -629,7 +629,7 @@ def saved_search_base_filters(params: dict) -> list:
         exclude_stale_opportunities(),
         exclude_experienced_only_opportunities(),
         exclude_school_only_opportunities(),
-        exclude_closed_competitions(),
+        exclude_closed_competitions() if params.get("status") == "closed" else exclude_closed_now(),
         *opportunity_filters(category, remote, None, params.get("location"), None),
         *experience_filters(experience),
         *location_scope_filters(scope, country, False),

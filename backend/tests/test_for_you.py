@@ -636,16 +636,15 @@ def test_for_you_other_and_empty_fields_fall_back_to_recent_feed_order(
     # real remote competitions, so assert deterministic invariants rather than an
     # exact global list: the no-keyword "other" and empty-field paths behave
     # identically, and the freshest open seeded row (last_seen == now, so it sorts
-    # first) surfaces ahead of the closed seeded one (recent-feed order).
+    # first) surfaces while closed rows are excluded.
     other_slugs = [item["slug"] for item in other_response.json()["items"]]
     empty_slugs = [item["slug"] for item in empty_response.json()["items"]]
     assert other_slugs == empty_slugs
     assert recent_open.slug in other_slugs
-    if recently_closed.slug in other_slugs:
-        assert other_slugs.index(recent_open.slug) < other_slugs.index(recently_closed.slug)
+    assert recently_closed.slug not in other_slugs
 
 
-def test_for_you_default_order_sinks_detected_closed_without_deadline(
+def test_for_you_excludes_detected_closed_without_deadline(
     client: TestClient,
     db_session: Session,
 ) -> None:

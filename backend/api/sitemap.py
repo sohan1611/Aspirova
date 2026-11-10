@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from api.deps import get_db
-from api.filters import exclude_stale_opportunities
+from api.filters import exclude_closed_now, exclude_stale_opportunities
 from api.schemas import SitemapCompany, SitemapOpportunity
 from core import models
 
@@ -18,7 +18,7 @@ def _eligible_sitemap_opportunity_filters() -> tuple:
     return (
         models.Opportunity.status == "active",
         exclude_stale_opportunities(),
-        models.Opportunity.closed_at.is_(None),
+        exclude_closed_now(),
         models.Opportunity.is_hidden.is_not(True),
     )
 

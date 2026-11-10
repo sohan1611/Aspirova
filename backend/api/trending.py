@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from api.deps import get_db
 from api.filters import (
-    exclude_closed_competitions,
+    exclude_closed_now,
     exclude_experienced_only_opportunities,
     exclude_school_only_opportunities,
     exclude_stale_opportunities,
@@ -150,7 +150,7 @@ def get_trending(
             exclude_stale_opportunities(),
             exclude_experienced_only_opportunities(),
             exclude_school_only_opportunities(),
-            exclude_closed_competitions(),
+            exclude_closed_now(),
             roles_filter,
             *experience_filters("early"),
             models.OpportunityViewCount.views >= TRENDING_MIN_VIEWS,

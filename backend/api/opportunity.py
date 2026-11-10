@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from api.deps import get_db
 from api.filters import (
-    exclude_closed_competitions,
+    exclude_closed_now,
     exclude_experienced_only_opportunities,
     exclude_school_only_opportunities,
     exclude_stale_opportunities,
@@ -63,7 +63,7 @@ def get_similar_opportunities(
         exclude_stale_opportunities(),
         exclude_experienced_only_opportunities(),
         exclude_school_only_opportunities(),
-        exclude_closed_competitions(),
+        exclude_closed_now(),
         models.Opportunity.id != target.id,
     ]
     if match_conditions:

@@ -586,7 +586,9 @@ def test_search_applies_competition_prize_and_mode_filters(client, db_session, c
     assert _slugs(response.json()) == {competition_rows["offline_company"].slug}
 
 
-def test_prize_sort_keeps_closed_and_missing_prizes_last(client, db_session, competition_rows):
+def test_prize_sort_excludes_closed_and_keeps_missing_prizes_last(
+    client, db_session, competition_rows
+):
     online = competition_rows["online_iit"]
     offline = competition_rows["offline_company"]
     hybrid = competition_rows["hybrid_university"]
@@ -620,7 +622,6 @@ def test_prize_sort_keeps_closed_and_missing_prizes_last(client, db_session, com
         *[row.slug for row in tied],
         undated.slug,
         missing.slug,
-        closed.slug,
     ]
     assert response.json()["open_total"] == 5
 
@@ -632,9 +633,7 @@ def test_status_facets_share_filter_rule(client, db_session, competition_rows):
     body = client.get("/facets", params={"kind": "competitions"}).json()
     assert _facet_by_value(body["statuses"], "open")["label"] == "Open now"
     assert _facet_by_value(body["statuses"], "open")["count"] >= 3
-    assert _facet_by_value(body["statuses"], "closed")["label"] == "Closed"
-    assert _facet_by_value(body["statuses"], "closed")["count"] >= 2
-    assert _facet_by_value(body["modes"], "offline")["label"] == "In person"
+    assert _facet_by_value(body["statuses"], "closed") is None
     assert client.get("/facets", params={"kind": "roles"}).json()["statuses"] == []
 
 

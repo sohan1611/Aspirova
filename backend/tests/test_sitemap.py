@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from api import middleware
 from api import sitemap
 from api.deps import get_db
-from api.filters import STALE_AFTER_DAYS, exclude_stale_opportunities
+from api.filters import STALE_AFTER_DAYS, exclude_closed_now, exclude_stale_opportunities
 from api.main import app
 from core import models
 
@@ -131,7 +131,7 @@ def test_sitemap_opportunities_returns_active_slug_shape(
         select(func.count(models.Opportunity.id)).where(
             models.Opportunity.status == "active",
             exclude_stale_opportunities(),
-            models.Opportunity.closed_at.is_(None),
+            exclude_closed_now(),
             models.Opportunity.is_hidden.is_not(True),
             models.Opportunity.slug.like(f"%-{suffix}"),
         )

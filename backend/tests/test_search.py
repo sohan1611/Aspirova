@@ -339,7 +339,7 @@ def test_search_kind_restricts_query_matches(client: TestClient, db_session: Ses
     assert [item["slug"] for item in body["items"]] == [competition.slug]
 
 
-def test_search_keeps_grace_period_and_undated_rows_but_excludes_expired_categories(
+def test_search_keeps_open_undated_rows_and_excludes_past_deadlines(
     client: TestClient,
     db_session: Session,
 ) -> None:
@@ -439,11 +439,9 @@ def test_search_keeps_grace_period_and_undated_rows_but_excludes_expired_categor
 
     assert response.status_code == 200
     body = response.json()
-    assert body["total"] == 5
+    assert body["total"] == 3
     assert {item["slug"] for item in body["items"]} == {
-        recently_closed_competition.slug,
         future_hackathon.slug,
         no_deadline_competition.slug,
         ats_internship_without_deadline.slug,
-        past_deadline_role.slug,
     }
