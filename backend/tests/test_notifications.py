@@ -114,6 +114,7 @@ def _make_opportunity(
     category: str | None = None,
     title: str = "Test Opportunity",
     title_normalized: str | None = None,
+    deadline_confidence: str = "unknown",
 ) -> models.Opportunity:
     opp = models.Opportunity(
         slug=f"notif-test-opp-{uuid.uuid4()}",
@@ -124,6 +125,7 @@ def _make_opportunity(
         apply_url="https://example.com/apply",
         posted_at=posted_at,
         deadline=deadline,
+        deadline_confidence=deadline_confidence,
         first_seen_at=first_seen_at,
         last_seen_at=first_seen_at,
     )
@@ -1116,30 +1118,35 @@ def test_closing_soon_alert_includes_only_bookmarked_opportunities_in_window(
         company,
         first_seen_at=now,
         deadline=now + timedelta(days=2),
+        deadline_confidence="explicit",
     )
     closing_later = _make_opportunity(
         db_session,
         company,
         first_seen_at=now,
         deadline=now + timedelta(days=10),
+        deadline_confidence="explicit",
     )
     already_closed = _make_opportunity(
         db_session,
         company,
         first_seen_at=now,
         deadline=now - timedelta(hours=1),
+        deadline_confidence="explicit",
     )
     not_bookmarked = _make_opportunity(
         db_session,
         company,
         first_seen_at=now,
         deadline=now + timedelta(days=1),
+        deadline_confidence="explicit",
     )
     inactive = _make_opportunity(
         db_session,
         company,
         first_seen_at=now,
         deadline=now + timedelta(days=1),
+        deadline_confidence="explicit",
     )
     inactive.status = "closed"
     db_session.add_all(
@@ -1198,6 +1205,7 @@ def test_closing_soon_alert_is_deduplicated_per_opportunity(
         company,
         first_seen_at=now,
         deadline=now + timedelta(days=2),
+        deadline_confidence="explicit",
     )
     db_session.add(models.Bookmark(user_id=user.id, opportunity_id=opportunity.id))
     db_session.flush()
@@ -1230,6 +1238,7 @@ def test_closing_soon_keeps_old_listing_with_future_deadline(
         first_seen_at=now,
         posted_at=now - timedelta(days=500),
         deadline=now + timedelta(days=2),
+        deadline_confidence="explicit",
     )
     db_session.add(models.Bookmark(user_id=user.id, opportunity_id=opportunity.id))
     db_session.flush()
@@ -1251,6 +1260,7 @@ def test_closing_soon_alert_respects_notification_preference(
         company,
         first_seen_at=now,
         deadline=now + timedelta(days=2),
+        deadline_confidence="explicit",
     )
     db_session.add(models.Bookmark(user_id=user.id, opportunity_id=opportunity.id))
     db_session.flush()
@@ -1283,6 +1293,7 @@ def test_closing_soon_failed_send_records_failed_status(
         company,
         first_seen_at=now,
         deadline=now + timedelta(days=2),
+        deadline_confidence="explicit",
     )
     db_session.add(models.Bookmark(user_id=user.id, opportunity_id=opportunity.id))
     db_session.flush()
@@ -1313,6 +1324,7 @@ def test_closing_soon_sends_saved_and_skips_other_stages(
         company,
         first_seen_at=now,
         deadline=now + timedelta(days=2),
+        deadline_confidence="explicit",
         title="Still saved",
     )
     progressed = _make_opportunity(
@@ -1320,6 +1332,7 @@ def test_closing_soon_sends_saved_and_skips_other_stages(
         company,
         first_seen_at=now,
         deadline=now + timedelta(days=1),
+        deadline_confidence="explicit",
         title="Already handled",
     )
     db_session.add_all(
@@ -1345,3 +1358,50 @@ def test_closing_soon_sends_saved_and_skips_other_stages(
         )
     )
     assert notified_ids == {saved.id}
+
+
+def test_closing_soon_skips_closed_hidden_and_unsourced_deadlines(
+    db_session, sent_emails, source_and_company
+) -> None:
+    """N-07: no reminder for a confirmed-closed, hidden or unsourced-deadline listing."""
+    _source, company = source_and_company
+    now = datetime(2026, 7, 11, 12, tzinfo=timezone.utc)
+    user = _make_user(db_session)
+
+    def saved(title: str, **kwargs) -> models.Opportunity:
+        values = {"deadline": now + timedelta(days=2), "deadline_confidence": "explicit"}
+        values.update(kwargs)
+        opportunity = _make_opportunity(
+            db_session, company, first_seen_at=now, title=title, **values
+        )
+        db_session.add(models.Bookmark(user_id=user.id, opportunity_id=opportunity.id))
+        return opportunity
+
+    open_listing = saved("Open with a stated deadline")
+    confirmed_closed = saved("Confirmed closed in grace")
+    # Closing on absence keeps status 'active' through the grace period.
+    confirmed_closed.closed_at = now - timedelta(hours=3)
+    hidden = saved("Hidden by moderation")
+    hidden.is_hidden = True
+    inferred = saved("Inferred deadline", deadline_confidence="inferred")
+    unknown = saved("Unknown deadline", deadline_confidence="unknown")
+    passed_now = saved("Deadline is exactly now", deadline=now)
+    db_session.flush()
+
+    result = send_closing_soon_alerts(db_session, now=now)
+
+    emails = [email for email in sent_emails if email["to"] == user.email]
+    assert len(emails) == 1
+    assert emails[0]["subject"] == f"'{open_listing.title}' closes in 2 days"
+    for skipped in (confirmed_closed, hidden, inferred, unknown, passed_now):
+        assert skipped.title not in emails[0]["text"]
+    notified_ids = set(
+        db_session.scalars(
+            select(models.Notification.opportunity_id).where(
+                models.Notification.user_id == user.id,
+                models.Notification.type == "closing_soon",
+            )
+        )
+    )
+    assert notified_ids == {open_listing.id}
+    assert result["opportunities"] >= 1
