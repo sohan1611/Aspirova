@@ -87,7 +87,7 @@ function StageControl({
 }
 
 export default function SavedPage() {
-  const { syncStatus } = useBookmarks();
+  const { syncStatus, isSaved, status, statusesReady } = useBookmarks();
   const { session, resolved } = useSessionState();
   const accessToken = session?.access_token ?? null;
   const [retryKey, setRetryKey] = useState(0);
@@ -125,6 +125,19 @@ export default function SavedPage() {
     };
   }, [accessToken, retryKey]);
 
+  // Keep loaded card data so Undo can put a removed card back immediately.
+  const savedItems = useMemo(
+    () => loadState.items
+      .filter((item) => !statusesReady || isSaved(item.slug))
+      .map((item) => ({
+        ...item,
+        bookmark_status: pendingSlugs.has(item.slug)
+          ? item.bookmark_status
+          : status(item.slug) ?? item.bookmark_status,
+      })),
+    [isSaved, loadState.items, pendingSlugs, status, statusesReady],
+  );
+
   const stageCounts = useMemo(() => {
     const counts: Record<BookmarkStage, number> = {
       saved: 0,
@@ -134,12 +147,12 @@ export default function SavedPage() {
       archived: 0,
     };
 
-    for (const item of loadState.items) {
+    for (const item of savedItems) {
       counts[item.bookmark_status] += 1;
     }
 
     return counts;
-  }, [loadState.items]);
+  }, [savedItems]);
 
   const selectedStage: StageFilter =
     activeStage !== "all" && activeStage !== "saved" && stageCounts[activeStage] === 0
@@ -150,8 +163,8 @@ export default function SavedPage() {
   );
   const filteredItems =
     selectedStage === "all"
-      ? loadState.items
-      : loadState.items.filter((item) => item.bookmark_status === selectedStage);
+      ? savedItems
+      : savedItems.filter((item) => item.bookmark_status === selectedStage);
   const selectedStageLabel =
     selectedStage === "all" ? "All" : getStageLabel(selectedStage);
 
@@ -268,7 +281,7 @@ export default function SavedPage() {
             </Button>
           </CardFooter>
         </Card>
-      ) : loadState.items.length === 0 ? (
+      ) : savedItems.length === 0 ? (
         <section className="mt-10 flex flex-col items-center rounded-lg border border-border bg-card px-5 py-16 text-center shadow-soft sm:py-20">
           <div className="rounded-lg border border-border bg-secondary/40 p-3">
             <Bookmark className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
@@ -293,7 +306,7 @@ export default function SavedPage() {
             <button
               type="button"
               aria-pressed={selectedStage === "all"}
-              aria-label={`All: ${loadState.items.length} opportunities`}
+              aria-label={`All: ${savedItems.length} opportunities`}
               onClick={() => setActiveStage("all")}
               className={cn(
                 "flex items-center gap-1.5 whitespace-nowrap min-h-11 rounded-full border px-3 sm:min-h-9 py-1.5 text-sm font-medium transition-[background-color,color,box-shadow] duration-200 ease-[var(--ease-premium)]",
@@ -308,7 +321,7 @@ export default function SavedPage() {
                 aria-hidden="true"
                 className="tnum min-w-5 justify-center border-0 px-1.5 py-0.5 text-[11px] normal-case"
               >
-                {loadState.items.length}
+                {savedItems.length}
               </Badge>
             </button>
             {visibleStages.map((stage) => {
@@ -341,8 +354,8 @@ export default function SavedPage() {
           </div>
 
           <p id="saved-count" className="tnum mb-5 mt-5 text-sm text-muted-foreground">
-            {filteredItems.length} of {loadState.items.length}{" "}
-            {loadState.items.length === 1 ? "opportunity" : "opportunities"}
+            {filteredItems.length} of {savedItems.length}{" "}
+            {savedItems.length === 1 ? "opportunity" : "opportunities"}
             {selectedStage !== "all" && ` in ${selectedStageLabel.toLowerCase()}`}
           </p>
 

@@ -3,6 +3,7 @@ in Phase 1."""
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from api.auth import get_current_user
@@ -55,10 +56,14 @@ def add_bookmark(
     user: models.User = Depends(enforce_bookmark_write_limit),
 ) -> None:
     opportunity = _get_opportunity_or_404(db, opportunity_slug)
-    existing = db.get(models.Bookmark, (user.id, opportunity.id))
-    if existing is None:
-        db.add(models.Bookmark(user_id=user.id, opportunity_id=opportunity.id))
-        db.commit()
+    # The composite primary key arbitrates concurrent retries without resetting
+    # an existing application's stage. Both requests return the same 204.
+    db.execute(
+        insert(models.Bookmark)
+        .values(user_id=user.id, opportunity_id=opportunity.id)
+        .on_conflict_do_nothing(index_elements=["user_id", "opportunity_id"])
+    )
+    db.commit()
 
 
 @router.delete("/bookmarks/{opportunity_slug}", status_code=204)
@@ -67,7 +72,11 @@ def remove_bookmark(
     db: Session = Depends(get_db),
     user: models.User = Depends(enforce_bookmark_write_limit),
 ) -> None:
-    opportunity = _get_opportunity_or_404(db, opportunity_slug)
+    opportunity = db.scalar(
+        select(models.Opportunity).where(models.Opportunity.slug == opportunity_slug)
+    )
+    if opportunity is None:
+        return
     existing = db.get(models.Bookmark, (user.id, opportunity.id))
     if existing is not None:
         db.delete(existing)

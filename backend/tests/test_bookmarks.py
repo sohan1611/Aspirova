@@ -4,6 +4,7 @@ import uuid
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from api.auth import get_current_user
@@ -113,3 +114,48 @@ def test_patch_invalid_bookmark_status_returns_422(client, seeded) -> None:
     response = client.patch(f"/bookmarks/{opportunity.slug}", json={"status": "rejected"})
 
     assert response.status_code == 422
+
+
+def test_repeated_save_preserves_one_bookmark_and_its_stage(client, db_session, seeded) -> None:
+    opportunity = seeded["opportunity"]
+    assert client.post(f"/bookmarks/{opportunity.slug}").status_code == 204
+    assert (
+        client.patch(f"/bookmarks/{opportunity.slug}", json={"status": "interviewing"}).status_code
+        == 204
+    )
+    for _ in range(3):
+        assert client.post(f"/bookmarks/{opportunity.slug}").status_code == 204
+    assert (
+        db_session.scalar(
+            select(func.count())
+            .select_from(models.Bookmark)
+            .where(
+                models.Bookmark.user_id == seeded["user"].id,
+                models.Bookmark.opportunity_id == opportunity.id,
+            )
+        )
+        == 1
+    )
+    db_session.expire_all()
+    assert (
+        db_session.get(models.Bookmark, (seeded["user"].id, opportunity.id)).status
+        == "interviewing"
+    )
+
+
+def test_delete_retries_and_unknown_opportunity_succeed(client, seeded) -> None:
+    path = f"/bookmarks/{seeded['opportunity'].slug}"
+    assert client.post(path).status_code == 204
+    assert client.delete(path).status_code == 204
+    assert client.delete(path).status_code == 204
+    assert client.delete(f"/bookmarks/missing-{uuid.uuid4()}").status_code == 204
+
+
+def test_undo_can_restore_application_stage(client, seeded) -> None:
+    path = f"/bookmarks/{seeded['opportunity'].slug}"
+    assert client.post(path).status_code == 204
+    assert client.patch(path, json={"status": "offer"}).status_code == 204
+    assert client.delete(path).status_code == 204
+    assert client.post(path).status_code == 204
+    assert client.patch(path, json={"status": "offer"}).status_code == 204
+    assert client.get("/bookmarks").json()[0]["bookmark_status"] == "offer"
