@@ -381,7 +381,7 @@ export default function ProfileSection({
                       Change
                     </Button>
                   </CountryPicker>
-                  <p className="basis-full">Your country is saved on this device only.</p>
+                  <p className="basis-full">Your country is saved to your account, so it follows you across devices.</p>
                 </div>
               )}
               {collegeCountryNotice && selectedCountry && (
