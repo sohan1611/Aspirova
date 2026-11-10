@@ -367,6 +367,7 @@ class UnstopAdapter:
             category=category,
             description_raw=extract_text(_as_text(opportunity.get("details"))),
             apply_url=apply_url,
+            posted_at=_parse_approved_date(opportunity.get("approved_date")),
             deadline=deadline,
             meta=meta,
             deadline_confidence="explicit" if deadline is not None else "unknown",
@@ -710,6 +711,43 @@ def _parse_iso_datetime(value: Any) -> datetime | None:
         return None
     if parsed.tzinfo is None:
         return parsed.replace(tzinfo=UTC)
+    return parsed
+
+
+_APPROVED_DATE_RE = re.compile(
+    r"^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})\s*(?:GMT|UTC)?\s*([+-]\d{2}:?\d{2})$"
+)
+
+
+def _parse_approved_date(value: Any) -> datetime | None:
+    """When the listing went live on Unstop: ``approved_date``.
+
+    The live search API sends it as "2026-11-10 17:47:40 GMT+0530" (checked
+    2026-11-10). A timestamp without an offset is ambiguous (IST or UTC), so it
+    is treated as unknown, as is a future or implausibly old date.
+    """
+    text = _as_text(value)
+    if not text:
+        return None
+    match = _APPROVED_DATE_RE.match(text)
+    if match:
+        day, clock, offset = match.groups()
+        try:
+            parsed = datetime.strptime(
+                f"{day} {clock} {offset.replace(':', '')}", "%Y-%m-%d %H:%M:%S %z"
+            )
+        except ValueError:
+            return None
+    else:
+        try:
+            parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        if parsed.tzinfo is None:
+            return None
+    parsed = parsed.astimezone(UTC)
+    if parsed.year < 2000 or parsed > datetime.now(UTC) + timedelta(days=1):
+        return None
     return parsed
 
 

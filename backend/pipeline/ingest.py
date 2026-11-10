@@ -409,6 +409,18 @@ def ingest_one(
             ):
                 changed_slugs.add(opportunity.slug)
 
+        # Fill a missing posting date from the primary source even when the raw
+        # payload is unchanged (an adapter learned to read the source's date), but
+        # never overwrite one: upstreams re-stamp unchanged listings. Not added to
+        # changed_slugs, so a first crawl that dates many rows cannot start a burst
+        # of page revalidations; pages pick the date up on their normal ISR cycle.
+        if (
+            opportunity.posted_at is None
+            and normalized.posted_at is not None
+            and opportunity.primary_source in (None, raw.source_slug)
+        ):
+            opportunity.posted_at = normalized.posted_at
+
         mark_seen(opportunity)
         raw_row.processed = True
 
