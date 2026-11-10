@@ -10,6 +10,7 @@ import DeadlineBox from "@/components/DeadlineBox";
 import RecordOpportunityView from "@/components/RecordOpportunityView";
 import ReportIssueDialog from "@/components/ReportIssueDialog";
 import ShareButton from "@/components/ShareButton";
+import TrackerStageNotice from "@/components/TrackerStageNotice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import FollowCompanyButton from "@/components/FollowCompanyButton";
@@ -298,6 +299,7 @@ export default async function OpportunityPage({ params }: PageProps) {
 
             <div className="border-b border-border pb-6">
               <section aria-label="Application actions" className="mt-5 min-w-0 [&_button]:min-h-11 [&_a]:min-h-11 sm:mt-6">
+                <TrackerStageNotice slug={opportunity.slug} />
                 <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
                   <div className="flex w-full min-w-0 max-w-full flex-wrap items-center gap-3 sm:contents">
                     {closed ? (
