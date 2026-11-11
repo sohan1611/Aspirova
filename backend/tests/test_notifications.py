@@ -1360,10 +1360,14 @@ def test_closing_soon_sends_saved_and_skips_other_stages(
     assert notified_ids == {saved.id}
 
 
-def test_closing_soon_skips_closed_hidden_and_unsourced_deadlines(
+def test_closing_soon_skips_closed_and_unsourced_deadlines(
     db_session, sent_emails, source_and_company
 ) -> None:
-    """N-07: no reminder for a confirmed-closed, hidden or unsourced-deadline listing."""
+    """N-07: no reminder for a confirmed-closed or unsourced-deadline listing.
+
+    A saved is_hidden listing IS reminded: is_hidden is the long-tail /
+    premium-visibility flag, not moderation, and the member could see it.
+    """
     _source, company = source_and_company
     now = datetime(2026, 7, 11, 12, tzinfo=timezone.utc)
     user = _make_user(db_session)
@@ -1381,7 +1385,7 @@ def test_closing_soon_skips_closed_hidden_and_unsourced_deadlines(
     confirmed_closed = saved("Confirmed closed in grace")
     # Closing on absence keeps status 'active' through the grace period.
     confirmed_closed.closed_at = now - timedelta(hours=3)
-    hidden = saved("Hidden by moderation")
+    hidden = saved("Premium-visibility listing")
     hidden.is_hidden = True
     inferred = saved("Inferred deadline", deadline_confidence="inferred")
     unknown = saved("Unknown deadline", deadline_confidence="unknown")
@@ -1392,8 +1396,9 @@ def test_closing_soon_skips_closed_hidden_and_unsourced_deadlines(
 
     emails = [email for email in sent_emails if email["to"] == user.email]
     assert len(emails) == 1
-    assert emails[0]["subject"] == f"'{open_listing.title}' closes in 2 days"
-    for skipped in (confirmed_closed, hidden, inferred, unknown, passed_now):
+    assert emails[0]["subject"] == "2 opportunities closing soon"
+    assert open_listing.title in emails[0]["text"] and hidden.title in emails[0]["text"]
+    for skipped in (confirmed_closed, inferred, unknown, passed_now):
         assert skipped.title not in emails[0]["text"]
     notified_ids = set(
         db_session.scalars(
@@ -1403,5 +1408,5 @@ def test_closing_soon_skips_closed_hidden_and_unsourced_deadlines(
             )
         )
     )
-    assert notified_ids == {open_listing.id}
-    assert result["opportunities"] >= 1
+    assert notified_ids == {open_listing.id, hidden.id}
+    assert result["opportunities"] >= 2

@@ -96,6 +96,14 @@ def _render_saved_search_alert(
     count = len(opportunities)
     summary = f"{count} new {'match' if count == 1 else 'matches'} for ‘{label}’"
     body, cards_text, _ = grouped_cards(opportunities, now=now or datetime.now(timezone.utc))
+    # N-09: name the exact filters even when the search has its own name, so the
+    # reader can reproduce the match.
+    filters = _filter_summary(params)
+    search = f"‘{label}’" if filters == label else f"‘{label}’ ({filters})"
+    reason = (
+        f"You get this because your saved search {search} found listings that are new "
+        "since its last alert. Pause or edit it under Saved searches in your account."
+    )
     html = email_layout(
         title="New matches for your saved search",
         kind_label="Saved search",
@@ -106,8 +114,11 @@ def _render_saved_search_alert(
         body_html=body,
         cta_label="See all matches",
         cta_url=_saved_search_url(params),
+        footer_note=reason,
     )
-    return html, "\n\n".join([greeting(display_name), summary, cards_text, text_footer(unsub_url)])
+    return html, "\n\n".join(
+        [greeting(display_name), summary, cards_text, reason, text_footer(unsub_url)]
+    )
 
 
 def send_saved_search_alerts(
