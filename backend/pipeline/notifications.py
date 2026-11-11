@@ -205,6 +205,38 @@ def _digest_window_start(history: DigestHistory, now: datetime) -> datetime:
     return max(history.last_sent_at, now - DIGEST_WINDOW_MAX)
 
 
+def _digest_since_label(history: DigestHistory, since: datetime, now: datetime) -> str:
+    """Name the digest window the way _digest_window_start chose it (N-09)."""
+    if history.last_sent_at is not None and since == history.last_sent_at:
+        sent = history.last_sent_at
+        return f"since your last digest on {sent.day} {sent:%b}"
+    days = max(1, round((now - since).total_seconds() / 86400))
+    return "in the last 24 hours" if days == 1 else f"in the last {days} days"
+
+
+def _digest_reason(
+    *, has_jobs: bool, has_events: bool, jobs_from_followed: bool, since_label: str
+) -> str:
+    """Why this reader got this digest, stated as the rule that picked it (N-09)."""
+    parts = ["You get this because the daily digest is on."]
+    if has_jobs:
+        if jobs_from_followed:
+            parts.append(f"The roles are new at companies you follow, found {since_label}.")
+        else:
+            parts.append(
+                "The roles are the newest internships and jobs for students that we found "
+                f"{since_label}, spread across companies. Follow companies to get their "
+                "roles first."
+            )
+    if has_events:
+        parts.append(
+            "The hackathons and competitions are still open for entry, and none repeat "
+            "from your digests of the last 7 days."
+        )
+    parts.append("Change what you get under Manage email preferences.")
+    return " ".join(parts)
+
+
 def _dream_company_opportunities(
     session: Session,
     user_id,
@@ -363,6 +395,8 @@ def _render_digest(
     display_name: str | None = None,
     now: datetime | None = None,
     hackathons: list[models.Opportunity] | None = None,
+    jobs_from_followed: bool = False,
+    since_label: str = "since your last digest",
 ) -> tuple[str, str]:
     current = now or datetime.now(timezone.utc)
     jobs = [o for o in opportunities if o.category not in _HACKATHON_CATEGORIES]
@@ -407,6 +441,12 @@ def _render_digest(
         if not first_card:
             company = events[0].company.name if events[0].company else "Unknown"
             first_card = f"{events[0].title} at {company}"
+    reason = _digest_reason(
+        has_jobs=bool(jobs),
+        has_events=bool(events),
+        jobs_from_followed=jobs_from_followed,
+        since_label=since_label,
+    )
     html = email_layout(
         title="Your daily opportunity digest",
         kind_label="Daily digest",
@@ -417,9 +457,19 @@ def _render_digest(
         unsubscribe_url=unsub_url,
         cta_label="See all on Aspirova",
         cta_url=get_settings().site_url,
+        footer_note=reason,
     )
-    text = "\n\n".join([greeting(display_name), summary, cards_text, text_footer(unsub_url)])
+    text = "\n\n".join(
+        [greeting(display_name), summary, cards_text, reason, text_footer(unsub_url)]
+    )
     return html, text
+
+
+_CLOSING_SOON_REASON = (
+    "You get this because you saved these listings and each deadline, as its source "
+    "states it, falls within the next 3 days. Turn these reminders off under Manage "
+    "email preferences."
+)
 
 
 def _render_closing_soon(
@@ -469,6 +519,7 @@ def _render_closing_soon(
         ),
         cta_label="Review your saved opportunities",
         cta_url=f"{get_settings().site_url.rstrip('/')}/saved",
+        footer_note=_CLOSING_SOON_REASON,
     )
     return subject, html
 
@@ -494,6 +545,7 @@ def _render_closing_soon_text(
             "Your bookmarked opportunities are closing soon:",
             *cards,
             "Deadlines can change. Please verify them at the linked source.",
+            _CLOSING_SOON_REASON,
             text_footer(unsub_url),
         ]
     )
@@ -558,6 +610,7 @@ def compose_daily_digest(
         for o in _dream_company_opportunities(session, user.id, since, now, history.recent_ids)
         if not _already_alerted(session, user.id, o.id)
     ]
+    jobs_from_followed = bool(opportunities)
     if not opportunities:
         # The generic fallback is a separate, unrelated query (all recent active
         # opportunities, not just dream-company ones) - it must ALSO exclude
@@ -598,6 +651,8 @@ def compose_daily_digest(
         display_name=user.display_name,
         now=now,
         hackathons=hackathons,
+        jobs_from_followed=jobs_from_followed,
+        since_label=_digest_since_label(history, since, now),
     )
     return draft
 
@@ -815,8 +870,10 @@ def send_closing_soon_alerts(
                         models.Opportunity.status == "active",
                         # A listing confirmed closed keeps status 'active' through its
                         # grace period, so status alone would still remind about it.
+                        # is_hidden is deliberately not filtered: it is the long-tail /
+                        # premium-visibility flag, not moderation, and a member who
+                        # saved such a listing should still be reminded.
                         models.Opportunity.closed_at.is_(None),
-                        models.Opportunity.is_hidden.is_not(True),
                         exclude_stale_opportunities(now),
                         # Only a deadline the source states: an inferred or unknown
                         # date must not be emailed as "closes in N days".

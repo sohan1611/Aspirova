@@ -188,7 +188,14 @@ def _render_weekly_report(
     html_parts.append(
         f'<p class="em-muted" style="color:{MUTED};font-size:12px;line-height:18px">{note}</p>'
     )
-    text_parts.extend([note, text_footer(unsub_url)])
+    # N-09: state the rule behind each section, so every pick is reproducible.
+    reason = (
+        "You get this every week because the weekly career report is on. Dream-company "
+        "matches are new roles at companies you follow; Closing soon lists listings you "
+        "saved whose deadline is in the next 7 days. Change what you get under Manage "
+        "email preferences."
+    )
+    text_parts.extend([note, reason, text_footer(unsub_url)])
     html = email_layout(
         title="Your weekly career report",
         kind_label="Weekly report",
@@ -199,6 +206,7 @@ def _render_weekly_report(
         body_html="".join(html_parts),
         cta_label="Open Aspirova",
         cta_url=get_settings().site_url,
+        footer_note=reason,
     )
     return html, "\n\n".join(text_parts)
 
