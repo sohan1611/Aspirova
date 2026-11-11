@@ -156,12 +156,18 @@ def _render_weekly_report(
             data.closing_soon,
             "No tracked opportunities close in the next seven days.",
         ),
-        (
-            "New hidden opportunities",
-            data.hidden_opportunities,
-            "No new hidden opportunities this week.",
-        ),
     ]
+    # Hidden opportunities are neither running nor sold (README 2026-11-03: Pro sells
+    # only what runs), so an always-empty section would advertise a missing feature.
+    # It appears again as soon as there is something in it.
+    if data.hidden_opportunities:
+        sections.append(
+            (
+                "New hidden opportunities",
+                data.hidden_opportunities,
+                "No new hidden opportunities this week.",
+            )
+        )
     count = sum(len(items) for _, items, _ in sections)
     summary = f"{count} {'pick' if count == 1 else 'picks'} for you this week"
     text_parts = ["Your Aspirova weekly career report", greeting(user.display_name), summary]

@@ -148,3 +148,25 @@ def test_weekly_report_states_how_each_section_is_picked() -> None:
     assert "You get this every week because the weekly career report is on." in combined
     assert "Dream-company matches are new roles at companies you follow" in combined
     assert "saved whose deadline is in the next 7 days" in combined
+
+
+def test_weekly_report_omits_the_empty_hidden_section() -> None:
+    """Hidden opportunities are not a running feature; an empty section would sell it."""
+    user = models.User(display_name="Asha", email="asha@example.com")
+    empty = WeeklyReportData(
+        dream_company_matches=[_opportunity(1, "internship")],
+        closing_soon=[],
+        hidden_opportunities=[],
+        intro=None,
+    )
+    html, text = _render_weekly_report(user, empty, unsub_url=None, now=NOW)
+    assert "hidden opportunities" not in _both(html, text).lower()
+
+    with_hidden = WeeklyReportData(
+        dream_company_matches=[],
+        closing_soon=[],
+        hidden_opportunities=[_opportunity(9, "job")],
+        intro=None,
+    )
+    html, text = _render_weekly_report(user, with_hidden, unsub_url=None, now=NOW)
+    assert "New hidden opportunities" in _both(html, text)
