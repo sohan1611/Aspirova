@@ -6,9 +6,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getAccount } from "@/lib/api";
+import { getAccount, getEmailSample, type EmailSample, type EmailSampleKind } from "@/lib/api";
 import { useCurrency } from "@/lib/country";
+import { withNewTabLinks } from "@/lib/emailPreview";
 import { FEATURE_LABELS } from "@/lib/planFeatures";
 import type { PlanPublic, PlanState } from "@/lib/types";
 import { useSession } from "@/lib/useSession";
@@ -16,9 +25,85 @@ import { cn } from "@/lib/utils";
 import SubscribeButton from "./SubscribeButton";
 import WaitlistForm from "./WaitlistForm";
 
-function featureLines(features: PlanPublic["features"]): string[] {
-  return FEATURE_LABELS.map(([key, label]) => label(features[key])).filter(
-    (line): line is string => line !== null,
+function featureLines(features: PlanPublic["features"]): { key: string; line: string }[] {
+  return FEATURE_LABELS.flatMap(([key, label]) => {
+    const line = label(features[key]);
+    return line === null ? [] : [{ key, line }];
+  });
+}
+
+function EmailSampleExample({ kind }: { kind: EmailSampleKind }) {
+  const [open, setOpen] = useState(false);
+  const [sample, setSample] = useState<EmailSample | null>(null);
+  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const requestRef = useRef(0);
+  const title = kind === "company-alert"
+    ? "Example: company alert email"
+    : "Example: weekly career report";
+
+  async function loadSample() {
+    const requestId = ++requestRef.current;
+    setState("loading");
+    setSample(null);
+    try {
+      const result = await getEmailSample(kind);
+      if (requestRef.current !== requestId) return;
+      setSample(result);
+      setState("ready");
+    } catch {
+      if (requestRef.current !== requestId) return;
+      setState("error");
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(nextOpen) => {
+      setOpen(nextOpen);
+      if (nextOpen) void loadSample();
+      else requestRef.current += 1;
+    }}>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex min-h-6 items-center text-xs font-medium text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        >
+          See an example
+        </button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)] sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>
+            Sample email with example data. These are not real listings.
+          </DialogDescription>
+        </DialogHeader>
+        {state === "loading" ? (
+          <div role="status" className="space-y-2">
+            <p className="text-sm text-muted-foreground">Loading example…</p>
+            <Skeleton className="h-[60dvh] w-full" />
+          </div>
+        ) : state === "error" ? (
+          <div className="space-y-3">
+            <p role="alert" className="text-sm text-muted-foreground">
+              We couldn&apos;t load the example. Please try again.
+            </p>
+            <Button type="button" variant="outline" size="sm" onClick={() => void loadSample()}>
+              Retry
+            </Button>
+          </div>
+        ) : sample ? (
+          <div className="min-h-0 space-y-2 overflow-y-auto">
+            <p className="text-sm text-muted-foreground">Subject: {sample.subject}</p>
+            <iframe
+              title={title}
+              sandbox="allow-popups allow-popups-to-escape-sandbox"
+              srcDoc={withNewTabLinks(sample.html)}
+              className="h-[60dvh] w-full rounded-md border border-border bg-white"
+            />
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -280,13 +365,17 @@ export default function PricingPlans({
               </CardHeader>
               <CardContent className="flex-1">
                 <ul className="space-y-3 text-sm leading-6 text-muted-foreground">
-                  {featureLines(plan.features).map((line) => (
-                    <li key={line} className="flex items-start gap-2.5">
+                  {featureLines(plan.features).map(({ key, line }) => (
+                    <li key={key} className="flex items-start gap-2.5">
                       <Check
                         className="mt-1 size-4 shrink-0 text-primary"
                         aria-hidden="true"
                       />
-                      {line}
+                      <span>
+                        {line}{" "}
+                        {key === "instant_alerts" && <EmailSampleExample kind="company-alert" />}
+                        {key === "weekly_report" && <EmailSampleExample kind="weekly-report" />}
+                      </span>
                     </li>
                   ))}
                 </ul>
