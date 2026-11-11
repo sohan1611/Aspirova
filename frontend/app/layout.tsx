@@ -11,6 +11,7 @@ import ReferralCapture from "@/components/ReferralCapture";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { AUTH_PENDING_SCRIPT } from "@/lib/authPending";
+import { HOW_IT_WORKS_DISMISSED_SCRIPT } from "@/lib/howItWorks";
 import "./globals.css";
 
 const inter = Inter({
@@ -67,6 +68,7 @@ export default function RootLayout({
       <head>
         {/* Decide likely auth state before first paint to avoid signed-out flashes. */}
         <script dangerouslySetInnerHTML={{ __html: AUTH_PENDING_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: HOW_IT_WORKS_DISMISSED_SCRIPT }} />
       </head>
       <body className="min-h-full flex flex-col pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
         <ThemeProvider attribute="class" forcedTheme="light" disableTransitionOnChange>
