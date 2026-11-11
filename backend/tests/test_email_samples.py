@@ -1,5 +1,7 @@
 """Pricing email examples must render without a database or real employer data."""
 
+from datetime import datetime, timezone
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.engine import Engine
@@ -67,3 +69,14 @@ def test_samples_advertise_only_running_features(client, kind):
 
     assert "AI-assisted" not in html
     assert "AI-powered" not in html
+
+
+def test_sample_dates_follow_today_so_no_deadline_is_past():
+    """A fixed sample date would show deadlines in the past on the pricing page."""
+    _subject, html = render_sample("weekly-report")
+    _subject, fixed = render_sample(
+        "weekly-report", now=datetime(2026, 11, 8, 9, tzinfo=timezone.utc)
+    )
+
+    assert "Deadline 10 Nov 2026" in fixed
+    assert html != fixed or datetime.now(timezone.utc).date().isoformat() == "2026-11-08"
