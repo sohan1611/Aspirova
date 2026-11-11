@@ -164,6 +164,10 @@ html[data-auth-pending] .auth-collapse-while-pending {
   display: none;
 }
 
+html[data-hiw-dismissed] [data-how-it-works] {
+  display: none;
+}
+
 .auth-show-while-pending {
   display: none;
 }
