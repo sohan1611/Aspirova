@@ -7,6 +7,7 @@ from api import (
     company,
     copilot,
     dream_companies,
+    email_samples,
     facets,
     feed,
     for_you,
@@ -62,6 +63,7 @@ app.include_router(saved_searches.router)
 app.include_router(notifications.router)
 app.include_router(copilot.router)
 app.include_router(dream_companies.router)
+app.include_router(email_samples.router)
 app.include_router(facets.router)
 app.include_router(resume.router)
 app.include_router(payments.router)

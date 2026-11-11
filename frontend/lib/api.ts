@@ -33,6 +33,19 @@ import type {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+export type EmailSampleKind = "company-alert" | "weekly-report";
+
+export interface EmailSample {
+  subject: string;
+  html: string;
+}
+
+export async function getEmailSample(kind: EmailSampleKind): Promise<EmailSample> {
+  const res = await fetch(`${API_URL}/email-samples/${kind}`);
+  if (!res.ok) throw new Error(`Failed to load email example: ${res.status}`);
+  return res.json();
+}
+
 export async function getExternalCompanyLogos(): Promise<Record<string, CompanySummary>> {
   const res = await fetch(`${API_URL}/companies/external`);
   if (!res.ok) throw new Error(`Failed to load external company logos: ${res.status}`);

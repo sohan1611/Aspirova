@@ -23,6 +23,7 @@ import CompanyPicker from "@/components/CompanyPicker";
 import DomainPicker from "@/components/DomainPicker";
 import { companyAlertLimitMessage, DigestPreviewRateLimitError, FollowLimitError, getDigestPreview, getDreamCompanies, removeDreamCompany, saveCompanyAlerts, updateAccount } from "@/lib/api";
 import { companyAlertSavedMessage, formatDomains } from "@/lib/roleSignalQuery";
+import { withNewTabLinks } from "@/lib/emailPreview";
 import type { AccountMe, CompanyListItem, DigestPreview, DigestStatus, DreamCompanyItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -196,15 +197,6 @@ function digestStatusText(status: DigestStatus | null, enabled: boolean): string
   }
   if (delivered) return delivered;
   return enabled ? "No digest has been sent to you yet." : "You are not receiving the daily digest.";
-}
-
-// Opens links from the preview in a new tab: inside the sandboxed frame they
-// would otherwise try to load the site in the frame, which it refuses.
-function withNewTabLinks(html: string): string {
-  const base = '<base target="_blank">';
-  return /<head(\s[^>]*)?>/i.test(html)
-    ? html.replace(/<head(\s[^>]*)?>/i, (head) => `${head}${base}`)
-    : `${base}${html}`;
 }
 
 function DigestDetails({
