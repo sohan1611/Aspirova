@@ -71,7 +71,8 @@ function EmailSampleExample({ kind }: { kind: EmailSampleKind }) {
         </button>
       </DialogTrigger>
       <DialogContent className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)] sm:max-w-2xl">
-        <DialogHeader>
+        {/* Clear the 44px close button that sits top-right on phones. */}
+        <DialogHeader className="pr-10 sm:pr-6">
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
             Sample email with example data. These are not real listings.
