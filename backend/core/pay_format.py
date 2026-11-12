@@ -2,11 +2,56 @@
 
 import math
 
+# Approximate rates used only to order listings across currencies, never shown to users.
+INR_PER_UNIT = {
+    "INR": 1.0,
+    "USD": 88.0,
+    "EUR": 102.0,
+    "GBP": 117.0,
+    "CAD": 63.0,
+    "AUD": 58.0,
+    "SGD": 68.0,
+}
+HOURS_PER_MONTH = 173.0  # 40 h x 52 weeks / 12.
+PERIOD_TO_MONTH = {"month": 1.0, "year": 1 / 12, "hour": HOURS_PER_MONTH}
+# About $114/hour. Higher student-listing hourly rates are parse errors.
+MAX_PLAUSIBLE_HOURLY_INR = 10_000.0
+MAX_PLAUSIBLE_MONTHLY_INR = 2_500_000.0  # Rs 25 lakh/month, about Rs 3 crore/year.
+
 
 def _positive_number(value: object) -> float | None:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
-    return float(value) if math.isfinite(value) and value > 0 else None
+    try:
+        number = float(value)
+    except OverflowError:
+        return None
+    return number if math.isfinite(number) and number > 0 else None
+
+
+def monthly_inr_equivalent(meta: dict | None) -> float | None:
+    """Normalize disclosed pay for ordering, dropping implausible parsed amounts."""
+    compensation = meta.get("compensation") if isinstance(meta, dict) else None
+    if not isinstance(compensation, dict) or compensation.get("unpaid") is True:
+        return None
+    amount = _positive_number(compensation.get("max"))
+    if amount is None:
+        amount = _positive_number(compensation.get("min"))
+    currency = compensation.get("currency")
+    period = compensation.get("period")
+    if (
+        amount is None
+        or not isinstance(currency, str)
+        or currency not in INR_PER_UNIT
+        or not isinstance(period, str)
+        or period not in PERIOD_TO_MONTH
+    ):
+        return None
+    fx = INR_PER_UNIT[currency]
+    if period == "hour" and amount * fx > MAX_PLAUSIBLE_HOURLY_INR:
+        return None
+    monthly = amount * PERIOD_TO_MONTH[period] * fx
+    return monthly if monthly <= MAX_PLAUSIBLE_MONTHLY_INR else None
 
 
 def _indian_amount(value: float) -> str:

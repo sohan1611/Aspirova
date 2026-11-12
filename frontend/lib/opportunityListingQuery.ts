@@ -1,6 +1,7 @@
 import { type FeedParams, getFeed, searchOpportunities } from "@/lib/api";
 import { parseRoleSignalParams, ROLE_FILTER_KEYS } from "@/lib/roleSignalQuery";
 import { buildPagePath } from "@/lib/pagination";
+import { parseSortParams, type UiSort } from "@/lib/sortParams";
 import type { FacetOption } from "@/lib/types";
 
 export const OPPORTUNITY_LISTING_LIMIT = 20;
@@ -12,7 +13,7 @@ export type OpportunityListingPath =
   | "/remote"
   | "/scholarships"
   | "/competitions";
-export type OpportunityListingSort = "student" | "recent" | "deadline";
+export type OpportunityListingSort = "student" | "recent" | "deadline" | "pay";
 export type OpportunityListingLocation = "all" | "india" | "abroad" | "remote";
 
 export interface OpportunityListingRequest {
@@ -20,6 +21,9 @@ export interface OpportunityListingRequest {
   page: number;
   limit: number;
   sort: OpportunityListingSort;
+  uiSort: UiSort;
+  forStudents: boolean;
+  students?: boolean;
   filters: FeedParams;
   prefer_country?: string;
   canReusePrerendered: boolean;
@@ -87,17 +91,6 @@ export function parseRepeatedParam(sp: URLSearchParams, key: string): string[] {
 
 function parsePage(value: string | null, fallback: number): number {
   return Math.max(1, Number(value ?? String(fallback)) || fallback);
-}
-
-function parseSort(
-  value: string | null,
-  defaultSort: OpportunityListingSort,
-): OpportunityListingSort {
-  if (value === "student" || value === "recent" || value === "deadline") {
-    return value;
-  }
-
-  return defaultSort;
 }
 
 function parseScope(value: string | null): FeedParams["scope"] | undefined {
@@ -197,6 +190,8 @@ export function clearOpportunityListingFilters(params: URLSearchParams) {
     params.delete(key);
   }
   params.delete("remote_abroad");
+  params.delete("sort");
+  params.delete("students");
 }
 
 export function opportunityListingHref(
@@ -212,9 +207,12 @@ export function parseOpportunityListingRequest(
   options: OpportunityListingParseOptions,
 ): OpportunityListingRequest {
   const q = normalizeSearch(sp.get("q"));
-  const sort = parseSort(sp.get("sort"), options.defaultSort);
+  const sortState = parseSortParams(sp);
+  const { sort, forStudents } = sortState;
   const hasActiveFilters = hasActiveFilterParam(sp, options.baseQuery);
-  const hasActiveClientParams = Boolean(q || hasActiveFilters || sort !== options.defaultSort);
+  const hasActiveClientParams = Boolean(
+    q || hasActiveFilters || sort !== options.defaultSort || !forStudents,
+  );
   const page = parsePage(
     sp.get("page"),
     hasActiveClientParams ? 1 : options.initialPage,
@@ -238,18 +236,20 @@ export function parseOpportunityListingRequest(
     !q &&
     !hasActiveFilters &&
     sort === options.defaultSort &&
+    forStudents &&
     page === options.initialPage;
   const usesServerPagination =
     !q &&
     !hasActiveFilters &&
     sort === options.defaultSort &&
+    forStudents &&
     !sp.has("page");
 
   return {
     q,
     page,
     limit: options.limit,
-    sort,
+    ...sortState,
     filters,
     canReusePrerendered,
     usesServerPagination,
@@ -263,7 +263,7 @@ export function loadOpportunityListingData(
   if (request.q) {
     return searchOpportunities(
       request.q,
-      { ...request.filters, sort: request.sort },
+      { ...request.filters, sort: request.sort, students: request.students },
       request.page,
       request.limit,
     );
@@ -274,6 +274,7 @@ export function loadOpportunityListingData(
       ...request.filters,
       prefer_country: request.prefer_country ?? request.filters.prefer_country,
       sort: request.sort,
+      students: request.students,
       page: request.page,
       limit: request.limit,
     },

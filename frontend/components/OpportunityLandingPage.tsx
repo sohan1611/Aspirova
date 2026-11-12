@@ -112,6 +112,7 @@ export default function OpportunityLandingPage({
   limit,
   basePath,
   query,
+  // All current listing pages use this default, mapped to Newest + For students ON.
   defaultSort = "student",
   children,
 }: OpportunityLandingPageProps) {

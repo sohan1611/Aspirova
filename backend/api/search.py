@@ -32,7 +32,9 @@ from api.filters import (
     listing_closed,
     location_scope_filters,
     opportunity_filters,
+    pay_rank_expression,
     role_signal_filters,
+    student_rank_expression,
 )
 from api.opportunity_loading import opportunity_list_load_options
 from api.schemas import OpportunityListItem, SearchResponse
@@ -55,16 +57,35 @@ def _count_matches(db: Session, base_filters: list, search_predicate) -> int:
     )
 
 
-def _search_ordering(sort: str, relevance) -> list:
+def _search_ordering(sort: str, relevance, student_first: bool = False) -> list:
     ordering = []
-    if sort in {"recent", "deadline", "prize"}:
+    if sort in {"recent", "deadline", "prize", "pay"}:
         is_closed = case((listing_closed(), 1), else_=0)
         ordering.append(is_closed.asc())
         if sort == "recent":
+            if student_first:
+                ordering.append(student_rank_expression().asc())
             ordering.append(effective_posted_at().desc())
         elif sort == "deadline":
             open_deadline = case((is_closed == 0, models.Opportunity.deadline), else_=None)
+            if student_first:
+                ordering.extend(
+                    [
+                        case((open_deadline.is_(None), 1), else_=0).asc(),
+                        student_rank_expression().asc(),
+                    ]
+                )
             ordering.append(open_deadline.asc().nullslast())
+        elif sort == "pay":
+            pay_rank = pay_rank_expression()
+            if student_first:
+                ordering.extend(
+                    [
+                        case((pay_rank.is_(None), 1), else_=0).asc(),
+                        student_rank_expression().asc(),
+                    ]
+                )
+            ordering.append(pay_rank.desc().nullslast())
         else:
             ordering.append(competition_prize_expression().desc().nullslast())
     ordering.extend([relevance.desc(), models.Opportunity.id.desc()])
@@ -101,11 +122,13 @@ def search_opportunities(
     posted_within: int | None = Query(None),
     role: str | None = Query(None, pattern=ROLE_QUERY_PATTERN),
     top: int | None = Query(None, gt=0),
-    sort: str = Query("student", pattern="^(recent|deadline|student|prize)$"),
+    sort: str = Query("student", pattern="^(recent|deadline|student|prize|pay)$"),
+    students: bool | None = Query(None),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
 ) -> SearchResponse:
+    student_first = students if students is not None else sort == "student"
     extra_filters = opportunity_filters(category, remote, company, location, top)
     base_filters = [
         models.Opportunity.status == "active",
@@ -154,7 +177,7 @@ def search_opportunities(
             .options(*opportunity_list_load_options())
             .where(*base_filters)
             .where(matches_fts)
-            .order_by(*_search_ordering(sort, rank))
+            .order_by(*_search_ordering(sort, rank, student_first))
         )
         opportunities = db.execute(fts_query.offset(offset).limit(limit)).unique().scalars().all()
         items = [OpportunityListItem.from_model(opportunity) for opportunity in opportunities]
@@ -171,7 +194,7 @@ def search_opportunities(
         .options(*opportunity_list_load_options())
         .where(*base_filters)
         .where(matches_trigram)
-        .order_by(*_search_ordering(sort, similarity))
+        .order_by(*_search_ordering(sort, similarity, student_first))
     )
     opportunities = db.execute(fallback_query.offset(offset).limit(limit)).unique().scalars().all()
 

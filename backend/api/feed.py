@@ -30,6 +30,7 @@ from api.filters import (
     listing_closed,
     location_scope_filters,
     opportunity_filters,
+    pay_rank_expression,
     role_signal_filters,
     student_rank_expression,
 )
@@ -71,12 +72,14 @@ def get_feed(
     posted_within: int | None = Query(None),
     role: str | None = Query(None, pattern=ROLE_QUERY_PATTERN),
     top: int | None = Query(None, gt=0),
-    sort: str = Query("student", pattern="^(recent|deadline|student|prize)$"),
+    sort: str = Query("student", pattern="^(recent|deadline|student|prize|pay)$"),
+    students: bool | None = Query(None),
     prefer_logos: bool = Query(False),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
 ) -> FeedResponse:
+    student_first = students if students is not None else sort == "student"
     base_filters = [
         models.Opportunity.status == "active",
         exclude_stale_opportunities(),
@@ -109,7 +112,7 @@ def get_feed(
     source_rank = None
     posted_at = effective_posted_at()
     posted_day = cast(func.timezone("UTC", posted_at), Date)
-    if sort not in {"deadline", "prize"}:
+    if sort not in {"deadline", "prize", "pay"}:
         partition_by = [func.coalesce(models.Opportunity.primary_source, "")]
         source_posted_at = models.Opportunity.last_seen_at
         if sort == "recent":
@@ -214,7 +217,18 @@ def get_feed(
 
     student_rank = student_rank_expression()
 
-    if sort == "prize":
+    if sort == "pay":
+        pay_rank = pay_rank_expression()
+        if student_first:
+            ordering.extend([case((pay_rank.is_(None), 1), else_=0).asc(), student_rank.asc()])
+        ordering.extend(
+            [
+                pay_rank.desc().nullslast(),
+                posted_at.desc(),
+                models.Opportunity.id.desc(),
+            ]
+        )
+    elif sort == "prize":
         ordering.extend(
             [
                 competition_prize_expression().desc().nullslast(),
@@ -227,6 +241,8 @@ def get_feed(
             (is_closed == 0, models.Opportunity.deadline),
             else_=None,
         )
+        if student_first:
+            ordering.extend([case((open_deadline.is_(None), 1), else_=0).asc(), student_rank.asc()])
         ordering.extend(
             [
                 open_deadline.asc().nullslast(),
@@ -244,6 +260,8 @@ def get_feed(
             ]
         )
     else:
+        if student_first:
+            ordering.append(student_rank.asc())
         ordering.extend(
             [
                 posted_day.desc(),

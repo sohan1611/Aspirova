@@ -3,6 +3,7 @@
 import {
   ArrowUpDown,
   ChevronDown,
+  GraduationCap,
   Loader2,
   Search,
   SlidersHorizontal,
@@ -38,6 +39,7 @@ import type { Facets } from "@/lib/types";
 import EmailMatchesButton from "@/components/EmailMatchesButton";
 import { getSavedSearchParams, hasSavedSearchParams } from "@/lib/savedSearchParams";
 import { cn } from "@/lib/utils";
+import { parseSortParams, writeSortParams, type UiSort } from "@/lib/sortParams";
 
 const CATEGORY_OPTIONS = [
   { value: null, label: "All" },
@@ -185,12 +187,7 @@ export default function SearchFilters() {
     .getAll("company")
     .map((value) => value.trim())
     .filter(Boolean);
-  const sort =
-    searchParams.get("sort") === "deadline"
-      ? "deadline"
-      : searchParams.get("sort") === "recent"
-        ? "recent"
-        : "student";
+  const { uiSort, forStudents } = parseSortParams(searchParams);
   const activeFilters: ActiveFilterDescriptor[] = FILTER_KEYS.flatMap(
     (key): ActiveFilterDescriptor[] => {
       if (key === "company" || key === "location") {
@@ -213,7 +210,7 @@ export default function SearchFilters() {
 
       const value = searchParams.get(key);
       if (value === null) return [];
-      if (key === "sort" && value !== "recent" && value !== "deadline") return [];
+      if (key === "sort" && value !== "pay" && value !== "deadline") return [];
 
       let humanLabel = value;
       let label: React.ReactNode = value;
@@ -250,7 +247,7 @@ export default function SearchFilters() {
           </>
         );
       } else if (key === "sort") {
-        humanLabel = value === "deadline" ? "Closing soon" : "Newest";
+        humanLabel = value === "deadline" ? "Closing soon" : "Highest paid";
         label = humanLabel;
       }
 
@@ -261,6 +258,14 @@ export default function SearchFilters() {
   const hasFilters = activeFilterCount > 0;
   const savedSearchParams = getSavedSearchParams(searchParams);
   const canSaveSearch = hasSavedSearchParams(searchParams);
+
+  function updateSort(nextSort: UiSort, nextForStudents: boolean) {
+    const params = new URLSearchParams(searchParams.toString());
+    writeSortParams(params, nextSort, nextForStudents);
+    params.delete("page");
+    const query = params.toString();
+    navigate(query ? `/?${query}` : "/");
+  }
 
   function updateParam(key: string, value: string | null) {
     const params = new URLSearchParams(searchParams.toString());
@@ -557,27 +562,42 @@ export default function SearchFilters() {
 
           <LocationScope />
 
+          <Button
+            type="button"
+            variant="outline"
+            aria-pressed={forStudents}
+            title="Internships and early-career roles first"
+            disabled={isPending}
+            onClick={() => updateSort(uiSort, !forStudents)}
+            className={cn(
+              forStudents && "border-primary bg-accent text-accent-foreground hover:bg-accent",
+            )}
+          >
+            <GraduationCap aria-hidden="true" />
+            For students
+          </Button>
+
           <Select
-            value={sort}
+            value={uiSort}
             disabled={isPending}
             onValueChange={(value) =>
-              updateParam("sort", value === "student" ? null : value)
+              updateSort(value as UiSort, forStudents)
             }
           >
             <SelectTrigger aria-label="Sort opportunities">
               <ArrowUpDown aria-hidden="true" />
               <SelectValue>
-                {sort === "deadline"
+                {uiSort === "deadline"
                   ? "Closing soon"
-                  : sort === "recent"
-                    ? "Newest"
-                    : "For students"}
+                  : uiSort === "pay"
+                    ? "Highest paid"
+                    : "Newest"}
               </SelectValue>
             </SelectTrigger>
             <SelectContent align="end">
-              <SelectItem value="student">For students</SelectItem>
-              <SelectItem value="recent">Newest</SelectItem>
+              <SelectItem value="newest">Newest</SelectItem>
               <SelectItem value="deadline">Closing soon</SelectItem>
+              <SelectItem value="pay">Highest paid</SelectItem>
             </SelectContent>
           </Select>
         </div>

@@ -133,7 +133,8 @@ export interface FeedParams extends RoleSignalParams {
   mode?: string | string[];
   prize_min?: number;
   status?: "open" | "closed";
-  sort?: "student" | "recent" | "deadline" | "prize";
+  sort?: "student" | "recent" | "deadline" | "prize" | "pay";
+  students?: boolean;
   page?: number;
   limit?: number;
 }
@@ -184,6 +185,7 @@ type SearchFilterParams = Pick<
   | "prize_min"
   | "status"
   | "sort"
+  | "students"
 >;
 
 function appendRepeatedParam(
@@ -246,10 +248,12 @@ export async function getFeed(
     params.sort === "recent" ||
     params.sort === "deadline" ||
     params.sort === "prize" ||
+    params.sort === "pay" ||
     params.sort === "student"
   ) {
     search.set("sort", params.sort);
   }
+  if (params.students === true) search.set("students", "true");
   if (params.page) search.set("page", String(params.page));
   if (params.limit) search.set("limit", String(params.limit));
 
@@ -368,6 +372,7 @@ export async function searchOpportunities(
   if (filters.status) search.set("status", filters.status);
   if (filters.prize_min !== undefined) search.set("prize_min", String(filters.prize_min));
   if (filters.sort) search.set("sort", filters.sort);
+  if (filters.students === true) search.set("students", "true");
   // No `next: { revalidate }` here: searchOpportunities is only ever called from
   // client components. The three query modules that import it are all consumed
   // by "use client" results components, and the static pages never take the `q`
