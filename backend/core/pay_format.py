@@ -16,7 +16,9 @@ HOURS_PER_MONTH = 173.0  # 40 h x 52 weeks / 12.
 PERIOD_TO_MONTH = {"month": 1.0, "year": 1 / 12, "hour": HOURS_PER_MONTH}
 # About $114/hour. Higher student-listing hourly rates are parse errors.
 MAX_PLAUSIBLE_HOURLY_INR = 10_000.0
-MAX_PLAUSIBLE_MONTHLY_INR = 2_500_000.0  # Rs 25 lakh/month, about Rs 3 crore/year.
+# ₹1 crore/month, about ₹12 crore or $1.36M a year;
+# above that a figure is a parse or period error.
+MAX_PLAUSIBLE_MONTHLY_INR = 10_000_000.0
 
 
 def _positive_number(value: object) -> float | None:
