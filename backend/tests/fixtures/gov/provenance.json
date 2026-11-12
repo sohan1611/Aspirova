@@ -1,0 +1,65 @@
+[
+  {
+    "url": "https://necouncil.gov.in/nec-internship-applications",
+    "observed_utc": "2026-11-12T19:37:23.272598+00:00",
+    "status": 200,
+    "sha256": "fabe8eb1a1813d9b388e0ca91441afa139d1c9acf0364e94f75cba3ac7eaa9cd",
+    "original_sample": "nec-3.html"
+  },
+  {
+    "url": "https://www.isro.gov.in/CurrentOpportunities.html",
+    "observed_utc": "2026-11-12T19:37:23.271703+00:00",
+    "status": 200,
+    "sha256": "22aa203b62f917057e2368cca474f7ff6c9a5113dbdd70d82415168d8ec2d6f6",
+    "original_sample": "isro-4.html"
+  },
+  {
+    "url": "https://dii.nic.in/",
+    "observed_utc": "2026-11-12T19:37:24.970638+00:00",
+    "status": 200,
+    "sha256": "19855c13379a835fc82c26f34819ce6accc4941311805399e3881b5a63c1f7c6",
+    "original_sample": "nic-dii-2.html"
+  },
+  {
+    "url": "https://dii.nic.in/timelines",
+    "observed_utc": "2026-11-12T19:38:48.940344+00:00",
+    "status": 200,
+    "sha256": "27ce55726382f9f699f78c4167f3d752dcd40c34c6ea281f5add51287c28308f",
+    "original_sample": "nic-dii-4.html"
+  },
+  {
+    "url": "https://www.isro.gov.in/HSFCRecruitment2026_2.html",
+    "observed_utc": "2026-11-12T19:38:49.341141+00:00",
+    "status": 200,
+    "sha256": "797e374ee45c0a6a4e58690fcd9e3557d80dd46012c2085831c9beded15997ed",
+    "original_sample": "isro-5.html"
+  },
+  {
+    "url": "https://xn--m1b0a2bb8esed.xn--11b7cb3a6a.xn--h2brj9c/drdo/en/offerings/vacancies?items_per_page=50",
+    "observed_utc": "2026-11-12T19:39:37.158658+00:00",
+    "status": 200,
+    "sha256": "86d0edb59c9e2fe3d2dd3155fabc2e5da710ad296eb9426fc9bc0d08cf46cf31",
+    "original_sample": "drdo-10.html"
+  },
+  {
+    "url": "https://www.meity.gov.in/cms/wp-json/post-page/careers_post?limit=50&page=1",
+    "observed_utc": "2026-11-12T19:39:37.158281+00:00",
+    "status": 200,
+    "sha256": "52396a9b07b54f9c4f9fca5ad1911b12ecc52bd1b14e2744f816af6cef22ad07",
+    "original_sample": "meity-8.json"
+  },
+  {
+    "url": "https://www.isro.gov.in/URSCRecruitment13.html",
+    "observed_utc": "2026-11-12T19:43:25.378324+00:00",
+    "status": 200,
+    "sha256": "7f4f55a8312b0c74308a177cbbbc37a8260cd5c96e04e762f936bf6bbdc2bd23",
+    "original_sample": "isro-6.html"
+  },
+  {
+    "url": "https://necouncil.gov.in/nec-internship-applications-winter-session-last-date-apply-30th-november-2026",
+    "observed_utc": "2026-11-12T19:43:25.379420+00:00",
+    "status": 200,
+    "sha256": "75b3e1e2eac9b7110145fbc2e9efd45744200f76bd2bcea9145939203ea349b0",
+    "original_sample": "nec-5.html"
+  }
+]

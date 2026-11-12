@@ -13,7 +13,19 @@ from core.organisers import ORGANISER_TYPE_LABELS, organiser_type_expression
 from pipeline.normalize import NEW_GRAD_TITLE_PATTERN, _INTERNSHIP_PATTERN
 
 SOURCE_GROUPS = {
-    "direct": ["greenhouse", "lever", "ashby", "smartrecruiters", "amazon"],
+    # Official bodies publish their own notices, just as employers do via ATS.
+    "direct": [
+        "greenhouse",
+        "lever",
+        "ashby",
+        "smartrecruiters",
+        "amazon",
+        "meity_careers",
+        "nic_dii",
+        "drdo",
+        "nec_internships",
+        "isro",
+    ],
     "unstop": ["unstop"],
     "remoteok": ["remoteok"],
     "devpost": ["devpost"],

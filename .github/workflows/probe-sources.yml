@@ -1,0 +1,31 @@
+name: Probe government sources (US)
+
+"on":
+  workflow_dispatch:
+    inputs:
+      sources:
+        description: "Comma-separated adapter slugs"
+        required: true
+        default: "meity_careers,nic_dii,drdo,nec_internships,isro"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen
+      - name: Probe public metadata without database credentials
+        env:
+          PROBE_SOURCES: ${{ inputs.sources }}
+        run: uv run python -m scripts.probe_sources --source "$PROBE_SOURCES"
