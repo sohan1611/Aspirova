@@ -1,5 +1,6 @@
 import { type FeedParams, getFeed, getForYou, searchOpportunities } from "@/lib/api";
 import { parseRoleSignalParams, ROLE_FILTER_KEYS } from "@/lib/roleSignalQuery";
+import { parseSortParams, type UiSort } from "@/lib/sortParams";
 import type { OpportunityListItem } from "@/lib/types";
 
 // The three sources this page can draw from return different envelopes -
@@ -27,7 +28,10 @@ export interface FeedRequest {
   cols: number;
   rows: number;
   limit: number;
-  sort: "student" | "recent" | "deadline";
+  uiSort: UiSort;
+  forStudents: boolean;
+  sort: "student" | "recent" | "deadline" | "pay";
+  students?: boolean;
   kind: "roles" | "competitions" | undefined;
   filters: FeedParams;
   prefer_country?: string;
@@ -52,7 +56,6 @@ export function parseFeedRequest(sp: URLSearchParams): FeedRequest {
   const q = get("q");
   const category = get("category");
   const kindParam = get("kind");
-  const sortParam = get("sort");
   const view = get("view");
   const remote = get("remote");
   const topParam = get("top");
@@ -64,8 +67,7 @@ export function parseFeedRequest(sp: URLSearchParams): FeedRequest {
   const rows = Math.min(20, Math.max(5, Number(get("rows") ?? String(DEFAULT_ROWS)) || DEFAULT_ROWS));
   const top = topParam ? Number(topParam) : undefined;
 
-  const sort: "student" | "recent" | "deadline" =
-    sortParam === "deadline" ? "deadline" : sortParam === "recent" ? "recent" : "student";
+  const sortState = parseSortParams(sp);
 
   const kind = kindParam
     ? (kindParam as "roles" | "competitions")
@@ -107,11 +109,11 @@ export function parseFeedRequest(sp: URLSearchParams): FeedRequest {
       get("scope") ||
       get("country") ||
       get("remote_abroad") === "true" ||
-      sortParam === "recent" ||
-      sortParam === "deadline",
+      sp.has("sort") ||
+      sp.has("students"),
   );
 
-  // Unchanged from the original page: this drives whether MostViewed is shown.
+  // This also controls MostViewed. Explicit presentation params trigger a fresh fetch.
   const isCleanDefaultFeed =
     !q &&
     view !== "foryou" &&
@@ -135,7 +137,7 @@ export function parseFeedRequest(sp: URLSearchParams): FeedRequest {
     cols,
     rows,
     limit: cols * rows,
-    sort,
+    ...sortState,
     kind,
     filters,
     forYouFields,
@@ -156,7 +158,12 @@ export function loadFeedData(
   revalidateSeconds?: number,
 ): Promise<FeedResultData> {
   if (request.q) {
-    return searchOpportunities(request.q, request.filters, request.page, request.limit);
+    return searchOpportunities(
+      request.q,
+      { ...request.filters, sort: request.sort, students: request.students },
+      request.page,
+      request.limit,
+    );
   }
 
   if (request.isForYou) {
@@ -179,6 +186,7 @@ export function loadFeedData(
       prefer_logos: request.isCleanDefaultFeed ? true : undefined,
       kind: request.kind,
       sort: request.sort,
+      students: request.students,
       page: request.page,
       limit: request.limit,
     },

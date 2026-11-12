@@ -2,14 +2,22 @@
 
 import re
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
+from sys import float_info
 
 from fastapi import HTTPException
-from sqlalchemy import and_, case, false, func, literal, not_, or_, text
+from sqlalchemy import Float, and_, case, cast, false, func, literal, not_, or_, text
 from sqlalchemy.dialects.postgresql import JSONB
 
 from core import models
 from core.eligibility import ELIGIBLE_EXPERIENCED_ONLY_META_KEY
 from core.organisers import ORGANISER_TYPE_LABELS, organiser_type_expression
+from core.pay_format import (
+    INR_PER_UNIT,
+    MAX_PLAUSIBLE_HOURLY_INR,
+    MAX_PLAUSIBLE_MONTHLY_INR,
+    PERIOD_TO_MONTH,
+)
 from pipeline.normalize import NEW_GRAD_TITLE_PATTERN, _INTERNSHIP_PATTERN
 
 SOURCE_GROUPS = {
@@ -103,6 +111,55 @@ def student_rank_expression():
 
 def effective_posted_at():
     return func.coalesce(models.Opportunity.posted_at, models.Opportunity.first_seen_at)
+
+
+def pay_rank_expression():
+    """SQL mirror of monthly_inr_equivalent with type-guarded JSON casts."""
+    compensation = models.Opportunity.meta["compensation"]
+    amounts = [
+        case(
+            (
+                func.jsonb_typeof(compensation[key]) == "number",
+                compensation[key].as_numeric(None, None),
+            ),
+            else_=None,
+        )
+        for key in ("max", "min")
+    ]
+    amount = func.coalesce(
+        *(
+            case(
+                (and_(value > 0, value <= Decimal(float_info.max)), cast(value, Float)),
+                else_=None,
+            )
+            for value in amounts
+        )
+    )
+    unpaid = case(
+        (
+            func.jsonb_typeof(compensation["unpaid"]) == "boolean",
+            compensation["unpaid"].as_boolean(),
+        ),
+        else_=False,
+    )
+    fx = case(INR_PER_UNIT, value=compensation["currency"].as_string(), else_=None)
+    period = compensation["period"].as_string()
+    factor = case(PERIOD_TO_MONTH, value=period, else_=None)
+    monthly = amount * factor * fx
+    return case(
+        (unpaid.is_(True), None),
+        # Bound finite but enormous numbers before any float multiplication.
+        (
+            amount
+            > MAX_PLAUSIBLE_MONTHLY_INR
+            / min(PERIOD_TO_MONTH.values())
+            / min(INR_PER_UNIT.values()),
+            None,
+        ),
+        (and_(period == "hour", amount * fx > MAX_PLAUSIBLE_HOURLY_INR), None),
+        (monthly <= MAX_PLAUSIBLE_MONTHLY_INR, monthly),
+        else_=None,
+    )
 
 
 def exclude_stale_opportunities(now: datetime | None = None):

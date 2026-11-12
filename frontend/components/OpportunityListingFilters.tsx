@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpDown, Loader2 } from "lucide-react";
+import { ArrowUpDown, GraduationCap, Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import RoleSignalFilters from "@/components/RoleSignalFilters";
@@ -52,6 +52,7 @@ import {
 } from "@/lib/opportunityListingQuery";
 import type { Facets } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { parseSortParams, writeSortParams, type UiSort } from "@/lib/sortParams";
 
 export type OpportunityListingFacetsStatus = CountedFacetsStatus;
 
@@ -70,10 +71,10 @@ const SOURCE_FILTER_OPTIONS = [
   { value: "remoteok", label: "RemoteOK" },
   { value: "devpost", label: "Devpost" },
 ] as const;
-const SORT_OPTIONS: Array<{ value: OpportunityListingSort; label: string }> = [
-  { value: "student", label: "For students" },
-  { value: "recent", label: "Newest" },
+const SORT_OPTIONS: Array<{ value: UiSort; label: string }> = [
+  { value: "newest", label: "Newest" },
   { value: "deadline", label: "Closing soon" },
+  { value: "pay", label: "Highest paid" },
 ];
 const FACET_CATEGORY_VALUES = new Set(["internship", "job", "hackathon", "competition"]);
 
@@ -169,17 +170,6 @@ export function useOpportunityListingFacets(
   }, [baseQuery, key, enabled]);
 
   return { data: cached ?? data, facetsStatus: cached ? "loaded" : facetsStatus };
-}
-
-function getSort(
-  value: string | null,
-  defaultSort: OpportunityListingSort,
-): OpportunityListingSort {
-  if (value === "student" || value === "recent" || value === "deadline") {
-    return value;
-  }
-
-  return defaultSort;
 }
 
 function sourceOptions(data: OpportunityListingFacetsData | null) {
@@ -408,7 +398,6 @@ export function OpportunityListingAdvancedFilters({
 export function OpportunityListingFilterBar({
   basePath,
   baseQuery,
-  defaultSort,
   data,
   facetsStatus,
   onRequestFacets,
@@ -424,7 +413,7 @@ export function OpportunityListingFilterBar({
   const query = new URLSearchParams(searchParams.toString());
   const { navigate, isFeedPending: isPending } = useFeedNavigation();
   const activeLocation = getOpportunityListingLocation(query, baseQuery);
-  const sort = getSort(searchParams.get("sort"), defaultSort);
+  const { uiSort, forStudents } = parseSortParams(searchParams);
   const locationOptions =
     data?.locationOptions ?? defaultOpportunityListingLocationOptions(baseQuery);
 
@@ -439,13 +428,9 @@ export function OpportunityListingFilterBar({
     commit(params);
   }
 
-  function setSort(nextSort: OpportunityListingSort) {
+  function setSort(nextSort: UiSort, nextForStudents: boolean) {
     const params = new URLSearchParams(searchParams.toString());
-    if (nextSort === defaultSort) {
-      params.delete("sort");
-    } else {
-      params.set("sort", nextSort);
-    }
+    writeSortParams(params, nextSort, nextForStudents);
     commit(params);
   }
 
@@ -507,15 +492,31 @@ export function OpportunityListingFilterBar({
         })}
       </div>
 
-      <Select
-        value={sort}
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        aria-pressed={forStudents}
+        title="Internships and early-career roles first"
         disabled={isPending}
-        onValueChange={(value) => setSort(value as OpportunityListingSort)}
+        onClick={() => setSort(uiSort, !forStudents)}
+        className={cn(
+          forStudents && "border-primary bg-accent text-accent-foreground hover:bg-accent",
+        )}
+      >
+        <GraduationCap aria-hidden="true" />
+        For students
+      </Button>
+
+      <Select
+        value={uiSort}
+        disabled={isPending}
+        onValueChange={(value) => setSort(value as UiSort, forStudents)}
       >
         <SelectTrigger size="sm" aria-label="Sort opportunities">
           <ArrowUpDown aria-hidden="true" />
           <SelectValue>
-            {SORT_OPTIONS.find((option) => option.value === sort)?.label}
+            {SORT_OPTIONS.find((option) => option.value === uiSort)?.label}
           </SelectValue>
         </SelectTrigger>
         <SelectContent align="end">
@@ -578,6 +579,11 @@ export function OpportunityListingActiveFilterChips({
   }
 
   const filters: ActiveFilterChip[] = [];
+  const { uiSort } = parseSortParams(searchParams);
+  if (uiSort !== "newest") {
+    const label = uiSort === "deadline" ? "Closing soon" : "Highest paid";
+    filters.push({ id: "sort", label, humanLabel: label, onRemove: () => removeSingleParam("sort") });
+  }
   const q = activeSingleValue(searchParams, "q");
   if (q) {
     filters.push({
@@ -647,6 +653,7 @@ export function OpportunityListingActiveFilterChips({
   }
 
   const clearableFilterCount =
+    (uiSort !== "newest" ? 1 : 0) +
     (hasLocationFilter ? 1 : 0) +
     activeValues(searchParams, "company").length +
     (source ? 1 : 0) +
