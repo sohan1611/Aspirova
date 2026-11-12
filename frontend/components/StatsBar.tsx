@@ -18,10 +18,12 @@ export default function StatsBar({ stats }: StatsBarProps) {
       aria-label="Aspirova open listing statistics"
       className="mt-4 rounded-lg border border-border bg-card px-3 py-3 shadow-soft sm:mt-5 sm:px-5 sm:py-4"
     >
-      <div className="grid grid-cols-3 items-start gap-x-3 gap-y-2 sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-8 sm:gap-y-4">
+      <div className="grid grid-cols-3 items-start gap-x-3 gap-y-2 sm:flex sm:flex-wrap sm:items-center sm:gap-x-10 sm:gap-y-4">
         {figures.map(({ label, value, description }) => (
           <div key={label} title={description} className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-2">
-            <span className="tnum inline-block w-[8ch] max-w-full shrink-0 font-serif text-lg font-bold tracking-tight text-foreground sm:text-xl">
+            {/* Natural width: a fixed-width box left short counts like "18" floating
+                far from their label, nearer the next figure than their own. */}
+            <span className="tnum shrink-0 font-serif text-lg font-bold tracking-tight text-foreground sm:text-xl">
               {typeof value === "number" && Number.isFinite(value) && value > 0 ? (
                 value.toLocaleString("en-IN")
               ) : (
