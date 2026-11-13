@@ -901,12 +901,12 @@
     {
       "slug": "hacktoberfest",
       "name": "Hacktoberfest",
-      "organiser": "DigitalOcean",
+      "organiser": "Major League Hacking and DEV",
       "category": "open_source",
       "url": "https://hacktoberfest.com/",
-      "description": "An annual month-long event encouraging contributions to participating open-source repositories, aimed at newcomers as well as experienced contributors.",
-      "eligibility": "Open to anyone who registers during the event window; contributions must be to participating repositories.",
-      "typical_window": "runs through October each year, with registration opening shortly before",
+      "description": "An annual October event bringing people together around open source through local and online activities. Participation formats and rewards vary by edition; DigitalOcean is the presenting partner.",
+      "eligibility": "Check the current edition's participation rules and local event requirements.",
+      "typical_window": "held in October; registration and local event cutoffs vary by edition",
       "country": null,
       "tags": ["open-source", "coding", "cs"],
       "review_months": [9, 10]

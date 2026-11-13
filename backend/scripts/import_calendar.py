@@ -57,6 +57,8 @@ def _restore_opening_windows(session: Session, programme_id: int, meta: dict, wi
 
 
 def category_for(row: dict) -> str:
+    if row["category"] in {"open_source", "early_career"}:
+        return row["category"]
     if row["category"] == "Govt":
         return "government_internship"
     if row["category"] == "Competition":

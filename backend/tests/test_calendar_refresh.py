@@ -6,11 +6,18 @@ import pytest
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
-from core.hiring_calendar import CALENDAR_META, IST, calendar_metadata, has_rolling_deadline
+from core.hiring_calendar import (
+    CALENDAR_META,
+    DATA_DIR,
+    IST,
+    ROWS,
+    calendar_metadata,
+    has_rolling_deadline,
+)
 from core.models import Programme, ProgrammeEdition
 from migrations.versions.a7c9e2b4d6f8_add_early_career_programme_category import OLD_CATEGORIES
 from pipeline.programme_verification import CalendarPageFetcher, extract_official_calendar_dates
-from scripts.import_calendar import import_calendar
+from scripts.import_calendar import category_for, import_calendar
 from scripts.refresh_calendar import apply_page, refresh_calendar, roll_forward
 
 FIXTURES = Path(__file__).parent / "fixtures" / "calendar"
@@ -40,7 +47,7 @@ def test_import_idempotent_matches_registry_and_preserves_refresh(db_session):
     db_session.add(existing)
     db_session.flush()
     existing_id = existing.id
-    assert import_calendar(db_session) == {"imported": 50, "skipped": 0}
+    assert import_calendar(db_session) == {"imported": len(CALENDAR_META), "skipped": 0}
     assert (
         db_session.scalar(select(Programme.id).where(Programme.slug == "iitk-surge")) == existing_id
     )
@@ -52,15 +59,12 @@ def test_import_idempotent_matches_registry_and_preserves_refresh(db_session):
     edition.verified_at = datetime(2027, 1, 5, tzinfo=IST)
     db_session.flush()
     before = db_session.scalar(select(func.count()).select_from(ProgrammeEdition))
-    assert import_calendar(db_session) == {"imported": 50, "skipped": 0}
+    assert import_calendar(db_session) == {"imported": len(CALENDAR_META), "skipped": 0}
     assert db_session.scalar(select(func.count()).select_from(ProgrammeEdition)) == before
     assert edition.status == "announced"
-    assert (
-        db_session.scalar(
-            select(func.count()).select_from(Programme).where(Programme.category == "early_career")
-        )
-        == 13
-    )
+    assert db_session.scalar(
+        select(func.count()).select_from(Programme).where(Programme.category == "early_career")
+    ) == sum(category_for(row) == "early_career" for row in ROWS.values())
     epfl = db_session.scalar(select(Programme).where(Programme.slug == "epfl-life-sciences-srp"))
     assert epfl.editions[0].year == 2027
     assert epfl.editions[0].closes_at.year == 2026
@@ -76,7 +80,8 @@ def test_old_category_constraint_skips_tech_and_continues(db_session, caplog):
         )
     )
     summary = import_calendar(db_session)
-    assert summary == {"imported": 37, "skipped": 13}
+    skipped = sum(category_for(row) == "early_career" for row in ROWS.values())
+    assert summary == {"imported": len(CALENDAR_META) - skipped, "skipped": skipped}
     assert (
         len(
             [
@@ -85,11 +90,79 @@ def test_old_category_constraint_skips_tech_and_continues(db_session, caplog):
                 if "skipped by ck_programmes_category" in record.message
             ]
         )
-        == 13
+        == skipped
     )
     assert "OPP-007" in caplog.text
     assert db_session.scalar(select(Programme.id).where(Programme.slug == "kaust-vsrp"))
-    assert db_session.scalar(select(func.count()).select_from(ProgrammeEdition)) == 37
+    assert (
+        db_session.scalar(select(func.count()).select_from(ProgrammeEdition))
+        == len(CALENDAR_META) - skipped
+    )
+
+
+def test_research_import_reuses_all_five_existing_open_source_programmes(db_session):
+    import json
+
+    slugs = {"gsoc", "hacktoberfest", "mlh-fellowship", "outreachy", "lfx-mentorship"}
+    registry = json.loads((DATA_DIR / "programmes.json").read_text(encoding="utf-8"))
+    existing = {}
+    for entry in registry["programmes"]:
+        if entry["slug"] not in slugs:
+            continue
+        item = Programme(
+            **{
+                key: entry[key]
+                for key in (
+                    "slug",
+                    "name",
+                    "organiser",
+                    "category",
+                    "url",
+                    "tags",
+                )
+            }
+        )
+        db_session.add(item)
+        db_session.flush()
+        existing[item.slug] = item.id
+    import_calendar(db_session)
+    before = {
+        item.slug: [
+            (
+                edition.id,
+                edition.year,
+                edition.status,
+                edition.opens_at,
+                edition.closes_at,
+                edition.notes,
+                edition.verified_at,
+            )
+            for edition in item.editions
+        ]
+        for item in db_session.scalars(select(Programme).where(Programme.slug.in_(slugs)))
+    }
+    import_calendar(db_session)
+    db_session.expire_all()
+    for slug, programme_id in existing.items():
+        items = list(db_session.scalars(select(Programme).where(Programme.slug == slug)))
+        assert len(items) == 1
+        item = items[0]
+        assert item.id == programme_id
+        assert item.category == "open_source"
+        assert len(item.editions) == 1
+        edition = item.editions[0]
+        assert edition.year == 2027 and edition.status == "expected"
+        assert [
+            (
+                edition.id,
+                edition.year,
+                edition.status,
+                edition.opens_at,
+                edition.closes_at,
+                edition.notes,
+                edition.verified_at,
+            )
+        ] == before[slug]
 
 
 def test_import_matches_existing_name_with_a_different_slug(db_session):
@@ -339,7 +412,7 @@ def test_refresh_imports_first_and_survives_one_bad_site(db_session):
             return "alive", (FIXTURES / "ambiguous.html").read_text()
 
     summary = refresh_calendar(db_session, SavedPages(), now=datetime(2026, 11, 13, tzinfo=IST))
-    assert summary["imported"] == 50
-    assert summary["checked"] == 50
+    assert summary["imported"] == len(CALENDAR_META)
+    assert summary["checked"] == len(CALENDAR_META)
     assert summary["errors"] == 1
-    assert len(CALENDAR_META) == 50
+    assert len(CALENDAR_META) == len(ROWS)

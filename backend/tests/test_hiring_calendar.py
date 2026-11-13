@@ -1,4 +1,5 @@
 from datetime import date, datetime
+import json
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -10,14 +11,31 @@ from core.hiring_calendar import (
     CALENDAR_META,
     IST,
     ROWS,
+    SOURCE,
     at_day,
     month_date,
     parse_calendar_date,
     source_window,
 )
 from core.models import Programme, ProgrammeEdition
+from scripts.import_calendar import category_for
 
-WINDOWLESS_ROWS = {"OPP-010", "OPP-044", "OPP-047", "OPP-048", "OPP-049", "OPP-050"}
+WINDOWLESS_ROWS = {
+    "OPP-010",
+    "OPP-044",
+    "OPP-047",
+    "OPP-048",
+    "OPP-049",
+    "OPP-050",
+    "OPP-103",
+    "OPP-111",
+    "OPP-112",
+    "OPP-113",
+    "OPP-114",
+}
+RESEARCH_SLUGS = {
+    slug for slug, meta in CALENDAR_META.items() if int(meta["row_id"].split("-")[1]) >= 101
+}
 
 
 def source_programme(slug):
@@ -26,6 +44,7 @@ def source_programme(slug):
     item = programme(slug, opening=None, closing=None, status=window["status"])
     item.name = meta["name"]
     item.organiser = meta["organiser"]
+    item.category = category_for(ROWS[meta["row_id"]])
     edition = item.editions[0]
     edition.year = meta["cycle_year"]
     edition.opens_at = window["opens_at"]
@@ -48,8 +67,10 @@ def test_every_source_row_has_window_or_rolling(slug):
         assert window["opens_at"] <= window["closes_at"]
 
 
-def test_source_has_fifty_rows_and_thirteen_tech_rows():
-    assert len(ROWS) == len(CALENDAR_META) == 50
+def test_source_retains_original_rows_and_adds_researched_programmes():
+    assert SOURCE["count"] == len(SOURCE["opportunities"]) == len(ROWS) == len(CALENDAR_META) == 64
+    assert len(RESEARCH_SLUGS) == 14
+    assert {f"OPP-{number:03}" for number in range(1, 51)} <= ROWS.keys()
     assert sum(row["category"] == "Tech" for row in ROWS.values()) == 13
 
 
@@ -88,10 +109,103 @@ def test_source_calendar_and_rolling_counts():
             dated.update(item["metadata"]["row_id"] for item in response.json()["items"])
             rolling.update(item["metadata"]["row_id"] for item in response.json()["rolling"])
     print(f"Calendar source counts: on-calendar={len(dated)}, rolling={len(rolling)}")
-    assert len(dated) == 44
+    assert len(dated) == len(ROWS) - len(WINDOWLESS_ROWS)
     assert rolling == WINDOWLESS_ROWS
     assert dated.isdisjoint(rolling)
     assert dated | rolling == set(ROWS)
+
+
+def test_research_rows_reuse_canonical_registry_slugs_and_have_provenance():
+    from core.hiring_calendar import DATA_DIR, METADATA
+
+    registry = json.loads((DATA_DIR / "programmes.json").read_text(encoding="utf-8"))
+    registry_slugs = [entry["slug"] for entry in registry["programmes"]]
+    assert len(registry_slugs) == len(set(registry_slugs))
+    assert {"gsoc", "hacktoberfest", "mlh-fellowship", "outreachy", "lfx-mentorship"} <= (
+        RESEARCH_SLUGS & set(registry_slugs)
+    )
+    row_ids = [meta["row_id"] for meta in CALENDAR_META.values()]
+    assert len(row_ids) == len(set(row_ids))
+    assert set(row_ids) == set(ROWS)
+    for slug in RESEARCH_SLUGS:
+        meta = CALENDAR_META[slug]
+        row = ROWS[meta["row_id"]]
+        assert row["official_portal"].startswith("https://")
+        assert date.fromisoformat(row["source_checked_on"]) == date(2026, 11, 13)
+        assert row["verification_note"] == meta["verification_note"]
+        assert row["verification_note"]
+        assert row["date_basis"] == "Tentative (Historical Annual Trend)"
+        assert source_window(slug)["status"] == "expected"
+        assert category_for(row) in {"open_source", "early_career"}
+        if meta["row_id"] in WINDOWLESS_ROWS:
+            assert source_window(slug)["rolling"]
+            assert "rolling" in row["application_open"].lower()
+    for item in METADATA["watchlist"]:
+        assert item["status"] == "unverified/legacy watchlist"
+        assert item["reason"]
+        assert item["source_url"].startswith("https://")
+        assert item["source_checked_on"] == "2026-11-13"
+        assert not {"opens_at", "closes_at", "row_id"} & item.keys()
+        assert item["name"] not in {meta["name"] for meta in CALENDAR_META.values()}
+
+
+@pytest.mark.parametrize(
+    "slug,months",
+    [
+        ("gsoc", [3, 4]),
+        ("hacktoberfest", [10]),
+        ("outreachy", [2, 8]),
+        ("lfx-mentorship", [1, 2, 4, 5, 7, 8]),
+        ("girlscript-summer-of-code", [3]),
+        ("summer-of-bitcoin", [2]),
+        ("season-of-kde", [1]),
+        ("women-techmakers-ambassadors", [5]),
+        ("amazon-ml-summer-school", [8, 9]),
+    ],
+)
+def test_research_windows_have_only_supported_months_and_remain_tentative(slug, months):
+    item = source_programme(slug)
+    for month in range(1, 13):
+        result = build_calendar(
+            [item],
+            date(2027, month, 1),
+            month_date(2027, month, end=True).date(),
+            categories=[],
+            statuses=[],
+            q="",
+            now=datetime(2027, month, 15, tzinfo=IST),
+        )
+        assert bool(result.items) == (month in months)
+        assert not result.rolling
+        for occurrence in result.items:
+            assert occurrence.edition.status == "expected"
+            assert occurrence.edition.basis == "tentative"
+            assert occurrence.edition.opens_precision == "month"
+            assert occurrence.edition.closes_precision == "month"
+            assert not occurrence.is_open_now
+
+
+def test_season_of_kde_intake_starts_in_preceding_december():
+    window = source_window("season-of-kde")
+    assert window["opens_at"].date() == date(2026, 12, 1)
+    assert window["closes_at"].date() == date(2027, 1, 31)
+    with request_client([source_programme("season-of-kde")]) as client:
+        result = client.get("/calendar?from=2026-12-01&to=2026-12-31").json()
+    assert result["items"][0]["edition"]["year"] == 2027
+
+
+@pytest.mark.parametrize("slug", RESEARCH_SLUGS)
+def test_research_rows_are_visible_under_their_real_category(slug):
+    item = source_programme(slug)
+    with request_client([item]) as client:
+        base = "/calendar?from=2026-12-01&to=2027-12-31"
+        result = client.get(base + f"&category={item.category}").json()
+        assert result["items"] or result["rolling"]
+        other = "early_career" if item.category == "open_source" else "open_source"
+        result = client.get(base + f"&category={other}").json()
+        assert not result["items"] and not result["rolling"]
+        result = client.get(base + "&status=open").json()
+        assert not result["items"] and not result["rolling"]
 
 
 @pytest.mark.parametrize(
