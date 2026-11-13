@@ -922,6 +922,8 @@
       "opening_text": "Oct–Dec 2026 (winter 2027); Apr–May 2027 (summer 2027)",
       "deadline_text": "Dec 2026 / May 2027 (annual rule)",
       "recurrence": {
+        "basis": "tentative",
+        "basis_reason": "The official scheme describes an approximate opening before each batch. The intake announcement determines when registration actually opens.",
         "precision": "month",
         "windows": [
           {
@@ -976,6 +978,7 @@
       "opening_text": "1–10 of EVERY month (official)",
       "deadline_text": "10th of EVERY month (official)",
       "recurrence": {
+        "basis": "official",
         "precision": "day",
         "windows": [
           {
@@ -1072,7 +1075,8 @@
       "opening_text": "Jan–May (July intake); Jul–Nov (January intake)",
       "deadline_text": "May / Nov, respective intake",
       "recurrence": {
-        "precision": "month",
+        "basis": "official",
+        "precision": "day",
         "windows": [
           {
             "open_month": 7,
@@ -1246,6 +1250,7 @@
       "deadline_text": "Feb 2027 / Aug 2027 (initial applications)",
       "name": "Outreachy",
       "recurrence": {
+        "basis": "tentative",
         "precision": "month",
         "windows": [
           {
@@ -1278,6 +1283,7 @@
       "deadline_text": "Project-specific within each term's application window",
       "name": "LFX Mentorship",
       "recurrence": {
+        "basis": "tentative",
         "precision": "month",
         "windows": [
           {

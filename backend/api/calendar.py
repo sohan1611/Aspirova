@@ -20,6 +20,7 @@ from core.hiring_calendar import (
     has_rolling_deadline,
     official_status,
     parse_calendar_date,
+    recurrence_is_official,
     recurrence_windows,
     source_window,
 )
@@ -148,11 +149,12 @@ def _item(
     rolling: bool = False,
 ) -> CalendarItem:
     rule = meta.get("recurrence")
+    official_rule = bool(rule and recurrence_is_official(meta))
     deadline_rolling = has_rolling_deadline(meta, edition.notes)
     status = edition.status
-    if rule and status != "expected":
-        # A yearly row covers multiple independent official windows.
-        status = "announced"
+    if rule:
+        # Occurrences use the rule's provenance, including older expected editions.
+        status = "announced" if official_rule else "expected"
     status = official_status(status, opening, None if deadline_rolling else closing, now)
     source = source_window(SLUG_BY_ROW_ID[meta["row_id"]]) if meta else {}
     precision = {}
@@ -162,7 +164,9 @@ def _item(
             rule["precision"] if rule else source.get(field.replace("_at", "_precision")) or "day"
         )
         precision[field] = (
-            ("month" if status == "expected" else "day" if exact else default) if value else None
+            ("month" if status == "expected" else "day" if exact or official_rule else default)
+            if value
+            else None
         )
     is_open = status == "open" and not rolling
     label = "Rolling" if rolling and status != "closed" else STATUS_LABELS[status]
@@ -235,13 +239,12 @@ def build_calendar(
         if meta.get("recurrence") and editions:
             by_year = {edition.year: edition for edition in editions}
             latest = max(editions, key=lambda edition: edition.year)
-            # Standing rules also cover requested years without a persisted
-            # edition. A later expected edition keeps its tentative basis.
+            # The standing rule also determines the basis of unsaved years.
             editions = [
                 by_year.get(year)
                 or ProgrammeEdition(
                     year=year,
-                    status="expected" if latest.status == "expected" else "announced",
+                    status="announced" if recurrence_is_official(meta) else "expected",
                     verified_at=latest.verified_at,
                 )
                 for year in range(start.year, min(end.year + 1, 9999) + 1)
