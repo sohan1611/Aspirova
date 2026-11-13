@@ -1,0 +1,970 @@
+{
+  "version": 1,
+  "source_cycle": 2027,
+  "overrides": {
+    "OPP-005": {
+      "reason": "Place the usable opening on the calendar. The individual application cutoff is unfixed."
+    },
+    "OPP-007": {
+      "reason": "Place the usable opening on the calendar. The individual application cutoff is unfixed."
+    },
+    "OPP-010": {
+      "rolling": true,
+      "reason": "No fixed application cutoff. 2027 application status: verify PIMS and Mitacs"
+    },
+    "OPP-020": {
+      "reason": "Place the usable opening on the calendar. The individual application cutoff is unfixed."
+    },
+    "OPP-026": {
+      "reason": "Place the usable opening on the calendar. The individual application cutoff is unfixed."
+    },
+    "OPP-029": {
+      "reason": "Place the usable opening on the calendar. The individual application cutoff is unfixed."
+    },
+    "OPP-030": {
+      "reason": "Place the usable opening on the calendar. The individual application cutoff is unfixed."
+    },
+    "OPP-031": {
+      "reason": "Place the usable opening on the calendar. The individual application cutoff is unfixed."
+    },
+    "OPP-033": {
+      "reason": "Place the usable opening on the calendar. The individual application cutoff is unfixed."
+    },
+    "OPP-034": {
+      "reason": "Place the usable opening on the calendar. The individual application cutoff is unfixed."
+    },
+    "OPP-035": {
+      "reason": "Place the usable opening on the calendar. The individual application cutoff is unfixed."
+    },
+    "OPP-036": {
+      "reason": "Place the usable opening on the calendar. The individual application cutoff is unfixed."
+    },
+    "OPP-037": {
+      "reason": "Place the usable opening on the calendar. The individual application cutoff is unfixed."
+    },
+    "OPP-038": {
+      "reason": "Place the usable opening on the calendar. The individual application cutoff is unfixed."
+    },
+    "OPP-041": {
+      "reason": "Place the usable opening on the calendar. The individual application cutoff is unfixed."
+    },
+    "OPP-042": {
+      "reason": "Place the usable opening on the calendar. The individual application cutoff is unfixed."
+    },
+    "OPP-044": {
+      "rolling": true,
+      "reason": "No fixed application cutoff. Until lab positions filled"
+    },
+    "OPP-047": {
+      "rolling": true,
+      "reason": "No fixed application cutoff. Lab-specific; short application windows"
+    },
+    "OPP-048": {
+      "rolling": true,
+      "reason": "No fixed application cutoff. Center-dependent"
+    },
+    "OPP-049": {
+      "rolling": true,
+      "reason": "No fixed application cutoff. Vacancy-specific"
+    },
+    "OPP-050": {
+      "rolling": true,
+      "reason": "No fixed application cutoff. Project-dependent"
+    },
+    "OPP-009": {
+      "reason": "Keep the closed 2027 call on its published Jun–Aug 2026 opening window. The exact cutoff is unavailable."
+    },
+    "OPP-018": {
+      "opens_at": null,
+      "reason": "The text says before April without identifying an opening month. Preserve only the official deadline."
+    },
+    "OPP-043": {
+      "status": "announced",
+      "reason": "Two standing annual month windows require recurrence expansion, including the preceding October."
+    },
+    "OPP-045": {
+      "status": "announced",
+      "reason": "Official monthly 1st–10th rule requires twelve separate occurrences."
+    },
+    "OPP-046": {
+      "status": "announced",
+      "reason": "January/July intake years use the preceding Jul–Nov and current Jan–May month-precision application windows."
+    }
+  },
+  "programmes": {
+    "google-student-researcher": {
+      "row_id": "OPP-001",
+      "cycle_year": 2027,
+      "organiser": "Google",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Show tangible research work, code, and a narrowly defined research interest.",
+      "hiring_mode": "Resume/research screening; possible interviews",
+      "career_linkage": "Research placement, not guaranteed FTE",
+      "duration_start": "Variable research placement during 2027",
+      "verification_note": "",
+      "opening_text": "Listed by Nov 2026",
+      "deadline_text": "4 Dec 2026 (official)",
+      "name": "Student Researcher Program"
+    },
+    "epfl-life-sciences-srp": {
+      "row_id": "OPP-002",
+      "cycle_year": 2027,
+      "organiser": "EPFL",
+      "geography": "Switzerland / global eligible",
+      "confidence": "High",
+      "prep_tip": "Arrange the referee and complete short answers before starting the online form.",
+      "hiring_mode": "Academic review; short essays/reference",
+      "career_linkage": "Academic research",
+      "duration_start": "8 weeks; 5 Jul–27 Aug 2027",
+      "verification_note": "",
+      "opening_text": "Open by Nov 2026",
+      "deadline_text": "15 Nov 2026 (official)",
+      "name": "EPFL Life Sciences Summer Research Program"
+    },
+    "iasc-insa-nasi-srfp": {
+      "row_id": "OPP-003",
+      "cycle_year": 2027,
+      "organiser": "Indian Academy of Sciences, INSA, and NASI",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Prepare the full mark-sheet series and referee details before submitting.",
+      "hiring_mode": "Application, statement, reference, mentor allocation",
+      "career_linkage": "Research fellowship",
+      "duration_start": "2 months; preferably summer 2027",
+      "verification_note": "",
+      "opening_text": "Sep 2026 (official)",
+      "deadline_text": "30 Nov 2026 (official)",
+      "name": "Science Academies Summer Research Fellowship Program"
+    },
+    "cern-summer-student": {
+      "row_id": "OPP-004",
+      "cycle_year": 2027,
+      "organiser": "CERN",
+      "geography": "Geneva; international eligibility",
+      "confidence": "High",
+      "prep_tip": "Secure a strong technical reference and document all relevant projects.",
+      "hiring_mode": "CV, transcript, reference, central selection",
+      "career_linkage": "Research placement",
+      "duration_start": "~2 months; Jun–Aug 2027",
+      "verification_note": "",
+      "opening_text": "Nov 2026 (official)",
+      "deadline_text": "21 Jan 2027 (official, Geneva time)",
+      "name": "Summer Student Programme"
+    },
+    "cern-openlab-summer": {
+      "row_id": "OPP-005",
+      "cycle_year": 2027,
+      "organiser": "CERN openlab",
+      "geography": "Geneva; international eligibility",
+      "confidence": "High",
+      "prep_tip": "Highlight systems, HPC, distributed computing, or data engineering experience.",
+      "hiring_mode": "Research/project fit; documents and selection",
+      "career_linkage": "Research placement",
+      "duration_start": "9 weeks; 21/28 Jun 2027 starts",
+      "verification_note": "",
+      "opening_text": "Early Nov 2026 (official)",
+      "deadline_text": "See live CERN vacancy; no fixed deadline on program page",
+      "name": "CERN openlab Summer Student Programme",
+      "deadline_rolling": true
+    },
+    "rbi-summer-placement": {
+      "row_id": "OPP-006",
+      "cycle_year": 2027,
+      "organiser": "Reserve Bank of India",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Review RBI research priorities and write a specific motivation statement.",
+      "hiring_mode": "Application screening; possible interviews",
+      "career_linkage": "Government internship; not general B.Tech eligibility",
+      "duration_start": "Up to ~3 months; Apr–Jul 2027",
+      "verification_note": "",
+      "opening_text": "15 Oct 2026 (official annual rule)",
+      "deadline_text": "15 Dec 2026 (official annual rule)",
+      "name": "RBI Summer Placement"
+    },
+    "amazon-sde-india-six-month": {
+      "row_id": "OPP-007",
+      "cycle_year": 2027,
+      "organiser": "Amazon",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Practise timed DSA and behavioral stories around ownership and results.",
+      "hiring_mode": "Online assessment; coding/behavioral interviews",
+      "career_linkage": "Internship; possible FTE conversion",
+      "duration_start": "22–26 weeks; Jan–Jun 2027 starts",
+      "verification_note": "",
+      "opening_text": "Live by Nov 2026",
+      "deadline_text": "Rolling; job closes when filled",
+      "name": "Amazon SDE Intern — India six-month cycle",
+      "deadline_rolling": true
+    },
+    "microsoft-imagine-cup": {
+      "row_id": "OPP-008",
+      "cycle_year": 2027,
+      "organiser": "Microsoft",
+      "geography": "Global",
+      "confidence": "High",
+      "prep_tip": "Prepare a tested MVP, Azure architecture, customer evidence, and pitch.",
+      "hiring_mode": "Startup eligibility; Azure solution, product/pitch review, live interviews",
+      "career_linkage": "Startup prizes and mentorship; NOT direct hiring",
+      "duration_start": "Competition Nov 2026–Jun 2027",
+      "verification_note": "",
+      "opening_text": "2 Nov 2026 (official)",
+      "deadline_text": "28 Feb 2027 (official, CST)",
+      "name": "Microsoft Imagine Cup"
+    },
+    "mitacs-globalink": {
+      "row_id": "OPP-009",
+      "cycle_year": 2027,
+      "organiser": "Mitacs",
+      "geography": "Canada / partner-country eligibility",
+      "confidence": "High",
+      "prep_tip": "Check the current India university list before preparing a future-cycle application.",
+      "hiring_mode": "Project choices, academic references, international matching",
+      "career_linkage": "Research placement; not employment",
+      "duration_start": "12 weeks; May–Oct 2027",
+      "verification_note": "2027 call is closed as of 13 Nov 2026; 2028 dates not yet announced.",
+      "opening_text": "Jun–Aug 2026 (past cycle)",
+      "deadline_text": "2027 student call closed (official)",
+      "name": "Globalink Research Internship",
+      "deadline_rolling": true
+    },
+    "pims-mitacs-india": {
+      "row_id": "OPP-010",
+      "cycle_year": 2027,
+      "organiser": "PIMS and Mitacs",
+      "geography": "Canada / selected Indian institutions",
+      "confidence": "High",
+      "prep_tip": "Read the separate PIMS partner-institution list and match a named project.",
+      "hiring_mode": "Academic/project matching; referee assessment",
+      "career_linkage": "Research placement",
+      "duration_start": "12 weeks; May–Oct 2027",
+      "verification_note": "The PIMS route has a different Indian institution list than the main Globalink page.",
+      "opening_text": "2026 application cycle; check route-specific posting",
+      "deadline_text": "2027 application status: verify PIMS and Mitacs",
+      "name": "PIMS–Mitacs Globalink Research Internship — India route"
+    },
+    "iitk-surge": {
+      "row_id": "OPP-011",
+      "cycle_year": 2027,
+      "organiser": "IIT Kanpur",
+      "geography": "India",
+      "confidence": "Medium",
+      "prep_tip": "Prepare a focused research interest statement and strong faculty reference.",
+      "hiring_mode": "Research application; project/mentor selection",
+      "career_linkage": "Recruitment or learning opportunity",
+      "duration_start": "~8 weeks; May–Jul 2027",
+      "verification_note": "",
+      "opening_text": "Jan–Feb 2027",
+      "deadline_text": "Feb–Mar 2027",
+      "name": "SURGE"
+    },
+    "ncra-tifr-vsrp": {
+      "row_id": "OPP-012",
+      "cycle_year": 2027,
+      "organiser": "NCRA-TIFR",
+      "geography": "India",
+      "confidence": "Medium",
+      "prep_tip": "Study the host group’s recent work before drafting your research proposal.",
+      "hiring_mode": "Research interests, references, academic selection",
+      "career_linkage": "Recruitment or learning opportunity",
+      "duration_start": "~1–2 months; May–Jul 2027",
+      "verification_note": "",
+      "opening_text": "Jan–Feb 2027",
+      "deadline_text": "Feb–Mar 2027",
+      "name": "Visiting Students' Research Programme"
+    },
+    "iitm-sfp": {
+      "row_id": "OPP-013",
+      "cycle_year": 2027,
+      "organiser": "IIT Madras",
+      "geography": "India",
+      "confidence": "Medium",
+      "prep_tip": "Match your project proposal to an IITM faculty research area.",
+      "hiring_mode": "Merit/project suitability; institute portal",
+      "career_linkage": "Recruitment or learning opportunity",
+      "duration_start": "Typically summer, ~2 months; departmental routes vary",
+      "verification_note": "",
+      "opening_text": "Jan–Feb 2027",
+      "deadline_text": "Feb–Mar 2027",
+      "name": "Summer Fellowship Programme"
+    },
+    "iitgn-srip": {
+      "row_id": "OPP-014",
+      "cycle_year": 2027,
+      "organiser": "IIT Gandhinagar",
+      "geography": "India",
+      "confidence": "Medium",
+      "prep_tip": "Shortlist participating faculty and customize the research statement.",
+      "hiring_mode": "Faculty-project application and academic screening",
+      "career_linkage": "Recruitment or learning opportunity",
+      "duration_start": "≥8 weeks; May–Jul 2027",
+      "verification_note": "",
+      "opening_text": "Feb 2027",
+      "deadline_text": "Early Mar 2027",
+      "name": "Summer Research Internship Programme"
+    },
+    "iith-sure": {
+      "row_id": "OPP-015",
+      "cycle_year": 2027,
+      "organiser": "IIT Hyderabad",
+      "geography": "India",
+      "confidence": "Medium",
+      "prep_tip": "Obtain your institute-certified class-rank statement early.",
+      "hiring_mode": "Merit screening; optional interview",
+      "career_linkage": "Recruitment or learning opportunity",
+      "duration_start": "1–2 months; May–Jul 2027",
+      "verification_note": "",
+      "opening_text": "Feb 2027",
+      "deadline_text": "Mar 2027",
+      "name": "Summer Undergraduate Research Exposure"
+    },
+    "iitr-spark": {
+      "row_id": "OPP-016",
+      "cycle_year": 2027,
+      "organiser": "IIT Roorkee",
+      "geography": "India",
+      "confidence": "Medium",
+      "prep_tip": "Check the institution-specific CGPA cutoff and name five relevant faculty.",
+      "hiring_mode": "Online project/faculty preferences; research statement",
+      "career_linkage": "Recruitment or learning opportunity",
+      "duration_start": "~6–8 weeks; summer 2027",
+      "verification_note": "",
+      "opening_text": "Feb–Mar 2027",
+      "deadline_text": "Mar 2027",
+      "name": "SPARK"
+    },
+    "iitd-srfp": {
+      "row_id": "OPP-017",
+      "cycle_year": 2027,
+      "organiser": "IIT Delhi",
+      "geography": "India",
+      "confidence": "Medium",
+      "prep_tip": "Get your official top-10 rank certificate and parent-college NOC ready.",
+      "hiring_mode": "Merit; faculty/project review",
+      "career_linkage": "Academic research",
+      "duration_start": "8 weeks; May–Jul 2027",
+      "verification_note": "Central timing may vary; current 2027 call not confirmed.",
+      "opening_text": "Mar 2027",
+      "deadline_text": "Early Apr 2027",
+      "name": "Summer Research Fellowship Programme"
+    },
+    "oist-research-internship": {
+      "row_id": "OPP-018",
+      "cycle_year": 2027,
+      "organiser": "OIST",
+      "geography": "Japan / international",
+      "confidence": "High",
+      "prep_tip": "Prioritize research-unit fit and articulate your specific methods.",
+      "hiring_mode": "Research fit; faculty selection, interview if needed",
+      "career_linkage": "Research placement",
+      "duration_start": "4–6 months within Oct 2027–Mar 2028",
+      "verification_note": "",
+      "opening_text": "Application round before Apr 2027",
+      "deadline_text": "15 Apr 2027 (official, JST)",
+      "name": "OIST Research Internship — Fall intake"
+    },
+    "infosys-hackwithinfy": {
+      "row_id": "OPP-019",
+      "cycle_year": 2027,
+      "organiser": "Infosys",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Practise medium-hard algorithms and clear, optimized implementations.",
+      "hiring_mode": "Coding rounds, regional finals and grand finale",
+      "career_linkage": "PPI/internship opportunities, not guaranteed",
+      "duration_start": "Rounds Mar–Nov; potential future employment",
+      "verification_note": "2026 edition explicitly selected 2027 graduates; 2027 eligible batch is not yet announced.",
+      "opening_text": "Jan–Mar 2027",
+      "deadline_text": "Mar–Apr 2027",
+      "name": "HackWithInfy"
+    },
+    "sebi-young-professional-internship": {
+      "row_id": "OPP-020",
+      "cycle_year": 2027,
+      "organiser": "SEBI",
+      "geography": "India",
+      "confidence": "Medium",
+      "prep_tip": "Check domain eligibility before treating this as a fresher opportunity.",
+      "hiring_mode": "Document screening and interviews",
+      "career_linkage": "Early-career professional appointment; NOT campus internship",
+      "duration_start": "Tenure under issued YPP terms; not a student internship",
+      "verification_note": "",
+      "opening_text": "Feb–Apr 2027 (if advertised)",
+      "deadline_text": "Advertisement-specific",
+      "name": "Young Professional Program and Internship",
+      "deadline_rolling": true
+    },
+    "mea-internship": {
+      "row_id": "OPP-021",
+      "cycle_year": 2027,
+      "organiser": "Ministry of External Affairs",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Confirm which term covers your state/UT before applying.",
+      "hiring_mode": "Screening, state/UT weighting, interview, security check",
+      "career_linkage": "Government policy exposure",
+      "duration_start": "Typically 1–3 months; Apr–Sep 2027 term",
+      "verification_note": "",
+      "opening_text": "Feb 2027",
+      "deadline_text": "Mar 2027",
+      "name": "MEA Internship Programme"
+    },
+    "dpiit-internship": {
+      "row_id": "OPP-022",
+      "cycle_year": 2027,
+      "organiser": "DPIIT",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Gather academic records and follow the official revised internship rules.",
+      "hiring_mode": "Application and merit screening",
+      "career_linkage": "Government internship",
+      "duration_start": "Duration/induction set by 2027 notice",
+      "verification_note": "",
+      "opening_text": "1 Mar 2027 (official portal)",
+      "deadline_text": "Check 2027 announcement for deadline",
+      "name": "DPIIT Internship Scheme",
+      "deadline_rolling": true
+    },
+    "meity-digital-india-internship": {
+      "row_id": "OPP-023",
+      "cycle_year": 2027,
+      "organiser": "Ministry of Electronics and Information Technology",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Target your skills to a listed digital-governance project, not a generic SOP.",
+      "hiring_mode": "Online application; eligibility and merit selection",
+      "career_linkage": "Government internship",
+      "duration_start": "~2 months; Jun–Jul 2027",
+      "verification_note": "2026 official schedule: Apr 10–29 application, Jun 1–Jul 31 internship.",
+      "opening_text": "Apr 2027",
+      "deadline_text": "Apr–May 2027",
+      "name": "Digital India Internship Scheme"
+    },
+    "goldman-sachs-india-hackathon": {
+      "row_id": "OPP-024",
+      "cycle_year": 2027,
+      "organiser": "Goldman Sachs",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Practise algorithms plus quant probability according to your chosen track.",
+      "hiring_mode": "CS/quant coding challenge and shortlisted interviews",
+      "career_linkage": "Top performers may receive PPI",
+      "duration_start": "Online challenge in May; mentorship/finale later",
+      "verification_note": "",
+      "opening_text": "Apr 2027",
+      "deadline_text": "May 2027",
+      "name": "Goldman Sachs India Hackathon"
+    },
+    "schneider-go-green": {
+      "row_id": "OPP-025",
+      "cycle_year": 2027,
+      "organiser": "Schneider Electric",
+      "geography": "Global",
+      "confidence": "Medium",
+      "prep_tip": "Quantify impact, feasibility, implementation cost, and user adoption.",
+      "hiring_mode": "Sustainability solution, pitch and jury",
+      "career_linkage": "Innovation recognition; no assured hiring",
+      "duration_start": "Multi-stage innovation contest; later-year finals",
+      "verification_note": "2025 edition confirmed; no fixed 2027 window established.",
+      "opening_text": "Apr–May 2027",
+      "deadline_text": "May–Jun 2027",
+      "name": "Schneider Go Green Competition"
+    },
+    "jpmorgan-code-for-good": {
+      "row_id": "OPP-026",
+      "cycle_year": 2027,
+      "organiser": "JPMorgan Chase",
+      "geography": "India / global locations",
+      "confidence": "High",
+      "prep_tip": "Show teamwork, clean code, Git collaboration, and nonprofit user empathy.",
+      "hiring_mode": "Application/OA; collaborative nonprofit hackathon; interview possibilities",
+      "career_linkage": "Recruiting pipeline varies by event",
+      "duration_start": "~24–48-hour event; dates vary",
+      "verification_note": "",
+      "opening_text": "Apr–Jul 2027",
+      "deadline_text": "Event-specific",
+      "name": "Code for Good",
+      "deadline_rolling": true
+    },
+    "walmart-sparkathon": {
+      "row_id": "OPP-027",
+      "cycle_year": 2027,
+      "organiser": "Walmart Global Tech",
+      "geography": "India",
+      "confidence": "Medium",
+      "prep_tip": "Prototype a retail-tech solution with measurable scalability and business value.",
+      "hiring_mode": "Idea submission, demo, jury pitch",
+      "career_linkage": "Top eligible teams may receive interview opportunity",
+      "duration_start": "Jun–Aug; contest and presentation",
+      "verification_note": "2025 official terms available; no confirmed 2027 edition.",
+      "opening_text": "Jun 2027",
+      "deadline_text": "Jul 2027",
+      "name": "Walmart Global Tech India Sparkathon"
+    },
+    "flipkart-grid": {
+      "row_id": "OPP-028",
+      "cycle_year": 2027,
+      "organiser": "Flipkart",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Practise timed coding and develop a production-minded system demo.",
+      "hiring_mode": "Profile screening; OA; business case; finals",
+      "career_linkage": "Shortlists may access internships/FTE recruitment",
+      "duration_start": "Multiple stages Jun–Sep; hiring may follow",
+      "verification_note": "",
+      "opening_text": "Jun 2027",
+      "deadline_text": "Jul 2027",
+      "name": "Flipkart GRiD Engineering Challenge"
+    },
+    "goldman-sachs-india-summer-analyst": {
+      "row_id": "OPP-029",
+      "cycle_year": 2028,
+      "organiser": "Goldman Sachs",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Start before July and verify the posted graduation year carefully.",
+      "hiring_mode": "Application, assessment/interviews",
+      "career_linkage": "Internship; possible conversion",
+      "duration_start": "8–10 weeks; summer 2028",
+      "verification_note": "Official 2027 India summer analyst program opened 1 Jul 2026 and targeted 2028 graduates; 2028 intake not yet announced.",
+      "opening_text": "1 Jul 2027 (trend; 2027 internship opened 1 Jul 2026)",
+      "deadline_text": "Rolling / listing-specific",
+      "name": "Goldman Sachs India Summer Analyst (internship intake)",
+      "deadline_rolling": true
+    },
+    "goldman-sachs-india-new-analyst": {
+      "row_id": "OPP-030",
+      "cycle_year": 2028,
+      "organiser": "Goldman Sachs",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Prepare fundamentals and finance-aware engineering examples.",
+      "hiring_mode": "Assessment and interviews",
+      "career_linkage": "Direct full-time hiring",
+      "duration_start": "Full-time from 2028 after graduation",
+      "verification_note": "",
+      "opening_text": "Jul 2027 (trend; 2027 FTE opened Jul 2026)",
+      "deadline_text": "Rolling / listing-specific",
+      "name": "Goldman Sachs India New Analyst (FTE intake)",
+      "deadline_rolling": true
+    },
+    "atlassian-india-internship": {
+      "row_id": "OPP-031",
+      "cycle_year": 2028,
+      "organiser": "Atlassian",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Apply immediately when India roles appear; review collaborative system design.",
+      "hiring_mode": "Application, coding and interviews",
+      "career_linkage": "Internship / potential conversion",
+      "duration_start": "Summer 2028; typically May–Aug",
+      "verification_note": "",
+      "opening_text": "Jul 2027",
+      "deadline_text": "Jul–Dec 2027 (rolling)",
+      "name": "Atlassian India Software Engineering Internship",
+      "deadline_rolling": true
+    },
+    "qualcomm-india-internships": {
+      "row_id": "OPP-032",
+      "cycle_year": 2028,
+      "organiser": "Qualcomm",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Revise C/C++, OS, low-level systems and your branch-specific projects.",
+      "hiring_mode": "Resume screening and technical interviews",
+      "career_linkage": "Internship; FTE conversion possible",
+      "duration_start": "3 months May–Jul 2028 or 6 months Jan–Jun 2028",
+      "verification_note": "",
+      "opening_text": "Jul 2027 (official standing seasonal window)",
+      "deadline_text": "Dec 2027 (official standing seasonal window)",
+      "name": "Qualcomm India Summer / Six-Month Internships"
+    },
+    "de-shaw-india-campus": {
+      "row_id": "OPP-033",
+      "cycle_year": 2028,
+      "organiser": "D. E. Shaw India",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Coordinate with your placement cell; independent off-campus internship applications are not the route.",
+      "hiring_mode": "College shortlist; technical/quant interviews",
+      "career_linkage": "Campus internship",
+      "duration_start": "8–12 weeks; following summer",
+      "verification_note": "Official FAQ states India internship applications are routed only through campus placement offices.",
+      "opening_text": "Jul–Oct 2027 (campus-dependent)",
+      "deadline_text": "Campus-dependent",
+      "name": "D. E. Shaw India Summer Internship — campus channel",
+      "deadline_rolling": true
+    },
+    "microsoft-explore-india": {
+      "row_id": "OPP-034",
+      "cycle_year": 2028,
+      "organiser": "Microsoft",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Focus on foundational programming and team projects; confirm India vacancy.",
+      "hiring_mode": "Resume, foundational coding and interviews",
+      "career_linkage": "Early-year internship",
+      "duration_start": "8 weeks; summer 2028 India",
+      "verification_note": "",
+      "opening_text": "Aug–Nov 2027 (role dependent)",
+      "deadline_text": "Rolling / role dependent",
+      "name": "Microsoft Explore Microsoft — India",
+      "deadline_rolling": true
+    },
+    "microsoft-swe-india": {
+      "row_id": "OPP-035",
+      "cycle_year": 2027,
+      "organiser": "Microsoft",
+      "geography": "India",
+      "confidence": "Medium",
+      "prep_tip": "Practise DSA and articulate an end-to-end software feature you built.",
+      "hiring_mode": "Resume, coding assessment and interviews",
+      "career_linkage": "Internship / FTE conversion possible",
+      "duration_start": "Typically 8–12 weeks or local cycle",
+      "verification_note": "",
+      "opening_text": "Aug–Nov 2027",
+      "deadline_text": "Rolling / position-specific",
+      "name": "Microsoft Software Engineering Internship — India",
+      "deadline_rolling": true
+    },
+    "google-swe-india": {
+      "row_id": "OPP-036",
+      "cycle_year": 2028,
+      "organiser": "Google",
+      "geography": "India",
+      "confidence": "Medium",
+      "prep_tip": "Use a strong DSA portfolio and do not treat overseas roles as India openings.",
+      "hiring_mode": "Coding interviews and screening",
+      "career_linkage": "Internship if India role is posted",
+      "duration_start": "Typically summer 2028 if advertised",
+      "verification_note": "Bachelor-level India SWE summer 2027 was not verified in Google’s currently indexed vacancies.",
+      "opening_text": "Aug–Nov 2027 (variable)",
+      "deadline_text": "Rolling; per posting",
+      "name": "Google SWE Internship — India (role watch)",
+      "deadline_rolling": true
+    },
+    "adobe-india-technical-internship": {
+      "row_id": "OPP-037",
+      "cycle_year": 2027,
+      "organiser": "Adobe",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Match your portfolio to the actual India role; some 2027 listings are US-only.",
+      "hiring_mode": "Resume, OA and technical interviews",
+      "career_linkage": "Internship / research roles vary",
+      "duration_start": "Summer or project-based; role-specific",
+      "verification_note": "",
+      "opening_text": "Sep–Nov 2027 (variable)",
+      "deadline_text": "Rolling / role-specific",
+      "name": "Adobe India University Technical Internship",
+      "deadline_rolling": true
+    },
+    "salesforce-futureforce-india": {
+      "row_id": "OPP-038",
+      "cycle_year": 2028,
+      "organiser": "Salesforce",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Demonstrate backend/API craftsmanship and measurable product impact.",
+      "hiring_mode": "Resume and technical/behavioral interviews",
+      "career_linkage": "Internship and possible conversion",
+      "duration_start": "8–12 weeks; usually following summer",
+      "verification_note": "",
+      "opening_text": "Sep–Dec 2027 (variable)",
+      "deadline_text": "Rolling / role-specific",
+      "name": "Salesforce Futureforce Internship — India",
+      "deadline_rolling": true
+    },
+    "smart-india-hackathon": {
+      "row_id": "OPP-039",
+      "cycle_year": 2027,
+      "organiser": "Ministry of Education Innovation Cell and AICTE",
+      "geography": "India",
+      "confidence": "Medium",
+      "prep_tip": "Coordinate with your college SPOC and validate your MVP against sponsor needs.",
+      "hiring_mode": "College internal selection; problem statement; hackathon finals",
+      "career_linkage": "Problem solving/industry exposure; not guaranteed PPO",
+      "duration_start": "Problem statements/rounds; grand finale later",
+      "verification_note": "",
+      "opening_text": "Aug–Sep 2027",
+      "deadline_text": "Sep–Oct 2027",
+      "name": "Smart India Hackathon"
+    },
+    "tata-imagination-challenge": {
+      "row_id": "OPP-040",
+      "cycle_year": 2027,
+      "organiser": "Tata Group",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Design a sharp idea backed by numbers and practise a two-minute pitch.",
+      "hiring_mode": "Quiz, gamified assessment, idea pitch and panel",
+      "career_linkage": "Career exposure; no automatic placement",
+      "duration_start": "Aug–Nov 2027; rounds and final",
+      "verification_note": "",
+      "opening_text": "Aug 2027",
+      "deadline_text": "Sep 2027",
+      "name": "Tata Imagination Challenge"
+    },
+    "tcs-codevita": {
+      "row_id": "OPP-041",
+      "cycle_year": 2027,
+      "organiser": "Tata Consultancy Services",
+      "geography": "Global",
+      "confidence": "High",
+      "prep_tip": "Practise parsing, edge cases and coding accurately under time pressure.",
+      "hiring_mode": "Timed algorithmic coding and global finale",
+      "career_linkage": "Competitive coding; recruiting benefit varies",
+      "duration_start": "Multi-round coding contest; final in later months",
+      "verification_note": "Official Season 14 currently shows 2027–2030 graduation eligibility; next season timings unknown.",
+      "opening_text": "Sep–Nov 2027 (season dependent)",
+      "deadline_text": "Season-specific",
+      "name": "TCS CodeVita",
+      "deadline_rolling": true
+    },
+    "amazon-sde-following-year": {
+      "row_id": "OPP-042",
+      "cycle_year": 2028,
+      "organiser": "Amazon",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Target exact graduation-year listings and prepare for full-time six-month availability.",
+      "hiring_mode": "OA, coding interviews, leadership principles",
+      "career_linkage": "Internship; possible conversion",
+      "duration_start": "Often 22–26 weeks; Jan–Jun 2028 or other cohort",
+      "verification_note": "",
+      "opening_text": "Sep–Dec 2027 (variable)",
+      "deadline_text": "Rolling; apply when posted",
+      "name": "Amazon SDE Intern — following-year/6-month cycle watch",
+      "deadline_rolling": true
+    },
+    "nicsi-paid-internship": {
+      "row_id": "OPP-043",
+      "cycle_year": 2027,
+      "organiser": "NICSI",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Secure a college NOC and demonstrate e-governance, AI, cloud or cybersecurity skills.",
+      "hiring_mode": "Application, academic merit and technical/domain review; institute NOC",
+      "career_linkage": "Paid government technology internship",
+      "duration_start": "6 months; Jan–Jun or Jul–Dec 2027",
+      "verification_note": "Revised 19 March 2026 policy: ONLY Oct–Dec and Apr–May windows, 10 interns per batch; check live portal openings; NICSI is distinct from NIC government service.",
+      "opening_text": "Oct–Dec 2026 (winter 2027); Apr–May 2027 (summer 2027)",
+      "deadline_text": "Dec 2026 / May 2027 (annual rule)",
+      "recurrence": {
+        "precision": "month",
+        "windows": [
+          {
+            "open_month": 10,
+            "open_year_offset": -1,
+            "close_month": 12,
+            "close_year_offset": -1
+          },
+          {
+            "open_month": 4,
+            "close_month": 5
+          }
+        ]
+      },
+      "name": "NICSI Paid Internship Scheme — Government Technology"
+    },
+    "iisc-algorithms-theory": {
+      "row_id": "OPP-044",
+      "cycle_year": 2027,
+      "organiser": "IISc Bengaluru",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Show proof-based algorithms ability and a focused research statement.",
+      "hiring_mode": "Relevant algorithms coursework, research fit and screening",
+      "career_linkage": "Research internship; not centralized IISc summer fellowship",
+      "duration_start": "≥2 months; in-person research; dates by lab",
+      "verification_note": "IISc does not have a uniform all-departments external summer intake; check laboratory-specific terms.",
+      "opening_text": "Lab-dependent / rolling",
+      "deadline_text": "Until lab positions filled",
+      "name": "IISc Bengaluru Algorithms/Theory Research Internship"
+    },
+    "niti-aayog-internship": {
+      "row_id": "OPP-045",
+      "cycle_year": 2027,
+      "organiser": "NITI Aayog",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Tailor your SOP to a specific NITI vertical and apply within 1–10.",
+      "hiring_mode": "Online application; academic/sector matching",
+      "career_linkage": "Government policy internship",
+      "duration_start": "6 weeks to 6 months; start as allotted",
+      "verification_note": "",
+      "opening_text": "1–10 of EVERY month (official)",
+      "deadline_text": "10th of EVERY month (official)",
+      "recurrence": {
+        "precision": "day",
+        "windows": [
+          {
+            "open_month": 1,
+            "open_day": 1,
+            "close_month": 1,
+            "close_day": 10
+          },
+          {
+            "open_month": 2,
+            "open_day": 1,
+            "close_month": 2,
+            "close_day": 10
+          },
+          {
+            "open_month": 3,
+            "open_day": 1,
+            "close_month": 3,
+            "close_day": 10
+          },
+          {
+            "open_month": 4,
+            "open_day": 1,
+            "close_month": 4,
+            "close_day": 10
+          },
+          {
+            "open_month": 5,
+            "open_day": 1,
+            "close_month": 5,
+            "close_day": 10
+          },
+          {
+            "open_month": 6,
+            "open_day": 1,
+            "close_month": 6,
+            "close_day": 10
+          },
+          {
+            "open_month": 7,
+            "open_day": 1,
+            "close_month": 7,
+            "close_day": 10
+          },
+          {
+            "open_month": 8,
+            "open_day": 1,
+            "close_month": 8,
+            "close_day": 10
+          },
+          {
+            "open_month": 9,
+            "open_day": 1,
+            "close_month": 9,
+            "close_day": 10
+          },
+          {
+            "open_month": 10,
+            "open_day": 1,
+            "close_month": 10,
+            "close_day": 10
+          },
+          {
+            "open_month": 11,
+            "open_day": 1,
+            "close_month": 11,
+            "close_day": 10
+          },
+          {
+            "open_month": 12,
+            "open_day": 1,
+            "close_month": 12,
+            "close_day": 10
+          }
+        ]
+      },
+      "name": "NITI Aayog Internship Scheme"
+    },
+    "rbi-research-internship": {
+      "row_id": "OPP-046",
+      "cycle_year": 2027,
+      "organiser": "Reserve Bank of India",
+      "geography": "India / international eligible",
+      "confidence": "High",
+      "prep_tip": "Show econometrics/data-analysis work and a research-oriented SOP.",
+      "hiring_mode": "CV, SOP, references, RBI interview",
+      "career_linkage": "Research internship; not standard SWE role",
+      "duration_start": "Research assignments; 1 Jan or 1 Jul start",
+      "verification_note": "",
+      "opening_text": "Jan–May (July intake); Jul–Nov (January intake)",
+      "deadline_text": "May / Nov, respective intake",
+      "recurrence": {
+        "precision": "month",
+        "windows": [
+          {
+            "open_month": 7,
+            "open_year_offset": -1,
+            "close_month": 11,
+            "close_year_offset": -1
+          },
+          {
+            "open_month": 1,
+            "close_month": 5
+          }
+        ]
+      },
+      "name": "Research Internship"
+    },
+    "drdo-paid-internships": {
+      "row_id": "OPP-047",
+      "cycle_year": 2027,
+      "organiser": "DRDO",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Track individual labs and obtain an HOD-endorsed application before the call.",
+      "hiring_mode": "Institute recommendation; merit/possible interview",
+      "career_linkage": "Applied research internship",
+      "duration_start": "Usually 3–6 months as notified",
+      "verification_note": "",
+      "opening_text": "Variable; 2026 lab notices May–Nov",
+      "deadline_text": "Lab-specific; short application windows",
+      "name": "Paid Internship Scheme"
+    },
+    "isro-internship-projects": {
+      "row_id": "OPP-048",
+      "cycle_year": 2027,
+      "organiser": "ISRO",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Contact the right ISRO center and satisfy the exact semester requirement.",
+      "hiring_mode": "Center review and project/mentor availability",
+      "career_linkage": "Unpaid research/project experience",
+      "duration_start": "Internship ≤45 days; BTech project ≥45 days",
+      "verification_note": "",
+      "opening_text": "Center-dependent; IIRS Jul–Oct cycle",
+      "deadline_text": "Center-dependent",
+      "name": "DoS/ISRO Internship and Student Project Trainee Schemes"
+    },
+    "nvidia-india-student-internships": {
+      "row_id": "OPP-049",
+      "cycle_year": 2027,
+      "organiser": "NVIDIA",
+      "geography": "India",
+      "confidence": "Medium",
+      "prep_tip": "Show performance engineering, C++/Python, GPU or ML project evidence.",
+      "hiring_mode": "Resume screening, technical interviews",
+      "career_linkage": "Technical internship",
+      "duration_start": "3–6 months or role-specific",
+      "verification_note": "",
+      "opening_text": "Rolling; no confirmed national cycle",
+      "deadline_text": "Vacancy-specific",
+      "name": "NVIDIA India Student Internships"
+    },
+    "kaust-vsrp": {
+      "row_id": "OPP-050",
+      "cycle_year": 2027,
+      "organiser": "KAUST",
+      "geography": "Saudi Arabia / global",
+      "confidence": "High",
+      "prep_tip": "Contact project-matched research groups with a concise portfolio and references.",
+      "hiring_mode": "Faculty project fit, transcripts and references",
+      "career_linkage": "Research internship",
+      "duration_start": "4–6 months; agreed research start",
+      "verification_note": "",
+      "opening_text": "Project-dependent / rolling",
+      "deadline_text": "Project-dependent",
+      "name": "Visiting Student Research Program"
+    }
+  }
+}

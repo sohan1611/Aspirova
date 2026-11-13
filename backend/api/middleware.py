@@ -51,6 +51,7 @@ _IP_RATE_LIMITED_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("/opportunity/", "opportunity", "rate_limit_ip_opportunity_per_minute"),
     ("/programme/", "opportunity", "rate_limit_ip_opportunity_per_minute"),
     ("/programmes", "opportunity", "rate_limit_ip_opportunity_per_minute"),
+    ("/calendar", "opportunity", "rate_limit_ip_opportunity_per_minute"),
     ("/company/", "opportunity", "rate_limit_ip_opportunity_per_minute"),
     ("/companies", "opportunity", "rate_limit_ip_opportunity_per_minute"),
     ("/facets", "opportunity", "rate_limit_ip_opportunity_per_minute"),
@@ -69,6 +70,7 @@ _IP_RATE_LIMITED_ROUTES: tuple[tuple[str, str, str], ...] = (
 )
 
 _CACHEABLE_PREFIXES = (
+    "/calendar",
     "/feed",
     "/for-you",
     "/search",

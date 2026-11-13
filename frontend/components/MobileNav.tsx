@@ -23,6 +23,7 @@ const NAV_LINKS = [
   { href: "/scholarships", label: "Scholarships" },
   { href: "/research", label: "Research" },
   { href: "/programmes", label: "Programmes" },
+  { href: "/calendar", label: "Hiring Calendar" },
   { href: "/companies", label: "Companies" },
   { href: "/pricing", label: "Pricing" },
 ] as const;
@@ -53,7 +54,7 @@ export default function MobileNav() {
           type="button"
           variant="ghost"
           size="icon"
-          className="lg:hidden"
+          className="xl:hidden"
           aria-label="Open menu"
         >
           <Menu className="size-5" aria-hidden="true" />

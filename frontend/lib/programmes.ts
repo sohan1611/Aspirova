@@ -11,6 +11,7 @@ export const PROGRAMME_CATEGORY_LABELS: Record<string, string> = {
   recurring_competition: "Recurring competition",
   scholarship: "Scholarship",
   conference: "Conference",
+  early_career: "Early-career hiring",
 };
 
 export const PROGRAMME_CATEGORIES = Object.entries(PROGRAMME_CATEGORY_LABELS).map(

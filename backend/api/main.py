@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api import (
     account,
     bookmarks,
+    calendar,
     company,
     copilot,
     dream_companies,
@@ -69,6 +70,7 @@ app.include_router(resume.router)
 app.include_router(payments.router)
 app.include_router(plans.router)
 app.include_router(programmes.router)
+app.include_router(calendar.router)
 app.include_router(referral.router)
 app.include_router(reports.router)
 app.include_router(sitemap.router)

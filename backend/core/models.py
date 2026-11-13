@@ -302,7 +302,7 @@ class Programme(Base):
             "category in ("
             "'research_internship', 'fellowship', 'government_internship', "
             "'open_source', 'international_research', 'corporate_research', "
-            "'recurring_competition', 'scholarship', 'conference'"
+            "'recurring_competition', 'scholarship', 'conference', 'early_career'"
             ")",
             name="ck_programmes_category",
         ),
