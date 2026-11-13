@@ -22,16 +22,12 @@ from core.models import Programme, ProgrammeEdition
 from scripts.import_calendar import category_for
 
 WINDOWLESS_ROWS = {
-    "OPP-010",
     "OPP-044",
     "OPP-047",
     "OPP-048",
     "OPP-049",
     "OPP-050",
-    "OPP-103",
     "OPP-111",
-    "OPP-112",
-    "OPP-113",
     "OPP-114",
 }
 RESEARCH_SLUGS = {
@@ -121,6 +117,10 @@ def test_source_calendar_and_rolling_counts():
     assert rolling == WINDOWLESS_ROWS
     assert dated.isdisjoint(rolling)
     assert dated | rolling == set(ROWS)
+    # Work order C converts 26 original rolling rows, adds 17 dated rows
+    # (10 split awards/rounds/batches and seven programmes), and two rolling routes.
+    assert len(dated) == 144
+    assert len(rolling) == 26
 
 
 def test_research_rows_reuse_canonical_registry_slugs_and_have_provenance():
@@ -142,12 +142,15 @@ def test_research_rows_reuse_canonical_registry_slugs_and_have_provenance():
         assert date.fromisoformat(row["source_checked_on"]) == date(2026, 11, 13)
         assert row["verification_note"] == meta["verification_note"]
         assert row["verification_note"]
-        assert row["date_basis"] == "Tentative (Historical Annual Trend)"
         assert source_window(slug)["status"] == "expected"
         assert category_for(row) in {"open_source", "early_career"}
         if meta["row_id"] in WINDOWLESS_ROWS:
             assert source_window(slug)["rolling"]
-            assert "rolling" in row["application_open"].lower()
+            assert meta["rolling_kind"] in {"always_open", "vacancy_based"}
+            assert row["date_basis"] in {"Year-round programme", "Vacancy-based timing"}
+            assert meta["rolling_reason"]
+        else:
+            assert row["date_basis"] == "Tentative (Historical Annual Trend)"
     for item in METADATA["watchlist"]:
         assert item["status"] == "unverified/legacy watchlist"
         assert item["reason"]
@@ -254,6 +257,48 @@ def test_deadline_only_row_appears_at_its_deadline():
     with request_client([source_programme("oist-research-internship")]) as client:
         assert client.get("/calendar?from=2027-04-15&to=2027-04-15").json()["items"]
         assert client.get("/calendar?from=2027-04-14&to=2027-04-14").json()["items"] == []
+
+
+@pytest.mark.parametrize("stored_closing", [False, True])
+def test_swiss_official_opening_without_cutoff_stays_in_next_12_months(stored_closing):
+    item = source_programme("swiss-government-excellence")
+    if not stored_closing:
+        item.editions[0].closes_at = None
+    result = build_calendar(
+        [item],
+        date(2026, 11, 13),
+        date(2027, 11, 12),
+        categories=[],
+        statuses=["open"],
+        q="",
+        now=at_day(date(2026, 11, 13)),
+    )
+    assert len(result.items) == 1
+    swiss = result.items[0]
+    assert swiss.edition.opens_at.date() == date(2026, 8, 20)
+    assert swiss.edition.closes_at is None
+    assert swiss.edition.opens_precision == "day"
+    assert swiss.edition.closes_precision is None
+    assert swiss.edition.status == "open"
+    assert swiss.edition.basis == "official"
+    assert swiss.is_open_now
+    assert all(month.count == 1 for month in result.months)
+
+
+def test_swiss_discovered_cutoff_bounds_visibility():
+    item = source_programme("swiss-government-excellence")
+    item.editions[0].closes_at = at_day(date(2026, 11, 30), end=True)
+    item.editions[0].notes += "\ncalendar_exact_closes_at"
+    result = build_calendar(
+        [item],
+        date(2026, 12, 1),
+        date(2027, 11, 30),
+        categories=[],
+        statuses=[],
+        q="",
+        now=at_day(date(2026, 12, 1)),
+    )
+    assert not result.items and not result.rolling
 
 
 def test_extracted_official_deadline_supersedes_rolling_metadata():

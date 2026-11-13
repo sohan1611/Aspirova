@@ -6,17 +6,99 @@ import json
 import pytest
 from sqlalchemy import func, select, text
 
-from core.hiring_calendar import CALENDAR_META, DATA_DIR, METADATA, ROWS, source_window
+from core.hiring_calendar import (
+    CALENDAR_META,
+    DATA_DIR,
+    METADATA,
+    ROWS,
+    ROLLING_KINDS,
+    at_day,
+    source_window,
+)
 from core.models import Programme, ProgrammeEdition
 from migrations.versions.b8d1f3a5c7e9_add_government_exam_programme_category import OLD_CATEGORIES
 from scripts import calendar_coverage
 from scripts.import_calendar import category_for, import_calendar
+from scripts.refresh_calendar import refresh_calendar
 from scripts.seed_programmes import _seed_with_session
 from tests.test_hiring_calendar import programme, request_client, source_programme
 
 
 def test_all_active_programmes_have_current_or_next_cycle_presence():
     assert calendar_coverage.uncovered_programmes(today=date(2026, 11, 13)) == []
+
+
+@pytest.mark.parametrize("today", calendar_coverage.FROZEN_DATES)
+def test_next_12_months_after_import_and_refresh(engine, today):
+    from sqlalchemy.orm import Session
+
+    class SavedPages:
+        def fetch(self, url):
+            return "inconclusive", None
+
+    with engine.connect() as connection:
+        transaction = connection.begin()
+        session = Session(bind=connection)
+        try:
+            _seed_with_session(session, current_year=today.year)
+            import_calendar(session)
+            summary = refresh_calendar(session, SavedPages(), now=at_day(today))
+            assert summary["checked"] == len(CALENDAR_META)
+            # Each stub fetch is inconclusive. A refresh exception would add
+            # another error and expose a failed roll-forward here.
+            assert summary["errors"] == len(CALENDAR_META)
+            session.expire_all()
+            programmes = list(session.scalars(select(Programme)))
+            active = [item for item in programmes if item.is_active]
+            assert len(active) == 170
+            assert calendar_coverage.uncovered_next_12_months(programmes, today=today) == []
+            assert calendar_coverage.uncovered_next_12_months(today=today) == []
+            edition_count = session.scalar(select(func.count()).select_from(ProgrammeEdition))
+            refresh_calendar(session, SavedPages(), now=at_day(today))
+            assert (
+                session.scalar(select(func.count()).select_from(ProgrammeEdition)) == edition_count
+            )
+        finally:
+            session.close()
+            transaction.rollback()
+
+
+def test_next_12_months_gate_rejects_stale_windows_and_annual_rolling():
+    today = date(2027, 3, 1)
+    stale = source_programme("jncasr-srfp")
+    rolling = source_programme("kaust-vsrp")
+    assert calendar_coverage.uncovered_next_12_months([stale, rolling], today=today) == [stale.slug]
+    rolling.slug = "jncasr-srfp"
+    assert calendar_coverage.uncovered_next_12_months([rolling], today=today) == [rolling.slug]
+
+
+def test_next_12_months_excludes_the_anniversary_boundary():
+    today = date(2026, 11, 13)
+    item = programme(opening="2027-11-13", closing="2027-11-14")
+    assert calendar_coverage.uncovered_next_12_months([item], today=today) == [item.slug]
+    item.editions[0].opens_at = at_day(date(2027, 11, 12))
+    assert calendar_coverage.uncovered_next_12_months([item], today=today) == []
+
+
+@pytest.mark.parametrize("slug", CALENDAR_META)
+def test_rolling_classification_and_annual_evidence(slug):
+    meta = CALENDAR_META[slug]
+    window = source_window(slug)
+    if window["rolling"]:
+        assert meta["rolling_kind"] in ROLLING_KINDS - {"annual_cycle"}
+        assert meta["rolling_reason"].strip()
+    if meta.get("rolling_kind") == "annual_cycle":
+        assert not window["rolling"]
+        assert meta["past_cycle_evidence"]
+        assert meta["past_cycle_evidence"] == ROWS[meta["row_id"]]["past_cycle_evidence"]
+        for item in meta["past_cycle_evidence"]:
+            assert item["source_url"].startswith("https://")
+            assert item["cycle"] and item["dates_shown"]
+            assert date.fromisoformat(item["source_checked_on"]) == date(2026, 11, 13)
+        if window["status"] == "expected":
+            for field in ("opens_at", "closes_at"):
+                if window[field]:
+                    assert window[field.replace("_at", "_precision")] == "month"
 
 
 def test_coverage_rejects_missing_stale_and_unjustified_rolling(tmp_path, monkeypatch):
@@ -54,6 +136,7 @@ def test_coverage_rejects_missing_stale_and_unjustified_rolling(tmp_path, monkey
         "stale",
     ]
     calendar_coverage.CALENDAR_META["rolling"]["rolling_reason"] = "Host-specific vacancies."
+    calendar_coverage.CALENDAR_META["rolling"]["rolling_kind"] = "vacancy_based"
     assert calendar_coverage.uncovered_programmes(today=date(2026, 11, 13)) == [
         "missing",
         "stale",

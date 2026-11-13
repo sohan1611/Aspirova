@@ -272,6 +272,61 @@ def test_import_preserves_an_existing_verified_cutoff(db_session):
     assert "calendar_exact_closes_at" in edition.notes
 
 
+def test_import_repairs_converted_rolling_editions_without_overwriting_discoveries(db_session):
+    import_calendar(db_session)
+    item = db_session.scalar(select(Programme).where(Programme.slug == "jncasr-srfp"))
+    current = item.editions[0]
+    current.opens_at = current.closes_at = None
+    current.verified_at = datetime(2026, 11, 20, tzinfo=IST)
+    current.notes = "Later liveness check, with no verified dates."
+    future = ProgrammeEdition(programme_id=item.id, year=2028, status="expected")
+    discovered = ProgrammeEdition(
+        programme_id=item.id,
+        year=2029,
+        status="announced",
+        closes_at=datetime(2029, 2, 12, tzinfo=IST),
+        notes="calendar_exact_closes_at",
+    )
+    db_session.add_all([future, discovered])
+    db_session.flush()
+    import_calendar(db_session)
+    assert current.opens_at.astimezone(IST).year == 2026
+    assert current.closes_at.astimezone(IST).month == 2
+    assert current.status == "expected"
+    assert current.verified_at == datetime(2026, 11, 20, tzinfo=IST)
+    assert future.opens_at.astimezone(IST).year == 2027
+    assert future.closes_at.astimezone(IST).year == 2028
+    assert discovered.status == "announced"
+    assert discovered.opens_at is None
+    assert discovered.closes_at == datetime(2029, 2, 12, tzinfo=IST)
+    before = [(edition.opens_at, edition.closes_at, edition.notes) for edition in (current, future)]
+    import_calendar(db_session)
+    assert [
+        (edition.opens_at, edition.closes_at, edition.notes) for edition in (current, future)
+    ] == before
+
+
+def test_expired_expected_window_rolls_before_its_intake_year_ends(db_session):
+    import_calendar(db_session)
+    item = db_session.scalar(select(Programme).where(Programme.slug == "jncasr-srfp"))
+    edition = item.editions[0]
+    assert edition.year == 2027 and edition.status == "expected"
+    now = datetime(2027, 3, 1, tzinfo=IST)
+    assert roll_forward(db_session, edition, now=now)
+    assert not roll_forward(db_session, edition, now=now)
+    future = db_session.scalar(
+        select(ProgrammeEdition).where(
+            ProgrammeEdition.programme_id == item.id,
+            ProgrammeEdition.year == 2028,
+        )
+    )
+    assert future.status == "expected"
+    assert future.opens_at.astimezone(IST).date().isoformat() == "2027-11-01"
+    assert future.closes_at.astimezone(IST).date().isoformat() == "2028-02-29"
+    assert future.source_url == edition.source_url
+    assert future.verified_at is None
+
+
 def test_roll_forward_preserves_rolling_deadline_on_reimport(db_session):
     import_calendar(db_session)
     item = db_session.scalar(

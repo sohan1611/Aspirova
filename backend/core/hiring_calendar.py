@@ -34,6 +34,14 @@ OFFICIAL_RECURRENCE_BASES = {
     "official standing rule",
     "official standing annual recruitment pattern",
 }
+ROLLING_KINDS = {
+    "vacancy_based",
+    "lab_dependent",
+    "nomination_based",
+    "paused",
+    "always_open",
+    "annual_cycle",
+}
 
 
 def calendar_metadata(slug: str, name: str, organiser: str) -> dict:
@@ -185,9 +193,28 @@ def official_status(
         return "closed"
     if opens_at is not None and now < opens_at:
         return "announced"
-    if opens_at is not None and closes_at is not None and opens_at <= now <= closes_at:
+    if opens_at is not None and opens_at <= now:
         return "open"
     return status
+
+
+def projection_needed(
+    year: int, status: str, opening: datetime | None, closing: datetime | None, now: datetime
+) -> bool:
+    """Include expired tentative windows and preceding-year intake applications."""
+    boundary = closing or opening
+    return status == "closed" or year < now.year or bool(boundary and boundary < now)
+
+
+def projected_boundaries(
+    opening: datetime | None, closing: datetime | None
+) -> tuple[datetime | None, datetime | None]:
+    opening = shift_year(opening.astimezone(IST)) if opening else None
+    closing = shift_year(closing.astimezone(IST)) if closing else None
+    return (
+        month_date(opening.year, opening.month) if opening else None,
+        month_date(closing.year, closing.month, end=True) if closing else None,
+    )
 
 
 def shift_year(value: datetime | None) -> datetime | None:

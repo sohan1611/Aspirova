@@ -15,6 +15,38 @@ from core.models import Programme, ProgrammeEdition
 logger = logging.getLogger(__name__)
 
 
+def _restore_expected_windows(
+    session: Session, programme_id: int, meta: dict, window: dict
+) -> None:
+    """Fill undated seeded or formerly rolling editions from authored boundaries."""
+    if window["rolling"]:
+        return
+    editions = session.scalars(
+        select(ProgrammeEdition).where(
+            ProgrammeEdition.programme_id == programme_id,
+            ProgrammeEdition.status == "expected",
+            ProgrammeEdition.opens_at.is_(None),
+            ProgrammeEdition.closes_at.is_(None),
+        )
+    )
+    for edition in editions:
+        for field in ("opens_at", "closes_at"):
+            boundary = window[field]
+            if boundary is None:
+                continue
+            year = boundary.year + edition.year - meta["cycle_year"]
+            value = (
+                boundary
+                if edition.year == meta["cycle_year"]
+                else month_date(year, boundary.month, end=field == "closes_at")
+            )
+            setattr(edition, field, value)
+        if edition.year == meta["cycle_year"]:
+            edition.status = window["status"]
+        edition.source_url = edition.source_url or meta["source_url"]
+        edition.notes = f"{edition.notes or ''}\n{window['notes']}".strip()
+
+
 def _restore_opening_windows(session: Session, programme_id: int, meta: dict, window: dict) -> None:
     if not window["deadline_rolling"]:
         return
@@ -128,6 +160,7 @@ def _import_row(session: Session, slug: str, meta: dict) -> None:
     # Repair dates omitted by the old rolling classification, including
     # projected editions, while preserving verification timestamps and status.
     _restore_opening_windows(session, programme.id, meta, window)
+    _restore_expected_windows(session, programme.id, meta, window)
     # A daily import must preserve crawler discoveries and later human checks.
     if edition is not None and edition.status != "expected" and window["status"] == "expected":
         return

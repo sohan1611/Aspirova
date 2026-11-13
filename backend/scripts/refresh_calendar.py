@@ -15,7 +15,8 @@ from core.hiring_calendar import (
     has_rolling_deadline,
     month_date,
     official_status,
-    shift_year,
+    projected_boundaries,
+    projection_needed,
 )
 from core.models import Programme, ProgrammeEdition
 from pipeline.programme_verification import CalendarPageFetcher, extract_official_calendar_dates
@@ -68,15 +69,11 @@ def apply_page(
 
 
 def roll_forward(session: Session, edition: ProgrammeEdition, *, now: datetime) -> bool:
-    if edition.status != "closed" and edition.year >= now.year:
+    if edition.year >= 9999 or not projection_needed(
+        edition.year, edition.status, edition.opens_at, edition.closes_at, now
+    ):
         return False
-    opening = shift_year(edition.opens_at.astimezone(IST)) if edition.opens_at else None
-    closing = shift_year(edition.closes_at.astimezone(IST)) if edition.closes_at else None
-    # Every projected boundary is deliberately reduced to month precision.
-    if opening:
-        opening = month_date(opening.year, opening.month)
-    if closing:
-        closing = month_date(closing.year, closing.month, end=True)
+    opening, closing = projected_boundaries(edition.opens_at, edition.closes_at)
     notes = "Projected next cycle from historical months. Verify the new official call."
     if "calendar_deadline_rolling" in (edition.notes or "") and "calendar_exact_closes_at" not in (
         edition.notes or ""
@@ -90,6 +87,7 @@ def roll_forward(session: Session, edition: ProgrammeEdition, *, now: datetime) 
             status="expected",
             opens_at=opening,
             closes_at=closing,
+            source_url=edition.source_url,
             notes=notes,
         )
         .on_conflict_do_nothing(index_elements=["programme_id", "year"])
@@ -151,6 +149,25 @@ def refresh_calendar(
                     summary["updated"] += int(changed)
                     summary["rolled"] += int(roll_forward(session, edition, now=now))
                 session.flush()
+                # A refresh after a long gap must catch up in one run. Include
+                # the next registration window even when its intake is next year.
+                latest = session.scalar(
+                    select(ProgrammeEdition)
+                    .where(
+                        ProgrammeEdition.programme_id == programme.id,
+                        ProgrammeEdition.status != "discontinued",
+                    )
+                    .order_by(ProgrammeEdition.year.desc())
+                    .limit(1)
+                )
+                while roll_forward(session, latest, now=now):
+                    summary["rolled"] += 1
+                    latest = session.scalar(
+                        select(ProgrammeEdition).where(
+                            ProgrammeEdition.programme_id == programme.id,
+                            ProgrammeEdition.year == latest.year + 1,
+                        )
+                    )
         except Exception as exc:
             summary["errors"] += 1
             # Exception text may contain DB parameters. Only log the type.

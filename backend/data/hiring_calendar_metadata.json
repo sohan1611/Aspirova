@@ -8,10 +8,6 @@
     "OPP-007": {
       "reason": "Place the usable opening on the calendar. The individual application cutoff is unfixed."
     },
-    "OPP-010": {
-      "rolling": true,
-      "reason": "No fixed application cutoff. 2027 application status: verify PIMS and Mitacs"
-    },
     "OPP-020": {
       "reason": "Place the usable opening on the calendar. The individual application cutoff is unfixed."
     },
@@ -268,23 +264,31 @@
     },
     "pims-mitacs-india": {
       "row_id": "OPP-010",
-      "cycle_year": 2027,
+      "cycle_year": 2028,
       "organiser": "PIMS and Mitacs",
       "geography": "Canada / selected Indian institutions",
-      "confidence": "High",
+      "confidence": "Medium",
       "prep_tip": "Read the separate PIMS partner-institution list and match a named project.",
       "hiring_mode": "Academic/project matching; referee assessment",
       "career_linkage": "Research placement",
-      "duration_start": "12 weeks; May–Oct 2027",
-      "verification_note": "The PIMS route has a different Indian institution list than the main Globalink page.",
-      "opening_text": "2026 application cycle; check route-specific posting",
-      "deadline_text": "2027 application status: verify PIMS and Mitacs",
+      "duration_start": "Twelve-week PIMS-affiliated research placement in the following Canadian summer (tentative).",
+      "verification_note": "Tentative September cutoff follows the official Mitacs student call used by the PIMS route. Verify the PIMS-specific Indian institution list. Opening month remains unpublished.",
+      "opening_text": "Opening date not published",
+      "deadline_text": "Sep 2027",
       "name": "PIMS–Mitacs Globalink Research Internship — India route",
       "source_url": "https://www.pims.math.ca/programs/scientific/mentorship-early-career-programs/mitacs-globalink-research-internship-india/students",
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Academic/project matching; referee assessment.",
-      "event_window": "12 weeks; May–Oct 2027",
-      "rolling_reason": "The PIMS route has a different Indian institution list than the main Globalink page."
+      "event_window": "Twelve-week PIMS-affiliated research placement in the following Canadian summer (tentative).",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://globalink.mitacs.ca/assets/documents/Mitacs%20Globalink%20Research%20Internship%20%28GRI%29%202026%20-%20Student%20Application%20guide.pdf",
+          "cycle": "Globalink 2026 student call",
+          "dates_shown": "Student call deadline 17 September 2025 at 13:00 Pacific. The PIMS page directs Indian applicants to the Mitacs application process while specifying its own participating institutions.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "iitk-surge": {
       "row_id": "OPP-011",
@@ -314,15 +318,24 @@
       "prep_tip": "Study the host group’s recent work before drafting your research proposal.",
       "hiring_mode": "Research interests, references, academic selection",
       "career_linkage": "Recruitment or learning opportunity",
-      "duration_start": "~1–2 months; May–Jul 2027",
-      "verification_note": "",
-      "opening_text": "Jan–Feb 2027",
-      "deadline_text": "Feb–Mar 2027",
-      "name": "Visiting Students' Research Programme",
-      "source_url": "https://www.ncra.tifr.res.in/students/external-students/vsrp",
+      "duration_start": "NCRA astronomy research during May–July 2027 (tentative).",
+      "verification_note": "Tentative January–February application window follows the official NCRA school pattern. The central Mumbai programme is suspended and Mathematics has a separate February–March call.",
+      "opening_text": "Jan 2027",
+      "deadline_text": "Feb 2027",
+      "name": "TIFR VSRP — NCRA astronomy and astrophysics",
+      "source_url": "https://vsrp.ncra.tifr.res.in/students/external-students/vsrp",
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Research interests, references, academic selection.",
-      "event_window": "~1–2 months; May–Jul 2027"
+      "event_window": "NCRA astronomy research during May–July 2027 (tentative).",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://vsrp.ncra.tifr.res.in/students/external-students/vsrp",
+          "cycle": "VSRP 2025 and standing school schedule",
+          "dates_shown": "Official NCRA page links the 2025 application form and says applications open in mid-January each year with a deadline around mid-February.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "iitm-sfp": {
       "row_id": "OPP-013",
@@ -962,7 +975,8 @@
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Relevant algorithms coursework, research fit and screening.",
       "event_window": "≥2 months; in-person research; dates by lab",
-      "rolling_reason": "IISc does not have a uniform all-departments external summer intake; check laboratory-specific terms."
+      "rolling_reason": "IISc does not have a uniform all-departments external summer intake; check laboratory-specific terms.",
+      "rolling_kind": "lab_dependent"
     },
     "niti-aayog-internship": {
       "row_id": "OPP-045",
@@ -1106,7 +1120,7 @@
       "hiring_mode": "Institute recommendation; merit/possible interview",
       "career_linkage": "Applied research internship",
       "duration_start": "Usually 3–6 months as notified",
-      "verification_note": "",
+      "verification_note": "DRDO laboratories advertise separate paid-internship vacancies and decide their own selection deadlines. The common vacancies page supplies no nationwide registration window.",
       "opening_text": "Variable; 2026 lab notices May–Nov",
       "deadline_text": "Lab-specific; short application windows",
       "name": "Paid Internship Scheme",
@@ -1114,7 +1128,8 @@
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Institute recommendation; merit/possible interview.",
       "event_window": "Usually 3–6 months as notified",
-      "rolling_reason": "Host, vacancy, cohort or session recruitment has no common window; verify the current official call."
+      "rolling_reason": "DRDO laboratories advertise separate paid-internship vacancies and decide their own selection deadlines. The common vacancies page supplies no nationwide registration window.",
+      "rolling_kind": "vacancy_based"
     },
     "isro-internship-projects": {
       "row_id": "OPP-048",
@@ -1126,7 +1141,7 @@
       "hiring_mode": "Center review and project/mentor availability",
       "career_linkage": "Unpaid research/project experience",
       "duration_start": "Internship ≤45 days; BTech project ≥45 days",
-      "verification_note": "",
+      "verification_note": "ISRO centres assess student requests against laboratory capacity, project availability and requested training dates. Each centre supplies its own submission instructions.",
       "opening_text": "Center-dependent; IIRS Jul–Oct cycle",
       "deadline_text": "Center-dependent",
       "name": "DoS/ISRO Internship and Student Project Trainee Schemes",
@@ -1134,7 +1149,8 @@
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Center review and project/mentor availability.",
       "event_window": "Internship ≤45 days; BTech project ≥45 days",
-      "rolling_reason": "Host, vacancy, cohort or session recruitment has no common window; verify the current official call."
+      "rolling_reason": "ISRO centres assess student requests against laboratory capacity, project availability and requested training dates. Each centre supplies its own submission instructions.",
+      "rolling_kind": "lab_dependent"
     },
     "nvidia-india-student-internships": {
       "row_id": "OPP-049",
@@ -1146,7 +1162,7 @@
       "hiring_mode": "Resume screening, technical interviews",
       "career_linkage": "Technical internship",
       "duration_start": "3–6 months or role-specific",
-      "verification_note": "",
+      "verification_note": "NVIDIA recruits against individual India internship vacancies. Each role supplies its own location, eligibility and closing date.",
       "opening_text": "Rolling; no confirmed national cycle",
       "deadline_text": "Vacancy-specific",
       "name": "NVIDIA India Student Internships",
@@ -1154,7 +1170,8 @@
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Resume screening, technical interviews.",
       "event_window": "3–6 months or role-specific",
-      "rolling_reason": "Host, vacancy, cohort or session recruitment has no common window; verify the current official call."
+      "rolling_reason": "NVIDIA recruits against individual India internship vacancies. Each role supplies its own location, eligibility and closing date.",
+      "rolling_kind": "vacancy_based"
     },
     "kaust-vsrp": {
       "row_id": "OPP-050",
@@ -1166,7 +1183,7 @@
       "hiring_mode": "Faculty project fit, transcripts and references",
       "career_linkage": "Research internship",
       "duration_start": "4–6 months; agreed research start",
-      "verification_note": "",
+      "verification_note": "Students apply to available faculty research projects and arrange their attachment with the host laboratory. Project availability and agreed start dates determine timing.",
       "opening_text": "Project-dependent / rolling",
       "deadline_text": "Project-dependent",
       "name": "Visiting Student Research Program",
@@ -1174,7 +1191,8 @@
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Faculty project fit, transcripts and references.",
       "event_window": "4–6 months; agreed research start",
-      "rolling_reason": "Host, vacancy, cohort or session recruitment has no common window; verify the current official call."
+      "rolling_reason": "Students apply to available faculty research projects and arrange their attachment with the host laboratory. Project availability and agreed start dates determine timing.",
+      "rolling_kind": "lab_dependent"
     },
     "gsoc": {
       "row_id": "OPP-101",
@@ -1224,16 +1242,30 @@
       "prep_tip": "Prepare to discuss code you wrote and check batch time-zone and time-commitment requirements.",
       "hiring_mode": "Rolling application, interviews and enrolment",
       "career_linkage": "Learning and contribution; no employment guarantee",
-      "duration_start": "12-week batches; Spring 2027 cohort Jan 25–Apr 16 is listed by the organiser",
-      "verification_note": "The indexed official Software Engineering page lists Spring 2027 (January 25–April 16) and rolling applications closing a few weeks before each batch. Those are cohort dates, not application dates, so this entry stays undated/rolling. Summer and Fall 2027 batch dates were not verified and are not projected onto dates. Direct robots.txt returned HTTP 400, so no live programme-page request was made; verification used the indexed organiser page only.",
-      "opening_text": "Rolling by batch",
-      "deadline_text": "A few weeks before each batch; no exact cutoff",
-      "name": "MLH Fellowship",
+      "duration_start": "Spring 2027 Software Engineering batch runs 25 January–16 April 2027 (official cohort dates).",
+      "verification_note": "Tentative November–January application window from current application availability, the past January application snapshot and the organiser’s few-weeks-before-batch rule. Cohort dates are stored separately.",
+      "opening_text": "Nov 2026",
+      "deadline_text": "Jan 2027",
+      "name": "MLH Fellowship — Spring batch",
       "source_url": "https://fellowship.mlh.com/programs/software-engineering",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Rolling application, interviews and enrolment.",
-      "event_window": "12-week batches; Spring 2027 cohort Jan 25–Apr 16 is listed by the organiser",
-      "rolling_reason": "The indexed official Software Engineering page lists Spring 2027 (January 25–April 16) and rolling applications closing a few weeks before each batch. Those are cohort dates, not application dates, so this entry stays undated/rolling. Summer and Fall 2027 batch dates were not verified and are not projected onto dates. Direct robots.txt returned HTTP 400, so no live programme-page request was made; verification used the indexed organiser page only."
+      "how_to_apply": "Check the official Software Engineering track and select the relevant upcoming batch.\nSubmit the application and complete the coordinator and technical interviews.\nConfirm availability for the full batch and follow the organiser’s current cutoff instructions.",
+      "event_window": "Spring 2027 Software Engineering batch runs 25 January–16 April 2027 (official cohort dates).",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://web.archive.org/web/20250118083257/https://fellowship.mlh.io/programs/software-engineering",
+          "cycle": "Spring 2025",
+          "dates_shown": "Snapshot offers Apply Now for Spring 2025 (27 January–18 April). Applications are rolling and close a few weeks before each batch.",
+          "source_checked_on": "2026-11-13"
+        },
+        {
+          "source_url": "https://fellowship.mlh.com/programs/software-engineering",
+          "cycle": "Spring 2027",
+          "dates_shown": "Applications offered as of November 2026 for 25 January–16 April 2027. The page gives no exact cutoff.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "outreachy": {
       "row_id": "OPP-104",
@@ -1412,7 +1444,7 @@
       "hiring_mode": "Community registration and event participation",
       "career_linkage": "Career readiness and networking; no employment guarantee",
       "duration_start": "Community resources and events; session-specific",
-      "verification_note": "The current official page confirms a university-student community with resources, events and career-readiness sessions, but publishes no dated 2027 application cycle. Keep undated/rolling; joining the community does not establish an internship vacancy or offer.",
+      "verification_note": "The official programme is an ongoing university-student community with resources and separately announced events. Community enrolment has no annual application cutoff.",
       "opening_text": "Session-dependent / rolling",
       "deadline_text": "Event-specific; no national cutoff published",
       "name": "Amazon Women of the World (WoW)",
@@ -1420,47 +1452,71 @@
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Community registration and event participation.",
       "event_window": "Community resources and events; session-specific",
-      "rolling_reason": "The current official page confirms a university-student community with resources, events and career-readiness sessions, but publishes no dated 2027 application cycle. Keep undated/rolling; joining the community does not establish an internship vacancy or offer."
+      "rolling_reason": "The official programme is an ongoing university-student community with resources and separately announced events. Community enrolment has no annual application cutoff.",
+      "rolling_kind": "always_open"
     },
     "uber-she-plus-plus": {
       "row_id": "OPP-112",
       "cycle_year": 2027,
       "organiser": "Uber",
       "geography": "India / other listed summit locations",
-      "confidence": "Medium",
+      "confidence": "Low",
       "prep_tip": "Read the current rules and prepare evidence of relevant work.",
       "hiring_mode": "Location-specific summit application/selection",
       "career_linkage": "Professional development and exposure to internship pathways; no offer guarantee",
-      "duration_start": "Professional-development summit; date depends on location",
-      "verification_note": "Uber's current official page includes India among She++ locations and describes a professional-development summit. No India 2027 application dates or fixed annual month were verified. Keep undated/rolling; programme participation is not a confirmed internship opening.",
-      "opening_text": "Location/event-dependent / rolling",
-      "deadline_text": "Summit-specific; no India 2027 cutoff published",
-      "name": "Uber She++",
+      "duration_start": "India professional-development summit around March 2027 (tentative).",
+      "verification_note": "Tentative January opening from the archived official India 2024 notice. The application cutoff remains unpublished. Summit participation has a separate selection process from internship recruitment.",
+      "opening_text": "Jan 2027",
+      "deadline_text": "Cutoff not published; check the current call",
+      "name": "Uber She++ — India",
       "source_url": "https://jobs.uber.com/en/teams/emerging-talent/sheplusplus/",
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Location-specific summit application/selection.",
-      "event_window": "Professional-development summit; date depends on location",
-      "rolling_reason": "Uber's current official page includes India among She++ locations and describes a professional-development summit. No India 2027 application dates or fixed annual month were verified. Keep undated/rolling; programme participation is not a confirmed internship opening."
+      "event_window": "India professional-development summit around March 2027 (tentative).",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://web.archive.org/web/20250922223731/https://www.uber.com/us/en/careers/sheplusplus/",
+          "cycle": "India 2024 summit",
+          "dates_shown": "Upcoming-events panel gives India March 2024, with applications opening in late January. Cutoff is unpublished.",
+          "source_checked_on": "2026-11-13"
+        }
+      ],
+      "deadline_rolling": true
     },
     "cisco-thingqbator": {
       "row_id": "OPP-113",
       "cycle_year": 2027,
       "organiser": "Cisco and nasscom foundation",
       "geography": "India",
-      "confidence": "Medium",
+      "confidence": "Low",
       "prep_tip": "Read the current rules and prepare evidence of relevant work.",
       "hiring_mode": "Institution/cohort participation and project selection",
       "career_linkage": "Skills, mentorship and venture support; not a Cisco job offer",
-      "duration_start": "Cohort-based makerspace and entrepreneurship support",
-      "verification_note": "Cisco's current India CSR page confirms thingQbator with nasscom foundation for engineering students, including learning, mentorship and support for social ventures. The official programme portal also exists, but no 2027 application cycle is published in the retrieved content. Keep undated/rolling; this is innovation/entrepreneurship support, not Cisco internship recruitment.",
-      "opening_text": "Cohort/institution-dependent / rolling",
-      "deadline_text": "No national 2027 application cutoff published",
-      "name": "Cisco thingQbator",
-      "source_url": "https://www.cisco.com/c/en_in/about/csr/india-cash-grants.html",
+      "duration_start": "Entrepreneurship incubation and mentoring after cohort selection; 2027 programme dates unpublished",
+      "verification_note": "The government Manthan O/o PSA public notice for Cohort 9 gives an application deadline of 15 May 2026 and invites students across disciplines. The organiser confirms both partner- and non-partner-institution applicants. Project only a tentative May 2027 cutoff month, with no known opening. LinkedIn robots disallows direct page access, so the government notice was verified through the search index. A 2027 cohort and its new implementation arrangements require confirmation.",
+      "opening_text": "Opening date not published",
+      "deadline_text": "May 2027",
+      "name": "Cisco thingQbator — entrepreneurship cohort",
+      "source_url": "https://www.linkedin.com/posts/manthanpsa_entrepreneurship-startupideas-cohort9-activity-7447228899169763328-WwWK",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Institution/cohort participation and project selection.",
-      "event_window": "Cohort-based makerspace and entrepreneurship support",
-      "rolling_reason": "Cisco's current India CSR page confirms thingQbator with nasscom foundation for engineering students, including learning, mentorship and support for social ventures. The official programme portal also exists, but no 2027 application cycle is published in the retrieved content. Keep undated/rolling; this is innovation/entrepreneurship support, not Cisco internship recruitment."
+      "how_to_apply": "Open the thingQbator portal and locate the current entrepreneurship-cohort call.\nCheck the current student and team eligibility, then prepare the idea and prototype information requested.\nSubmit through the organiser’s stated cohort route before its published cutoff.",
+      "event_window": "Entrepreneurship incubation and mentoring after cohort selection; 2027 programme dates unpublished",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://www.linkedin.com/posts/manthanpsa_entrepreneurship-startupideas-cohort9-activity-7447228899169763328-WwWK",
+          "cycle": "2026 Cohort 9",
+          "dates_shown": "Application deadline 15 May 2026; students across disciplines invited.",
+          "source_checked_on": "2026-11-13"
+        },
+        {
+          "source_url": "https://www.nasscomfoundation.org/pdf/thingqbator-y7-video-making.pdf",
+          "cycle": "2024–25 Cohort 7",
+          "dates_shown": "Reports applicants from partner and non-partner institutions; no student application dates stated.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "cisco-student-internships": {
       "row_id": "OPP-114",
@@ -1480,7 +1536,8 @@
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Vacancy application and role-specific interviews.",
       "event_window": "3–12 months depending on region and business group",
-      "rolling_reason": "The current official entry-level page describes 3–12-month internships/co-ops with schedules varying by region and business group. No India-wide 2027 application window was verified. Keep undated/rolling and verify an actual India vacancy before applying; a global programme page does not confirm a local opening."
+      "rolling_reason": "The current official entry-level page describes 3–12-month internships/co-ops with schedules varying by region and business group. No India-wide 2027 application window was verified. Keep undated/rolling and verify an actual India vacancy before applying; a global programme page does not confirm a local opening.",
+      "rolling_kind": "vacancy_based"
     },
     "iisc-ipc-summer-fellowship": {
       "row_id": "OPP-201",
@@ -1511,7 +1568,7 @@
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
       "duration_start": "Dates depend on the selected intake or project.",
-      "verification_note": "IIITH describes separate one-month research teaser tracks without common registration dates.",
+      "verification_note": "Track/cohort-dependent enrolment; each announced track supplies its own application instructions.",
       "opening_text": "Intake-dependent / rolling",
       "deadline_text": "Cutoff not published; check the current call",
       "name": "Research Teaser Internship",
@@ -1519,7 +1576,8 @@
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
       "event_window": null,
-      "rolling_reason": "Track/cohort-dependent enrolment; each announced track supplies its own application instructions."
+      "rolling_reason": "Track/cohort-dependent enrolment; each announced track supplies its own application instructions.",
+      "rolling_kind": "lab_dependent"
     },
     "tifr-math-vsrp": {
       "row_id": "OPP-203",
@@ -1538,7 +1596,15 @@
       "source_url": "https://mathweb.tifr.res.in/vsrp.html",
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
-      "event_window": "Summer mathematics research May–Jun 2027 (tentative)."
+      "event_window": "Summer mathematics research May–Jun 2027 (tentative).",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://mathweb.tifr.res.in/vsrp.html",
+          "cycle": "Mathematics VSRP 2026",
+          "dates_shown": "Applications 6 February–6 March 2026. Referee letters due 10 March. Programme 18 May–18 June 2026.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "icts-sn-bhatt-fellowship": {
       "row_id": "OPP-204",
@@ -1583,20 +1649,34 @@
       "cycle_year": 2027,
       "organiser": "JNCASR",
       "geography": "India",
-      "confidence": "Low",
+      "confidence": "Medium",
       "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
-      "duration_start": "Two-month placement during Apr–Jul, subject to the new call.",
-      "verification_note": "The current page says online applications will open soon. It gives eligibility and two-month April–July placements without registration dates.",
-      "opening_text": "Intake-dependent / rolling",
-      "deadline_text": "Cutoff not published; check the current call",
+      "duration_start": "Two months of summer research during April–July 2027 (tentative).",
+      "verification_note": "Tentative opening in November–December and cutoff in February, projected from two official SRFP calls. Verify the new call before applying.",
+      "opening_text": "Nov–Dec 2026",
+      "deadline_text": "Feb 2027",
       "name": "Summer Research Fellowship Programme",
       "source_url": "https://www.jncasr.ac.in/academic/fandeprogrammes/srfp",
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
-      "event_window": "Two-month placement during Apr–Jul, subject to the new call.",
-      "rolling_reason": "Call-dependent intake; await the announced SRFP application link and cutoff."
+      "event_window": "Two months of summer research during April–July 2027 (tentative).",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://web.archive.org/web/20250113100708/https://www.jncasr.ac.in/academic/fandeprogrammes/srfp",
+          "cycle": "SRFP 2025",
+          "dates_shown": "Applications 30 December 2024–10 February 2025.",
+          "source_checked_on": "2026-11-13"
+        },
+        {
+          "source_url": "https://web.archive.org/web/20240223112622/https://www.jncasr.ac.in/academic/fandeprogrammes/srfp",
+          "cycle": "SRFP 2024",
+          "dates_shown": "Applications 23 November 2023–5 February 2024.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "hbcse-nius-physics": {
       "row_id": "OPP-207",
@@ -1627,7 +1707,7 @@
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
       "duration_start": "Dates depend on the selected intake or project.",
-      "verification_note": "BARC requires institution-forwarded applications between three months and 15 days before the desired start.",
+      "verification_note": "Institution-forwarded training is scheduled against each requested start date.",
       "opening_text": "Intake-dependent / rolling",
       "deadline_text": "Cutoff not published; check the current call",
       "name": "Practical Training and Project Work",
@@ -1635,7 +1715,8 @@
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Ask your institution to forward the prescribed application on college letterhead to HRDD, BARC.\nAttach the resume, relevant marksheets and college ID specified in Student Corner.\nSend within the prescribed lead time and await departmental screening and approval.",
       "event_window": null,
-      "rolling_reason": "Institution-forwarded training is scheduled against each requested start date."
+      "rolling_reason": "Institution-forwarded training is scheduled against each requested start date.",
+      "rolling_kind": "nomination_based"
     },
     "csir-ccmb-summer-training": {
       "row_id": "OPP-209",
@@ -1699,20 +1780,28 @@
       "cycle_year": 2027,
       "organiser": "Campus France India",
       "geography": "Global; verify nationality and institution eligibility",
-      "confidence": "Low",
+      "confidence": "Medium",
       "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
-      "duration_start": "Host laboratory placement during May–Aug; exact 2027 dates unconfirmed.",
-      "verification_note": "Campus France confirms the scholarship and application documents but only says the call is closed. Next registration months are unverified.",
-      "opening_text": "Intake-dependent / rolling",
-      "deadline_text": "Cutoff not published; check the current call",
+      "duration_start": "One to two months of research in France during May–August 2027 (tentative).",
+      "verification_note": "Tentative November–January registration projected from the archived official 2025 call. The current page has removed the old timeline.",
+      "opening_text": "Nov 2026",
+      "deadline_text": "Jan 2027",
       "name": "France Excellence Charpak Summer Training Scholarship",
       "source_url": "https://www.inde.campusfrance.org/france-excellence-charpak-summer-training-scholarship",
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Obtain an invitation from a French laboratory.\nApply through the linked scholarship portal with CV, passport or application proof, transcripts and statement of purpose.\nMeet the new call deadline and await academic/motivation-based selection.",
-      "event_window": "Host laboratory placement during May–Aug; exact 2027 dates unconfirmed.",
-      "rolling_reason": "The scholarship call is undated; host invitation and the new Campus France notice determine timing."
+      "event_window": "One to two months of research in France during May–August 2027 (tentative).",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://web.archive.org/web/20250104145840/https://www.inde.campusfrance.org/france-excellence-charpak-summer-training-scholarship",
+          "cycle": "Summer 2025",
+          "dates_shown": "Applications 14 November 2024–24 January 2025 at 23:59 IST.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "astar-sipga": {
       "row_id": "OPP-213",
@@ -1724,7 +1813,7 @@
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
       "duration_start": "Dates depend on the selected intake or project.",
-      "verification_note": "The official GIS attachment page recommends five to six months for application and paperwork and says GIS assists SIPGA submission.",
+      "verification_note": "Host-lab attachment timing varies; arrange a scientist-supported attachment with the stated processing lead time.",
       "opening_text": "Intake-dependent / rolling",
       "deadline_text": "Cutoff not published; check the current call",
       "name": "Singapore International Pre-Graduate Award",
@@ -1732,7 +1821,8 @@
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Contact a suitable A*STAR scientist about an attachment.\nCheck SIPGA eligibility and prepare the requested academic documents.\nWork with the host institute on award submission and attachment approval.",
       "event_window": null,
-      "rolling_reason": "Host-lab attachment timing varies; arrange a scientist-supported attachment with the stated processing lead time."
+      "rolling_reason": "Host-lab attachment timing varies; arrange a scientist-supported attachment with the stated processing lead time.",
+      "rolling_kind": "lab_dependent"
     },
     "eth-ssrf": {
       "row_id": "OPP-214",
@@ -1782,7 +1872,7 @@
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
       "duration_start": "Placement dates and duration are vacancy-specific.",
-      "verification_note": "The official research/careers page advertises roles or research opportunities without one India-wide cutoff. Verify the country and live vacancy.",
+      "verification_note": "Vacancy-based research recruitment; each role defines its eligibility, start and closing date.",
       "opening_text": "Intake-dependent / rolling",
       "deadline_text": "Cutoff not published; check the current call",
       "name": "Microsoft Research Internships",
@@ -1790,7 +1880,8 @@
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Find a current research-intern vacancy and verify its country.\nApply to the requisition with CV and the requested research/academic evidence.\nComplete role-specific screening and interviews.",
       "event_window": "Placement dates and duration are vacancy-specific.",
-      "rolling_reason": "Vacancy-based research recruitment; each role defines its eligibility, start and closing date."
+      "rolling_reason": "Vacancy-based research recruitment; each role defines its eligibility, start and closing date.",
+      "rolling_kind": "vacancy_based"
     },
     "adobe-research-internships": {
       "row_id": "OPP-217",
@@ -1802,7 +1893,7 @@
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
       "duration_start": "Placement dates and duration are vacancy-specific.",
-      "verification_note": "The official research/careers page advertises roles or research opportunities without one India-wide cutoff. Verify the country and live vacancy.",
+      "verification_note": "Vacancy-based research recruitment; each role defines its eligibility, start and closing date.",
       "opening_text": "Intake-dependent / rolling",
       "deadline_text": "Cutoff not published; check the current call",
       "name": "Adobe Research Internships",
@@ -1810,7 +1901,8 @@
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Find a current research-intern vacancy and verify its country.\nApply to the requisition with CV and the requested research/academic evidence.\nComplete role-specific screening and interviews.",
       "event_window": "Placement dates and duration are vacancy-specific.",
-      "rolling_reason": "Vacancy-based research recruitment; each role defines its eligibility, start and closing date."
+      "rolling_reason": "Vacancy-based research recruitment; each role defines its eligibility, start and closing date.",
+      "rolling_kind": "vacancy_based"
     },
     "amazon-science-internships": {
       "row_id": "OPP-218",
@@ -1822,7 +1914,7 @@
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
       "duration_start": "Placement dates and duration are vacancy-specific.",
-      "verification_note": "The official research/careers page advertises roles or research opportunities without one India-wide cutoff. Verify the country and live vacancy.",
+      "verification_note": "Vacancy-based research recruitment; each role defines its eligibility, start and closing date.",
       "opening_text": "Intake-dependent / rolling",
       "deadline_text": "Cutoff not published; check the current call",
       "name": "Amazon Science Internships",
@@ -1830,7 +1922,8 @@
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Find a current research-intern vacancy and verify its country.\nApply to the requisition with CV and the requested research/academic evidence.\nComplete role-specific screening and interviews.",
       "event_window": "Placement dates and duration are vacancy-specific.",
-      "rolling_reason": "Vacancy-based research recruitment; each role defines its eligibility, start and closing date."
+      "rolling_reason": "Vacancy-based research recruitment; each role defines its eligibility, start and closing date.",
+      "rolling_kind": "vacancy_based"
     },
     "ibm-research-india-internship": {
       "row_id": "OPP-219",
@@ -1842,7 +1935,7 @@
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
       "duration_start": "Placement dates and duration are vacancy-specific.",
-      "verification_note": "The official research/careers page advertises roles or research opportunities without one India-wide cutoff. Verify the country and live vacancy.",
+      "verification_note": "Vacancy-based research recruitment; each role defines its eligibility, start and closing date.",
       "opening_text": "Intake-dependent / rolling",
       "deadline_text": "Cutoff not published; check the current call",
       "name": "IBM Research India Internships",
@@ -1850,7 +1943,8 @@
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Find a current research-intern vacancy and verify its country.\nApply to the requisition with CV and the requested research/academic evidence.\nComplete role-specific screening and interviews.",
       "event_window": "Placement dates and duration are vacancy-specific.",
-      "rolling_reason": "Vacancy-based research recruitment; each role defines its eligibility, start and closing date."
+      "rolling_reason": "Vacancy-based research recruitment; each role defines its eligibility, start and closing date.",
+      "rolling_kind": "vacancy_based"
     },
     "nvidia-research-internships": {
       "row_id": "OPP-220",
@@ -1862,7 +1956,7 @@
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
       "duration_start": "Placement dates and duration are vacancy-specific.",
-      "verification_note": "The official research/careers page advertises roles or research opportunities without one India-wide cutoff. Verify the country and live vacancy.",
+      "verification_note": "Vacancy-based research recruitment; each role defines its eligibility, start and closing date.",
       "opening_text": "Intake-dependent / rolling",
       "deadline_text": "Cutoff not published; check the current call",
       "name": "NVIDIA Research Internships",
@@ -1870,67 +1964,92 @@
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Find a current research-intern vacancy and verify its country.\nApply to the requisition with CV and the requested research/academic evidence.\nComplete role-specific screening and interviews.",
       "event_window": "Placement dates and duration are vacancy-specific.",
-      "rolling_reason": "Vacancy-based research recruitment; each role defines its eligibility, start and closing date."
+      "rolling_reason": "Vacancy-based research recruitment; each role defines its eligibility, start and closing date.",
+      "rolling_kind": "vacancy_based"
     },
     "icpc": {
       "row_id": "OPP-221",
       "cycle_year": 2027,
       "organiser": "ICPC Foundation",
       "geography": "Global; verify nationality and institution eligibility",
-      "confidence": "Low",
+      "confidence": "Medium",
       "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
-      "duration_start": "Qualifiers and contests follow the chosen regional host schedule.",
-      "verification_note": "ICPC separates regional contests. A global homepage does not establish Indian registration months.",
-      "opening_text": "Intake-dependent / rolling",
-      "deadline_text": "Cutoff not published; check the current call",
-      "name": "International Collegiate Programming Contest",
-      "source_url": "https://icpc.global/",
+      "duration_start": "India preliminary online round in October 2027 and regional onsite rounds in December–January (tentative).",
+      "verification_note": "Tentative August–September registration from the Mathura 2026 official regional-host schedule. Site-specific fees and deadlines must be checked; the common online round is an event date.",
+      "opening_text": "Aug 2027",
+      "deadline_text": "Sep 2027",
+      "name": "ICPC India Regionals — common online qualification",
+      "source_url": "https://mathuraicpc.in/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Form an eligible university team and appoint a coach.\nChoose the correct regional host and follow its registration instructions.\nSupply institutional eligibility evidence and complete its qualifier.",
-      "event_window": "Qualifiers and contests follow the chosen regional host schedule.",
-      "rolling_reason": "Regional-host registration and university-team qualification vary by site and season."
+      "how_to_apply": "Form an eligible university team of three with an institutional coach.\nRegister the team for the selected India regional site on ICPC Global and complete that site’s fee formalities.\nSubmit the required India preliminary undertaking and attend the announced common online round.",
+      "event_window": "India preliminary online round in October 2027 and regional onsite rounds in December–January (tentative).",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://mathuraicpc.in/",
+          "cycle": "India regionals 2026",
+          "dates_shown": "Mathura registration 6 August–25 September 2026 at 17:00 IST. Common India preliminary online contest 3 October 2026; Mathura onsite 27–28 December 2026.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "iisc-summer-research": {
       "row_id": "OPP-222",
       "cycle_year": 2027,
       "organiser": "IISc Bangalore",
       "geography": "India",
-      "confidence": "Low",
+      "confidence": "Medium",
       "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
-      "duration_start": "Dates depend on the selected intake or project.",
-      "verification_note": "IISc departments use faculty requests, institute nominations and Science Academies routes. The chemical-engineering page confirms these distinct channels.",
-      "opening_text": "Intake-dependent / rolling",
-      "deadline_text": "Cutoff not published; check the current call",
-      "name": "IISc Summer Research Internships",
+      "duration_start": "Eight-week Chemical Engineering research programme during June–July 2027 (tentative).",
+      "verification_note": "Tentative March application cutoff from the official CEIP 2026 notice. Entry uses faculty recommendation or invited department nomination, with a common programme deadline. Other IISc departments have separate arrangements.",
+      "opening_text": "Opening date not published",
+      "deadline_text": "Mar 2027",
+      "name": "IISc Chemical Engineering Internship Programme (CEIP)",
       "source_url": "https://chemeng.iisc.ac.in/opportunities/internships/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Choose an IISc department and supervisor.\nUse its stated faculty, institutional nomination or Science Academies route.\nSupply academic evidence and obtain departmental acceptance.",
-      "event_window": null,
-      "rolling_reason": "Department and supervisor-specific attachments; verify the selected department call."
+      "how_to_apply": "Review the Chemical Engineering department’s current CEIP notice and course/year eligibility.\nRequest a faculty recommendation or ask your department about its invitation to nominate students.\nFollow the CEIP team’s instructions and submit the required material by the new call’s deadline.",
+      "event_window": "Eight-week Chemical Engineering research programme during June–July 2027 (tentative).",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://chemeng.iisc.ac.in/opportunities/internships/",
+          "cycle": "CEIP 2026",
+          "dates_shown": "Application deadline 29 March 2026. Programme 1 June–31 July 2026. Faculty recommendations and invited department nominations are the two application tracks.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "iitb-ircc-research-internship": {
       "row_id": "OPP-223",
-      "cycle_year": 2027,
+      "cycle_year": 2028,
       "organiser": "IIT Bombay",
       "geography": "India",
-      "confidence": "Low",
+      "confidence": "Medium",
       "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
-      "duration_start": "Four- to six-month research internship; verify project dates.",
-      "verification_note": "IRCC confirms online registration, a statement of purpose and a top-20-percent certificate. Its overview gives January–July 2026 placement dates without registration dates.",
-      "opening_text": "Intake-dependent / rolling",
-      "deadline_text": "Cutoff not published; check the current call",
+      "duration_start": "Four to six months of project research after December 2027–January 2028 joining (tentative).",
+      "verification_note": "Tentative September cutoff from the official 2026–27 RIA deadline. Opening month remains unpublished; individual projects determine selection.",
+      "opening_text": "Opening date not published",
+      "deadline_text": "Sep 2027",
       "name": "IRCC Research Internship Award (RIA)",
-      "source_url": "https://www.ircc.iitb.ac.in/IRCC-Webpage/IITBInternship/HowApply.html",
+      "source_url": "https://www.ircc.iitb.ac.in/IRCC-Webpage/IITBInternship/",
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Register once using the IRCC internship application link.\nPrepare a 500-word statement of purpose and the prescribed top-20-percent certificate.\nSubmit the final application and attend faculty interviews if shortlisted.",
-      "event_window": "Four- to six-month research internship; verify project dates.",
-      "rolling_reason": "Project-call recruitment; the current application page supplies a link when the next call begins."
+      "event_window": "Four to six months of project research after December 2027–January 2028 joining (tentative).",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://www.ircc.iitb.ac.in/IRCC-Webpage/IITBInternship/",
+          "cycle": "2026–27 RIA",
+          "dates_shown": "Application deadline extended to 29 September 2026 at 17:30. Joining 21 December 2026–20 January 2027.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "nitrkl-summer-internship": {
       "row_id": "OPP-224",
@@ -1960,16 +2079,17 @@
       "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
-      "duration_start": "Dates depend on the selected intake or project.",
-      "verification_note": "The main summer-programme route disallows retrieval. Mathematics and NCRA calls are separately dated in this calendar.",
-      "opening_text": "Intake-dependent / rolling",
-      "deadline_text": "Cutoff not published; check the current call",
-      "name": "Visiting Students' Research Programme (VSRP)",
-      "source_url": "https://www.tifr.res.in/academics/summer_program.php",
+      "duration_start": "Central Mumbai VSRP suspended until further notice.",
+      "verification_note": "The official central TIFR page, archived in January 2025, says Mumbai VSRP is suspended until further notice. Mathematics and NCRA retain separate school-specific annual rows. No central restart is verified.",
+      "opening_text": "Paused — await an official restart",
+      "deadline_text": "Cutoff unpublished while programme is paused",
+      "name": "TIFR VSRP — central Mumbai programme",
+      "source_url": "https://web.archive.org/web/20250108225814/https://www.tifr.res.in/academics/summer_program.php",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
-      "event_window": null,
-      "rolling_reason": "School-specific VSRP calls provide separate schedules; no TIFR-wide cutoff is asserted."
+      "how_to_apply": "Check the central TIFR official page for an announced resumption.\nIf a new central call is published, use its eligibility criteria and application route.\nFor active school-specific summer calls, check the separate Mathematics and NCRA entries.",
+      "event_window": "Central Mumbai VSRP suspended until further notice.",
+      "rolling_reason": "The official central TIFR page, archived in January 2025, says Mumbai VSRP is suspended until further notice. Mathematics and NCRA retain separate school-specific annual rows. No central restart is verified.",
+      "rolling_kind": "paused"
     },
     "pm-internship-scheme": {
       "row_id": "OPP-226",
@@ -1981,7 +2101,7 @@
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
       "duration_start": "Dates depend on the selected intake or project.",
-      "verification_note": "The 22 April 2026 government release describes the third pilot round with companies posting opportunities on an ongoing basis.",
+      "verification_note": "Government pilot rounds and company vacancies determine availability. Verified rounds have changed dates, so no stable annual month can be projected.",
       "opening_text": "Intake-dependent / rolling",
       "deadline_text": "Cutoff not published; check the current call",
       "name": "PM Internship Scheme",
@@ -1989,7 +2109,8 @@
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Open the PM Internship Scheme portal and check current-round eligibility.\nCreate a candidate profile with the requested identity and academic details.\nChoose available opportunities and follow company shortlisting and joining instructions.",
       "event_window": null,
-      "rolling_reason": "Pilot rounds and company postings vary; applications depend on opportunities currently listed on the portal."
+      "rolling_reason": "Government pilot rounds and company vacancies determine availability. Verified rounds have changed dates, so no stable annual month can be projected.",
+      "rolling_kind": "vacancy_based"
     },
     "prs-lamp-fellowship": {
       "row_id": "OPP-227",
@@ -2016,20 +2137,28 @@
       "cycle_year": 2027,
       "organiser": "Ashoka University",
       "geography": "India",
-      "confidence": "Low",
+      "confidence": "High",
       "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
-      "duration_start": "Dates depend on the selected intake or project.",
-      "verification_note": "Ashoka confirms the 2027 intake application is open but its overview supplies no registration boundaries.",
-      "opening_text": "Intake-dependent / rolling",
-      "deadline_text": "Cutoff not published; check the current call",
-      "name": "Young India Fellowship",
-      "source_url": "https://www.ashoka.edu.in/yif/",
+      "duration_start": "Residential fellowship July 2027–July 2028.",
+      "verification_note": "Official priority deadline for the 2027 intake. Final Round 1 and Round 2 cutoffs have separate calendar rows; applicants can apply only once per cycle.",
+      "opening_text": "Opening date not published",
+      "deadline_text": "29 Nov 2026",
+      "name": "Young India Fellowship — Round 1 priority",
+      "source_url": "https://www.ashoka.edu.in/yif-admissions/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
-      "event_window": null,
-      "rolling_reason": "Admission rounds have separate cutoffs; verify the current Ashoka admissions round."
+      "how_to_apply": "Register on the official YIF application portal and check the current round.\nPrepare academic and professional details, essays, the video essay and an appropriate recommendation.\nSubmit once per admissions cycle in the chosen round; follow the interview and funding instructions.",
+      "event_window": "Residential fellowship July 2027–July 2028.",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://www.ashoka.edu.in/yif-admissions/",
+          "cycle": "YIF 2027 intake, class of 2028",
+          "dates_shown": "Round 1 priority 29 November 2026. Round 1 final 10 January 2027. Round 2 final 21 March 2027. Applications open as of the check; the opening date is unpublished.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "teach-for-india-fellowship": {
       "row_id": "OPP-229",
@@ -2040,16 +2169,30 @@
       "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
-      "duration_start": "Dates depend on the selected intake or project.",
-      "verification_note": "The official fellowship page links Apply Now and describes two years of teaching without common registration dates.",
-      "opening_text": "Intake-dependent / rolling",
-      "deadline_text": "Cutoff not published; check the current call",
-      "name": "Teach For India Fellowship",
-      "source_url": "https://www.teachforindia.org/fellowship",
+      "duration_start": "Two-year teaching fellowship for the 2027 cohort. Current official selection cycle July 2026–March 2027.",
+      "verification_note": "Tentative Sep deadline month from the embedded official 2022–23 round schedule. The current FAQ confirms the July 2026–March 2027 selection cycle but publishes no exact current round dates. Check the live portal.",
+      "opening_text": "Opening date not published",
+      "deadline_text": "Sep 2026",
+      "name": "Teach For India Fellowship — Round 1",
+      "source_url": "https://www.teachforindia.org/faqs",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
-      "event_window": null,
-      "rolling_reason": "Round-based admissions; each announced round defines its own cutoff."
+      "how_to_apply": "Read the current Teach For India cohort eligibility and live round deadline.\nComplete the official online application and required assessments using your own account.\nApply only once per cohort and follow the assessment-centre instructions.",
+      "event_window": "Two-year teaching fellowship for the 2027 cohort. Current official selection cycle July 2026–March 2027.",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://apply.teachforindia.org/main.2687aae4379020d8c7fc.js",
+          "cycle": "Legacy 2022–23 selection schedule embedded in the official application frontend",
+          "dates_shown": "Round 1 deadline 18 September 2022. Round 2 deadline 20 November 2022. Round 3 deadline 29 January 2023. Round 4 deadline 19 March 2023. A fifth 16 April 2023 round is excluded from projection because the current selection cycle ends in March.",
+          "source_checked_on": "2026-11-13"
+        },
+        {
+          "source_url": "https://web.archive.org/web/20241102203805/https://www.teachforindia.org/faqs",
+          "cycle": "2025 cohort",
+          "dates_shown": "Selection cycle runs July 2024–March 2025.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "sbi-youth-for-india": {
       "row_id": "OPP-230",
@@ -2061,15 +2204,16 @@
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
       "duration_start": "Dates depend on the selected intake or project.",
-      "verification_note": "The official registration page says fresh applications are temporarily paused. This undated timing watch does not imply applications are open.",
-      "opening_text": "Intake-dependent / rolling",
-      "deadline_text": "Cutoff not published; check the current call",
+      "verification_note": "Fresh applications are paused; await an announced resumption and round deadline.",
+      "opening_text": "Paused — await an official restart",
+      "deadline_text": "Cutoff unpublished while programme is paused",
       "name": "SBI Youth for India Fellowship",
       "source_url": "https://register.youthforindia.org/",
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
       "event_window": null,
-      "rolling_reason": "Fresh applications are paused; await an announced resumption and round deadline."
+      "rolling_reason": "Fresh applications are paused; await an announced resumption and round deadline.",
+      "rolling_kind": "paused"
     },
     "gandhi-fellowship": {
       "row_id": "OPP-231",
@@ -2080,16 +2224,24 @@
       "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
-      "duration_start": "Dates depend on the selected intake or project.",
-      "verification_note": "The organiser describes fellowship batches without a verified 2027 registration window.",
-      "opening_text": "Intake-dependent / rolling",
-      "deadline_text": "Cutoff not published; check the current call",
+      "duration_start": "Two-year full-time community and public-education fellowship after the selected intake.",
+      "verification_note": "Tentative March cutoff from the official 2024 deadline. Opening month is unpublished. Current eligibility covers graduates by June 2027.",
+      "opening_text": "Opening date not published",
+      "deadline_text": "Mar 2027",
       "name": "Gandhi Fellowship",
-      "source_url": "https://gandhifellowship.org/",
+      "source_url": "https://gandhifellowship.org/apply-now/",
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
-      "event_window": null,
-      "rolling_reason": "Cohort-based recruitment; stages and cutoff depend on the announced intake."
+      "event_window": "Two-year full-time community and public-education fellowship after the selected intake.",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://gandhifellowship.org/videos/discover-what-it-takes-to-be-a-gandhi-fellow/",
+          "cycle": "2024 selection",
+          "dates_shown": "Organiser notice dated 27 March 2024 gives an application deadline of 31 March.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "inspire-scholarship": {
       "row_id": "OPP-232",
@@ -2115,20 +2267,28 @@
       "cycle_year": 2027,
       "organiser": "Inlaks Shivdasani Foundation",
       "geography": "India",
-      "confidence": "Low",
+      "confidence": "Medium",
       "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
-      "duration_start": "Dates depend on the selected intake or project.",
-      "verification_note": "The official page confirms the 2026 call is closed and explains selection, without next-cycle dates.",
-      "opening_text": "Intake-dependent / rolling",
-      "deadline_text": "Cutoff not published; check the current call",
+      "duration_start": "Postgraduate study at an eligible overseas institution after the scholarship selection.",
+      "verification_note": "Tentative February–March window from the official application portal for the closed 2026 scholarship call.",
+      "opening_text": "Feb 2027",
+      "deadline_text": "Mar 2027",
       "name": "Inlaks Shivdasani Foundation Scholarship",
-      "source_url": "https://www.inlaksfoundation.org/scholarships/",
+      "source_url": "https://inlaksfoundation.org/opportunities/scholarship/",
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
-      "event_window": null,
-      "rolling_reason": "Next scholarship call is undated; an admission offer and the newly announced instructions determine timing."
+      "event_window": "Postgraduate study at an eligible overseas institution after the scholarship selection.",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://onlineapplication.inlaksfoundation.org/Application/TimeOut",
+          "cycle": "2026 scholarship portal",
+          "dates_shown": "Applications open 15 February and close 30 March. The linked organiser scholarship page identifies the 2026 call as closed.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "jn-tata-endowment": {
       "row_id": "OPP-234",
@@ -2151,23 +2311,31 @@
     },
     "fulbright-nehru": {
       "row_id": "OPP-235",
-      "cycle_year": 2027,
+      "cycle_year": 2028,
       "organiser": "United States-India Educational Foundation",
       "geography": "India",
       "confidence": "Low",
       "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
-      "duration_start": "Dates depend on the selected intake or project.",
-      "verification_note": "USIEF has distinct awards. The 2027–28 doctoral and academic/professional awards used July 2026 deadlines; the masters page still describes 2026–27. No common window is asserted.",
-      "opening_text": "Intake-dependent / rolling",
-      "deadline_text": "Cutoff not published; check the current call",
-      "name": "Fulbright-Nehru Fellowships",
-      "source_url": "https://usief.org.in/fulbright-fellowships/fellowships-for-indian-citizen/",
+      "duration_start": "Master’s award cycle after the projected 2027 application round, subject to resumption of a new call.",
+      "verification_note": "Tentative May 2027 cutoff projected from the 2025 application round for the 2026–27 award. The current page still shows that older cycle. No new Master’s call is confirmed; eligibility requires relevant professional experience.",
+      "opening_text": "Opening date not published",
+      "deadline_text": "May 2027",
+      "name": "Fulbright-Nehru Master’s Fellowships",
+      "source_url": "https://usief.org.in/fulbright-fellowships/fellowships-for-indian-citizen/fulbright-nehru-masters-fellowships/",
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Choose the relevant Indian-citizen Fulbright-Nehru award on USIEF.\nUse its linked system with category-specific academic, research and reference documents.\nMeet that award deadline and complete review, interview and placement stages.",
-      "event_window": null,
-      "rolling_reason": "Award-specific calls have different application and nomination cutoffs; select the appropriate Indian-citizen award."
+      "event_window": "Master’s award cycle after the projected 2027 application round, subject to resumption of a new call.",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://www.usief.org.in/uploadip/IP2026-27/INDIA_FNMasters_Application_Instructions.pdf",
+          "cycle": "2026–27 Master’s award",
+          "dates_shown": "Application deadline 14 May 2025 at 23:59:59 IST. Minimum three years of relevant full-time paid work.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "commonwealth-scholarships": {
       "row_id": "OPP-236",
@@ -2225,7 +2393,8 @@
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Check your country-specific Swiss Government Excellence award.\nObtain required Swiss academic supervisor support for a research award.\nSubmit the country dossier to the Swiss diplomatic representation by its stated cutoff.",
       "event_window": "Research or arts scholarship in academic year 2027–28 (official cycle).",
-      "deadline_rolling": true
+      "deadline_rolling": true,
+      "unpublished_cutoff": true
     },
     "reliance-foundation-scholarships": {
       "row_id": "OPP-239",
@@ -2257,7 +2426,7 @@
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
       "duration_start": "Dates depend on the selected intake or project.",
-      "verification_note": "The organiser describes scholarships through partner institutes without a common individual registration date.",
+      "verification_note": "Institute nomination and campus shortlisting determine application timing.",
       "opening_text": "Intake-dependent / rolling",
       "deadline_text": "Cutoff not published; check the current call",
       "name": "Aditya Birla Scholarship",
@@ -2265,27 +2434,36 @@
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
       "event_window": null,
-      "rolling_reason": "Institute nomination and campus shortlisting determine application timing."
+      "rolling_reason": "Institute nomination and campus shortlisting determine application timing.",
+      "rolling_kind": "nomination_based"
     },
     "narotam-sekhsaria-scholarship": {
       "row_id": "OPP-241",
       "cycle_year": 2027,
       "organiser": "Narotam Sekhsaria Foundation",
       "geography": "India",
-      "confidence": "Low",
+      "confidence": "Medium",
       "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
-      "duration_start": "Dates depend on the selected intake or project.",
-      "verification_note": "The postgraduate scholarship portal says applications are closed. No next registration dates verified.",
-      "opening_text": "Intake-dependent / rolling",
-      "deadline_text": "Cutoff not published; check the current call",
+      "duration_start": "Postgraduate study after the scholarship and interview process.",
+      "verification_note": "Tentative January–March registration projected from the official 2026 call and its January invitation rule.",
+      "opening_text": "Jan 2027",
+      "deadline_text": "Mar 2027",
       "name": "Narotam Sekhsaria Foundation Scholarship",
-      "source_url": "https://pg.nsfoundation.co.in/",
+      "source_url": "https://pg.nsfoundation.co.in/final-call/",
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
-      "event_window": null,
-      "rolling_reason": "Next postgraduate scholarship call is undated; await the foundation application notice."
+      "event_window": "Postgraduate study after the scholarship and interview process.",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://pg.nsfoundation.co.in/final-call/",
+          "cycle": "Postgraduate scholarships 2026",
+          "dates_shown": "Applications invited in January each academic year. Cutoff 23 March 2026 at 17:00.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "mit-msrp": {
       "row_id": "OPP-242",
@@ -2335,7 +2513,7 @@
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
       "duration_start": "Attachment dates depend on the chosen partner programme.",
-      "verification_note": "The registry link lists outward NUS partner exchanges with different deadlines. It does not establish a single inbound NUS summer call.",
+      "verification_note": "Partner research attachments are programme-specific; check exchange direction, eligibility and its own cutoff.",
       "opening_text": "Intake-dependent / rolling",
       "deadline_text": "Cutoff not published; check the current call",
       "name": "NUS Research Attachment Programmes",
@@ -2343,7 +2521,8 @@
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
       "event_window": "Attachment dates depend on the chosen partner programme.",
-      "rolling_reason": "Partner research attachments are programme-specific; check exchange direction, eligibility and its own cutoff."
+      "rolling_reason": "Partner research attachments are programme-specific; check exchange direction, eligibility and its own cutoff.",
+      "rolling_kind": "nomination_based"
     },
     "jsps-summer-program": {
       "row_id": "OPP-245",
@@ -2355,7 +2534,7 @@
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
       "duration_start": "JSPS Summer Program 2027; confirm host and nomination-authority dates.",
-      "verification_note": "JSPS publishes a 2027 programme but procedures and timelines vary by nominating authority. Indian nationality alone is not a listed nomination route.",
+      "verification_note": "Nominating authorities have separate application windows and eligibility; no worldwide cutoff applies.",
       "opening_text": "Intake-dependent / rolling",
       "deadline_text": "Cutoff not published; check the current call",
       "name": "JSPS Summer Program",
@@ -2363,7 +2542,8 @@
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Check eligibility through a listed JSPS nominating authority.\nArrange a Japanese host and the requested research/academic documents.\nApply through that authority by its own cutoff and await nomination.",
       "event_window": "JSPS Summer Program 2027; confirm host and nomination-authority dates.",
-      "rolling_reason": "Nominating authorities have separate application windows and eligibility; no worldwide cutoff applies."
+      "rolling_reason": "Nominating authorities have separate application windows and eligibility; no worldwide cutoff applies.",
+      "rolling_kind": "nomination_based"
     },
     "iaeste-internships": {
       "row_id": "OPP-246",
@@ -2375,7 +2555,7 @@
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
       "duration_start": "Dates depend on the selected intake or project.",
-      "verification_note": "The official portal lists individual offers with separate dates and country-committee procedures.",
+      "verification_note": "Offer and committee recruitment cycles vary; each internship has a separate deadline.",
       "opening_text": "Intake-dependent / rolling",
       "deadline_text": "Cutoff not published; check the current call",
       "name": "IAESTE Internships",
@@ -2383,7 +2563,8 @@
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Contact your IAESTE national committee and create its applicant account.\nChoose an eligible offer and prepare academic, language and CV documents.\nComplete committee nomination and employer selection for that offer.",
       "event_window": null,
-      "rolling_reason": "Offer and committee recruitment cycles vary; each internship has a separate deadline."
+      "rolling_reason": "Offer and committee recruitment cycles vary; each internship has a separate deadline.",
+      "rolling_kind": "vacancy_based"
     },
     "heidelberg-laureate-forum": {
       "row_id": "OPP-247",
@@ -2429,20 +2610,28 @@
       "cycle_year": 2027,
       "organiser": "National Informatics Centre",
       "geography": "India",
-      "confidence": "Low",
+      "confidence": "Medium",
       "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
-      "duration_start": "Dates depend on the selected intake or project.",
-      "verification_note": "The portal currently shows winter 2026. The requested approximate May summer registration was not verified.",
-      "opening_text": "Intake-dependent / rolling",
-      "deadline_text": "Cutoff not published; check the current call",
-      "name": "NIC Digital India Internship — summer watch",
+      "duration_start": "Summer research attachment at NIC in 2027, subject to the new summer notice.",
+      "verification_note": "Tentative April registration from the archived NIC Summer 2024 notice. The separate NIC winter call has its own dates.",
+      "opening_text": "Apr 2027",
+      "deadline_text": "Apr 2027",
+      "name": "NIC Digital India Internship — summer intake",
       "source_url": "https://dii.nic.in/",
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
-      "event_window": null,
-      "rolling_reason": "Intake-specific NIC notice required; the winter page cannot establish summer registration dates."
+      "event_window": "Summer research attachment at NIC in 2027, subject to the new summer notice.",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://web.archive.org/web/20240416021508/https://dii.nic.in/",
+          "cycle": "Summer 2024",
+          "dates_shown": "Online applications 15–26 April 2024, until 17:30 IST.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "lok-sabha-internship": {
       "row_id": "OPP-250",
@@ -2468,80 +2657,112 @@
       "cycle_year": 2027,
       "organiser": "National Human Rights Commission",
       "geography": "India",
-      "confidence": "Low",
+      "confidence": "Medium",
       "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
-      "duration_start": "Four-week summer/winter placements and short online batches; check each announcement.",
-      "verification_note": "NHRC lists separate summer/winter in-person and short online calls. November 2026 online training was cancelled. Event dates do not establish registration dates.",
-      "opening_text": "Intake-dependent / rolling",
-      "deadline_text": "Cutoff not published; check the current call",
-      "name": "NHRC Summer, Winter and Short-term Internships",
-      "source_url": "https://nhrc.nic.in/training-programmes/internship-programmes",
+      "duration_start": "Four-week in-person summer internship during June 2027 (tentative).",
+      "verification_note": "Tentative April registration from the official SIP 2026 notice. Winter and short-term online internships follow separate notices.",
+      "opening_text": "Apr 2027",
+      "deadline_text": "Apr 2027",
+      "name": "NHRC Summer Internship Programme",
+      "source_url": "https://nhrc.nic.in/assets/uploads/summer_winter/1776080420_39da71cfc896a687f6f4.pdf",
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Choose the correct NHRC summer, winter or online call.\nPrepare the marksheets and institutional recommendation required by that call.\nApply through its official link and check the selection list.",
-      "event_window": "Four-week summer/winter placements and short online batches; check each announcement.",
-      "rolling_reason": "Each training call has its own cutoff; summer, winter and online calls have distinct schedules."
+      "event_window": "Four-week in-person summer internship during June 2027 (tentative).",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://nhrc.nic.in/assets/uploads/summer_winter/1776080420_39da71cfc896a687f6f4.pdf",
+          "cycle": "SIP 2026",
+          "dates_shown": "Notice dated 13 April 2026. Online application deadline 27 April 2026 at 18:00. Programme 1–25 June 2026.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "morgan-stanley-code-to-give": {
       "row_id": "OPP-252",
       "cycle_year": 2027,
       "organiser": "Morgan Stanley",
       "geography": "Global; verify nationality and institution eligibility",
-      "confidence": "Low",
+      "confidence": "Medium",
       "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
-      "duration_start": "Competition rounds and final dates are event-specific.",
-      "verification_note": "The current official philanthropy overview confirms the student hackathon without a common registration window.",
-      "opening_text": "Intake-dependent / rolling",
-      "deadline_text": "Cutoff not published; check the current call",
-      "name": "Morgan Stanley Code to Give",
-      "source_url": "https://www.morganstanley.com/about-us/technology/philanthropy",
+      "duration_start": "India virtual hackathon during March 2027 (tentative).",
+      "verification_note": "Tentative February registration cutoff from the official India 2025 event page. Opening month is unpublished; eligibility is edition-specific.",
+      "opening_text": "Opening date not published",
+      "deadline_text": "Feb 2027",
+      "name": "Morgan Stanley Code to Give — India",
+      "source_url": "https://morganstanley.tal.net/vx/mobile-0/brand-2/spa-1/candidate/so/pm/1/pl/2/opp/19200-India-Code-to-Give-Hackathon-2025/en-GB",
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
-      "event_window": "Competition rounds and final dates are event-specific.",
-      "rolling_reason": "Location/event-specific student hackathon registration."
+      "event_window": "India virtual hackathon during March 2027 (tentative).",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://morganstanley.tal.net/vx/mobile-0/brand-2/spa-1/candidate/so/pm/1/pl/2/opp/19200-India-Code-to-Give-Hackathon-2025/en-GB",
+          "cycle": "India 2025",
+          "dates_shown": "Register by 17 February 2025 at 23:59 IST. Qualifier 20–25 February. Hackathon 20–27 March 2025.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "loreal-brandstorm": {
       "row_id": "OPP-253",
       "cycle_year": 2027,
       "organiser": "L’Oréal",
       "geography": "Global; verify nationality and institution eligibility",
-      "confidence": "Low",
+      "confidence": "Medium",
       "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
       "duration_start": "Competition rounds and final dates are event-specific.",
-      "verification_note": "The organiser promotes the 2027 mission and country selection, without a verified India cutoff.",
-      "opening_text": "Intake-dependent / rolling",
-      "deadline_text": "Cutoff not published; check the current call",
-      "name": "L’Oréal Brandstorm",
+      "verification_note": "Tentative November–February entry window from the organiser-branded past India listing. The current global page advertises the 2027 mission and delegates deadlines to each country.",
+      "opening_text": "Nov 2026",
+      "deadline_text": "Feb 2027",
+      "name": "L’Oréal Brandstorm — India",
       "source_url": "https://brandstorm.loreal.com/en",
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
       "event_window": "Competition rounds and final dates are event-specific.",
-      "rolling_reason": "Country challenges have separate local-round registration deadlines."
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://unstop.com/competitions/loreal-brandstorm-2026-loreal-1591401/amp",
+          "cycle": "India Brandstorm 2026",
+          "dates_shown": "Organiser-branded listing gives case submissions 7 November 2025–22 February 2026 and registration deadline 22 February 2026 at 23:59 IST.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "tata-crucible-campus": {
       "row_id": "OPP-254",
       "cycle_year": 2027,
       "organiser": "Tata Group",
       "geography": "Global; verify nationality and institution eligibility",
-      "confidence": "Low",
+      "confidence": "Medium",
       "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
       "duration_start": "Competition rounds and final dates are event-specific.",
-      "verification_note": "The 2026–27 Student Stream says registration will be announced soon. Its eligibility differs from the non-student quiz.",
-      "opening_text": "Intake-dependent / rolling",
-      "deadline_text": "Cutoff not published; check the current call",
+      "verification_note": "Tentative September–November campus entry window from the official organiser-branded 2025 listing. The current student-stream page says the new registrations will be announced.",
+      "opening_text": "Sep 2027",
+      "deadline_text": "Nov 2027",
       "name": "Tata Crucible Campus Quiz",
       "source_url": "https://www.tatacrucible.com/campus-quiz/",
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
       "event_window": "Competition rounds and final dates are event-specific.",
-      "rolling_reason": "Student-stream registration awaits announcement; cluster schedules are separate."
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://unstop.com/quiz/crp-tata-crucible-campus-quiz-2025-tata-crucible-campus-quiz-2025-tata-group-1541553",
+          "cycle": "Campus Quiz 2025",
+          "dates_shown": "Organiser-branded listing permits first-round quiz entries 1 September–10 November 2025. Registration deadline 10 November 2025 at 23:59 IST.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "itc-interrobang": {
       "row_id": "OPP-255",
@@ -2553,15 +2774,23 @@
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
       "duration_start": "Competition rounds and final dates are event-specific.",
-      "verification_note": "The current ITC careers page names Interrobang without a national registration window.",
-      "opening_text": "Intake-dependent / rolling",
-      "deadline_text": "Cutoff not published; check the current call",
+      "verification_note": "Tentative October registration cutoff uses an older official organiser-branded 2020 listing. Current ITC instructions confirm that campus launch precedes registration and selected B-schools participate. Opening month is unpublished.",
+      "opening_text": "Opening date not published",
+      "deadline_text": "Oct 2027",
       "name": "ITC Interrobang",
-      "source_url": "https://www.itcportal.com/careers/",
+      "source_url": "https://itcportal.com/careers/itc-interrobang.html",
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
       "event_window": "Competition rounds and final dates are event-specific.",
-      "rolling_reason": "Campus and edition-specific case-study invitations determine registration."
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://unstop.com/competitions/crp-interrobang-season-10-itc-limited-127435/amp",
+          "cycle": "Interrobang Season 10, 2020",
+          "dates_shown": "Organiser-branded listing gives registration deadline 24 October 2020 at 23:00 IST. Participation limited to listed campuses.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "shell-eco-marathon": {
       "row_id": "OPP-256",
@@ -2572,76 +2801,113 @@
       "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
-      "duration_start": "Competition rounds and final dates are event-specific.",
-      "verification_note": "The official portal is the event entry point; no common India registration cutoff was verified.",
-      "opening_text": "Intake-dependent / rolling",
-      "deadline_text": "Cutoff not published; check the current call",
-      "name": "Shell Eco-marathon",
-      "source_url": "https://www.shellecomarathon.com/",
+      "duration_start": "Asia-Pacific/Middle East and Global Championship Qatar 2027 cancelled. Await 2028 season announcements.",
+      "verification_note": "The organiser has cancelled Qatar 2027, covering Asia-Pacific/Middle East and the Global Championship, and publishes no replacement APME registration. Await the announced 2028 season.",
+      "opening_text": "Paused — await an official restart",
+      "deadline_text": "Cutoff unpublished while programme is paused",
+      "name": "Shell Eco-marathon — Asia-Pacific and Middle East",
+      "source_url": "https://www.shellecomarathon.com/about/faq.html",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
-      "event_window": "Competition rounds and final dates are event-specific.",
-      "rolling_reason": "Region and vehicle-entry stage determine the registration deadline."
+      "how_to_apply": "Read the organiser’s APME cancellation and next-season updates.\nWait for the next announced APME registration call.\nFollow the technical and logistics registration phases when the new call is published.",
+      "event_window": "Asia-Pacific/Middle East and Global Championship Qatar 2027 cancelled. Await 2028 season announcements.",
+      "rolling_reason": "The organiser has cancelled Qatar 2027, covering Asia-Pacific/Middle East and the Global Championship, and publishes no replacement APME registration. Await the announced 2028 season.",
+      "rolling_kind": "paused"
     },
     "c4gt": {
       "row_id": "OPP-257",
       "cycle_year": 2027,
       "organiser": "Code for GovTech",
       "geography": "Global; verify nationality and institution eligibility",
-      "confidence": "Low",
+      "confidence": "Medium",
       "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
-      "duration_start": "Dates depend on the selected intake or project.",
-      "verification_note": "The official site distinguishes continuous community contributions from annual dedicated mentoring. No current DMP registration dates verified.",
-      "opening_text": "Intake-dependent / rolling",
-      "deadline_text": "Cutoff not published; check the current call",
-      "name": "Code for GovTech (C4GT)",
-      "source_url": "https://app.codeforgovtech.in/",
+      "duration_start": "Three-month dedicated mentoring and coding programme after the application round (tentative).",
+      "verification_note": "Tentative May DMP cutoff from the 2024 official linked listing. Continuous C4GT Community Program contributions are a separate route.",
+      "opening_text": "Opening date not published",
+      "deadline_text": "May 2027",
+      "name": "Code for GovTech — Dedicated Mentoring Program",
+      "source_url": "https://c4gt-docs.netlify.app/initiatives/dmp/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Choose community contribution or Dedicated Mentoring on C4GT.\nRead project issues and prepare contribution evidence.\nFor mentoring, submit a project proposal during its announced call and complete mentor review.",
-      "event_window": null,
-      "rolling_reason": "Community contributions are continuous; dedicated mentoring has a separate edition-specific call."
+      "how_to_apply": "Read the new DMP project list and each project’s skill requirements.\nJoin the official community, discuss the project and prepare the requested proposal.\nApply through the platform linked by the new DMP call and complete any organisation-specific assessment.",
+      "event_window": "Three-month dedicated mentoring and coding programme after the application round (tentative).",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://unstop.com/competitions/dedicated-mentoring-program-dmp-2024-code-for-govtech-932803/amp",
+          "cycle": "DMP 2024",
+          "dates_shown": "Official C4GT documentation links this organiser-branded listing. Registration deadline 15 May 2024 at 23:59 IST. Mentored work June–September 2024.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "fossee-summer-fellowship": {
       "row_id": "OPP-258",
       "cycle_year": 2027,
       "organiser": "FOSSEE, IIT Bombay",
       "geography": "Global; verify nationality and institution eligibility",
-      "confidence": "Low",
+      "confidence": "Medium",
       "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
-      "duration_start": "Summer fellowship; next term dates await publication.",
-      "verification_note": "The official 2026 page now lists results. Project screening instructions exist, without verified 2027 registration dates.",
-      "opening_text": "Intake-dependent / rolling",
-      "deadline_text": "Cutoff not published; check the current call",
+      "duration_start": "Six to eight weeks of summer FOSSEE work, normally starting May (tentative).",
+      "verification_note": "Tentative March–April registration uses the organiser’s tentative March opening rule and the past 22 April 2024 cutoff.",
+      "opening_text": "Mar 2027",
+      "deadline_text": "Apr 2027",
       "name": "FOSSEE Summer Fellowship",
-      "source_url": "https://fossee.in/fellowship/2026",
+      "source_url": "https://fossee.in/node/82",
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Choose a FOSSEE project and screening task.\nComplete the task and prepare requested source files and report.\nSubmit through the project link and complete further screening if required.",
-      "event_window": "Summer fellowship; next term dates await publication.",
-      "rolling_reason": "Project screening tasks and the new fellowship notice determine the cutoff."
+      "event_window": "Six to eight weeks of summer FOSSEE work, normally starting May (tentative).",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://static.fossee.in/fossee/posters/poster-n-withlinks.pdf",
+          "cycle": "Summer Fellowship 2024",
+          "dates_shown": "Official poster links the 2024 fellowship and gives registration deadline 22 April 2024.",
+          "source_checked_on": "2026-11-13"
+        },
+        {
+          "source_url": "https://fossee.in/node/82",
+          "cycle": "Standing internship schedule",
+          "dates_shown": "Organiser labels summer registration opening in March and fellowship commencement in May as tentative.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "kwoc": {
       "row_id": "OPP-259",
-      "cycle_year": 2027,
+      "cycle_year": 2026,
       "organiser": "KOSS, IIT Kharagpur",
       "geography": "Global; verify nationality and institution eligibility",
-      "confidence": "Low",
+      "confidence": "Medium",
       "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
-      "duration_start": "Dates depend on the selected intake or project.",
-      "verification_note": "The KOSS IIT Kharagpur portal identifies KWoC 2025 without readable next-cycle registration dates.",
-      "opening_text": "Intake-dependent / rolling",
-      "deadline_text": "Cutoff not published; check the current call",
+      "duration_start": "Winter open-source contributions during December–January (tentative).",
+      "verification_note": "Tentative November–December registration, using the 2025 opening and 2022 December cutoff month. The 2022 main timeline and FAQ disagree on the day, so no exact future cutoff is asserted.",
+      "opening_text": "Nov 2026",
+      "deadline_text": "Dec 2026",
       "name": "Kharagpur Winter of Code (KWoC)",
       "source_url": "https://kwoc.kossiitkgp.org/",
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
-      "event_window": null,
-      "rolling_reason": "Edition-specific registration; await the next official KOSS timeline."
+      "event_window": "Winter open-source contributions during December–January (tentative).",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://kwoc.kossiitkgp.org/assets/index-ds66oPYX.js",
+          "cycle": "KWoC 2025",
+          "dates_shown": "Published website timeline gives student registration beginning 30 November 2025 and coding beginning 5 December 2025. Current FAQ leaves its cutoff blank.",
+          "source_checked_on": "2026-11-13"
+        },
+        {
+          "source_url": "https://kwoc22.kossiitkgp.org/",
+          "cycle": "KWoC 2022",
+          "dates_shown": "Student and project registration begins 25 November 2022. Main timeline gives student registration ending 17 December 2022. FAQ has an earlier 6 December cutoff.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "ncbs-research-internships": {
       "row_id": "OPP-260",
@@ -2653,7 +2919,7 @@
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
       "duration_start": "Dates depend on the selected intake or project.",
-      "verification_note": "The official lab page invites internship interest statements. Archives internships are a separate route with different work.",
+      "verification_note": "Lab/supervisor-specific attachments have separate acceptance and timing.",
       "opening_text": "Intake-dependent / rolling",
       "deadline_text": "Cutoff not published; check the current call",
       "name": "NCBS Research Internships",
@@ -2661,7 +2927,8 @@
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Choose an NCBS lab currently inviting interns.\nPrepare a one-page research-interest statement and requested academic/CV evidence.\nContact the lab through its published route and obtain supervisor acceptance.",
       "event_window": null,
-      "rolling_reason": "Lab/supervisor-specific attachments have separate acceptance and timing."
+      "rolling_reason": "Lab/supervisor-specific attachments have separate acceptance and timing.",
+      "rolling_kind": "lab_dependent"
     },
     "chevening-india": {
       "row_id": "OPP-261",
@@ -2977,36 +3244,52 @@
       "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
-      "duration_start": "July course intake, subject to the official notice. SSB dates allotted individually; TES has no separate written exam.",
-      "verification_note": "The Army portal is a CAPTCHA gateway for officer notices. No current TES registration notice was retrieved; dates are not inferred from JEE or SSB.",
-      "opening_text": "Intake-dependent / rolling",
-      "deadline_text": "Cutoff not published; check the current call",
+      "duration_start": "Army 10+2 TES July 2027 intake (tentative registration pattern).",
+      "verification_note": "Tentative November–December registration for the July intake, from the government-hosted TES 29 notice. This is old historical evidence; the next course notice can move the months and controls eligibility.",
+      "opening_text": "Nov 2026",
+      "deadline_text": "Dec 2026",
       "name": "Army 10+2 Technical Entry Scheme — July intake",
-      "source_url": "https://joinindianarmy.nic.in/",
+      "source_url": "https://employmentnews.gov.in/Issue-No-31.pdf",
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Read the specific TES notice and verify its PCM and JEE rules.\nUse officer-entry registration with the requested school, JEE and identity evidence.\nComplete shortlisting, SSB and medical assessment if called.",
-      "event_window": "July course intake, subject to the official notice. SSB dates allotted individually; TES has no separate written exam.",
-      "rolling_reason": "Course-specific officer notification determines registration; verify the new TES notice before assigning dates."
+      "event_window": "Army 10+2 TES July 2027 intake (tentative registration pattern).",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://employmentnews.gov.in/Issue-No-31.pdf",
+          "cycle": "TES 29, July 2013 intake",
+          "dates_shown": "Government Employment News issue 3–9 November 2012, printed page 37, gives online applications 6 November–3 December 2012 at 10:00.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "army-tes-ii": {
       "row_id": "OPP-278",
-      "cycle_year": 2027,
+      "cycle_year": 2028,
       "organiser": "Indian Army",
       "geography": "India",
       "confidence": "Low",
       "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
-      "duration_start": "January course intake, subject to the official notice. SSB dates allotted individually; TES has no separate written exam.",
-      "verification_note": "The Army portal is a CAPTCHA gateway for officer notices. No current TES registration notice was retrieved; dates are not inferred from JEE or SSB.",
-      "opening_text": "Intake-dependent / rolling",
-      "deadline_text": "Cutoff not published; check the current call",
+      "duration_start": "Army 10+2 TES January 2028 intake (tentative).",
+      "verification_note": "Tentative June online cutoff for the January intake, from the government-hosted TES 26 notice. Opening month is unpublished in the verified text. This is old historical evidence; verify the new course notification.",
+      "opening_text": "Opening date not published",
+      "deadline_text": "Jun 2027",
       "name": "Army 10+2 Technical Entry Scheme — January intake",
-      "source_url": "https://joinindianarmy.nic.in/",
+      "source_url": "https://employmentnews.gov.in/10-99.pdf",
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Read the specific TES notice and verify its PCM and JEE rules.\nUse officer-entry registration with the requested school, JEE and identity evidence.\nComplete shortlisting, SSB and medical assessment if called.",
-      "event_window": "January course intake, subject to the official notice. SSB dates allotted individually; TES has no separate written exam.",
-      "rolling_reason": "Course-specific officer notification determines registration; verify the new TES notice before assigning dates."
+      "event_window": "Army 10+2 TES January 2028 intake (tentative).",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://employmentnews.gov.in/10-99.pdf",
+          "cycle": "TES 26, January 2012 intake",
+          "dates_shown": "Government-hosted Army notice gives online application deadline 30 June 2011 and postal printout deadline 10 July 2011.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     },
     "ssc-cgl": {
       "row_id": "OPP-279",
@@ -3178,6 +3461,576 @@
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Read OCES/DGFS eligibility and choose a discipline.\nRegister on BARC with academic documents and any qualifying GATE score; select an allowed screening route.\nComplete online screening or GATE shortlisting and the selection interview.",
       "event_window": "Screening test or eligible GATE score, then interviews; 2027 dates unverified."
+    },
+    "fulbright-nehru-doctoral": {
+      "row_id": "OPP-288",
+      "cycle_year": 2028,
+      "organiser": "United States-India Educational Foundation",
+      "geography": "India",
+      "confidence": "Medium",
+      "prep_tip": "Check the new organiser notice and prepare evidence matching its eligibility and selection criteria.",
+      "hiring_mode": "Research proposal and academic review, references and interview.",
+      "career_linkage": "Programme participation and any recruitment opportunities follow the current organiser terms.",
+      "duration_start": "Six to nine months of doctoral research in the subsequent US award year, subject to the next call.",
+      "verification_note": "Tentative February–July 2027 registration for the following award cycle, projected from the official 2027–28 doctoral call. Applicant must be registered for a PhD in India.",
+      "opening_text": "Feb 2027",
+      "deadline_text": "Jul 2027",
+      "name": "Fulbright-Nehru Doctoral Research Fellowships",
+      "source_url": "https://usief.org.in/fulbright-fellowships/fellowships-for-indian-citizen/fulbright-nehru-doctoral-research-fellowships/",
+      "source_checked_on": "2026-11-13",
+      "how_to_apply": "Open the Indian-citizen Fulbright-Nehru Doctoral Research call and check PhD registration and thesis-submission requirements.\nPrepare the research proposal, transcripts, supervisor recommendation and other required references.\nSubmit through the USIEF-linked IIE application portal by the new award-specific deadline.",
+      "event_window": "Six to nine months of doctoral research in the subsequent US award year, subject to the next call.",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://usief.org.in/fulbright-fellowships/fellowships-for-indian-citizen/fulbright-nehru-doctoral-research-fellowships/",
+          "cycle": "2027–28 doctoral award",
+          "dates_shown": "Applications before 18 February 2026 excluded. Application deadline 1 July 2026. Programme begins August/September 2027.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
+    },
+    "nhrc-winter-internship": {
+      "row_id": "OPP-290",
+      "cycle_year": 2027,
+      "organiser": "National Human Rights Commission",
+      "geography": "India",
+      "confidence": "Medium",
+      "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
+      "hiring_mode": "Selection under the current official notice",
+      "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
+      "duration_start": "In-person winter internship during December 2027–January 2028 (tentative).",
+      "verification_note": "Tentative October–November registration based on the 2025 initial deadline and 2026 official call-release/selection dates. Verify extensions and the next winter call.",
+      "opening_text": "Oct 2027",
+      "deadline_text": "Nov 2027",
+      "name": "NHRC Winter Internship Programme",
+      "source_url": "https://nhrc.nic.in/assets/uploads/summer_winter/1761130984_c2d50603bbcbff9ac67f.pdf",
+      "source_checked_on": "2026-11-13",
+      "how_to_apply": "Choose the correct NHRC summer, winter or online call.\nPrepare the marksheets and institutional recommendation required by that call.\nApply through its official link and check the selection list.",
+      "event_window": "In-person winter internship during December 2027–January 2028 (tentative).",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://nhrc.nic.in/assets/uploads/summer_winter/1761130984_c2d50603bbcbff9ac67f.pdf",
+          "cycle": "WIP 2025",
+          "dates_shown": "October 2025 notice gives initial application deadline 4 November 2025 at 18:00. Later extension was announced separately.",
+          "source_checked_on": "2026-11-13"
+        },
+        {
+          "source_url": "https://nhrc.nic.in/whats-new?searchsubmit=Search&title=2026",
+          "cycle": "WIP 2026",
+          "dates_shown": "Winter 2026 call announced 1 October 2026. Selected candidates listed 6 November 2026. Placement 14 December 2026–8 January 2027.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
+    },
+    "young-india-fellowship-round-1-final": {
+      "row_id": "OPP-291",
+      "cycle_year": 2027,
+      "organiser": "Ashoka University",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
+      "hiring_mode": "Selection under the current official notice",
+      "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
+      "duration_start": "Residential fellowship July 2027–July 2028.",
+      "verification_note": "Official final deadline for Round 1 of the 2027 intake. Apply only once per cycle.",
+      "opening_text": "Opening date not published",
+      "deadline_text": "10 Jan 2027",
+      "name": "Young India Fellowship — Round 1 final",
+      "source_url": "https://www.ashoka.edu.in/yif-admissions/",
+      "source_checked_on": "2026-11-13",
+      "how_to_apply": "Register on the official YIF application portal and check the current round.\nPrepare academic and professional details, essays, the video essay and an appropriate recommendation.\nSubmit once per admissions cycle in the chosen round; follow the interview and funding instructions.",
+      "event_window": "Residential fellowship July 2027–July 2028.",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://www.ashoka.edu.in/yif-admissions/",
+          "cycle": "YIF 2027 intake, class of 2028",
+          "dates_shown": "Round 1 priority 29 November 2026. Round 1 final 10 January 2027. Round 2 final 21 March 2027. Applications open as of the check; the opening date is unpublished.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
+    },
+    "young-india-fellowship-round-2": {
+      "row_id": "OPP-292",
+      "cycle_year": 2027,
+      "organiser": "Ashoka University",
+      "geography": "India",
+      "confidence": "High",
+      "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
+      "hiring_mode": "Selection under the current official notice",
+      "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
+      "duration_start": "Residential fellowship July 2027–July 2028.",
+      "verification_note": "Official final deadline for Round 2 of the 2027 intake. The round opening date is unpublished.",
+      "opening_text": "Opening date not published",
+      "deadline_text": "21 Mar 2027",
+      "name": "Young India Fellowship — Round 2 final",
+      "source_url": "https://www.ashoka.edu.in/yif-admissions/",
+      "source_checked_on": "2026-11-13",
+      "how_to_apply": "Register on the official YIF application portal and check the current round.\nPrepare academic and professional details, essays, the video essay and an appropriate recommendation.\nSubmit once per admissions cycle in the chosen round; follow the interview and funding instructions.",
+      "event_window": "Residential fellowship July 2027–July 2028.",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://www.ashoka.edu.in/yif-admissions/",
+          "cycle": "YIF 2027 intake, class of 2028",
+          "dates_shown": "Round 1 priority 29 November 2026. Round 1 final 10 January 2027. Round 2 final 21 March 2027. Applications open as of the check; the opening date is unpublished.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
+    },
+    "teach-for-india-round-2": {
+      "row_id": "OPP-293",
+      "cycle_year": 2027,
+      "organiser": "Teach For India",
+      "geography": "India",
+      "confidence": "Low",
+      "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
+      "hiring_mode": "Selection under the current official notice",
+      "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
+      "duration_start": "Two-year teaching fellowship for the 2027 cohort. Current official selection cycle July 2026–March 2027.",
+      "verification_note": "Tentative Nov deadline month from the embedded official 2022–23 round schedule. The current FAQ confirms the July 2026–March 2027 selection cycle but publishes no exact current round dates. Check the live portal.",
+      "opening_text": "Opening date not published",
+      "deadline_text": "Nov 2026",
+      "name": "Teach For India Fellowship — Round 2",
+      "source_url": "https://www.teachforindia.org/faqs",
+      "source_checked_on": "2026-11-13",
+      "how_to_apply": "Read the current Teach For India cohort eligibility and live round deadline.\nComplete the official online application and required assessments using your own account.\nApply only once per cohort and follow the assessment-centre instructions.",
+      "event_window": "Two-year teaching fellowship for the 2027 cohort. Current official selection cycle July 2026–March 2027.",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://apply.teachforindia.org/main.2687aae4379020d8c7fc.js",
+          "cycle": "Legacy 2022–23 selection schedule embedded in the official application frontend",
+          "dates_shown": "Round 1 deadline 18 September 2022. Round 2 deadline 20 November 2022. Round 3 deadline 29 January 2023. Round 4 deadline 19 March 2023. A fifth 16 April 2023 round is excluded from projection because the current selection cycle ends in March.",
+          "source_checked_on": "2026-11-13"
+        },
+        {
+          "source_url": "https://web.archive.org/web/20241102203805/https://www.teachforindia.org/faqs",
+          "cycle": "2025 cohort",
+          "dates_shown": "Selection cycle runs July 2024–March 2025.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
+    },
+    "teach-for-india-round-3": {
+      "row_id": "OPP-294",
+      "cycle_year": 2027,
+      "organiser": "Teach For India",
+      "geography": "India",
+      "confidence": "Low",
+      "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
+      "hiring_mode": "Selection under the current official notice",
+      "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
+      "duration_start": "Two-year teaching fellowship for the 2027 cohort. Current official selection cycle July 2026–March 2027.",
+      "verification_note": "Tentative Jan deadline month from the embedded official 2022–23 round schedule. The current FAQ confirms the July 2026–March 2027 selection cycle but publishes no exact current round dates. Check the live portal.",
+      "opening_text": "Opening date not published",
+      "deadline_text": "Jan 2027",
+      "name": "Teach For India Fellowship — Round 3",
+      "source_url": "https://www.teachforindia.org/faqs",
+      "source_checked_on": "2026-11-13",
+      "how_to_apply": "Read the current Teach For India cohort eligibility and live round deadline.\nComplete the official online application and required assessments using your own account.\nApply only once per cohort and follow the assessment-centre instructions.",
+      "event_window": "Two-year teaching fellowship for the 2027 cohort. Current official selection cycle July 2026–March 2027.",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://apply.teachforindia.org/main.2687aae4379020d8c7fc.js",
+          "cycle": "Legacy 2022–23 selection schedule embedded in the official application frontend",
+          "dates_shown": "Round 1 deadline 18 September 2022. Round 2 deadline 20 November 2022. Round 3 deadline 29 January 2023. Round 4 deadline 19 March 2023. A fifth 16 April 2023 round is excluded from projection because the current selection cycle ends in March.",
+          "source_checked_on": "2026-11-13"
+        },
+        {
+          "source_url": "https://web.archive.org/web/20241102203805/https://www.teachforindia.org/faqs",
+          "cycle": "2025 cohort",
+          "dates_shown": "Selection cycle runs July 2024–March 2025.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
+    },
+    "teach-for-india-round-4": {
+      "row_id": "OPP-295",
+      "cycle_year": 2027,
+      "organiser": "Teach For India",
+      "geography": "India",
+      "confidence": "Low",
+      "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
+      "hiring_mode": "Selection under the current official notice",
+      "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
+      "duration_start": "Two-year teaching fellowship for the 2027 cohort. Current official selection cycle July 2026–March 2027.",
+      "verification_note": "Tentative Mar deadline month from the embedded official 2022–23 round schedule. The current FAQ confirms the July 2026–March 2027 selection cycle but publishes no exact current round dates. Check the live portal.",
+      "opening_text": "Opening date not published",
+      "deadline_text": "Mar 2027",
+      "name": "Teach For India Fellowship — Round 4",
+      "source_url": "https://www.teachforindia.org/faqs",
+      "source_checked_on": "2026-11-13",
+      "how_to_apply": "Read the current Teach For India cohort eligibility and live round deadline.\nComplete the official online application and required assessments using your own account.\nApply only once per cohort and follow the assessment-centre instructions.",
+      "event_window": "Two-year teaching fellowship for the 2027 cohort. Current official selection cycle July 2026–March 2027.",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://apply.teachforindia.org/main.2687aae4379020d8c7fc.js",
+          "cycle": "Legacy 2022–23 selection schedule embedded in the official application frontend",
+          "dates_shown": "Round 1 deadline 18 September 2022. Round 2 deadline 20 November 2022. Round 3 deadline 29 January 2023. Round 4 deadline 19 March 2023. A fifth 16 April 2023 round is excluded from projection because the current selection cycle ends in March.",
+          "source_checked_on": "2026-11-13"
+        },
+        {
+          "source_url": "https://web.archive.org/web/20241102203805/https://www.teachforindia.org/faqs",
+          "cycle": "2025 cohort",
+          "dates_shown": "Selection cycle runs July 2024–March 2025.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
+    },
+    "mlh-fellowship-summer": {
+      "row_id": "OPP-296",
+      "cycle_year": 2027,
+      "organiser": "Major League Hacking",
+      "geography": "Global",
+      "confidence": "Medium",
+      "prep_tip": "Prepare to discuss code you wrote and check batch time-zone and time-commitment requirements.",
+      "hiring_mode": "Rolling application, interviews and enrolment",
+      "career_linkage": "Learning and contribution; no employment guarantee",
+      "duration_start": "Summer Software Engineering batch around May–August 2027 (tentative).",
+      "verification_note": "Tentative March opening and April–May cutoff range from the 2025 application snapshot and May starts in two official cohorts. The precise application cutoff is unpublished.",
+      "opening_text": "Mar 2027",
+      "deadline_text": "Apr–May 2027",
+      "name": "MLH Fellowship — Summer batch",
+      "source_url": "https://fellowship.mlh.com/programs/software-engineering",
+      "source_checked_on": "2026-11-13",
+      "how_to_apply": "Check the official Software Engineering track and select the relevant upcoming batch.\nSubmit the application and complete the coordinator and technical interviews.\nConfirm availability for the full batch and follow the organiser’s current cutoff instructions.",
+      "event_window": "Summer Software Engineering batch around May–August 2027 (tentative).",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://web.archive.org/web/20250322055823/https://fellowship.mlh.io/programs/software-engineering",
+          "cycle": "Summer 2025",
+          "dates_shown": "March snapshot offers Apply Now for 19 May–8 August 2025. Rolling applications close a few weeks before the batch.",
+          "source_checked_on": "2026-11-13"
+        },
+        {
+          "source_url": "https://web.archive.org/web/20260520164401/https://fellowship.mlh.com/programs/software-engineering",
+          "cycle": "Summer 2026",
+          "dates_shown": "Batch 18 May–7 August 2026. The application-process text retains the few-weeks-before-start rule.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
+    },
+    "mlh-fellowship-fall": {
+      "row_id": "OPP-297",
+      "cycle_year": 2027,
+      "organiser": "Major League Hacking",
+      "geography": "Global",
+      "confidence": "Medium",
+      "prep_tip": "Prepare to discuss code you wrote and check batch time-zone and time-commitment requirements.",
+      "hiring_mode": "Rolling application, interviews and enrolment",
+      "career_linkage": "Learning and contribution; no employment guarantee",
+      "duration_start": "Fall Software Engineering batch around September–December 2027 (tentative).",
+      "verification_note": "Tentative August opening and August–September cutoff range from the past August application snapshot and September starts in two official cohorts. The range reflects the relative cutoff wording; no exact day is published.",
+      "opening_text": "Aug 2027",
+      "deadline_text": "Aug–Sep 2027",
+      "name": "MLH Fellowship — Fall batch",
+      "source_url": "https://fellowship.mlh.com/programs/software-engineering",
+      "source_checked_on": "2026-11-13",
+      "how_to_apply": "Check the official Software Engineering track and select the relevant upcoming batch.\nSubmit the application and complete the coordinator and technical interviews.\nConfirm availability for the full batch and follow the organiser’s current cutoff instructions.",
+      "event_window": "Fall Software Engineering batch around September–December 2027 (tentative).",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://web.archive.org/web/20250914185552/https://fellowship.mlh.io/programs/software-engineering",
+          "cycle": "Fall 2025",
+          "dates_shown": "Batch 15 September–5 December 2025, with the rolling/few-weeks-before-start application rule.",
+          "source_checked_on": "2026-11-13"
+        },
+        {
+          "source_url": "https://web.archive.org/web/20260818014114/https://fellowship.mlh.com/programs/software-engineering",
+          "cycle": "Fall 2026",
+          "dates_shown": "August snapshot offers Apply Now for 14 September–4 December 2026, with the same relative cutoff rule.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
+    },
+    "google-girl-hackathon": {
+      "row_id": "OPP-298",
+      "cycle_year": 2027,
+      "organiser": "Google",
+      "geography": "India",
+      "confidence": "Low",
+      "prep_tip": "Check the new organiser notice and prepare evidence matching its eligibility and selection criteria.",
+      "hiring_mode": "Individual coding challenge, learning cohorts and virtual ideathon.",
+      "career_linkage": "Programme participation and any recruitment opportunities follow the current organiser terms.",
+      "duration_start": "Individual coding challenge, learning cohorts and ideathon after registration (tentative).",
+      "verification_note": "Tentative May cutoff is supported only by the organiser-branded 2023 listing. No current call is confirmed and subsequent cycle months may differ.",
+      "opening_text": "Opening date not published",
+      "deadline_text": "May 2027",
+      "name": "Google Girl Hackathon — India",
+      "source_url": "https://unstop.com/hackathons/girl-hackathon-2023-google-681413",
+      "source_checked_on": "2026-11-13",
+      "how_to_apply": "Read the current organiser call and check the eligible courses, graduation years and team rules.\nUse the registration platform linked by that current call and prepare the requested profile or proposal.\nSubmit before the new edition’s published cutoff and follow the announced selection rounds.",
+      "event_window": "Individual coding challenge, learning cohorts and ideathon after registration (tentative).",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://unstop.com/hackathons/girl-hackathon-2023-google-681413",
+          "cycle": "Girl Hackathon 2023",
+          "dates_shown": "Google-branded competition listing gives registration deadline 28 May 2023 at 23:59 IST and individual participation.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
+    },
+    "flipkart-runway": {
+      "row_id": "OPP-299",
+      "cycle_year": 2027,
+      "organiser": "Flipkart",
+      "geography": "India",
+      "confidence": "Medium",
+      "prep_tip": "Check the new organiser notice and prepare evidence matching its eligibility and selection criteria.",
+      "hiring_mode": "Online fundamentals assessment, coding round and interviews.",
+      "career_linkage": "Programme participation and any recruitment opportunities follow the current organiser terms.",
+      "duration_start": "Assessment, coding and interview rounds before the selected summer internship.",
+      "verification_note": "Tentative March cutoff from the organiser-branded 2025 call. The technical women-engineers programme has edition-specific graduation-year eligibility.",
+      "opening_text": "Opening date not published",
+      "deadline_text": "Mar 2027",
+      "name": "Flipkart Runway",
+      "source_url": "https://unstop.com/competitions/flipkart-runway-season-5-flipkart-1410891",
+      "source_checked_on": "2026-11-13",
+      "how_to_apply": "Read the current organiser call and check the eligible courses, graduation years and team rules.\nUse the registration platform linked by that current call and prepare the requested profile or proposal.\nSubmit before the new edition’s published cutoff and follow the announced selection rounds.",
+      "event_window": "Assessment, coding and interview rounds before the selected summer internship.",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://api.unstop.com/competitions/flipkart-runway-season-5-flipkart-1410891",
+          "cycle": "Runway Season 5, 2025",
+          "dates_shown": "Flipkart-branded listing gives registration deadline 20 March 2025 at 23:59 IST. Selected students intern May–July 2025 for eight to ten weeks.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
+    },
+    "walmart-codehers": {
+      "row_id": "OPP-300",
+      "cycle_year": 2027,
+      "organiser": "Walmart Global Tech India",
+      "geography": "India",
+      "confidence": "Medium",
+      "prep_tip": "Check the new organiser notice and prepare evidence matching its eligibility and selection criteria.",
+      "hiring_mode": "Computer-fundamentals assessment, coding challenge and profile verification.",
+      "career_linkage": "Programme participation and any recruitment opportunities follow the current organiser terms.",
+      "duration_start": "Online assessment and coding rounds, followed by eligibility verification and selection.",
+      "verification_note": "Tentative March cutoff from the organiser-branded 2025 listing. Course, CGPA and graduation-year rules must be checked against the new call.",
+      "opening_text": "Opening date not published",
+      "deadline_text": "Mar 2027",
+      "name": "Walmart CodeHers — India",
+      "source_url": "https://unstop.com/competitions/codehers-2025-walmart-global-tech-india-1372066",
+      "source_checked_on": "2026-11-13",
+      "how_to_apply": "Read the current organiser call and check the eligible courses, graduation years and team rules.\nUse the registration platform linked by that current call and prepare the requested profile or proposal.\nSubmit before the new edition’s published cutoff and follow the announced selection rounds.",
+      "event_window": "Online assessment and coding rounds, followed by eligibility verification and selection.",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://api.unstop.com/competitions/codehers-2025-walmart-global-tech-india-1372066",
+          "cycle": "CodeHers 2025",
+          "dates_shown": "Walmart Global Tech India-branded listing gives registration deadline 2 March 2025 at 23:59 IST. Separate 2025 graduate and 2026 internship routes.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
+    },
+    "accenture-innovation-challenge": {
+      "row_id": "OPP-301",
+      "cycle_year": 2027,
+      "organiser": "Accenture",
+      "geography": "India",
+      "confidence": "Medium",
+      "prep_tip": "Check the new organiser notice and prepare evidence matching its eligibility and selection criteria.",
+      "hiring_mode": "Solution framework, prototype, technical discussion and finale.",
+      "career_linkage": "Programme participation and any recruitment opportunities follow the current organiser terms.",
+      "duration_start": "Solution submission, prototype development, discussion and national finale under the next call.",
+      "verification_note": "Tentative August registration cutoff from the organiser-branded 2026 Indian call. Opening month is unpublished.",
+      "opening_text": "Opening date not published",
+      "deadline_text": "Aug 2027",
+      "name": "Accenture Innovation Challenge — India",
+      "source_url": "https://unstop.com/competitions/crp-accenture-innovation-challenge-2026-accenture-1714566",
+      "source_checked_on": "2026-11-13",
+      "how_to_apply": "Read the current organiser call and check the eligible courses, graduation years and team rules.\nUse the registration platform linked by that current call and prepare the requested profile or proposal.\nSubmit before the new edition’s published cutoff and follow the announced selection rounds.",
+      "event_window": "Solution submission, prototype development, discussion and national finale under the next call.",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://api.unstop.com/competitions/crp-accenture-innovation-challenge-2026-accenture-1714566",
+          "cycle": "India Innovation Challenge 2026",
+          "dates_shown": "Accenture-branded listing gives registration deadline 16 August 2026 at 23:59 IST. Eligible pre-final/final-year students, teams of up to three.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
+    },
+    "myntra-hackerramp": {
+      "row_id": "OPP-302",
+      "cycle_year": 2027,
+      "organiser": "Myntra",
+      "geography": "India",
+      "confidence": "Medium",
+      "prep_tip": "Check the new organiser notice and prepare evidence matching its eligibility and selection criteria.",
+      "hiring_mode": "Idea submission, mentored prototype and final presentation.",
+      "career_linkage": "Programme participation and any recruitment opportunities follow the current organiser terms.",
+      "duration_start": "Fashion-technology hackathon with mentorship and selection stages after registration.",
+      "verification_note": "Tentative September cutoff from the organiser-branded 2025 listing. Opening month and next edition eligibility remain unpublished.",
+      "opening_text": "Opening date not published",
+      "deadline_text": "Sep 2027",
+      "name": "Myntra HackerRamp — WeForShe",
+      "source_url": "https://unstop.com/hackathons/myntra-hackerramp-weforshe-2025-myntra-1513857",
+      "source_checked_on": "2026-11-13",
+      "how_to_apply": "Read the current organiser call and check the eligible courses, graduation years and team rules.\nUse the registration platform linked by that current call and prepare the requested profile or proposal.\nSubmit before the new edition’s published cutoff and follow the announced selection rounds.",
+      "event_window": "Fashion-technology hackathon with mentorship and selection stages after registration.",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://api.unstop.com/hackathons/myntra-hackerramp-weforshe-2025-myntra-1513857",
+          "cycle": "WeForShe 2025",
+          "dates_shown": "Myntra-branded listing gives registration deadline 3 September 2025 at 23:59 IST.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
+    },
+    "hul-lime": {
+      "row_id": "OPP-303",
+      "cycle_year": 2027,
+      "organiser": "Hindustan Unilever Limited",
+      "geography": "India",
+      "confidence": "Medium",
+      "prep_tip": "Check the new organiser notice and prepare evidence matching its eligibility and selection criteria.",
+      "hiring_mode": "Brand campaign submission, case evaluation and presentations.",
+      "career_linkage": "Programme participation and any recruitment opportunities follow the current organiser terms.",
+      "duration_start": "Marketing and business case competition across selection stages.",
+      "verification_note": "Tentative August–September entry window from the organiser-branded 2025 round. Campus and course eligibility follow the next call.",
+      "opening_text": "Aug 2027",
+      "deadline_text": "Sep 2027",
+      "name": "HUL L.I.M.E.",
+      "source_url": "https://unstop.com/competitions/hul-lime-season-17-hindustan-unilever-limited-hul-1531679",
+      "source_checked_on": "2026-11-13",
+      "how_to_apply": "Read the current organiser call and check the eligible courses, graduation years and team rules.\nUse the registration platform linked by that current call and prepare the requested profile or proposal.\nSubmit before the new edition’s published cutoff and follow the announced selection rounds.",
+      "event_window": "Marketing and business case competition across selection stages.",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://api.unstop.com/competitions/hul-lime-season-17-hindustan-unilever-limited-hul-1531679",
+          "cycle": "LIME Season 17, 2025",
+          "dates_shown": "HUL-branded listing gives digital launch 26 August 2025 and registration deadline 15 September 2025 at 07:00 IST. Teams of three first-year full-time MBA students.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
+    },
+    "mahindra-war-room": {
+      "row_id": "OPP-304",
+      "cycle_year": 2027,
+      "organiser": "Mahindra Group",
+      "geography": "India",
+      "confidence": "Low",
+      "prep_tip": "Check the new organiser notice and prepare evidence matching its eligibility and selection criteria.",
+      "hiring_mode": "Business case submissions, campus evaluation and national rounds.",
+      "career_linkage": "Programme participation and any recruitment opportunities follow the current organiser terms.",
+      "duration_start": "Business case evaluation through campus and national rounds, subject to a new edition.",
+      "verification_note": "Tentative August cutoff relies on the older organiser-branded 2017 call. No current edition is confirmed; verify programme availability before preparing an application.",
+      "opening_text": "Opening date not published",
+      "deadline_text": "Aug 2027",
+      "name": "Mahindra War Room",
+      "source_url": "https://unstop.com/competitions/war-room-mahindra-and-mahindra-59127",
+      "source_checked_on": "2026-11-13",
+      "how_to_apply": "Read the current organiser call and check the eligible courses, graduation years and team rules.\nUse the registration platform linked by that current call and prepare the requested profile or proposal.\nSubmit before the new edition’s published cutoff and follow the announced selection rounds.",
+      "event_window": "Business case evaluation through campus and national rounds, subject to a new edition.",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://api.unstop.com/competitions/war-room-mahindra-and-mahindra-59127",
+          "cycle": "War Room 2017",
+          "dates_shown": "Mahindra-branded listing gives registration deadline 16 August 2017 at 23:59 IST and four-member campus teams.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
+    },
+    "samsung-prism": {
+      "row_id": "OPP-305",
+      "cycle_year": 2027,
+      "organiser": "Samsung R&D Institute Bangalore",
+      "geography": "India",
+      "confidence": "Medium",
+      "prep_tip": "Check the new organiser notice and prepare evidence matching its eligibility and selection criteria.",
+      "hiring_mode": "Partner-college selection test, faculty-led team and Samsung project mentorship.",
+      "career_linkage": "Programme participation and any recruitment opportunities follow the current organiser terms.",
+      "duration_start": "Four-to-six-month student research projects through participating engineering colleges.",
+      "verification_note": "Partner engineering colleges select project teams with a faculty coordinator and Samsung mentor. The official programme announcement gives no nationwide public application cutoff.",
+      "opening_text": "Partner-college team selection",
+      "deadline_text": "Cutoff supplied by the participating college",
+      "name": "Samsung PRISM",
+      "source_url": "https://news.samsung.com/in/samsung-prism-new-industry-academia-program-in-india-to-collaborate-with-engineering-students-on-ai-iot-5g-launched",
+      "source_checked_on": "2026-11-13",
+      "how_to_apply": "Check whether your engineering college participates in Samsung PRISM.\nContact its faculty coordinator about available projects, selection tests and team formation.\nApply through the institution’s announced project-selection process.",
+      "event_window": "Four-to-six-month student research projects through participating engineering colleges.",
+      "rolling_kind": "nomination_based",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://news.samsung.com/in/samsung-prism-new-industry-academia-program-in-india-to-collaborate-with-engineering-students-on-ai-iot-5g-launched",
+          "cycle": "PRISM launch, 2020",
+          "dates_shown": "Organiser announcement describes a 2019 pilot and 2020 programme rollout through partner engineering colleges. Each college can form multiple teams; projects last four to six months.",
+          "source_checked_on": "2026-11-13"
+        }
+      ],
+      "rolling_reason": "Partner engineering colleges select project teams with a faculty coordinator and Samsung mentor. The official programme announcement gives no nationwide public application cutoff."
+    },
+    "infosys-instep": {
+      "row_id": "OPP-306",
+      "cycle_year": 2027,
+      "organiser": "Infosys",
+      "geography": "Global; international applicants; placement in India",
+      "confidence": "Medium",
+      "prep_tip": "Check the new organiser notice and prepare evidence matching its eligibility and selection criteria.",
+      "hiring_mode": "Application review and project matching under the InStep programme.",
+      "career_linkage": "Programme participation and any recruitment opportunities follow the current organiser terms.",
+      "duration_start": "Year-round global internship, with timing aligned to the student’s academic calendar.",
+      "verification_note": "Infosys explicitly describes InStep as a year-round programme with flexible starts based on academic calendars.",
+      "opening_text": "Year-round applications",
+      "deadline_text": "Subject to project availability",
+      "name": "Infosys InStep",
+      "source_url": "https://www.infosys.com/instep/internship.html",
+      "source_checked_on": "2026-11-13",
+      "how_to_apply": "Review the official InStep programme and eligible university/project routes.\nPrepare a CV and identify the relevant research or business assignment.\nApply through the official InStep route and agree internship dates with the programme team.",
+      "event_window": "Year-round global internship, with timing aligned to the student’s academic calendar.",
+      "rolling_kind": "always_open",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://www.infosys.com/instep/internship.html",
+          "cycle": "Standing programme",
+          "dates_shown": "The official page explicitly describes InStep as a year-round programme with starts based on the student’s academic calendar.",
+          "source_checked_on": "2026-11-13"
+        }
+      ],
+      "rolling_reason": "Infosys explicitly describes InStep as a year-round programme with flexible starts based on academic calendars."
+    },
+    "fulbright-nehru-postdoctoral": {
+      "row_id": "OPP-289",
+      "cycle_year": 2028,
+      "organiser": "USIEF",
+      "geography": "India",
+      "confidence": "Medium",
+      "prep_tip": "Check the new organiser notice and prepare evidence matching its eligibility and selection criteria.",
+      "hiring_mode": "Research review, publications, references and interviews.",
+      "career_linkage": "Programme participation and any recruitment opportunities follow the current organiser terms.",
+      "duration_start": "Early-career postdoctoral research in the subsequent award year, under the next call.",
+      "verification_note": "Tentative February–July 2027 registration from the official 2027–28 postdoctoral call. The doctoral and Master’s awards have separate rows and eligibility.",
+      "opening_text": "Feb 2027",
+      "deadline_text": "Jul 2027",
+      "name": "Fulbright-Nehru Postdoctoral Research Fellowships",
+      "source_url": "https://usief.org.in/fulbright-fellowships/fellowships-for-indian-citizen/fulbright-nehru-postdoctoral-research-fellowships/",
+      "source_checked_on": "2026-11-13",
+      "how_to_apply": "Read the Indian-citizen Postdoctoral Research call and check the eligible PhD award-date range.\nPrepare a research statement, publications, references and any required employer support.\nSubmit through the official USIEF-linked IIE scholar application portal by its new deadline.",
+      "event_window": "Early-career postdoctoral research in the subsequent award year, under the next call.",
+      "rolling_kind": "annual_cycle",
+      "past_cycle_evidence": [
+        {
+          "source_url": "https://usief.org.in/fulbright-fellowships/fellowships-for-indian-citizen/fulbright-nehru-postdoctoral-research-fellowships/",
+          "cycle": "2027–28 Postdoctoral award",
+          "dates_shown": "Applications before 18 February 2026 excluded. Deadline 15 July 2026. PhD award window 15 July 2022–14 July 2026.",
+          "source_checked_on": "2026-11-13"
+        }
+      ]
     }
   },
   "watchlist": [
@@ -3201,13 +4054,6 @@
       "source_url": "https://careers.microsoft.com/v2/global/en/engage",
       "source_checked_on": "2026-11-13",
       "reason": "Official route resolves to a page-not-found screen. No current Engage cycle or named successor verified; Explore already has OPP-034."
-    },
-    {
-      "name": "Walmart CodeHers",
-      "status": "unverified/legacy watchlist",
-      "source_url": "https://tech.walmart.com/content/walmart-global-tech/en_us/careers.html.html",
-      "source_checked_on": "2026-11-13",
-      "reason": "No organiser-hosted CodeHers call or usable India cycle found; checked candidate programme paths return 404. Sparkathon already exists separately."
     },
     {
       "name": "Goldman Sachs Women in Tech / Engineering Campus Hiring",
@@ -3326,32 +4172,11 @@
       "reason": "Official student route returned 404; no current organiser-hosted named call verified."
     },
     {
-      "name": "Myntra HackerRamp",
-      "status": "unverified/legacy watchlist",
-      "source_url": "https://careers.myntra.com/",
-      "source_checked_on": "2026-11-13",
-      "reason": "Current careers portal supplies no verified named call or cycle."
-    },
-    {
       "name": "Codenation CodeAgon",
       "status": "unverified/legacy watchlist",
       "source_url": "https://innovations.trilogy.com/join-trilogy-innovations/hiring-events/",
       "source_checked_on": "2026-11-13",
       "reason": "Successor organiser page still calls CodeAgon 2021 its next event; no current cycle verified."
-    },
-    {
-      "name": "HUL LIME",
-      "status": "unverified/legacy watchlist",
-      "source_url": "https://www.hul.co.in/careers/students-and-graduates/",
-      "source_checked_on": "2026-11-13",
-      "reason": "Official historical reports confirm identity but no current registration call verified."
-    },
-    {
-      "name": "Mahindra War Room",
-      "status": "unverified/legacy watchlist",
-      "source_url": "https://www.mahindra.com/careers/mahindra-war-room",
-      "source_checked_on": "2026-11-13",
-      "reason": "Candidate route returned 404; official annual reports establish historical editions only."
     },
     {
       "name": "Social Winter of Code (SWoC)",
