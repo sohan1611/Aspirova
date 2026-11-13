@@ -11,8 +11,12 @@ import json
 from pathlib import Path
 import re
 from time import monotonic
+from time import sleep
+from urllib.parse import urljoin, urlsplit
+from urllib.robotparser import RobotFileParser
 
 import httpx
+from bs4 import BeautifulSoup
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
@@ -65,6 +69,134 @@ _MONTH_RE = re.compile(
     r"\b(" + "|".join(sorted(_MONTH_ALIASES, key=len, reverse=True)) + r")\b",
     re.IGNORECASE,
 )
+
+
+class CalendarPageFetcher:
+    """Serial, robots-aware fetcher, including policy checks after redirects."""
+
+    def __init__(self, client: httpx.Client, *, sleeper=sleep, clock=monotonic):
+        self.client = client
+        self.sleeper = sleeper
+        self.clock = clock
+        self.last_request: dict[str, float] = {}
+        self.robots: dict[str, RobotFileParser | None] = {}
+
+    def _get(self, url: str, *, delay: float = 1) -> httpx.Response:
+        host = urlsplit(url).hostname
+        elapsed = self.clock() - self.last_request.get(host, float("-inf"))
+        if elapsed < delay:
+            self.sleeper(delay - elapsed)
+        self.last_request[host] = self.clock()
+        return self.client.get(
+            url,
+            headers={"User-Agent": USER_AGENT},
+            timeout=HTTP_TIMEOUT_SECONDS,
+            follow_redirects=False,
+        )
+
+    def _policy(self, url: str) -> RobotFileParser | None:
+        parts = urlsplit(url)
+        origin = f"{parts.scheme}://{parts.netloc}"
+        if origin not in self.robots:
+            response = self._get(origin + "/robots.txt")
+            policy = RobotFileParser()
+            if response.status_code == 404:
+                policy.parse([])
+            elif response.is_success:
+                policy.parse(response.text.splitlines())
+            else:
+                self.robots[origin] = None
+                return None
+            self.robots[origin] = policy
+        return self.robots[origin]
+
+    def fetch(self, url: str) -> tuple[str, str | None]:
+        try:
+            for _ in range(6):
+                if urlsplit(url).scheme not in {"https", "http"}:
+                    return "inconclusive", None
+                policy = self._policy(url)
+                if policy is None:
+                    return "inconclusive", None
+                if not policy.can_fetch(USER_AGENT, url):
+                    return "robots_disallowed", None
+                delay = max(1, policy.crawl_delay(USER_AGENT) or policy.crawl_delay("*") or 1)
+                rate = policy.request_rate(USER_AGENT) or policy.request_rate("*")
+                if rate and rate.requests:
+                    delay = max(delay, rate.seconds / rate.requests)
+                response = self._get(url, delay=delay)
+                if response.is_redirect:
+                    url = urljoin(url, response.headers.get("location", ""))
+                    continue
+                if response.status_code in {404, 410}:
+                    return "closed", None
+                if not response.is_success:
+                    return "inconclusive", None
+                if "html" not in response.headers.get("content-type", "text/html"):
+                    return "alive", None
+                return "alive", response.text
+        except httpx.HTTPError:
+            return "inconclusive", None
+        return "inconclusive", None
+
+
+def extract_official_calendar_dates(
+    html: str, *, cycle_year: int, cycle_start: datetime
+) -> dict[str, datetime]:
+    """Require date + application wording in one small block and cycle evidence.
+
+    Multiple candidate dates for one boundary are ambiguous and stay untouched.
+    Month-only dates, relative dates and pages from another edition never qualify.
+    """
+    from core.hiring_calendar import IST, at_day, parse_calendar_date
+
+    soup = BeautifulSoup(html, "html.parser")
+    for element in soup(["script", "style", "nav", "footer", "header"]):
+        element.decompose()
+    month_pattern = "|".join(_MONTH_ALIASES)
+    date_pattern = (
+        rf"(?:\d{{1,2}}\s+(?:{month_pattern})\s+\d{{4}}|"
+        rf"(?:{month_pattern})\s+\d{{1,2}}(?:,)?\s+\d{{4}}|\d{{4}}-\d{{2}}-\d{{2}})"
+    )
+    pattern = re.compile(
+        r"\b(?P<word>last date|deadline|apply by|applications?\s+(?:open|opens|close|closes)|registration\s+closes)"
+        r"\b\s*(?:for applications?\s*)?(?:on|is|by|:|-)?\s*(?P<date>" + date_pattern + r")\b",
+        re.I,
+    )
+    candidates: dict[str, set[datetime]] = {"opens_at": set(), "closes_at": set()}
+    blocks = soup.find_all(["p", "li", "tr", "dd", "h1", "h2", "h3"])
+    if not blocks:
+        blocks = [soup]
+    for block in blocks:
+        text = block.get_text(" ", strip=True)
+        if len(text) > 1200 or not re.search(rf"\b{cycle_year}\b", text):
+            continue
+        for match in pattern.finditer(text):
+            field_name = (
+                "opens_at" if re.search(r"\bopens?\b", match["word"], re.I) else "closes_at"
+            )
+            raw = match["date"]
+            if re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw):
+                try:
+                    value = at_day(
+                        datetime.fromisoformat(raw).date(), end=field_name == "closes_at"
+                    )
+                except ValueError:
+                    continue
+            else:
+                raw = re.sub(
+                    rf"^({month_pattern})\s+(\d{{1,2}}),?\s+(\d{{4}})$",
+                    r"\2 \1 \3",
+                    raw,
+                    flags=re.I,
+                )
+                parsed = parse_calendar_date(raw)
+                value = parsed.start if field_name == "opens_at" else parsed.end
+            if value is not None and cycle_start <= value <= datetime(
+                cycle_year, 12, 31, 23, 59, 59, 999999, tzinfo=IST
+            ):
+                candidates[field_name].add(value)
+    return {key: next(iter(values)) for key, values in candidates.items() if len(values) == 1}
 
 
 @dataclass(frozen=True, slots=True)

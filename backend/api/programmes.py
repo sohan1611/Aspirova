@@ -21,6 +21,7 @@ PROGRAMME_TAG_MAP: dict[str, list[str]] = json.loads(
 )["divisions"]
 
 PROGRAMME_CATEGORY_LABELS = {
+    "early_career": "Early-career hiring",
     "research_internship": "Research internship",
     "fellowship": "Fellowship",
     "government_internship": "Government internship",

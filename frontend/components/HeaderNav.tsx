@@ -23,6 +23,7 @@ const NAV_LINKS = [
   { href: "/competitions", label: "Competitions" },
   { href: "/research", label: "Research" },
   { href: "/programmes", label: "Programmes" },
+  { href: "/calendar", label: "Hiring Calendar" },
   { href: "/saved", label: "Saved" },
   { href: "/resume", label: "Matches" },
 ];
@@ -35,7 +36,7 @@ export default function HeaderNav() {
     pathname === "/" || pathname.startsWith("/opportunity/") ||
     OPPORTUNITY_LINKS.some(({ href }) => href !== "/" && (pathname === href || pathname.startsWith(`${href}/`)));
   return (
-    <nav aria-label="Main navigation" className="hidden min-w-0 items-center gap-1.5 lg:flex xl:gap-5">
+    <nav aria-label="Main navigation" className="hidden min-w-0 items-center gap-5 xl:flex">
       <DropdownMenu>
         <DropdownMenuTrigger
           className={cn(NAV_CLASS, opportunitiesActive && ACTIVE_CLASS)}

@@ -56,6 +56,11 @@ export default function AppFooter() {
                 </HoverPrefetchLink>
               </li>
               <li>
+                <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/calendar">
+                  Hiring Calendar
+                </HoverPrefetchLink>
+              </li>
+              <li>
                 <HoverPrefetchLink className={FOOTER_LINK_CLASSES} href="/companies">
                   Companies
                 </HoverPrefetchLink>

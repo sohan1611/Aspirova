@@ -17,6 +17,7 @@ const STATIC_ROUTES = [
   "/jobs",
   "/companies",
   "/programmes",
+  "/calendar",
   "/competitions",
   "/research",
   "/scholarships",
