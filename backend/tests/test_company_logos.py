@@ -8,9 +8,16 @@ import httpx
 import pytest
 
 from core.domains import JOB_BOARD_HOSTS, SHARED_HOSTS, clean_domain
+from pipeline.ats_logos import (
+    board_from_token,
+    board_from_url,
+    board_logo_url,
+    extract_board_logo,
+)
 from pipeline.company_logos import (
     CLEARBIT_API,
     MAX_BODY_BYTES,
+    MAX_ATS_BODY_BYTES,
     PARKED_MARKERS,
     USER_AGENT,
     WIKIDATA_API,
@@ -62,7 +69,9 @@ class FakeFetcher:
             status, final_url or url, {}, content
         )
 
-    def get(self, url: str, *, params: Params | None = None) -> FetchResult | None:
+    def get(
+        self, url: str, *, params: Params | None = None, max_bytes: int = MAX_BODY_BYTES
+    ) -> FetchResult | None:
         key = request_key(url, params)
         self.calls.append(key)
         return self.responses.get(key)
@@ -437,9 +446,11 @@ def test_homepage_metadata_icons_hygiene_and_final_url() -> None:
     homepage = inspect_homepage(fetcher, "acme.example", {})
     assert homepage.url == "https://www.acme.example/home/"
     assert homepage.icons == (
+        "https://www.acme.example/vector.SVG?x=1",
         "https://cdn.example/large.png",
         "https://www.acme.example/medium.png",
         "https://www.acme.example/small.ico",
+        "https://www.acme.example/vector",
     )
     assert homepage.titles == ("Welcome", "Acme - Careers", "Acme home", "Acme app")
     assert title_matches("acme", homepage)
@@ -461,12 +472,26 @@ def test_homepage_metadata_icons_hygiene_and_final_url() -> None:
         ("Myacme Labs", "https://acme.example/", False),
         ("Acme Labs", "https://other.example/", False),
         ("Acme Labs", "https://acme.example.other.example/", False),
+        ("Acme Labs", "https://acme.com/", True),
     ],
 )
 def test_title_token_boundaries_and_redirects(title: str, final_url: str, matches: bool) -> None:
     assert (
         title_matches("acme labs", Homepage("acme.example", final_url, titles=(title,))) == matches
     )
+
+
+@pytest.mark.parametrize("final_domain,accepted", [("acme.com", True), ("other.com", False)])
+def test_discovery_redirect_keeps_the_same_brand_requirement(final_domain, accepted) -> None:
+    fetcher = FakeFetcher()
+    fetcher.add(
+        "https://acme.example/",
+        b"<title>Acme Labs</title>",
+        final_url=f"https://{final_domain}/",
+    )
+    decision = discover_domain(fetcher, "Acme Labs", ["https://acme.example/jobs"], {})
+    assert (decision.domain == "acme.example") == accepted
+    assert decision.candidates["acme.example"].score == (3 if accepted else 2)
 
 
 def test_wikidata_alias_humans_ended_websites_and_url_hygiene() -> None:
@@ -575,3 +600,105 @@ def test_http_fetcher_returns_none_on_network_failure() -> None:
 
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
         assert HttpFetcher(client).get("https://acme.example/") is None
+
+
+@pytest.mark.parametrize(
+    ("vendor", "board", "expected"),
+    [
+        (
+            "greenhouse",
+            "https://job-boards.greenhouse.io/fiveringsllc",
+            "https://s3-recruiting.cdn.greenhouse.io/external_greenhouse_job_boards/logos/000/001/original/logo.jpg",
+        ),
+        (
+            "lever",
+            "https://jobs.lever.co/example",
+            "https://lever-client-logos.s3.us-west-2.amazonaws.com/example.png",
+        ),
+        ("ashby", "https://jobs.ashbyhq.com/saronic", "https://cdn.example/saronic-square.png"),
+        (
+            "workday",
+            "https://example.wd5.myworkdayjobs.com/External",
+            "https://example.wd5.myworkdayjobs.com/External/assets/logo",
+        ),
+    ],
+)
+def test_board_logo_extraction_from_saved_html(vendor: str, board: str, expected: str) -> None:
+    assert extract_board_logo(board, (FIXTURES / f"board_{vendor}.html").read_bytes()) == expected
+
+
+@pytest.mark.parametrize(
+    ("url", "board"),
+    [
+        ("https://boards.greenhouse.io/acme/jobs/123", "https://job-boards.greenhouse.io/acme"),
+        ("https://job-boards.greenhouse.io/acme/jobs/123", "https://job-boards.greenhouse.io/acme"),
+        ("https://jobs.lever.co/acme/123/apply", "https://jobs.lever.co/acme"),
+        ("https://jobs.ashbyhq.com/acme/123", "https://jobs.ashbyhq.com/acme"),
+        (
+            "https://acme.wd1.myworkdayjobs.com/en-US/Jobs/job/123",
+            "https://acme.wd1.myworkdayjobs.com/Jobs",
+        ),
+        (
+            "https://acme.wd1.myworkdayjobs.com/wday/cxs/acme/Jobs/job/123",
+            "https://acme.wd1.myworkdayjobs.com/Jobs",
+        ),
+        ("https://jobs.lever.co.evil.example/acme/123", None),
+        ("https://jobs.lever.co/", None),
+    ],
+)
+def test_board_url_identity(url: str, board: str | None) -> None:
+    assert board_from_url(url) == board
+
+
+@pytest.mark.parametrize("vendor", ["greenhouse", "lever", "ashby", "workday"])
+def test_crawler_board_tokens_round_trip(vendor: str) -> None:
+    token = "acme|wd5|External" if vendor == "workday" else "acme"
+    board = board_from_token(vendor, token)
+    assert board and board_from_url(board) == board
+    assert board_from_token(vendor, "../invalid") is None
+
+
+def test_board_robots_policy_is_cached_and_respects_path() -> None:
+    fetcher = FakeFetcher()
+    fetcher.add("https://jobs.lever.co/robots.txt", b"User-agent: *\nDisallow: /blocked\n")
+    cache = {}
+    assert board_logo_url(fetcher, "https://jobs.lever.co/blocked", cache) is None
+    assert board_logo_url(fetcher, "https://jobs.lever.co/blocked", cache) is None
+    assert fetcher.calls == [request_key("https://jobs.lever.co/robots.txt")]
+
+
+def test_board_redirect_to_another_employer_is_rejected() -> None:
+    fetcher = FakeFetcher()
+    board = "https://jobs.lever.co/acme"
+    fetcher.add(
+        board, (FIXTURES / "board_lever.html").read_bytes(), final_url="https://jobs.lever.co/other"
+    )
+    assert board_logo_url(fetcher, board, {}) is None
+
+
+def test_lever_vendor_logo_is_never_an_employer_logo() -> None:
+    footer = b'<img alt="Lever logo" src="https://lever-client-logos.s3.amazonaws.com/lever.png">'
+    assert extract_board_logo("https://jobs.lever.co/acme", footer) is None
+
+
+def test_workday_checks_robots_for_the_logo_endpoint() -> None:
+    fetcher = FakeFetcher()
+    fetcher.add(
+        "https://acme.wd1.myworkdayjobs.com/robots.txt", b"User-agent: *\nDisallow: /Jobs/assets/\n"
+    )
+    assert board_logo_url(fetcher, "https://acme.wd1.myworkdayjobs.com/Jobs", {}) is None
+
+
+@pytest.mark.parametrize("declared_length", [False, True])
+def test_http_fetcher_larger_limit_is_per_request(declared_length: bool) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        response = httpx.Response(200, content=b"x" * (MAX_BODY_BYTES + 1))
+        if not declared_length:
+            del response.headers["content-length"]
+        return response
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        fetcher = HttpFetcher(client, sleep=lambda _: None)
+        assert fetcher.get("https://cdn.example/logo") is None
+        assert fetcher.get("https://cdn.example/logo", max_bytes=MAX_ATS_BODY_BYTES) is not None
+        assert fetcher.get("https://cdn.example/logo") is None

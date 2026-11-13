@@ -20,6 +20,10 @@ name: Logos
         description: "Compute decisions without saving or uploading"
         default: false
         type: boolean
+      recheck_days:
+        description: "Retry misses after this many days (0 forces all missing logos)"
+        default: "30"
+        type: string
       renormalize:
         description: "Re-normalize already stored logos"
         default: false
@@ -62,10 +66,11 @@ jobs:
         env:
           LOGO_LIMIT: ${{ inputs.limit || '1500' }}
           LOGO_TIME_BUDGET_MIN: ${{ inputs.time_budget_min || '45' }}
+          LOGO_RECHECK_DAYS: ${{ inputs.recheck_days || '30' }}
           LOGO_DRY_RUN: ${{ inputs.dry_run == true && 'true' || 'false' }}
           LOGO_RENORMALIZE: ${{ inputs.renormalize == true && 'true' || 'false' }}
         run: |
-          args=(--limit "$LOGO_LIMIT" --time-budget-min "$LOGO_TIME_BUDGET_MIN")
+          args=(--limit "$LOGO_LIMIT" --time-budget-min "$LOGO_TIME_BUDGET_MIN" --recheck-days "$LOGO_RECHECK_DAYS")
           if [ "$LOGO_DRY_RUN" = "true" ]; then
             args+=(--dry-run)
           fi

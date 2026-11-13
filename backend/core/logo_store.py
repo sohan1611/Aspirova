@@ -1,18 +1,21 @@
-"""Validate raster logos and store immutable normalized PNGs."""
+"""Validate raster/SVG logos and store immutable normalized PNGs."""
 
 import hashlib
+import re
 import warnings
 from dataclasses import dataclass
 from io import BytesIO
 from typing import Any
+from xml.etree import ElementTree
 
 import boto3
 import httpx
+import resvg_py
 from PIL import Image, ImageChops, ImageOps, IcoImagePlugin
 
 from core.config import Settings
 from core.domains import http_url
-from pipeline.company_logos import MAX_BODY_BYTES, Fetcher, FetchResult
+from pipeline.company_logos import MAX_ATS_BODY_BYTES, MAX_BODY_BYTES, Fetcher, FetchResult
 
 Image.MAX_IMAGE_PIXELS = 16_000_000
 
@@ -70,8 +73,38 @@ def trim_margins(image: Image.Image) -> Image.Image:
     return image.crop((left, top, left + width, top + height))
 
 
+def rasterize_svg(content: bytes) -> bytes | None:
+    """Render bounded, self-contained SVGs without a filesystem resource directory."""
+    if len(content) > MAX_BODY_BYTES:
+        return None
+    text = content.decode("utf-8-sig")
+    if re.search(r"<!DOCTYPE|<!ENTITY|<\?xml-stylesheet|@import", text, re.IGNORECASE):
+        return None
+    root = ElementTree.fromstring(text)
+    if root.tag.rsplit("}", 1)[-1] != "svg":
+        return None
+    for element in root.iter():
+        for key, value in element.attrib.items():
+            local_name = key.rsplit("}", 1)[-1].lower()
+            if local_name == "base":
+                return None
+            if local_name == "href" and value.strip() and not value.strip().startswith("#"):
+                return None
+    # CSS can also reference images or local files without an href attribute.
+    styles = " ".join(
+        [value for element in root.iter() for value in element.attrib.values()]
+        + [element.text or "" for element in root.iter()]
+    )
+    if "\\" in styles or re.search(r"@import", styles, re.IGNORECASE):
+        return None
+    for match in re.finditer(r"url\s*\((.*?)\)", styles, re.IGNORECASE | re.DOTALL):
+        if not match[1].strip().strip("\"'").startswith("#"):
+            return None
+    return resvg_py.svg_to_bytes(svg_string=text, width=256, height=256)
+
+
 def validate_and_normalize(
-    result: FetchResult, *, max_aspect: float = 4.0
+    result: FetchResult, *, max_aspect: float = 4.0, source: str | None = None
 ) -> NormalizedLogo | None:
     content_type = (
         httpx.Headers(result.headers).get("content-type", "").lower().split(";")[0].strip()
@@ -79,18 +112,25 @@ def validate_and_normalize(
     if (
         result.status != 200
         or not (content_type.startswith("image/") or content_type == "application/octet-stream")
-        or not 100 <= len(result.content) <= MAX_BODY_BYTES
+        or not 100
+        <= len(result.content)
+        <= (MAX_ATS_BODY_BYTES if source == "ats_board" else MAX_BODY_BYTES)
     ):
         return None
     try:
+        content = result.content
+        if content_type == "image/svg+xml" or re.search(rb"<svg\b", content[:4096], re.I):
+            content = rasterize_svg(content)
+            if content is None:
+                return None
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
-            with Image.open(BytesIO(result.content)) as source:
-                if isinstance(source, IcoImagePlugin.IcoImageFile):
-                    size = max(source.ico.sizes(), key=lambda size: (min(size), max(size)))
-                    source_image = source.ico.getimage(size)
+            with Image.open(BytesIO(content)) as opened:
+                if isinstance(opened, IcoImagePlugin.IcoImageFile):
+                    size = max(opened.ico.sizes(), key=lambda size: (min(size), max(size)))
+                    source_image = opened.ico.getimage(size)
                 else:
-                    source_image = source
+                    source_image = opened
                 source_image.load()
                 image = source_image.convert("RGBA")
             width, height = image.size
@@ -131,19 +171,25 @@ def best_logo(
     best = None
     existing = 0
     for url in dict.fromkeys(urls):
-        if not http_url(url):
+        if not http_url(url) or url == p154_url:
             continue
         result = fetcher.get(url)
         if result is None or result.status != 200:
             continue
         existing += 1
-        logo = validate_and_normalize(result, max_aspect=1.6 if url == p154_url else 4.0)
+        logo = validate_and_normalize(result)
         if logo is not None and (
             best is None or min(logo.width, logo.height) > min(best.width, best.height)
         ):
             best = logo
         if existing == 4:
             break
+    # An entity's wordmark is evidence only after the domain icon path fails.
+    # It must never win over a valid square icon just because it is larger.
+    if best is None and p154_url and http_url(p154_url):
+        result = fetcher.get(p154_url)
+        if result is not None:
+            best = validate_and_normalize(result, max_aspect=4.0)
     return best
 
 
