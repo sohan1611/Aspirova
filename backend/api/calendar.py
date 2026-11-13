@@ -60,6 +60,11 @@ class CalendarEdition(BaseModel):
 
 
 class CalendarMetadata(BaseModel):
+    how_to_apply: str | None = None
+    event_window: str | None = None
+    source_url: str | None = None
+    source_checked_on: str | None = None
+    rolling_reason: str | None = None
     deadline_rolling: bool = False
     source_cycle_year: int | None = None
     row_id: str | None = None

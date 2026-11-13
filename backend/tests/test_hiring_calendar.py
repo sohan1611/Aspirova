@@ -34,7 +34,13 @@ WINDOWLESS_ROWS = {
     "OPP-114",
 }
 RESEARCH_SLUGS = {
-    slug for slug, meta in CALENDAR_META.items() if int(meta["row_id"].split("-")[1]) >= 101
+    slug for slug, meta in CALENDAR_META.items() if 101 <= int(meta["row_id"].split("-")[1]) < 201
+}
+EXPANSION_SLUGS = {
+    slug for slug, meta in CALENDAR_META.items() if int(meta["row_id"].split("-")[1]) >= 201
+}
+WINDOWLESS_ROWS |= {
+    CALENDAR_META[slug]["row_id"] for slug in EXPANSION_SLUGS if source_window(slug)["rolling"]
 }
 
 
@@ -68,7 +74,8 @@ def test_every_source_row_has_window_or_rolling(slug):
 
 
 def test_source_retains_original_rows_and_adds_researched_programmes():
-    assert SOURCE["count"] == len(SOURCE["opportunities"]) == len(ROWS) == len(CALENDAR_META) == 64
+    assert SOURCE["count"] == len(SOURCE["opportunities"]) == len(ROWS) == len(CALENDAR_META)
+    assert len(ROWS) == 64 + len(EXPANSION_SLUGS)
     assert len(RESEARCH_SLUGS) == 14
     assert {f"OPP-{number:03}" for number in range(1, 51)} <= ROWS.keys()
     assert sum(row["category"] == "Tech" for row in ROWS.values()) == 13

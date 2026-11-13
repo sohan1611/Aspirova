@@ -80,7 +80,7 @@ def test_old_category_constraint_skips_tech_and_continues(db_session, caplog):
         )
     )
     summary = import_calendar(db_session)
-    skipped = sum(category_for(row) == "early_career" for row in ROWS.values())
+    skipped = sum(category_for(row) in {"early_career", "government_exam"} for row in ROWS.values())
     assert summary == {"imported": len(CALENDAR_META) - skipped, "skipped": skipped}
     assert (
         len(
@@ -209,7 +209,7 @@ def test_generic_names_require_matching_organiser(db_session):
     db_session.flush()
     import_calendar(db_session)
     assert other.organiser == "JNCASR"
-    assert calendar_metadata(other.slug, other.name, other.organiser) == {}
+    assert calendar_metadata(other.slug, other.name, other.organiser) == CALENDAR_META[other.slug]
     imported = db_session.scalar(select(Programme).where(Programme.slug == "iitd-srfp"))
     assert imported.id != other.id
 

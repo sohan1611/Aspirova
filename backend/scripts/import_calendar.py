@@ -3,13 +3,13 @@
 from datetime import datetime
 import logging
 
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from core.db import make_engine
-from core.hiring_calendar import CALENDAR_META, IST, ROWS, month_date, source_window
+from core.hiring_calendar import CALENDAR_META, IST, METADATA, ROWS, month_date, source_window
 from core.models import Programme, ProgrammeEdition
 
 logger = logging.getLogger(__name__)
@@ -57,7 +57,19 @@ def _restore_opening_windows(session: Session, programme_id: int, meta: dict, wi
 
 
 def category_for(row: dict) -> str:
-    if row["category"] in {"open_source", "early_career"}:
+    if row["category"] in {
+        "open_source",
+        "early_career",
+        "government_exam",
+        "research_internship",
+        "government_internship",
+        "international_research",
+        "corporate_research",
+        "recurring_competition",
+        "scholarship",
+        "fellowship",
+        "conference",
+    }:
         return row["category"]
     if row["category"] == "Govt":
         return "government_internship"
@@ -126,7 +138,9 @@ def _import_row(session: Session, slug: str, meta: dict) -> None:
     ):
         return
     edition_values = {key: window[key] for key in ("status", "opens_at", "closes_at", "notes")}
-    edition_values.update(source_url=row["official_portal"], verified_at=verified_at)
+    edition_values.update(
+        source_url=row.get("source_url", row["official_portal"]), verified_at=verified_at
+    )
     if edition is None:
         session.execute(
             insert(ProgrammeEdition)
@@ -140,6 +154,14 @@ def _import_row(session: Session, slug: str, meta: dict) -> None:
 
 
 def import_calendar(session: Session) -> dict[str, int]:
+    # Authored retirements also apply on the normal daily refresh path.
+    for item in METADATA.get("watchlist", []):
+        if item.get("inactive_programme_slug"):
+            session.execute(
+                update(Programme)
+                .where(Programme.slug == item["inactive_programme_slug"])
+                .values(is_active=False)
+            )
     imported, skipped = 0, 0
     for slug, meta in CALENDAR_META.items():
         try:

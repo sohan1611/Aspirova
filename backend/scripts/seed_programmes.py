@@ -192,12 +192,16 @@ def _seed_with_session(
                 typical_window=entry.get("typical_window"),
                 country=entry.get("country"),
                 tags=entry["tags"],
+                is_active=entry.get("is_active", True),
             )
             session.add(programme)
             session.flush()
             created += 1
         else:
             changed = False
+            if "is_active" in entry and programme.is_active != entry["is_active"]:
+                programme.is_active = entry["is_active"]
+                changed = True
             for field in MUTABLE_PROGRAMME_FIELDS:
                 next_value = entry.get(field)
                 if getattr(programme, field) != next_value:
