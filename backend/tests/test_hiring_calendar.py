@@ -15,6 +15,7 @@ from core.hiring_calendar import (
     at_day,
     month_date,
     parse_calendar_date,
+    recurrence_is_official,
     source_window,
 )
 from core.models import Programme, ProgrammeEdition
@@ -34,7 +35,13 @@ WINDOWLESS_ROWS = {
     "OPP-114",
 }
 RESEARCH_SLUGS = {
-    slug for slug, meta in CALENDAR_META.items() if int(meta["row_id"].split("-")[1]) >= 101
+    slug for slug, meta in CALENDAR_META.items() if 101 <= int(meta["row_id"].split("-")[1]) < 201
+}
+EXPANSION_SLUGS = {
+    slug for slug, meta in CALENDAR_META.items() if int(meta["row_id"].split("-")[1]) >= 201
+}
+WINDOWLESS_ROWS |= {
+    CALENDAR_META[slug]["row_id"] for slug in EXPANSION_SLUGS if source_window(slug)["rolling"]
 }
 
 
@@ -68,7 +75,8 @@ def test_every_source_row_has_window_or_rolling(slug):
 
 
 def test_source_retains_original_rows_and_adds_researched_programmes():
-    assert SOURCE["count"] == len(SOURCE["opportunities"]) == len(ROWS) == len(CALENDAR_META) == 64
+    assert SOURCE["count"] == len(SOURCE["opportunities"]) == len(ROWS) == len(CALENDAR_META)
+    assert len(ROWS) == 64 + len(EXPANSION_SLUGS)
     assert len(RESEARCH_SLUGS) == 14
     assert {f"OPP-{number:03}" for number in range(1, 51)} <= ROWS.keys()
     assert sum(row["category"] == "Tech" for row in ROWS.values()) == 13
@@ -433,6 +441,119 @@ def test_recurring_rule_covers_requested_year_without_saved_edition():
     assert len(result["items"]) == 1
     assert result["items"][0]["edition"]["year"] == 2026
     assert len(future["items"]) == 12
+
+
+@pytest.mark.parametrize(
+    "basis,official",
+    [
+        ("Official Annual Rule", True),
+        ("official standing rule", True),
+        ("Official Monthly Rule", True),
+        ("Official Standing Annual Recruitment Pattern", True),
+        ("Tentative (Historical Annual Trend)", False),
+        ("Official 2027 Published", False),
+    ],
+)
+def test_recurrence_recognises_standing_source_basis(basis, official, monkeypatch):
+    row = {**ROWS["OPP-045"], "date_basis": basis}
+    monkeypatch.setitem(ROWS, "OPP-045", row)
+    meta = {"row_id": "OPP-045", "recurrence": {}}
+    assert recurrence_is_official(meta) is official
+    meta["recurrence"]["basis"] = "tentative"
+    assert not recurrence_is_official(meta)
+    meta["recurrence"]["basis"] = "official"
+    assert recurrence_is_official(meta)
+
+
+def test_all_recurrence_rules_have_reviewed_basis_and_source_precision():
+    expected = {
+        "niti-aayog-internship": True,
+        "rbi-research-internship": True,
+        "nicsi-paid-internship": False,
+        "outreachy": False,
+        "lfx-mentorship": False,
+    }
+    assert {slug for slug, meta in CALENDAR_META.items() if meta.get("recurrence")} == set(expected)
+    for slug, official in expected.items():
+        meta = CALENDAR_META[slug]
+        assert meta["recurrence"]["basis"] == ("official" if official else "tentative")
+        assert recurrence_is_official(meta) is official
+        window = source_window(slug)
+        assert window["status"] == ("announced" if official else "expected")
+        assert (
+            window["opens_precision"]
+            == window["closes_precision"]
+            == ("day" if official else "month")
+        )
+
+
+@pytest.mark.parametrize("stored_year", [2026, 2027])
+@pytest.mark.parametrize("stored_status", ["expected", "closed"])
+@pytest.mark.parametrize(
+    "today,status,label",
+    [
+        ("2026-11-30", "announced", "Official"),
+        ("2026-12-05", "open", "Open now"),
+        ("2026-12-11", "closed", "Closed"),
+    ],
+)
+def test_niti_december_official_occurrence_uses_window_dates(
+    stored_year, stored_status, today, status, label, monkeypatch
+):
+    from api import calendar as calendar_api
+
+    now = datetime.fromisoformat(today).replace(hour=12, tzinfo=IST)
+
+    class FixedDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now.astimezone(tz)
+
+    monkeypatch.setattr(calendar_api, "datetime", FixedDatetime)
+    item = source_programme("niti-aayog-internship")
+    item.url = ROWS["OPP-045"]["official_portal"]
+    item.editions[0].year = stored_year
+    item.editions[0].status = stored_status
+    query = "/calendar?from=2026-12-01&to=2026-12-31&q=NITI"
+    with request_client([item]) as client:
+        response = client.get(query)
+        assert response.status_code == 200
+        result = response.json()
+        assert len(result["items"]) == 1
+        occurrence = result["items"][0]
+        edition = occurrence["edition"]
+        assert edition["year"] == 2026
+        assert edition["basis"] == "official"
+        assert edition["opens_precision"] == edition["closes_precision"] == "day"
+        assert datetime.fromisoformat(edition["opens_at"]).date() == date(2026, 12, 1)
+        assert datetime.fromisoformat(edition["closes_at"]).date() == date(2026, 12, 10)
+        assert edition["status"] == status
+        assert edition["status_label"] == label
+        assert occurrence["is_open_now"] is (status == "open")
+        assert occurrence["programme"]["url"] == ROWS["OPP-045"]["official_portal"]
+        assert len(client.get(query + f"&status={status}").json()["items"]) == 1
+        assert bool(client.get(query + "&status=open").json()["items"]) is (status == "open")
+
+
+@pytest.mark.parametrize("stored_status", ["expected", "announced", "open", "closed"])
+def test_historical_recurrence_stays_tentative_despite_saved_status(stored_status):
+    item = source_programme("outreachy")
+    item.editions[0].status = stored_status
+    result = build_calendar(
+        [item],
+        date(2027, 8, 1),
+        date(2027, 8, 31),
+        categories=[],
+        statuses=[],
+        q="",
+        now=datetime(2027, 8, 5, tzinfo=IST),
+    )
+    assert len(result.items) == 1
+    occurrence = result.items[0]
+    assert occurrence.edition.basis == "tentative"
+    assert occurrence.edition.status == "expected"
+    assert occurrence.edition.opens_precision == occurrence.edition.closes_precision == "month"
+    assert not occurrence.is_open_now
 
 
 def test_public_cache_keys_include_ranges_filters_and_repeated_categories(monkeypatch):

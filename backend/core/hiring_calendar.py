@@ -27,10 +27,25 @@ META_BY_NAME.update(
 MONTHS = {name.lower(): number for number, name in enumerate(calendar.month_abbr) if name}
 MONTHS.update({name.lower(): number for number, name in enumerate(calendar.month_name) if name})
 MONTH_PATTERN = "|".join(sorted(MONTHS, key=len, reverse=True))
+OFFICIAL_RECURRENCE_BASES = {
+    "official",
+    "official annual rule",
+    "official monthly rule",
+    "official standing rule",
+    "official standing annual recruitment pattern",
+}
 
 
 def calendar_metadata(slug: str, name: str, organiser: str) -> dict:
     return CALENDAR_META.get(slug, META_BY_NAME.get((name.casefold(), organiser.casefold()), {}))
+
+
+def recurrence_is_official(meta: dict) -> bool:
+    """An explicit rule basis takes precedence over the source row's date basis."""
+    basis = meta.get("recurrence", {}).get(
+        "basis", meta.get("date_basis", ROWS.get(meta.get("row_id"), {}).get("date_basis", ""))
+    )
+    return " ".join(basis.casefold().split()) in OFFICIAL_RECURRENCE_BASES
 
 
 @dataclass(frozen=True)
@@ -99,6 +114,7 @@ def source_window(slug: str) -> dict:
     status = source_status(row, override)
     opening = parse_calendar_date(row["application_open"])
     closing = parse_calendar_date(row["registration_deadline"])
+    opens_precision, closes_precision = opening.precision, closing.precision
     opens_at, closes_at = opening.start, closing.end
     notes = [value.note for value in (opening, closing) if value.note]
     if status == "expected":
@@ -115,6 +131,8 @@ def source_window(slug: str) -> dict:
         occurrences = recurrence_windows(meta["cycle_year"], recurrence)
         opens_at = min(item[0] for item in occurrences)
         closes_at = max(item[1] for item in occurrences)
+        status = "announced" if recurrence_is_official(meta) else "expected"
+        opens_precision = closes_precision = "day" if status == "announced" else "month"
     rolling = opens_at is None and closes_at is None
     if override.get("reason"):
         notes.append(override["reason"])
@@ -122,11 +140,11 @@ def source_window(slug: str) -> dict:
         "status": status,
         "opens_at": opens_at,
         "closes_at": closes_at,
-        "opens_precision": "month" if status == "expected" and opens_at else opening.precision,
+        "opens_precision": "month" if status == "expected" and opens_at else opens_precision,
         "closes_precision": (
             "month"
             if closes_at and (status == "expected" or deadline_rolling)
-            else closing.precision
+            else closes_precision
         ),
         "rolling": rolling,
         "deadline_rolling": deadline_rolling,

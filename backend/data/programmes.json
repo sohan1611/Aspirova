@@ -182,7 +182,8 @@
       "typical_window": "applications usually open in the earlier part of the year for a summer placement",
       "country": null,
       "tags": ["research", "biology", "international"],
-      "review_months": [9, 10, 11]
+      "review_months": [9, 10, 11],
+      "is_active": false
     },
     {
       "slug": "jncasr-srfp",
@@ -703,7 +704,8 @@
       "eligibility": "Law students meeting the year-of-study and other criteria published by the Court for each internship period.",
       "typical_window": "internships are offered in defined slots through the year",
       "country": "IN",
-      "tags": ["government", "policy"]
+      "tags": ["government", "policy"],
+      "is_active": false
     },
     {
       "slug": "prs-lamp-fellowship",
@@ -922,7 +924,8 @@
       "typical_window": "organisations apply first, with the writing period later in the year",
       "country": null,
       "tags": ["open-source", "cs"],
-      "review_months": [2, 3, 4]
+      "review_months": [2, 3, 4],
+      "is_active": false
     },
     {
       "slug": "meta-hacker-cup",
@@ -935,7 +938,8 @@
       "typical_window": "registration and the qualification round usually fall in the second half of the year",
       "country": null,
       "tags": ["competition", "coding", "cs"],
-      "review_months": [8, 9, 10]
+      "review_months": [8, 9, 10],
+      "is_active": false
     },
     {
       "slug": "microsoft-imagine-cup",
@@ -983,7 +987,7 @@
       "category": "international_research",
       "url": "https://oge.mit.edu/msrp/",
       "description": "A summer programme placing undergraduate students in MIT research groups with faculty and graduate-student mentorship.",
-      "eligibility": "Undergraduate students meeting the programme's published criteria; some tracks have nationality or institution requirements.",
+      "eligibility": "Full-time students at a US institution with at least two years of study and minimum 3.5 overall or major GPA. International students need eligible US study and work authorization; check current MIT rules.",
       "typical_window": "applications usually open in the winter for a summer placement",
       "country": null,
       "tags": ["research", "international", "science"],
@@ -1008,7 +1012,7 @@
       "organiser": "National University of Singapore",
       "category": "international_research",
       "url": "https://nus.edu.sg/gro/global-programmes/research-attachments",
-      "description": "NUS hosts visiting students on research attachments with its faculty across science and engineering disciplines.",
+      "description": "NUS Global Relations lists research attachments and summer exchanges through partner universities. Eligibility, direction of exchange and application route depend on each listed programme.",
       "eligibility": "Students from partner and eligible institutions meeting the academic criteria published for each attachment.",
       "typical_window": "intakes are announced ahead of each attachment period",
       "country": null,

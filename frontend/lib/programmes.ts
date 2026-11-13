@@ -2,6 +2,7 @@ import { formatDate } from "@/lib/date";
 import type { ProgrammeEditionItem } from "@/lib/types";
 
 export const PROGRAMME_CATEGORY_LABELS: Record<string, string> = {
+  government_exam: "Government exams & recruitment",
   research_internship: "Research internship",
   fellowship: "Fellowship",
   government_internship: "Government internship",
