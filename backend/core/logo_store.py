@@ -27,6 +27,7 @@ class NormalizedLogo:
     width: int
     height: int
     url: str
+    recoloured: str | None = None
 
 
 def trim_margins(image: Image.Image) -> Image.Image:
@@ -148,9 +149,26 @@ def validate_and_normalize(
                 ranges.append(values[-1] - values[0])
             if coverage >= 0.95 and max(ranges) < 12:
                 return None
+            # Measure source transparency before trimming removes transparent margins.
+            alpha = image.getchannel("A")
+            recoloured = None
+            if sum(alpha.histogram()[:128]) * 10 >= width * height:
+                visible_mask = alpha.point(lambda value: 255 if value >= 128 else 0)
+                visible_count = visible_mask.histogram()[255]
+                red, green, blue = image.convert("RGB").split()
+                near_white = ImageChops.darker(ImageChops.darker(red, green), blue).point(
+                    lambda value: 255 if value >= 225 else 0
+                )
+                white_count = ImageChops.multiply(near_white, visible_mask).histogram()[255]
+                if visible_count and white_count * 100 >= visible_count * 97:
+                    recoloured = "white_on_transparent"
             image = trim_margins(image)
             if min(image.size) < 16:
                 return None
+            if recoloured:
+                alpha = image.getchannel("A")
+                image = Image.new("RGBA", image.size, "#1F2937")
+                image.putalpha(alpha)
             # Eight pixels per side is 6.25% of the final canvas. Always fit
             # the cropped mark, preserving its proportions.
             image = ImageOps.contain(image, (112, 112), Image.Resampling.LANCZOS)
@@ -159,7 +177,9 @@ def validate_and_normalize(
             output = BytesIO()
             canvas.save(output, format="PNG")
             png = output.getvalue()
-            return NormalizedLogo(png, hashlib.sha256(png).hexdigest(), width, height, result.url)
+            return NormalizedLogo(
+                png, hashlib.sha256(png).hexdigest(), width, height, result.url, recoloured
+            )
     except Exception:
         # Corrupt formats and Pillow's decompression-bomb warnings/errors are misses.
         return None

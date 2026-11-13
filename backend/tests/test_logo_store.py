@@ -163,6 +163,43 @@ def test_single_colour_glyph_on_transparent_background_is_valid() -> None:
     assert validate_and_normalize(image_result(image)) is not None
 
 
+@pytest.mark.parametrize("source", [None, "ats_board", "source_payload"])
+@pytest.mark.parametrize(
+    ("colour", "background", "recoloured"),
+    [
+        ((255, 255, 255), (0, 0, 0, 0), True),
+        ((255, 255, 255), (0, 0, 0, 255), False),
+        ((35, 110, 210), (0, 0, 0, 0), False),
+    ],
+    ids=["white-on-transparent", "white-on-black", "coloured"],
+)
+def test_white_on_transparent_recolouring_preserves_alpha(
+    source: str | None,
+    colour: tuple[int, int, int],
+    background: tuple[int, int, int, int],
+    recoloured: bool,
+) -> None:
+    # Fill the bounds with a glyph and translucent edges so trimming keeps its size.
+    image = Image.new("RGBA", (112, 112), background)
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((0, 0, 111, 111), fill=(*colour, 255))
+    if background[3] == 0:
+        for x, alpha in enumerate((1, 64, 127, 128, 200, 254)):
+            image.putpixel((x + 50, 0), (*colour, alpha))
+    logo = validate_and_normalize(image_result(image), source=source)
+    assert logo is not None
+    assert logo.recoloured == ("white_on_transparent" if recoloured else None)
+    assert logo.sha256 == hashlib.sha256(logo.png_bytes).hexdigest()
+    expected = image.copy()
+    if recoloured:
+        expected = Image.new("RGBA", image.size, "#1F2937")
+        expected.putalpha(image.getchannel("A"))
+    with Image.open(BytesIO(logo.png_bytes)) as normalized:
+        mark = normalized.crop((8, 8, 120, 120))
+        assert mark.getchannel("A").tobytes() == image.getchannel("A").tobytes()
+        assert mark.tobytes() == expected.tobytes()
+
+
 def test_single_opaque_pixel_is_practically_empty() -> None:
     image = patterned_image((64, 64))
     image.putalpha(0)
