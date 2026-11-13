@@ -1,4 +1,6 @@
-"""Backfill explicit role signals; dry run by default.
+"""Refresh text pay and explicit role signals, including closed/hidden rows.
+
+Dry run by default. Structured compensation is preserved.
 
 Usage:
     uv run python -m scripts.backfill_role_signals
@@ -12,7 +14,6 @@ from typing import Any
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from api.filters import open_opportunity_filters
 from core import models
 from core.db import make_engine
 from pipeline.role_signals import merge_role_signals
@@ -24,24 +25,24 @@ SIGNAL_KEYS = ("compensation", "duration_months", "part_time", "job_offer")
 
 def transform_row(current: dict[str, Any]) -> dict[str, Any]:
     """Return only the metadata update, preserving every unrelated key."""
-    return {
-        "meta": merge_role_signals(
-            current.get("meta"),
-            current.get("title"),
-            current.get("description_raw"),
-            current.get("category"),
-            current.get("country"),
-        )
-        or current.get("meta")
-    }
+    meta = merge_role_signals(
+        current.get("meta"),
+        current.get("title"),
+        current.get("description_raw"),
+        current.get("category"),
+        current.get("country"),
+    )
+    return {"meta": None if not meta and current.get("meta") is None else meta}
 
 
 def backfill_role_signals(session: Session, *, apply: bool = False) -> dict[str, int]:
-    counts = dict.fromkeys(("scanned", "would_change", *SIGNAL_KEYS), 0)
+    counts = dict.fromkeys(
+        ("scanned", "would_change", "amounts_removed", "period_changes", *SIGNAL_KEYS), 0
+    )
     last_id = 0
     samples = 0
     while True:
-        rows = session.execute(
+        query = (
             select(
                 models.Opportunity.id,
                 models.Opportunity.title,
@@ -51,13 +52,17 @@ def backfill_role_signals(session: Session, *, apply: bool = False) -> dict[str,
                 models.Opportunity.meta,
             )
             .where(
-                *open_opportunity_filters(),
                 models.Opportunity.category.in_(("internship", "job")),
                 models.Opportunity.id > last_id,
             )
             .order_by(models.Opportunity.id)
             .limit(BATCH_SIZE)
-        ).all()
+        )
+        # Lock each write batch so a concurrent crawl cannot replace text pay
+        # with structured pay between this read and the metadata update.
+        if apply:
+            query = query.with_for_update()
+        rows = session.execute(query).all()
         if not rows:
             break
         for row in rows:
@@ -67,10 +72,29 @@ def backfill_role_signals(session: Session, *, apply: bool = False) -> dict[str,
             if before == after:
                 continue
             counts["would_change"] += 1
+            old_pay = (row.meta or {}).get("compensation") or {}
+            new_pay = (after["meta"] or {}).get("compensation") or {}
+            if not isinstance(old_pay, dict):
+                old_pay = {}
+            if not isinstance(new_pay, dict):
+                new_pay = {}
+            counts["amounts_removed"] += int(
+                any(old_pay.get(key) is not None for key in ("min", "max"))
+                and not any(new_pay.get(key) is not None for key in ("min", "max"))
+            )
+            counts["period_changes"] += int(
+                old_pay.get("period") is not None
+                and new_pay.get("period") is not None
+                and old_pay["period"] != new_pay["period"]
+            )
             for key in SIGNAL_KEYS:
                 counts[key] += int((row.meta or {}).get(key) != (after["meta"] or {}).get(key))
             if samples < PREVIEW_LIMIT:
-                print(json.dumps({"id": row.id, "before": before, "after": after}))
+                print(
+                    json.dumps(
+                        {"id": row.id, "before": old_pay, "after": new_pay}, ensure_ascii=True
+                    )
+                )
                 samples += 1
             if apply:
                 session.execute(
@@ -84,7 +108,8 @@ def backfill_role_signals(session: Session, *, apply: bool = False) -> dict[str,
     if not apply:
         session.rollback()
     for name, count in counts.items():
-        print(f"{name.replace('_', ' ')}: {count}", flush=True)
+        label = {"scanned": "total checked", "would_change": "changed" if apply else "would change"}
+        print(f"{label.get(name, name.replace('_', ' '))}: {count}", flush=True)
     return counts
 
 

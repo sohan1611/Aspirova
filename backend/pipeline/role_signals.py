@@ -2,11 +2,13 @@
 
 import re
 
+from core.pay_format import monthly_inr_equivalent
+
 _SENTENCES = re.compile(r"[\n\r]+|(?<=[.!?])\s+")
 _PAY_WORD = re.compile(
     r"\b(?:salary|pay\s+(?:range|band)|(?:base|fixed)\s+pay|compensation|wage|OTE|"
     r"on[- ]target\s+earnings|(?:incentive|bonus|commission)(?:[- ]based)?\s+earnings|"
-    r"paid|stipend|remuneration|CTC)\b",
+    r"(?:hourly|weekly)\s+(?:rate|pay)|paid|stipend|remuneration|CTC)\b",
     re.I,
 )
 _BENEFIT = re.compile(
@@ -40,9 +42,11 @@ _PAID = re.compile(
 _CURRENCY = r"(?:CA\$|C\$|A\$|S\$|INR|USD|CAD|AUD|SGD|GBP|EUR|₹|\$|£|€)"
 _NUMBER = r"\d+(?:[,.]\d+)*"
 _DOT_THOUSANDS = re.compile(r"\d{1,3}(?:\.\d{3})+")
+_VALID_NUMBER = re.compile(r"(?:\d+(?:\.\d+)?|\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d{1,3}(?:\.\d{3})+)")
+_INDIAN_NUMBER = re.compile(r"\d{1,2}(?:,\d{2})*,\d{3}(?:\.\d+)?")
 _CURRENCY_CODE = re.compile(r"\b(INR|USD|CAD|AUD|SGD|GBP|EUR)\b", re.I)
 _SCALE = r"(?:lakhs?|lakh|[kl])"
-_PERIOD_TOKEN = r"(?:/\s*(?:month|hour|hr|yr|year))"
+_PERIOD_TOKEN = r"(?:/\s*(?:month|hour|hr|yr|year|week|wk|day))"
 _AMOUNTS = re.compile(
     rf"(?<![\w,.])(?P<currency>(?:{_CURRENCY}\s*){{1,2}})?\s*"
     rf"(?P<low>{_NUMBER})(?:\s*(?P<low_scale>{_SCALE})\b)?"
@@ -53,8 +57,21 @@ _AMOUNTS = re.compile(
     re.I,
 )
 _MONTH = re.compile(r"/\s*-?\s*month|per\s+month|monthly", re.I)
-_HOUR = re.compile(r"/\s*(?:hour|hr)\b|per\s+hour", re.I)
+_HOUR = re.compile(r"/\s*(?:hour|hr)\b|per\s+hour|\bhourly\b", re.I)
 _YEAR = re.compile(r"/\s*(?:yr|year)\b|per\s+year|\bannual(?:ly)?\b|\byearly\b", re.I)
+_WEEK = re.compile(r"/\s*(?:week|wk)\b|\bper\s+week\b|\bweekly\b", re.I)
+_UNSUPPORTED_PERIOD = re.compile(
+    r"/\s*(?:day|d)\b|\bper\s+day\b|\bdaily\b|\bbi[- ]?weekly\b|"
+    r"\bfortnightly\b|/\s*(?:fortnight|quarter)\b|\bone[- ]time\b|"
+    r"\blump[- ]sum\b|\bin\s+total\b",
+    re.I,
+)
+_PERIODS = {"hour": _HOUR, "month": _MONTH, "year": _YEAR, "week": _WEEK, None: _UNSUPPORTED_PERIOD}
+_NON_PAY_AMOUNT = re.compile(
+    r"\b(?:funding|revenue|budget|raised|tuition|fees?|costs?)\b|"
+    r"^\s*(?:users|customers|employees|clients|hours|weeks|months|years)\b",
+    re.I,
+)
 _OTE = re.compile(r"\bOTE\b|on[- ]target\s+earnings", re.I)
 _PART_TIME = re.compile(r"\bpart[- ]time\b", re.I)
 _PART_TIME_LINE = re.compile(r"^\s*(?:employment\s+)?type\s*:\s*part[- ]time\b", re.I | re.M)
@@ -79,7 +96,13 @@ _DURATION = re.compile(
 _DURATION_EXCLUDE = re.compile(r"\b(?:over|tenure|vesting|leave)\b", re.I)
 
 
-def _number(value: str, scale: str | None) -> float:
+def _number(value: str, scale: str | None, currency: str) -> float | None:
+    # Preserve explicit INR lakh/crore grouping. Other currencies require
+    # three-digit comma groups with a leading group of one to three digits.
+    if not _VALID_NUMBER.fullmatch(value) and not (
+        currency == "INR" and _INDIAN_NUMBER.fullmatch(value)
+    ):
+        return None
     # European salary bands use dots as thousands separators, including 55.800.
     if _DOT_THOUSANDS.fullmatch(value):
         value = value.replace(".", "")
@@ -113,21 +136,29 @@ def _currency(
     return "INR" if stipend and country == "IN" else None
 
 
-def _period(text: str, stipend: bool, currency: str, maximum: float) -> str | None:
-    if _HOUR.search(text):
-        return "hour"
-    if _MONTH.search(text):
-        return "month"
-    if _YEAR.search(text):
-        return "year"
+def _period(
+    before: str, amount_and_after: str, stipend: bool, currency: str, maximum: float
+) -> str | None:
+    # Prefer the unit attached to this amount, then the nearest preceding unit.
+    # Earlier amounts and their periods must not leak into a later pay band.
+    for text, nearest in ((amount_and_after, min), (before, max)):
+        matches = [
+            (match.start(), period)
+            for period, pattern in _PERIODS.items()
+            for match in pattern.finditer(text)
+        ]
+        if matches:
+            return nearest(matches, key=lambda match: match[0])[1]
     if stipend:
-        return "month" if _STIPEND_FIELD.search(text) else None
+        return "month" if _STIPEND_FIELD.search(before) else None
     if currency == "USD" and maximum < 1000:
         return "hour"
     return "year"
 
 
 def _plausible(low: float, high: float, currency: str, period: str) -> bool:
+    if period == "week":
+        return 0 < low <= high
     # USD, CAD, AUD, SGD, GBP and EUR share the non-INR bounds.
     bounds = {
         "month": (500, 1000000) if currency == "INR" else (100, 20000),
@@ -139,6 +170,8 @@ def _plausible(low: float, high: float, currency: str, period: str) -> bool:
 
 
 def _compensation(text: str, category: str | None, country: str | None) -> dict | None:
+    # Some source descriptions glue the attribution directly to a pay unit.
+    text = re.sub(r"(?<=\w)(?=Originally posted on\b)", "\n", text)
     sentences = _SENTENCES.split(text)
     # Explicit unpaid wording wins even when a later clause promises paid work.
     if any(_UNPAID.search(sentence) for sentence in sentences):
@@ -173,17 +206,26 @@ def _compensation(text: str, category: str | None, country: str | None) -> dict 
                 continue
             if _EXTRA_PAY.search(label) and not (len(amounts) == 1 and _EARNINGS.search(sentence)):
                 continue
+            pay_label = before[pay_word.end() :] if pay_word else label
+            if _NON_PAY_AMOUNT.search(pay_label) or _NON_PAY_AMOUNT.search(after):
+                continue
             currency = _currency(amount.group(), before, pay_word, country, stipend)
             if currency is None:
                 continue
-            low = _number(amount.group("low"), amount.group("low_scale"))
+            low = _number(
+                amount.group("low"),
+                amount.group("low_scale") or amount.group("high_scale"),
+                currency,
+            )
             high = (
-                _number(amount.group("high"), amount.group("high_scale"))
+                _number(amount.group("high"), amount.group("high_scale"), currency)
                 if amount.group("high")
                 else low
             )
+            if low is None or high is None:
+                continue
             low, high = sorted((low, high))
-            period = _period(context + after, stipend, currency, high)
+            period = _period(label, amount.group() + after, stipend, currency, high)
             if period is None or not _plausible(low, high, currency, period):
                 continue
             result = {
@@ -193,6 +235,8 @@ def _compensation(text: str, category: str | None, country: str | None) -> dict 
                 "period": period,
                 "source": "text",
             }
+            if monthly_inr_equivalent({"compensation": result}) is None:
+                continue
             if _OTE.search(context + after):
                 result["ote"] = True
             if _FIXED_PAY.search(label):
@@ -240,7 +284,7 @@ def merge_role_signals(
     category: str | None,
     country: str | None,
 ) -> dict:
-    """Merge confident signals without replacing Unstop's structured pay."""
+    """Refresh text signals while preserving structured compensation."""
     merged = dict(meta or {})
     if category not in {"internship", "job"}:
         return merged
@@ -248,5 +292,9 @@ def merge_role_signals(
     compensation = merged.get("compensation")
     if isinstance(compensation, dict) and compensation.get("source") == "unstop":
         signals.pop("compensation", None)
+    elif isinstance(compensation, dict) and compensation.get("source") != "text":
+        signals.pop("compensation", None)
+    elif isinstance(compensation, dict):
+        merged.pop("compensation", None)
     merged.update(signals)
     return merged

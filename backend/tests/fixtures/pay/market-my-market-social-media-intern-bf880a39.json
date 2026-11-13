@@ -1,0 +1,23 @@
+{
+  "slug": "market-my-market-social-media-intern-bf880a39",
+  "title": "Social Media Intern",
+  "category": "internship",
+  "country": "US",
+  "fetched_on": "2026-11-13",
+  "api_url": "https://aspirova-api.onrender.com/opportunity/market-my-market-social-media-intern-bf880a39",
+  "description_raw": "Compensation: $250 /week\nThis is a paid internship with the potential to convert to a full-time Social Media Coordinator role based on performance. Interns who show strong ownership, creativity, and consistency will be considered first for the full-time opening.",
+  "previous_compensation": {
+    "max": 250.0,
+    "min": 250.0,
+    "period": "hour",
+    "source": "text",
+    "currency": "USD"
+  },
+  "expected_compensation": {
+    "min": 250,
+    "max": 250,
+    "currency": "USD",
+    "period": "week",
+    "source": "text"
+  }
+}

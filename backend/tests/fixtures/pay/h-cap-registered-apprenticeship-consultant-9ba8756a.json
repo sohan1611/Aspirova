@@ -1,0 +1,17 @@
+{
+  "slug": "h-cap-registered-apprenticeship-consultant-9ba8756a",
+  "title": "Registered Apprenticeship Consultant",
+  "category": "internship",
+  "country": "US",
+  "fetched_on": "2026-11-13",
+  "api_url": "https://aspirova-api.onrender.com/opportunity/h-cap-registered-apprenticeship-consultant-9ba8756a",
+  "description_raw": "H-CAP will be accepting RFPs for a consultant to support its Registered Apprenticeship Work. The consultant can work up to 35 hours per week. The hourly rate is $158/hour.\nSalary: $158/hourOriginally posted on Himalayas",
+  "previous_compensation": {
+    "max": 158.0,
+    "min": 158.0,
+    "period": "hour",
+    "source": "text",
+    "currency": "USD"
+  },
+  "expected_compensation": null
+}

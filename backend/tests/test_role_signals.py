@@ -1,8 +1,11 @@
 """Real listing excerpts and conservative parsing boundaries; no I/O."""
 
+import json
+from pathlib import Path
+
 import pytest
 
-from pipeline.role_signals import role_signals
+from pipeline.role_signals import _compensation, merge_role_signals, role_signals
 
 
 @pytest.mark.parametrize(
@@ -586,3 +589,97 @@ def test_unpaid_leave_is_not_an_unpaid_internship() -> None:
     text = "This internship includes unpaid leave for exams. Stipend: ₹10,000/month"
     compensation = role_signals("Intern", text, "internship", "IN")["compensation"]
     assert compensation["max"] == 10000
+
+
+PAY_FIXTURES = Path(__file__).parent / "fixtures" / "pay"
+
+
+@pytest.mark.parametrize("path", sorted(PAY_FIXTURES.glob("*-*.json")), ids=lambda p: p.stem)
+def test_captured_impossible_pay(path):
+    fixture = json.loads(path.read_text(encoding="utf-8"))
+    assert (
+        _compensation(fixture["description_raw"], fixture["category"], fixture["country"])
+        == fixture["expected_compensation"]
+    )
+
+
+@pytest.mark.parametrize(
+    "text,low,high,period",
+    [
+        ("Salary: $150,640 – $185,790/year", 150640, 185790, "year"),
+        ("Salary: $150,640/yr to $185,790/yr", 150640, 185790, "year"),
+        ("Salary: $150–185K/year", 150000, 185000, "year"),
+        (
+            "Salary: $150,640 – $185,790 / yearOriginally posted on Himalayas",
+            150640,
+            185790,
+            "year",
+        ),
+        ("Compensation: $250/week", 250, 250, "week"),
+        ("Salary: $200–300 per week", 200, 300, "week"),
+        ("Weekly salary: $300", 300, 300, "week"),
+        ("Weekly stipend: $300", 300, 300, "week"),
+        ("Hourly rate: $25", 25, 25, "hour"),
+        ("Hourly pay $30/hour, monthly salary $5,000/month", 30, 30, "hour"),
+        ("Salary $800/hour, monthly salary $5,000/month", 5000, 5000, "month"),
+    ],
+)
+def test_pay_number_and_period_boundaries(text, low, high, period):
+    assert _compensation(text, "internship", None) == {
+        "min": low,
+        "max": high,
+        "currency": "USD",
+        "period": period,
+        "source": "text",
+    }
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Salary $150,640/yr to $1185,789/yr",
+        "Salary $150,640 – $1185,789/yr",
+        "Salary $1,000,000 – $1185,789/yr",
+        "Salary $1185,789 – $1,200,000/yr",
+        "Salary $150,640 – $1,85,789/yr",
+        "Salary $150,640 – $1,85,79/year",
+        "Salary $150,640 – $185,7900/year",
+        "Salary $150,640 – $1,185,790/year",
+        "Salary $20/day",
+        "Salary $200 biweekly",
+        "Salary $200/fortnight",
+        "Salary $200 one-time",
+        "Stipend: $200 in total",
+        "Stipend: ₹1,000–15,000/month",
+        "Stipend: ₹1,000–20,000/month",
+        "Compensation includes a $50,000 learning budget",
+        "Compensation is competitive, our funding is $50,000/year",
+        "Monthly stipend: you will support 2000 customers",
+        "Salary details are elsewhere. Our budget is $150,000/year",
+        "Compensation is competitive " + "for this opportunity " * 5 + "$150,000/year",
+    ],
+)
+def test_rejects_corrupt_ranges_unsupported_periods_and_unrelated_numbers(text):
+    assert _compensation(text, "internship", "IN") is None
+
+
+@pytest.mark.parametrize("text", ["Salary $800/hour", "Salary $5,000,000/year", "Salary $200/day"])
+def test_implausible_amount_keeps_only_explicit_paid_signal(text):
+    assert _compensation(text, "internship", None) is None
+    assert _compensation("Paid internship\n" + text, "internship", None) == {
+        "paid": True,
+        "source": "text",
+    }
+
+
+@pytest.mark.parametrize("source", ["unstop", "himalayas", "structured", None])
+def test_merge_preserves_all_non_text_compensation(source):
+    pay = {"min": 800, "max": 800, "currency": "USD", "period": "hour", "source": source}
+    assert merge_role_signals({"compensation": pay}, "", "Salary $25/hour", "job", None) == {
+        "compensation": pay
+    }
+
+
+def test_merge_removes_stale_text_amount_when_no_replacement_exists():
+    before = {"compensation": {"min": 800, "max": 800, "source": "text"}, "keep": True}
+    assert merge_role_signals(before, "", "Salary $800/hour", "job", None) == {"keep": True}

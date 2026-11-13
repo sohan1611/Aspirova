@@ -44,7 +44,18 @@ def test_monthly_equivalent_currencies_and_periods(currency, fx, period, factor)
         (compensation(unpaid="true"), 100),
         ({"paid": True}, None),
         (compensation(currency="JPY"), None),
-        (compensation(period="week"), None),
+        (compensation(period="day"), None),
+        (compensation(period="week", currency="USD", max=250), 250 * 52 / 12 * 88),
+        (compensation(min=150640, max=1185789, currency="USD", period="year", source="text"), None),
+        (compensation(min=5000, max=25000, source="text"), 25000),
+        (compensation(min=5000, max=25001, source="text"), None),
+        (compensation(min=1000, max=15000, source="unstop"), 15000),
+        (compensation(min=1000, max=20000, source="unstop"), 20000),
+        (compensation(min=1000, max=20000, source="structured"), 20000),
+        (compensation(min=1000, max=20000, source=None), 20000),
+        (compensation(min=1000, max=20000), 20000),
+        (compensation(min=1000, max=15000, source="text"), None),
+        (compensation(min=1000, max=20000, source="text"), None),
         (compensation(currency="USD", period="hour", max=800), None),
         (compensation(currency="USD", period="hour", max=50), 50 * 173 * 88),
         (compensation(max=5_000_000), 5_000_000),
@@ -158,7 +169,18 @@ def test_sql_matches_python(db_session, make_rows):
         compensation(unpaid={}),
         compensation(unpaid=1),
         compensation(currency="JPY"),
-        compensation(period="week"),
+        compensation(period="day"),
+        compensation(period="week", currency="USD", max=250),
+        compensation(min=150640, max=1185789, currency="USD", period="year", source="text"),
+        compensation(min=5000, max=25000, source="text"),
+        compensation(min=5000, max=25001, source="text"),
+        compensation(min=1000, max=15000, source="unstop"),
+        compensation(min=1000, max=20000, source="unstop"),
+        compensation(min=1000, max=20000, source="structured"),
+        compensation(min=1000, max=20000, source=None),
+        compensation(min=1000, max=20000),
+        compensation(min=1000, max=15000, source="text"),
+        compensation(min=1000, max=20000, source="text"),
         compensation(currency="USD", period="hour", max=800),
         compensation(currency="USD", period="hour", max=50),
         compensation(max="80k"),
@@ -212,7 +234,7 @@ def test_pay_ordering_and_unusable_amounts(client, make_rows, endpoint):
             {"paid": True},
             compensation(unpaid=True),
             compensation(currency="JPY"),
-            compensation(period="week"),
+            compensation(period="day"),
             compensation(max=800, currency="USD", period="hour"),
             compensation(max="80k"),
         ]
@@ -225,6 +247,27 @@ def test_pay_ordering_and_unusable_amounts(client, make_rows, endpoint):
     slugs = [item["slug"] for item in response.json()["items"]]
     assert slugs[:4] == [usable[index].slug for index in [2, 1, 3, 0]]
     assert set(slugs[4:]) == {row.slug for row in unusable}
+
+
+@pytest.mark.parametrize("endpoint", ["/feed", "/search"])
+def test_highest_paid_preserves_wide_structured_stipends(client, make_rows, endpoint):
+    make, company, term = make_rows
+    rows = make(
+        [
+            compensation(min=1000, max=15000, source="unstop"),
+            compensation(min=1000, max=20000, source="unstop"),
+            compensation(min=1000, max=18000, source="structured"),
+            compensation(min=1000, max=25000, source="text"),
+        ]
+    )
+    params = {"sort": "pay", "company": company.slug}
+    if endpoint == "/search":
+        params["q"] = term
+    response = client.get(endpoint, params=params)
+    assert response.status_code == 200
+    assert [item["slug"] for item in response.json()["items"]] == [
+        rows[index].slug for index in (1, 2, 0, 3)
+    ]
 
 
 @pytest.mark.parametrize("sort", ["pay", "recent", "deadline"])
