@@ -622,3 +622,10 @@ For rows flagged Yes, the linked URL identifies the stored row reference. The ch
 - Both pytest runs reported one existing Starlette/httpx deprecation warning.
 - Validation used the designated localhost aspirova_codex3 database after applying repository migrations and the existing seed_plans/seed_ci fixtures. Existing local dependency packages were read through PYTHONPATH with uv run --no-sync, UV_OFFLINE enabled and Python downloads disabled. Test scratch files stayed within this worktree.
 - All 170 source/metadata instruction pairs match, have two to four nonempty lines and meet the 160-character step limit. The longest step is 145 characters. The audit has 170 rows and 17 structured-fields-only flags.
+
+## Work order E
+
+- Removed RISE Germany (OPP-211, `rise-germany`) from the calendar source and active metadata by founder decision on 2026-11-13. DAAD accepts only undergraduates at North American, British and Irish universities. Students at Indian universities are ineligible. The recorded source is the [DAAD RISE Germany page](https://www.daad.de/rise/en/rise-germany/), checked 2026-11-13.
+- Marked the registry programme inactive and removed its authored 2027 edition. The inactive watchlist entry makes the next calendar import deactivate an existing active programme. The calendar API filters inactive programmes before building both `items` and `rolling`.
+- The calendar now has 169 source rows and metadata entries, comprising 143 dated rows and 26 rolling rows. The original registry has 77 active programmes and five inactive programmes. All 169 active programmes after import retain next-12-month coverage.
+- Validation passed all 5,248 backend tests in 93.43 seconds, including importer deactivation and API exclusion for inactive dated and rolling programmes. Ruff and Black checks passed for both changed Python files. The suite reported one existing Starlette/httpx deprecation warning.

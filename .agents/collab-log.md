@@ -922,3 +922,8 @@ RESULT (source expansion, live): SmartRecruiters seeded to production and the Ti
   - RISE Germany: the eligibility gate (North American, British and Irish undergraduates only) leads its steps. It is a deactivation candidate for the founder.
 - Review: no correction round. Only `how_to_apply`, the NIC deadline/status and RISE eligibility changed; no other field moved. Verified 5,253 backend tests, ruff and black.
   - Upgrade path from the merged data: NIC 2026 edition closed and not open now, next intake tentative Nov 2027. Counts unchanged at 144 dated and 26 rolling, and 0 boilerplate served.
+
+## 2026-11-13 — Work order E (Claude → Codex, gpt-6.1-sol high): remove RISE Germany from the calendar
+- Task: founder decision ("Remove it"). DAAD RISE Germany accepts only undergraduates at North American, British and Irish universities, so Aspirova's students are ineligible.
+- Codex: built as specified. Removed the OPP-211 calendar row and its authored edition, marked the registry entry inactive, and added a watchlist retirement entry so the next import deactivates production's existing programme. A new test covers importer deactivation and exclusion from both `/calendar` lists. Counts: 169 programmes, 143 dated and 26 rolling in the Next 12 months view.
+- Review: no correction round. Verified 5,248 backend tests, ruff and black; the data diff touches only the RISE block and the row count.

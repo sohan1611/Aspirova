@@ -4,6 +4,8 @@ import json
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 import pytest
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from api.calendar import build_calendar, router
 from api.deps import get_db
@@ -19,7 +21,8 @@ from core.hiring_calendar import (
     source_window,
 )
 from core.models import Programme, ProgrammeEdition
-from scripts.import_calendar import category_for
+from scripts.import_calendar import category_for, import_calendar
+from scripts.seed_programmes import _seed_with_session
 
 WINDOWLESS_ROWS = {
     "OPP-044",
@@ -115,14 +118,58 @@ def test_nic_winter_is_closed_with_a_fixed_official_deadline():
     assert not item["is_open_now"]
 
 
-def test_rise_germany_starts_with_its_university_location_gate():
-    meta = CALENDAR_META["rise-germany"]
-    row = ROWS[meta["row_id"]]
-    for text in (row["target_batch_eligibility"], meta["how_to_apply"].splitlines()[0]):
-        assert "undergraduates" in text.casefold()
-        assert "North America" in text
-        assert "Irish" in text or "Ireland" in text
-        assert "Indian universities are ineligible" in text
+def test_rise_germany_is_deactivated_by_import_and_excluded_from_calendar(engine):
+    assert "rise-germany" not in CALENDAR_META
+    assert "OPP-211" not in ROWS
+    with engine.connect() as connection:
+        transaction = connection.begin()
+        session = Session(bind=connection)
+        app = FastAPI()
+        app.include_router(router)
+        app.dependency_overrides[get_db] = lambda: session
+        try:
+            _seed_with_session(session, current_year=2026)
+            rise = session.scalar(select(Programme).where(Programme.slug == "rise-germany"))
+            assert rise.is_active is False
+            # Reproduce the active programme and dated edition already imported in production.
+            rise.is_active = True
+            rise.editions.append(
+                ProgrammeEdition(
+                    year=2027,
+                    status="announced",
+                    opens_at=at_day(date(2026, 10, 15)),
+                    closes_at=at_day(date(2026, 11, 30)),
+                )
+            )
+            session.flush()
+            rolling = session.scalar(select(Programme).where(Programme.slug == "kaust-vsrp"))
+            query = "/calendar?from=2026-01-01&to=2027-12-31"
+            with TestClient(app) as client:
+                before = client.get(query)
+                assert before.status_code == 200
+                assert "rise-germany" in {
+                    item["programme"]["slug"] for item in before.json()["items"]
+                }
+                assert rolling.slug in {
+                    item["programme"]["slug"] for item in before.json()["rolling"]
+                }
+                assert import_calendar(session) == {"imported": 169, "skipped": 0}
+                session.expire_all()
+                assert session.get(Programme, rise.id).is_active is False
+                # Exercise the same inactive filter with an otherwise visible rolling programme.
+                rolling.is_active = False
+                session.flush()
+                response = client.get(query)
+                assert response.status_code == 200
+                result = response.json()
+                assert result["items"] and result["rolling"]
+                for collection in ("items", "rolling"):
+                    assert {"rise-germany", rolling.slug}.isdisjoint(
+                        {item["programme"]["slug"] for item in result[collection]}
+                    )
+        finally:
+            session.close()
+            transaction.rollback()
 
 
 @pytest.mark.parametrize("slug", CALENDAR_META)
@@ -166,7 +213,8 @@ def test_source_calendar_and_rolling_counts():
     assert dated | rolling == set(ROWS)
     # Work order C converts 26 original rolling rows, adds 17 dated rows
     # (10 split awards/rounds/batches and seven programmes), and two rolling routes.
-    assert len(dated) == 144
+    # Work order E retires the dated RISE Germany row.
+    assert len(dated) == 143
     assert len(rolling) == 26
 
 

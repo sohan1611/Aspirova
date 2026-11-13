@@ -3,7 +3,7 @@
   "updated_on": "2026-11-13",
   "timezone": "Asia/Kolkata",
   "date_disclaimer": "Dates other than individually confirmed official 2027 dates are Tentative (Historical Annual Trend); do not display as live opportunities without re-verification.",
-  "count": 170,
+  "count": 169,
   "opportunities": [
     {
       "id": "OPP-001",
@@ -1804,29 +1804,6 @@
       "source_checked_on": "2026-11-13",
       "how_to_apply": "Create an LFID and LFX Mentorship mentee profile, then search LFDT projects accepting applicants.\nPrepare your latest resume and a cover letter explaining your project interest, relevant skills and learning goals.\nComplete the chosen project’s prerequisites, including any requested work samples or coding challenge.\nSubmit through LFX Mentorship for mentor review, within the three-project application limit.",
       "event_window": "Part-time mentorship Jun–Nov 2027 (tentative)."
-    },
-    {
-      "id": "OPP-211",
-      "opportunity": "RISE Germany",
-      "category": "international_research",
-      "target_batch_eligibility": "Undergraduates at North American (US/Canada), British or Irish universities only. Students at Indian universities are ineligible.",
-      "application_open": "15 Oct 2026",
-      "registration_deadline": "30 Nov 2026",
-      "program_duration_start": "Research internships in Germany during summer 2027; project dates vary.",
-      "hiring_mode_stages": "Selection under the current official notice",
-      "official_portal": "https://www.daad.de/rise/en/rise-germany/",
-      "preparation_tip": "Read the current official notice and prepare the required eligibility evidence.",
-      "application_group": "Pre-2027 / 2027 application cycle",
-      "status_as_of_2026_11_13": "Announced — Upcoming",
-      "date_basis": "Official 2027 Published",
-      "geography": "Global; verify nationality and institution eligibility",
-      "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
-      "confidence": "High",
-      "verification_note": "DAAD publishes 15 October–30 November 2026, 23:59 CET, for the 2027 cohort. References close separately on 15 December.",
-      "source_url": "https://www.daad.de/rise/en/rise-germany/",
-      "source_checked_on": "2026-11-13",
-      "how_to_apply": "Only undergraduates at North American (US/Canada), British or Irish universities qualify. Students at Indian universities are ineligible.\nApply through the RISE Germany internship database and select suitable research projects.\nUpload your transcript, enrolment certificate and motivation material. Invite a PhD-qualified academic referee through the database.\nHost rankings and DAAD review determine the placement.",
-      "event_window": "Research internships in Germany during summer 2027; project dates vary."
     },
     {
       "id": "OPP-212",
