@@ -85,6 +85,10 @@
     "OPP-046": {
       "status": "announced",
       "reason": "January/July intake years use the preceding Jul–Nov and current Jan–May month-precision application windows."
+    },
+    "OPP-248": {
+      "status": "closed",
+      "reason": "NIC winter registration closed on 13 November 2026 at 05:00 PM IST."
     }
   },
   "programmes": {
@@ -104,7 +108,7 @@
       "name": "Student Researcher Program",
       "source_url": "https://www.google.com/about/careers/applications/jobs/results/125423735539671750-student-researcher/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Resume/research screening; possible interviews.",
+      "how_to_apply": "Find an India Student Researcher vacancy on Google Careers matching your research discipline and degree.\nEnrolled bachelor’s, master’s and PhD students can be considered for the listed research disciplines.\nSelection uses research/resume screening and may include interviews.",
       "event_window": "Variable research placement during 2027"
     },
     "epfl-life-sciences-srp": {
@@ -123,7 +127,7 @@
       "name": "EPFL Life Sciences Summer Research Program",
       "source_url": "https://www.epfl.ch/schools/sv/education/summer-research-program/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Academic review; short essays/reference.",
+      "how_to_apply": "Read the EPFL SRP FAQs, then apply through Programs Recruiting (programs-recruiting.epfl.ch).\nInternational life-sciences bachelor’s or first-year master’s students can apply after two years of university study.\nComplete the academic details, short essays and reference requested in the SRP application.",
       "event_window": "8 weeks; 5 Jul–27 Aug 2027"
     },
     "iasc-insa-nasi-srfp": {
@@ -142,7 +146,7 @@
       "name": "Science Academies Summer Research Fellowship Program",
       "source_url": "https://webjapps.ias.ac.in/fellowship2027/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Application, statement, reference, mentor allocation.",
+      "how_to_apply": "Apply online for SRFP through IASc, INSA or NASI and keep your registration number for correspondence.\nYou must study at an accredited institution in India. Enter the email of a teacher familiar with your work.\nThe teacher submits the requested recommendation. Selected fellows spend two months with an assigned guide.",
       "event_window": "2 months; preferably summer 2027"
     },
     "cern-summer-student": {
@@ -161,7 +165,7 @@
       "name": "Summer Student Programme",
       "source_url": "https://careers.cern/jobs/cern-summer-student-programme-2026-member-and-non-member-state/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: CV, transcript, reference, central selection.",
+      "how_to_apply": "Apply through the CERN Summer Student SmartRecruiters form linked from CERN Careers (careers.cern).\nUpload your CV, official transcripts, academic reference letter and enrolment certificate.\nBachelor’s/master’s students need six completed semesters by summer and must be first-time participants.",
       "event_window": "~2 months; Jun–Aug 2027"
     },
     "cern-openlab-summer": {
@@ -181,7 +185,7 @@
       "deadline_rolling": true,
       "source_url": "https://openlab.cern/cern-openlab-summer-student-programme/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Research/project fit; documents and selection.",
+      "how_to_apply": "Apply for the openlab Summer Student vacancy on CERN Careers (careers.cern).\nUpload PDFs in English or French of your CV, official transcript, enrolment certificate and a reference dated within 12 months.\nAn optional motivation letter may be included. Documents cannot be added after submission.\nBSc/MSc applicants in computing, maths, engineering or physics need three years of full-time study by June.",
       "event_window": "9 weeks; 21/28 Jun 2027 starts"
     },
     "rbi-summer-placement": {
@@ -200,7 +204,7 @@
       "name": "RBI Summer Placement",
       "source_url": "https://opportunities.rbi.org.in/scripts/summer.aspx",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Application screening; possible interviews.",
+      "how_to_apply": "Use the RBI Summer Placement application linked from Opportunities@RBI (opportunities.rbi.org.in).\nCheck your penultimate-year PG/integrated-course or three-year LLB eligibility against the RBI stream list.\nApplications are screened and interviews may follow.",
       "event_window": "Up to ~3 months; Apr–Jul 2027"
     },
     "amazon-sde-india-six-month": {
@@ -220,7 +224,7 @@
       "deadline_rolling": true,
       "source_url": "https://www.amazon.jobs/pl/jobs/10517894/software-development-engineer-intern-jan-2027-6-month-amazon-university-talent-acquisition",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Online assessment; coding/behavioral interviews.",
+      "how_to_apply": "Apply for the India six-month SDE Intern role on Amazon Jobs (amazon.jobs), job 10517894.\nYou must graduate in 2027, be at least 18 and study CS, CE, DS, IS or a related degree with a programming language.\nBe available full-time in Bengaluru for the 22–24-week placement starting in January 2027.",
       "event_window": "22–26 weeks; Jan–Jun 2027 starts"
     },
     "microsoft-imagine-cup": {
@@ -239,7 +243,7 @@
       "name": "Microsoft Imagine Cup",
       "source_url": "https://imaginecup.microsoft.com/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Startup eligibility; Azure solution, product/pitch review, live interviews.",
+      "how_to_apply": "Apply through the Imagine Cup Award Force form linked by Microsoft Startups.\nDescribe your startup, solution, traction and vision in the application.\nEntries go through expert review and judging before the World Championship and Student Prize selection.",
       "event_window": "Competition Nov 2026–Jun 2027"
     },
     "mitacs-globalink": {
@@ -259,7 +263,7 @@
       "deadline_rolling": true,
       "source_url": "https://www.mitacs.ca/our-programs/globalink-research-internship-students/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Project choices, academic references, international matching.",
+      "how_to_apply": "For a future intake, create one account on the Mitacs Globalink Student Platform and choose projects matching your skills.\nUpload your CV, official transcripts in the project language and at least one professor’s reference letter.\nCheck the eligible-institution list and India-specific academic conditions before submitting for project matching.",
       "event_window": "12 weeks; May–Oct 2027"
     },
     "pims-mitacs-india": {
@@ -278,7 +282,7 @@
       "name": "PIMS–Mitacs Globalink Research Internship — India route",
       "source_url": "https://www.pims.math.ca/programs/scientific/mentorship-early-career-programs/mitacs-globalink-research-internship-india/students",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Academic/project matching; referee assessment.",
+      "how_to_apply": "Speak to your institution’s Mitacs Globalink coordinator about the PIMS–Mitacs India nomination and application route.\nSenior undergraduates must be at an institution on the separate PIMS India partner list and in an eligible engineering/technology programme.\nUse the home institution’s international/research office together with the Mitacs Globalink portal to apply for a matching project.",
       "event_window": "Twelve-week PIMS-affiliated research placement in the following Canadian summer (tentative).",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -306,7 +310,7 @@
       "name": "SURGE",
       "source_url": "https://surge.iitk.ac.in/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Research application; project/mentor selection.",
+      "how_to_apply": "Register on the IIT Kanpur SURGE portal and choose the IITK, non-IITK Indian or SAARC category.\nFor non-IITK Indian applications, upload a photo and one PDF with marksheets, a proposal of up to 500 words and two faculty letters.\nThe 2026 non-IITK Indian route charged Rs 750 via SBI Collect. Retain the receipt and application number.",
       "event_window": "~8 weeks; May–Jul 2027"
     },
     "ncra-tifr-vsrp": {
@@ -325,7 +329,7 @@
       "name": "TIFR VSRP — NCRA astronomy and astrophysics",
       "source_url": "https://vsrp.ncra.tifr.res.in/students/external-students/vsrp",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Research interests, references, academic selection.",
+      "how_to_apply": "Use the web-based NCRA VSRP application linked by the astronomy school.\nDescribe your astronomy/physics research interests and arrange referee reports.\nMeet the listed final/pre-final degree-year rules. Selection weighs research motivation, referee reports and academic marks.",
       "event_window": "NCRA astronomy research during May–July 2027 (tentative).",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -353,7 +357,7 @@
       "name": "Summer Fellowship Programme",
       "source_url": "https://www.iitm.ac.in/announcements/summer-fellowship-2026",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Merit/project suitability; institute portal.",
+      "how_to_apply": "Use the IIT Madras Summer Fellowship registration on the Student/Staff Services Portal (ssp.iitm.ac.in).\nMatch your upper-year BTech or postgraduate status to the department’s Summer Fellowship criteria.\nYour academic merit and suitability for the department’s research project are assessed.",
       "event_window": "Typically summer, ~2 months; departmental routes vary"
     },
     "iitgn-srip": {
@@ -372,7 +376,7 @@
       "name": "Summer Research Internship Programme",
       "source_url": "https://srip.iitgn.ac.in/info/guidelines/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Faculty-project application and academic screening.",
+      "how_to_apply": "Review the IIT Gandhinagar SRIP faculty projects and apply through the application link for your chosen project.\nSubmit a separate application for each project. Projects outside your degree specialisation are allowed.\nBachelor’s/master’s students should plan at least eight weeks on campus and a final presentation and report.",
       "event_window": "≥8 weeks; May–Jul 2027"
     },
     "iith-sure": {
@@ -391,7 +395,7 @@
       "name": "Summer Undergraduate Research Exposure",
       "source_url": "https://www.iith.ac.in/news/2026/02/27/Summer-Undergraduate-Research-Exposure/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Merit screening; optional interview.",
+      "how_to_apply": "Submit the online SURE application linked from IIT Hyderabad’s Summer Undergraduate Research Exposure notice.\nExternal students in the listed degree years need top-20% standing certified by their institute head or principal.\nSelection considers academic performance, work beyond coursework and interview performance.",
       "event_window": "1–2 months; May–Jul 2027"
     },
     "iitr-spark": {
@@ -410,7 +414,7 @@
       "name": "SPARK",
       "source_url": "https://spark.iitr.ac.in/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Online project/faculty preferences; research statement.",
+      "how_to_apply": "Apply through the SPARK online portal (spark.iitr.ac.in) and name five preferred faculty members.\nUpload your last-semester marksheet, photograph, 250-word research statement and a one- to two-page resume.\nComplete at least two UG semesters and meet the institution-specific CGPA cutoff. External students need an NOC on joining.",
       "event_window": "~6–8 weeks; summer 2027"
     },
     "iitd-srfp": {
@@ -429,7 +433,7 @@
       "name": "Summer Research Fellowship Programme",
       "source_url": "https://srfp.iitd.ac.in/srf/index.php",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Merit; faculty/project review.",
+      "how_to_apply": "Apply on the IIT Delhi Summer Research Fellowship portal (srfp.iitd.ac.in).\nExternal UG students need two completed years and a top-ten branch rank. MTech/ME applicants need one semester and the stated marks.\nUpload a photograph, consolidated grade card, rank certificate and institute NOC giving your full-time research dates.",
       "event_window": "8 weeks; May–Jul 2027"
     },
     "oist-research-internship": {
@@ -448,7 +452,7 @@
       "name": "OIST Research Internship — Fall intake",
       "source_url": "https://www.oist.jp/admissions/research-internship/apply-research-internship",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Research fit; faculty selection, interview if needed.",
+      "how_to_apply": "Apply through the OIST Research Internship online application system.\nPrepare English-language PDFs and arrange for an academic recommendation to reach the system before you submit.\nCheck that you are in the last two bachelor’s years, a master’s student or an eligible recent graduate.",
       "event_window": "4–6 months within Oct 2027–Mar 2028"
     },
     "infosys-hackwithinfy": {
@@ -467,7 +471,7 @@
       "name": "HackWithInfy",
       "source_url": "https://www.infosys.com/careers/hackwithinfy.html",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Coding rounds, regional finals and grand finale.",
+      "how_to_apply": "Register through the HackWithInfy link published by Infosys for the eligible engineering graduation batch.\nCompete individually in the virtual coding assessment, followed by the face-to-face coding qualifier.\nTop qualifying coders reach the four-day grand finale. The published route also offers pre-placement interview opportunities.",
       "event_window": "Rounds Mar–Nov; potential future employment"
     },
     "sebi-young-professional-internship": {
@@ -487,7 +491,7 @@
       "deadline_rolling": true,
       "source_url": "https://www.sebi.gov.in/sebiweb/about/AboutAction.do?doInternships=yes",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Document screening and interviews.",
+      "how_to_apply": "Choose your domain and complete SEBI’s online Young Professional Program application.\nMatch the domain’s degree, age and experience conditions before submitting your details.\nSelection proceeds through application screening, a preliminary interview and a final interview.",
       "event_window": "Tenure under issued YPP terms; not a student internship"
     },
     "mea-internship": {
@@ -506,7 +510,7 @@
       "name": "MEA Internship Programme",
       "source_url": "https://internship.mea.gov.in/internship",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Screening, state/UT weighting, interview, security check.",
+      "how_to_apply": "Register and submit your Term I application on the MEA Internship Portal (internship.mea.gov.in).\nIndian citizens need a graduate degree, or final-year study with a mandatory internship, and age no more than 25 in the internship year.\nPreliminary screening is followed by a personal interview. Follow the state/UT allocation rules.",
       "event_window": "Typically 1–3 months; Apr–Sep 2027 term"
     },
     "dpiit-internship": {
@@ -526,7 +530,7 @@
       "deadline_rolling": true,
       "source_url": "https://apps.dpiit.gov.in/internship/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Application and merit screening.",
+      "how_to_apply": "Complete the Internship Application Form on the DPIIT internship portal (apps.dpiit.gov.in).\nUse the DPIIT scheme’s pursuing-student or recent-graduate route that matches your qualification.\nDPIIT screens applications for eligibility and merit.",
       "event_window": "Duration/induction set by 2027 notice"
     },
     "meity-digital-india-internship": {
@@ -545,7 +549,7 @@
       "name": "Digital India Internship Scheme",
       "source_url": "https://intern.meity.gov.in/schedules",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Online application; eligibility and merit selection.",
+      "how_to_apply": "Create an Intern Registration account on the MeitY Digital India Internship Portal (intern.meity.gov.in).\nComplete personal, academic and reference details and have your institution sponsor or forward the application.\nMeet the second-last-year study and 60% academic requirement in an eligible discipline.\nThe relevant division shortlists applicants and may conduct a personal or video interview.",
       "event_window": "~2 months; Jun–Jul 2027"
     },
     "goldman-sachs-india-hackathon": {
@@ -564,7 +568,7 @@
       "name": "Goldman Sachs India Hackathon",
       "source_url": "https://www.goldmansachs.com/careers/students/programs-and-internships/india/hackathon",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: CS/quant coding challenge and shortlisted interviews.",
+      "how_to_apply": "Register individually through the Goldman Sachs India Hackathon page and select the CS track, Quant track or both.\nCheck the listed engineering college and graduation-batch eligibility before entering.\nComplete the coding challenge. Top performers can be fast-tracked to a pre-placement interview.",
       "event_window": "Online challenge in May; mentorship/finale later"
     },
     "schneider-go-green": {
@@ -583,7 +587,7 @@
       "name": "Schneider Go Green Competition",
       "source_url": "https://www.se.com/ww/en/about-us/newsroom/news/press-releases/schneider-electric27s-go-green-competition-returns-in-2025-67ee4227d8d3b6d0bd01cb83/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Sustainability solution, pitch and jury.",
+      "how_to_apply": "Register your team through the Schneider Go Green competition link published by Schneider Electric.\nDevelop a sustainability solution and prepare your team’s idea pitch for the competition jury.\nCheck the edition’s student or young-entrepreneur team rules before entering.",
       "event_window": "Multi-stage innovation contest; later-year finals"
     },
     "jpmorgan-code-for-good": {
@@ -603,7 +607,7 @@
       "deadline_rolling": true,
       "source_url": "https://www.jpmorganchase.com/careers/explore-opportunities/programs/tfsg-hackathons",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Application/OA; collaborative nonprofit hackathon; interview possibilities.",
+      "how_to_apply": "Use Apply Now for the India Code for Good location on JPMorganChase’s Tech for Social Good Hackathons page.\nApplicants must be enrolled in a bachelor’s degree programme and meet the India call’s cohort conditions.\nIf selected, work with a team and JPMorganChase technologists on a socially focused organisation’s technology challenge.",
       "event_window": "~24–48-hour event; dates vary"
     },
     "walmart-sparkathon": {
@@ -622,7 +626,7 @@
       "name": "Walmart Global Tech India Sparkathon",
       "source_url": "https://public.walmart.com/content/converge/en_in/sparkathon/terms-conditions.html",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Idea submission, demo, jury pitch.",
+      "how_to_apply": "Register your student team through the Walmart Sparkathon page and choose one of its retail-technology themes.\nSubmit your original solution idea with the same team members who will complete the competition.\nShortlisted teams pitch to an expert jury. Selected participants may receive internship or full-time interview opportunities.",
       "event_window": "Jun–Aug; contest and presentation"
     },
     "flipkart-grid": {
@@ -641,7 +645,7 @@
       "name": "Flipkart GRiD Engineering Challenge",
       "source_url": "https://mycareernet.co/events/flipkart-earlycareers-grid-8-0/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Profile screening; OA; business case; finals.",
+      "how_to_apply": "Register individually on the Flipkart GRiD MyCareernet page and choose Software Development, AI Engineering or Data Science.\nComplete profile screening, then the 90-minute proctored coding assessment.\nBuild and submit a technical solution to the Flipkart business case. Qualifiers reach the national hackathon finals.",
       "event_window": "Multiple stages Jun–Sep; hiring may follow"
     },
     "goldman-sachs-india-summer-analyst": {
@@ -661,7 +665,7 @@
       "deadline_rolling": true,
       "source_url": "https://www.goldmansachs.com/careers/students/programs-and-internships/india/summer-analyst-program",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Application, assessment/interviews.",
+      "how_to_apply": "Apply for the India Summer Analyst vacancy through Goldman Sachs Careers or your campus placement cell.\nCheck the internship’s posted graduation cohort before selecting your division and location.\nShortlisted applicants may take a written/online test or group discussion before final interviews.",
       "event_window": "8–10 weeks; summer 2028"
     },
     "goldman-sachs-india-new-analyst": {
@@ -681,7 +685,7 @@
       "deadline_rolling": true,
       "source_url": "https://www.goldmansachs.com/careers/students/programs-and-internships/india/new-analyst-program",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Assessment and interviews.",
+      "how_to_apply": "Apply for the India New Analyst vacancy through Goldman Sachs Careers or your campus placement cell.\nFinal-year bachelor’s/master’s students must match the graduation year in the posted full-time role.\nShortlisted applicants may take a written/online test or group discussion before final interviews.",
       "event_window": "Full-time from 2028 after graduation"
     },
     "atlassian-india-internship": {
@@ -701,7 +705,7 @@
       "deadline_rolling": true,
       "source_url": "https://www.atlassian.com/company/careers/earlycareers?tab=interns",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Application, coding and interviews.",
+      "how_to_apply": "Find an India software engineering internship on Atlassian Early Careers and submit your application.\nThe internship route targets penultimate-year undergraduate or postgraduate students.\nPrepare for coding and subsequent interviews described in the vacancy’s recruitment instructions.",
       "event_window": "Summer 2028; typically May–Aug"
     },
     "qualcomm-india-internships": {
@@ -720,7 +724,7 @@
       "name": "Qualcomm India Summer / Six-Month Internships",
       "source_url": "https://www.qualcomm.com/company/careers/internships-and-early-in-career-opportunities/india",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Resume screening and technical interviews.",
+      "how_to_apply": "Search open internships through Qualcomm India’s internship and early-career page and apply to the matching role.\nYou must be enrolled in an eligible CSE, ECE, EE, CE, CS or equivalent bachelor’s, master’s or PhD at an Indian institution.\nFor a three-month summer placement, at least one semester or term must remain after the internship.",
       "event_window": "3 months May–Jul 2028 or 6 months Jan–Jun 2028"
     },
     "de-shaw-india-campus": {
@@ -740,7 +744,7 @@
       "deadline_rolling": true,
       "source_url": "https://www.deshawindia.com/careers/internships",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: College shortlist; technical/quant interviews.",
+      "how_to_apply": "Contact your college placement office about D. E. Shaw India’s campus internship recruitment.\nApply through that campus process when your college is included. Internship roles are routed through placement offices.\nFollow the college shortlist and role-specific technical or quantitative interview instructions.",
       "event_window": "8–12 weeks; following summer"
     },
     "microsoft-explore-india": {
@@ -760,7 +764,7 @@
       "deadline_rolling": true,
       "source_url": "https://careers.microsoft.com/v2/global/en/exploremicrosoft",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Resume, foundational coding and interviews.",
+      "how_to_apply": "Find the India Explore Microsoft vacancy through Microsoft Careers and apply for the appropriate regional posting.\nThe Explore overview and India eligibility page give different study-year rules. Use the specific India vacancy to confirm your year.\nThe Explore overview requires introductory computer science and one semester of calculus or an equivalent course.",
       "event_window": "8 weeks; summer 2028 India"
     },
     "microsoft-swe-india": {
@@ -780,7 +784,7 @@
       "deadline_rolling": true,
       "source_url": "https://careers.microsoft.com/v2/global/en/students",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Resume, coding assessment and interviews.",
+      "how_to_apply": "Search Microsoft Careers for an India software engineering internship and submit the vacancy application.\nIndia university interns generally need pre-final-year study in STEM or a related course and one calendar year left after the internship.\nPrepare for the coding assessment and interviews specified for the advertised role.",
       "event_window": "Typically 8–12 weeks or local cycle"
     },
     "google-swe-india": {
@@ -800,7 +804,7 @@
       "deadline_rolling": true,
       "source_url": "https://www.google.com/about/careers/applications/jobs/results/?location=India",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Coding interviews and screening.",
+      "how_to_apply": "Search Google Careers for a software engineering internship with an India location.\nMatch the vacancy’s CS/related-degree and graduation-year conditions before applying.\nFollow the posting’s screening and coding interview process.",
       "event_window": "Typically summer 2028 if advertised"
     },
     "adobe-india-technical-internship": {
@@ -820,7 +824,7 @@
       "deadline_rolling": true,
       "source_url": "https://careers.adobe.com/us/en/interns-technical",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Resume, OA and technical interviews.",
+      "how_to_apply": "Filter Adobe’s Technical Internships page for India and apply to the relevant university internship requisition.\nMatch your BTech, MTech or PhD status to that requisition’s qualification requirements.\nFollow the role’s resume screening, online assessment and technical interview instructions.",
       "event_window": "Summer or project-based; role-specific"
     },
     "salesforce-futureforce-india": {
@@ -840,7 +844,7 @@
       "deadline_rolling": true,
       "source_url": "https://careers.salesforce.com/en/university/internships/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Resume and technical/behavioral interviews.",
+      "how_to_apply": "Find an India Futureforce internship on Salesforce’s university job board and apply to the listed role.\nCheck the job’s university-enrolment, graduation-year and function requirements.\nPrepare to discuss your coursework and relevant projects in the technical or behavioural interviews for that role.",
       "event_window": "8–12 weeks; usually following summer"
     },
     "smart-india-hackathon": {
@@ -859,7 +863,7 @@
       "name": "Smart India Hackathon",
       "source_url": "https://sih.gov.in/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: College internal selection; problem statement; hackathon finals.",
+      "how_to_apply": "Enter your college’s internal Smart India Hackathon selection and coordinate with its registered SPOC.\nForm the required six-student team and develop a solution to a listed problem statement or student-innovation theme.\nThe SPOC nominates selected teams. Prepare the signed college-letterhead nomination naming every team member.\nShortlisted teams proceed to the hackathon grand finale.",
       "event_window": "Problem statements/rounds; grand finale later"
     },
     "tata-imagination-challenge": {
@@ -878,7 +882,7 @@
       "name": "Tata Imagination Challenge",
       "source_url": "https://www.tata.com/careers/programs/tata-imagination-challenge",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Quiz, gamified assessment, idea pitch and panel.",
+      "how_to_apply": "Register for Tata Imagination Challenge on Unstop through the Tata programme page.\nComplete the Tata Quiz and gamified reasoning round.\nSubmit a two-minute idea video and the short written answers if shortlisted.\nAdvance through idea defence and the finale pitch to Tata leaders.",
       "event_window": "Aug–Nov 2027; rounds and final"
     },
     "tcs-codevita": {
@@ -898,7 +902,7 @@
       "deadline_rolling": true,
       "source_url": "https://codevita.tcsapps.com/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Timed algorithmic coding and global finale.",
+      "how_to_apply": "Create your CodeVita account through the registration link on TCS CodeVita (codevita.tcsapps.com).\nCheck your science/engineering degree and graduation batch against the season’s eligibility.\nTake the timed coding rounds and qualify successively for the global finale.",
       "event_window": "Multi-round coding contest; final in later months"
     },
     "amazon-sde-following-year": {
@@ -918,7 +922,7 @@
       "deadline_rolling": true,
       "source_url": "https://www.amazon.jobs/content/en/career-programs/university/sde",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: OA, coding interviews, leadership principles.",
+      "how_to_apply": "Find the newly advertised India SDE internship on Amazon’s university SDE jobs page.\nMatch your CS/related degree and graduating batch to that specific six-month or following-year posting.\nPrepare for the online assessment, coding interviews and Leadership Principles discussions.",
       "event_window": "Often 22–26 weeks; Jan–Jun 2028 or other cohort"
     },
     "nicsi-paid-internship": {
@@ -954,7 +958,7 @@
       "name": "NICSI Paid Internship Scheme — Government Technology",
       "source_url": "https://nicsi.nic.in/nicsi/internship/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Application, academic merit and technical/domain review; institute NOC.",
+      "how_to_apply": "Download the prescribed NICSI internship form and NOC format from the NICSI internship portal (nicsi.nic.in).\nChoose a Summer or Winter batch and a listed internship domain.\nPrepare the prescribed form, academic marksheets and college NOC/forwarding letter.\nUse the submission mode displayed for the intake, including email with attachments where the portal currently directs it.",
       "event_window": "6 months; Jan–Jun or Jul–Dec 2027"
     },
     "iisc-algorithms-theory": {
@@ -973,7 +977,7 @@
       "name": "IISc Bengaluru Algorithms/Theory Research Internship",
       "source_url": "https://www.csa.iisc.ac.in/cfe-walmart/joinus.html",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Relevant algorithms coursework, research fit and screening.",
+      "how_to_apply": "Use the internship application link under Internships on the IISc Algorithms/Walmart Centre Join Us page.\nDescribe your advanced theory coursework and algorithms interests for the research-fit review.\nCurrent or completed CS, ECE, EE, maths or equivalent bachelor’s/master’s candidates need a full-time research commitment.",
       "event_window": "≥2 months; in-person research; dates by lab",
       "rolling_reason": "IISc does not have a uniform all-departments external summer intake; check laboratory-specific terms.",
       "rolling_kind": "lab_dependent"
@@ -1072,7 +1076,7 @@
       "name": "NITI Aayog Internship Scheme",
       "source_url": "https://www.niti.gov.in/internship",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Online application; academic/sector matching.",
+      "how_to_apply": "Apply for a NITI internship through its online internship application during the monthly 1st–10th window.\nMatch your UG, PG or research status and academic percentage to NITI’s scheme rules.\nApplications are assessed for academic and sector fit.",
       "event_window": "6 weeks to 6 months; start as allotted"
     },
     "rbi-research-internship": {
@@ -1107,7 +1111,7 @@
       "name": "Research Internship",
       "source_url": "https://www.rbi.org.in/scripts/Bs_viewcontent.aspx?Id=3496",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: CV, SOP, references, RBI interview.",
+      "how_to_apply": "Email the prescribed RBI Research Internship form with your CV, references and statement of purpose to the matching department.\nDEPR deprinterns@rbi.org.in, DSIM dsiminterns@rbi.org.in, FSD cgmfsd@rbi.org.in, ID rinternid@rbi.org.in.\nMeet the department’s matching PG qualification. CV/reference/SOP shortlisting is followed by a personal interview.\nReapply for each batch. July–November applications are for January starts and January–May applications for July starts.",
       "event_window": "Research assignments; 1 Jan or 1 Jul start"
     },
     "drdo-paid-internships": {
@@ -1126,7 +1130,7 @@
       "name": "Paid Internship Scheme",
       "source_url": "https://drdo.gov.in/drdo/offerings/vacancies",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Institute recommendation; merit/possible interview.",
+      "how_to_apply": "Find a paid-internship vacancy for your discipline on DRDO’s laboratory vacancies page.\nApply through the laboratory’s advertised route with your institution’s recommendation or approval.\nMeet that lab’s degree and CGPA conditions and follow its merit review or interview instructions.",
       "event_window": "Usually 3–6 months as notified",
       "rolling_reason": "DRDO laboratories advertise separate paid-internship vacancies and decide their own selection deadlines. The common vacancies page supplies no nationwide registration window.",
       "rolling_kind": "vacancy_based"
@@ -1147,7 +1151,7 @@
       "name": "DoS/ISRO Internship and Student Project Trainee Schemes",
       "source_url": "https://www.isro.gov.in/InternshipAndProjects.html",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Center review and project/mentor availability.",
+      "how_to_apply": "Choose an ISRO centre or unit whose research matches your course and follow that centre’s internship/project application instructions.\nIndian STEM UG/PG/PhD students need at least 60% or 6.32/10 CGPA.\nFor the BTech project route, complete the sixth semester before applying.\nThe centre assesses suitability against expertise, facilities and available projects.",
       "event_window": "Internship ≤45 days; BTech project ≥45 days",
       "rolling_reason": "ISRO centres assess student requests against laboratory capacity, project availability and requested training dates. Each centre supplies its own submission instructions.",
       "rolling_kind": "lab_dependent"
@@ -1168,7 +1172,7 @@
       "name": "NVIDIA India Student Internships",
       "source_url": "https://www.nvidia.com/en-in/about-nvidia/careers/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Resume screening, technical interviews.",
+      "how_to_apply": "Find an India student internship through NVIDIA Careers and apply to that vacancy.\nMatch your bachelor’s, master’s or PhD discipline and location to the role’s requirements.\nSelection uses resume screening and technical interviews for the chosen role.",
       "event_window": "3–6 months or role-specific",
       "rolling_reason": "NVIDIA recruits against individual India internship vacancies. Each role supplies its own location, eligibility and closing date.",
       "rolling_kind": "vacancy_based"
@@ -1189,7 +1193,7 @@
       "name": "Visiting Student Research Program",
       "source_url": "https://kpv.kaust.edu.sa/internship",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Faculty project fit, transcripts and references.",
+      "how_to_apply": "Choose a faculty project and submit your first VSRP application through the KAUST internship portal.\nPrepare official academic transcripts, with certified English translations where needed, and a faculty recommendation.\nApply after your third bachelor’s year or during eligible graduate/master’s study, with the required GPA and English ability.",
       "event_window": "4–6 months; agreed research start",
       "rolling_reason": "Students apply to available faculty research projects and arrange their attachment with the host laboratory. Project availability and agreed start dates determine timing.",
       "rolling_kind": "lab_dependent"
@@ -1210,7 +1214,7 @@
       "name": "Google Summer of Code",
       "source_url": "https://developers.google.com/open-source/gsoc/timeline",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Application and organiser selection.",
+      "how_to_apply": "Choose a GSoC mentoring organisation and discuss a project idea with its mentors.\nMeet the 18+ and student/open-source-beginner rules, then prepare goals, milestones and any project-specific qualification task.\nSubmit your proposal through the Google Summer of Code site during the contributor application window.",
       "event_window": "Mentored projects; project length and coding dates depend on the edition"
     },
     "hacktoberfest": {
@@ -1230,7 +1234,7 @@
       "deadline_rolling": true,
       "source_url": "https://hacktoberfest.com/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Event participation under the current edition's rules.",
+      "how_to_apply": "Use the Hacktoberfest site to check the edition’s participation rules and join the October event.\nChoose an open-source project welcoming contributions and follow that project’s contribution instructions.",
       "event_window": "Historically October; the next edition's format is unconfirmed"
     },
     "mlh-fellowship": {
@@ -1249,7 +1253,7 @@
       "name": "MLH Fellowship — Spring batch",
       "source_url": "https://fellowship.mlh.com/programs/software-engineering",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Check the official Software Engineering track and select the relevant upcoming batch.\nSubmit the application and complete the coordinator and technical interviews.\nConfirm availability for the full batch and follow the organiser’s current cutoff instructions.",
+      "how_to_apply": "Use Apply Now on MLH Fellowship to select the Spring software-engineering batch.\nDescribe your background, coding experience and motivation in the application.\nComplete a coordinator interview and a code discussion with an MLH mentor before enrolment.",
       "event_window": "Spring 2027 Software Engineering batch runs 25 January–16 April 2027 (official cohort dates).",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -1297,7 +1301,7 @@
       },
       "source_url": "https://www.outreachy.org/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Initial eligibility application, contribution period and final project application.",
+      "how_to_apply": "Submit the initial eligibility application through Outreachy and wait for approval.\nDuring the contribution period, work on a listed project with its mentors and record your contributions on Outreachy.\nSubmit a final application for each project you choose after recording at least one contribution to that project.",
       "event_window": "Three-month remote internships, historically May–August and December–March"
     },
     "lfx-mentorship": {
@@ -1334,7 +1338,7 @@
       },
       "source_url": "https://docs.linuxfoundation.org/lfx/mentorship/mentorship-program-timelines",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Project application, prerequisites and mentor selection.",
+      "how_to_apply": "Create an LFX Mentorship mentee profile with your resume, GitHub/LinkedIn details and skills.\nChoose an Accepting Applications project and term, then complete every prerequisite task and requested document.\nApplicants must be at least 18 and meet the project rules. Apply to at most three mentorships per term.",
       "event_window": "Full-time terms historically March–May, June–August and September–November; part-time project schedules vary"
     },
     "girlscript-summer-of-code": {
@@ -1354,7 +1358,7 @@
       "deadline_rolling": true,
       "source_url": "https://gssoc.girlscript.org/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Contributor application, selection and project contributions.",
+      "how_to_apply": "Choose the open-source track on GirlScript Summer of Code and use the edition’s application link.\nJoin an accepted project and work with its mentors on reviewed open-source contributions.",
       "event_window": "Edition-specific contribution period; verify the open-source track's new schedule"
     },
     "summer-of-bitcoin": {
@@ -1373,7 +1377,7 @@
       "name": "Summer of Bitcoin",
       "source_url": "https://www.summerofbitcoin.org/how-it-works/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Track application, screening/challenges, proposal and mentor review.",
+      "how_to_apply": "Apply to the Summer of Bitcoin developer or design track with your coding/design portfolio and open-source work.\nSelected applicants complete the hands-on Bitcoin challenge round.\nChoose a published project idea and submit a proposal for mentor review through the programme portal.",
       "event_window": "Summer open-source Bitcoin projects; new edition dates unconfirmed"
     },
     "season-of-kde": {
@@ -1392,7 +1396,7 @@
       "name": "Season of KDE",
       "source_url": "https://mentorship.kde.org/sok/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Proposal, mentor matching and project selection.",
+      "how_to_apply": "Choose a Season of KDE project idea and contact its prospective mentor through the KDE community channels.\nDiscuss your proposal and start engaging with the project before applying.\nSubmit through the season’s contributor application route linked by KDE Mentorship for mentor matching and selection.",
       "event_window": "Mentored code and non-code KDE projects; next edition schedule unconfirmed"
     },
     "women-techmakers-ambassadors": {
@@ -1412,7 +1416,7 @@
       "deadline_rolling": true,
       "source_url": "https://www.technovation.org/women-techmakers",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Ambassador application under the current organiser's rules.",
+      "how_to_apply": "Use Become an Ambassador on Technovation’s Women Techmakers page when ambassador applications reopen.\nChoose how you will lead through community events, public speaking, content creation or mentorship.",
       "event_window": "Community ambassador participation; not an internship"
     },
     "amazon-ml-summer-school": {
@@ -1431,7 +1435,7 @@
       "name": "Amazon ML Summer School — India",
       "source_url": "https://www.amazon.science/news-and-features/third-annual-2023-ml-summer-school-amazon-india",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Registration and selection assessment under the edition's rules.",
+      "how_to_apply": "Register through the India ML Summer School link published in Amazon Science’s programme announcement.\nCheck your engineering degree, recognised Indian institution and graduation cohort against the edition’s rules.\nThe published selection test covers mathematics, programming and basic machine-learning concepts.",
       "event_window": "Machine-learning training modules; new edition schedule unconfirmed"
     },
     "amazon-wow": {
@@ -1450,7 +1454,7 @@
       "name": "Amazon Women of the World (WoW)",
       "source_url": "https://www.amazon.jobs/content/en/career-programs/university/women-of-the-world",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Community registration and event participation.",
+      "how_to_apply": "Join Amazon Women of the World through the community registration link on Amazon Jobs.\nChoose a session from the WoW programme and complete its event registration for university students in technology.",
       "event_window": "Community resources and events; session-specific",
       "rolling_reason": "The official programme is an ongoing university-student community with resources and separately announced events. Community enrolment has no annual application cutoff.",
       "rolling_kind": "always_open"
@@ -1471,7 +1475,7 @@
       "name": "Uber She++ — India",
       "source_url": "https://jobs.uber.com/en/teams/emerging-talent/sheplusplus/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Location-specific summit application/selection.",
+      "how_to_apply": "Choose the India She++ summit application on Uber’s emerging-talent She++ page.\nMatch the location’s participation rules for women and people from underserved communities.\nComplete the location-specific summit application and await the event’s selection outcome.",
       "event_window": "India professional-development summit around March 2027 (tentative).",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -1500,7 +1504,7 @@
       "name": "Cisco thingQbator — entrepreneurship cohort",
       "source_url": "https://www.linkedin.com/posts/manthanpsa_entrepreneurship-startupideas-cohort9-activity-7447228899169763328-WwWK",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the thingQbator portal and locate the current entrepreneurship-cohort call.\nCheck the current student and team eligibility, then prepare the idea and prototype information requested.\nSubmit through the organiser’s stated cohort route before its published cutoff.",
+      "how_to_apply": "Ask your institution about the Cisco thingQbator entrepreneurship cohort and its student-project participation route.\nMatch your team or project to the cohort’s institutional requirements and project-selection process.",
       "event_window": "Entrepreneurship incubation and mentoring after cohort selection; 2027 programme dates unpublished",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -1534,7 +1538,7 @@
       "name": "Cisco Internships and Co-ops",
       "source_url": "https://careers.cisco.com/global/en/entry-level-careers",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the linked official portal and find the current programme or vacancy.\nCheck eligibility and prepare the documents specified in that official call.\nUse the stated application route. Selection stages: Vacancy application and role-specific interviews.",
+      "how_to_apply": "Choose Internships & co-ops on Cisco Careers and filter vacancies to India before applying.\nCheck the advertised degree, location and business-group requirements for that internship.\nComplete the vacancy application and any role-specific interviews.",
       "event_window": "3–12 months depending on region and business group",
       "rolling_reason": "The current official entry-level page describes 3–12-month internships/co-ops with schedules varying by region and business group. No India-wide 2027 application window was verified. Keep undated/rolling and verify an actual India vacancy before applying; a global programme page does not confirm a local opening.",
       "rolling_kind": "vacancy_based"
@@ -1555,7 +1559,7 @@
       "name": "Fellowship for Summer Research",
       "source_url": "https://ipc.iisc.ac.in/summer_fellowships.php",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
+      "how_to_apply": "Use the Fellowship for Summer Research application form on IISc Inorganic and Physical Chemistry’s fellowship page.\nDescribe your research interests and academic background so the department can allocate a suitable supervisor.\nIf selected, obtain a college letter confirming that the two-month project follows your exams and avoids your academic semester.",
       "event_window": "Summer research May–Jul 2027 (tentative)."
     },
     "iiith-research-teaser": {
@@ -1574,7 +1578,7 @@
       "name": "Research Teaser Internship",
       "source_url": "https://www.iiit.ac.in/programs/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
+      "how_to_apply": "Choose an IoT, speech-processing or cybersecurity Research Teaser track on IIIT Hyderabad’s Programs page.\nFollow that track’s Know More link for its enrolment instructions and prepare to complete the one-month practical project.",
       "event_window": null,
       "rolling_reason": "Track/cohort-dependent enrolment; each announced track supplies its own application instructions.",
       "rolling_kind": "lab_dependent"
@@ -1595,7 +1599,7 @@
       "name": "Visiting Students Research Program",
       "source_url": "https://mathweb.tifr.res.in/vsrp.html",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
+      "how_to_apply": "Apply through the TIFR Mathematics VSRP Online Application Form.\nPrepare a scanned photograph, a research-interest write-up of up to 400 words and contact details for two academic referees.\nAfter registration, referees receive online report links. Ensure their reports arrive by the separate reference deadline.\nBachelor’s/master’s students can apply for the full on-campus programme. PhD students and faculty are excluded.",
       "event_window": "Summer mathematics research May–Jun 2027 (tentative).",
       "past_cycle_evidence": [
         {
@@ -1622,7 +1626,7 @@
       "name": "S. N. Bhatt Memorial Excellence Fellowship Program",
       "source_url": "https://www.icts.res.in/academic/summer-research-program",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Use Apply Online on the ICTS summer-research page.\nSubmit CV, academic details and at least two referees by 15 December 2026, 17:00 IST.\nArrange referee submissions by 31 December 2026, 17:00 IST and await academic review.",
+      "how_to_apply": "Apply through the ICTS S. N. Bhatt fellowship online application (applications.icts.res.in).\nProvide your CV, academic record and details for at least two referees, who have a separate submission deadline.\nUG applicants normally need three or four years completed by May. Exceptional second-year students may apply.\nMaster’s students must meet the clarification excluding those in their final year by May. Applications undergo academic review.",
       "event_window": "Summer research around mid-May–mid-Jul 2027; described as typical by ICTS."
     },
     "iiser-mohali-summer-research": {
@@ -1641,7 +1645,7 @@
       "name": "Summer Research Program",
       "source_url": "https://www.iisermohali.ac.in/admission-news/summer-research-program",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
+      "how_to_apply": "Submit the online Summer Research Program application linked from IISER Mohali’s admissions notice.\nCheck that your BSc, MSc or equivalent year is eligible for the advertised summer research intake.\nBe ready to take part in the research project and interdisciplinary course work described by IISER Mohali.",
       "event_window": "Eight-week research programme May–Jul 2027 (tentative)."
     },
     "jncasr-srfp": {
@@ -1660,7 +1664,7 @@
       "name": "Summer Research Fellowship Programme",
       "source_url": "https://www.jncasr.ac.in/academic/fandeprogrammes/srfp",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
+      "how_to_apply": "Choose the JNCASR SRFP subject route matching your BSc, BE/BTech, MSc, ME/MTech or integrated programme.\nApply for the Summer Research Fellowship through the JNCASR SRFP call for your eligible study year.",
       "event_window": "Two months of summer research during April–July 2027 (tentative).",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -1694,7 +1698,7 @@
       "name": "NIUS Physics and Astronomy",
       "source_url": "https://secure.hbcse.tifr.res.in/nius/physics/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
+      "how_to_apply": "Create and activate an applicant profile on the HBCSE NIUS portal, then use the common Physics/Astronomy form.\nUpload a photo, first-year bonafide certificate and a single PDF of Class X, XII and available first-semester marksheets.\nProvide two academic referees from the last two years, including at least one UG teacher, for confidential assessment reports.\nChoose your subject preference and submit one application for the two subjects.",
       "event_window": "NIUS camps and continuing projects follow batch-specific schedules."
     },
     "barc-practical-training-project-work": {
@@ -1713,7 +1717,7 @@
       "name": "Practical Training and Project Work",
       "source_url": "https://www.barc.gov.in/student/index.html",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Ask your institution to forward the prescribed application on college letterhead to HRDD, BARC.\nAttach the resume, relevant marksheets and college ID specified in Student Corner.\nSend within the prescribed lead time and await departmental screening and approval.",
+      "how_to_apply": "Send HRDD BARC the prescribed hard-copy application on college letterhead, signed and stamped by your college authority.\nAttach a one-page resume, relevant marksheets and a valid college ID copy.\nApply from three months to 15 days before your requested start and meet the 60%, no-backlogs and degree-semester conditions.\nYour college can forward up to three students per degree/subject for departmental screening and approval.",
       "event_window": null,
       "rolling_reason": "Institution-forwarded training is scheduled against each requested start date.",
       "rolling_kind": "nomination_based"
@@ -1734,7 +1738,7 @@
       "name": "Summer Training Program",
       "source_url": "https://e-portal.ccmb.res.in/app_space/stp/app_latest.php",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
+      "how_to_apply": "Complete the CCMB Summer Training online application through its STP e-portal.\nPrepare a photograph, prescribed HoD/Dean recommendation or authorisation, and one PDF combining school and degree marksheets.\nWrite your statement of purpose. Selection considers academics, the statement and recommendation.\nBe available for at least 60 uninterrupted days if selected.",
       "event_window": "Eight-week placement May–Jul 2027 (tentative)."
     },
     "hyperledger-mentorship": {
@@ -1753,7 +1757,7 @@
       "name": "Hyperledger Mentorship Program",
       "source_url": "https://lf-decentralized-trust-mentorships.github.io/mentorship-program/main/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Find an LF Decentralized Trust project on LFX Mentorship.\nPrepare the project-specific application and contribution evidence.\nApply during the mentee period and complete mentor review/interview.",
+      "how_to_apply": "Create an LFID and LFX Mentorship mentee profile, then search LFDT projects accepting applicants.\nPrepare your latest resume and a cover letter explaining your project interest, relevant skills and learning goals.\nComplete the chosen project’s prerequisites, including any requested work samples or coding challenge.\nSubmit through LFX Mentorship for mentor review, within the three-project application limit.",
       "event_window": "Part-time mentorship Jun–Nov 2027 (tentative)."
     },
     "rise-germany": {
@@ -1772,7 +1776,7 @@
       "name": "RISE Germany",
       "source_url": "https://www.daad.de/rise/en/rise-germany/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
+      "how_to_apply": "Only undergraduates at North American (US/Canada), British or Irish universities qualify. Students at Indian universities are ineligible.\nApply through the RISE Germany internship database and select suitable research projects.\nUpload your transcript, enrolment certificate and motivation material. Invite a PhD-qualified academic referee through the database.\nHost rankings and DAAD review determine the placement.",
       "event_window": "Research internships in Germany during summer 2027; project dates vary."
     },
     "charpak-summer-training": {
@@ -1791,7 +1795,7 @@
       "name": "France Excellence Charpak Summer Training Scholarship",
       "source_url": "https://www.inde.campusfrance.org/france-excellence-charpak-summer-training-scholarship",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Obtain an invitation from a French laboratory.\nApply through the linked scholarship portal with CV, passport or application proof, transcripts and statement of purpose.\nMeet the new call deadline and await academic/motivation-based selection.",
+      "how_to_apply": "Secure a French laboratory invitation, then apply through the Campus France India online scholarship portal.\nIndian nationals residing and studying in India at bachelor’s/master’s level must be at most 30 when applying.\nUpload a photo, passport/proof of application, two-page CV, marksheets, institute NOC and host invitation or supporting correspondence.\nSelection weighs academic excellence and your statement of purpose.",
       "event_window": "One to two months of research in France during May–August 2027 (tentative).",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -1819,7 +1823,7 @@
       "name": "Singapore International Pre-Graduate Award",
       "source_url": "https://www.a-star.edu.sg/gis/join-us/students",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Contact a suitable A*STAR scientist about an attachment.\nCheck SIPGA eligibility and prepare the requested academic documents.\nWork with the host institute on award submission and attachment approval.",
+      "how_to_apply": "Contact a Genome Institute of Singapore scientist about a research attachment, or apply through your university’s attachment programme.\nInternational students can request SIPGA support with GIS assistance once a suitable lab attachment is arranged.\nAllow about five to six months for the application and paperwork.",
       "event_window": null,
       "rolling_reason": "Host-lab attachment timing varies; arrange a scientist-supported attachment with the stated processing lead time.",
       "rolling_kind": "lab_dependent"
@@ -1840,7 +1844,7 @@
       "name": "Student Summer Research Fellowship",
       "source_url": "https://inf.ethz.ch/studies/summer-research-fellowship/how-to-apply.html",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Choose one or two participating research areas.\nApply through SiROP with CV, official transcript and a one-page motivation letter.\nSubmit a complete application and attend an interview if requested.",
+      "how_to_apply": "Apply through SiROP from the ETH Zurich Student Summer Research Fellowship page and choose one or two preferred research areas.\nUpload an English Europass CV, official transcript and an English motivation statement of up to one page.\nComplete two years of study before the fellowship and graduate in the following year or later.\nThe full July–August stay is required. Shortlisted candidates may have an interview.",
       "event_window": "Full-time July–August fellowship in 2027 (tentative)."
     },
     "amgen-scholars": {
@@ -1859,7 +1863,7 @@
       "name": "Amgen Scholars Program",
       "source_url": "https://amgenscholars.com/asia-program/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Choose an eligible Amgen Asia host.\nPrepare that host's undergraduate academic documents and references.\nSubmit separately to each chosen host by 1 February 2027 and await host selection.",
+      "how_to_apply": "Choose an Amgen Scholars Asia host and apply directly through that host’s own application process.\nYou must be an undergraduate at an Asian university with one year completed and at least one term remaining after summer.\nCheck the published English-score requirement, such as TOEFL iBT 72 or IELTS 5.5, and the host’s supporting documents.",
       "event_window": "Asia placements run from late May/June to 5 August 2027 (official host-specific dates)."
     },
     "microsoft-research-internships": {
@@ -1878,7 +1882,7 @@
       "name": "Microsoft Research Internships",
       "source_url": "https://www.microsoft.com/en-us/research/careers/open-positions/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Find a current research-intern vacancy and verify its country.\nApply to the requisition with CV and the requested research/academic evidence.\nComplete role-specific screening and interviews.",
+      "how_to_apply": "Find a research internship through Microsoft Research Open Positions and submit the linked vacancy application.\nArrange the two reference letters required for Microsoft Research positions, including one from your advisor.\nMatch your research background and degree to the specific posting’s requirements.",
       "event_window": "Placement dates and duration are vacancy-specific.",
       "rolling_reason": "Vacancy-based research recruitment; each role defines its eligibility, start and closing date.",
       "rolling_kind": "vacancy_based"
@@ -1899,7 +1903,7 @@
       "name": "Adobe Research Internships",
       "source_url": "https://research.adobe.com/careers/internships/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Find a current research-intern vacancy and verify its country.\nApply to the requisition with CV and the requested research/academic evidence.\nComplete role-specific screening and interviews.",
+      "how_to_apply": "Use the research-internship application linked from Adobe Research’s Internships page.\nPhD and master’s students should choose research areas matching their academic work and the advertised mentor projects.",
       "event_window": "Placement dates and duration are vacancy-specific.",
       "rolling_reason": "Vacancy-based research recruitment; each role defines its eligibility, start and closing date.",
       "rolling_kind": "vacancy_based"
@@ -1920,7 +1924,7 @@
       "name": "Amazon Science Internships",
       "source_url": "https://www.amazon.science/careers?f0=internship",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Find a current research-intern vacancy and verify its country.\nApply to the requisition with CV and the requested research/academic evidence.\nComplete role-specific screening and interviews.",
+      "how_to_apply": "Filter Amazon Science Careers to Internship and select a vacancy matching your research field and location.\nApply through the vacancy’s Amazon Jobs link and match its master’s/PhD or other stated degree requirements.",
       "event_window": "Placement dates and duration are vacancy-specific.",
       "rolling_reason": "Vacancy-based research recruitment; each role defines its eligibility, start and closing date.",
       "rolling_kind": "vacancy_based"
@@ -1941,7 +1945,7 @@
       "name": "IBM Research India Internships",
       "source_url": "https://www.research.ibm.com/labs/india/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Find a current research-intern vacancy and verify its country.\nApply to the requisition with CV and the requested research/academic evidence.\nComplete role-specific screening and interviews.",
+      "how_to_apply": "Find an India research-internship vacancy through IBM Research India’s careers route.\nMatch your degree and research area to the project-specific requirements set by the hiring team.",
       "event_window": "Placement dates and duration are vacancy-specific.",
       "rolling_reason": "Vacancy-based research recruitment; each role defines its eligibility, start and closing date.",
       "rolling_kind": "vacancy_based"
@@ -1962,7 +1966,7 @@
       "name": "NVIDIA Research Internships",
       "source_url": "https://www.nvidia.com/en-us/research/internships/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Find a current research-intern vacancy and verify its country.\nApply to the requisition with CV and the requested research/academic evidence.\nComplete role-specific screening and interviews.",
+      "how_to_apply": "Choose an internship through NVIDIA Research’s Internships page and follow the corresponding vacancy application.\nMatch your degree and research experience to that lab’s advertised research area and project requirements.",
       "event_window": "Placement dates and duration are vacancy-specific.",
       "rolling_reason": "Vacancy-based research recruitment; each role defines its eligibility, start and closing date.",
       "rolling_kind": "vacancy_based"
@@ -1983,7 +1987,7 @@
       "name": "ICPC India Regionals — common online qualification",
       "source_url": "https://mathuraicpc.in/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Form an eligible university team of three with an institutional coach.\nRegister the team for the selected India regional site on ICPC Global and complete that site’s fee formalities.\nSubmit the required India preliminary undertaking and attend the announced common online round.",
+      "how_to_apply": "Register your college team and coach through the ICPC Mathura registration route for the common India online qualifier.\nThe coach receives fee and payment instructions. The 2026 Mathura route charged Rs 1,500 online and Rs 4,500 onsite.\nTake the common India preliminary online contest and follow the qualifying regional-site selection instructions.",
       "event_window": "India preliminary online round in October 2027 and regional onsite rounds in December–January (tentative).",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -2011,7 +2015,7 @@
       "name": "IISc Chemical Engineering Internship Programme (CEIP)",
       "source_url": "https://chemeng.iisc.ac.in/opportunities/internships/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Review the Chemical Engineering department’s current CEIP notice and course/year eligibility.\nRequest a faculty recommendation or ask your department about its invitation to nominate students.\nFollow the CEIP team’s instructions and submit the required material by the new call’s deadline.",
+      "how_to_apply": "Write to IISc Chemical Engineering faculty to request a CEIP recommendation, or use an invited department’s student-nomination route.\nPrimarily third-year BE/BTech Chemical Engineering students should explain their fit with a faculty research group.",
       "event_window": "Eight-week Chemical Engineering research programme during June–July 2027 (tentative).",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -2039,7 +2043,7 @@
       "name": "IRCC Research Internship Award (RIA)",
       "source_url": "https://www.ircc.iitb.ac.in/IRCC-Webpage/IITBInternship/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Register once using the IRCC internship application link.\nPrepare a 500-word statement of purpose and the prescribed top-20-percent certificate.\nSubmit the final application and attend faculty interviews if shortlisted.",
+      "how_to_apply": "Register as a new applicant on IIT Bombay’s IRCC Research Internship Award portal, then submit the final application.\nChoose an advertised faculty project and prepare a 500-word statement of purpose explaining your research fit.\nUpload the prescribed principal’s certificate of top-20% standing. Shortlisted candidates are interviewed.",
       "event_window": "Four to six months of project research after December 2027–January 2028 joining (tentative).",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -2067,7 +2071,7 @@
       "name": "Summer Internship Programme",
       "source_url": "https://eapplication.nitrkl.ac.in/internship/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
+      "how_to_apply": "Register and submit the NIT Rourkela Summer Internship application on its e-application portal.\nExternal students should match their course and study year to the institute’s internship criteria.\nCheck the selection result on the same portal and bring the original application and HoD recommendation when required for verification.",
       "event_window": "Summer placement May–Jul 2027 (tentative)."
     },
     "tifr-vsrp": {
@@ -2086,7 +2090,7 @@
       "name": "TIFR VSRP — central Mumbai programme",
       "source_url": "https://web.archive.org/web/20250108225814/https://www.tifr.res.in/academics/summer_program.php",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Check the central TIFR official page for an announced resumption.\nIf a new central call is published, use its eligibility criteria and application route.\nFor active school-specific summer calls, check the separate Mathematics and NCRA entries.",
+      "how_to_apply": "Check the central TIFR Mumbai VSRP page for an official restart before seeking a central-programme application.\nFor a school-specific intake, use the separate TIFR Mathematics or NCRA VSRP application matching your science/engineering background.",
       "event_window": "Central Mumbai VSRP suspended until further notice.",
       "rolling_reason": "The official central TIFR page, archived in January 2025, says Mumbai VSRP is suspended until further notice. Mathematics and NCRA retain separate school-specific annual rows. No central restart is verified.",
       "rolling_kind": "paused"
@@ -2107,7 +2111,7 @@
       "name": "PM Internship Scheme",
       "source_url": "https://www.pib.gov.in/PressReleasePage.aspx?PRID=2254498&lang=1&reg=3",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the PM Internship Scheme portal and check current-round eligibility.\nCreate a candidate profile with the requested identity and academic details.\nChoose available opportunities and follow company shortlisting and joining instructions.",
+      "how_to_apply": "Register on the PM Internship Scheme portal (pminternship.mca.gov.in) and choose internships matching your interests.\nCheck the active round’s age, qualification, employment and study conditions. The April 2026 notice includes an 18–25 student route.\nStudents applying under that route must submit an NOC from their educational institution.",
       "event_window": null,
       "rolling_reason": "Government pilot rounds and company vacancies determine availability. Verified rounds have changed dates, so no stable annual month can be projected.",
       "rolling_kind": "vacancy_based"
@@ -2128,7 +2132,7 @@
       "name": "LAMP Fellowship",
       "source_url": "https://prsindia.org/lamp/how-to-apply",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Use the application link on the PRS LAMP How to Apply page when available.\nPrepare the academic and written material requested by the new call.\nSubmit within that call and follow the PRS selection process.",
+      "how_to_apply": "Apply through the PRS LAMP Fellowship application linked from How to Apply.\nPrepare two essays, one on your candidature and one analysing an issue and its policy implications.\nIndian graduates must meet the cohort’s age limit. The 2026–27 FAQ specifies up to 25 years.\nShortlisted applicants take an online evaluation, followed by interviews if they clear it.",
       "event_window": "2027–28 parliamentary fellowship; joining dates await the call.",
       "deadline_rolling": true
     },
@@ -2148,7 +2152,7 @@
       "name": "Young India Fellowship — Round 1 priority",
       "source_url": "https://www.ashoka.edu.in/yif-admissions/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Register on the official YIF application portal and check the current round.\nPrepare academic and professional details, essays, the video essay and an appropriate recommendation.\nSubmit once per admissions cycle in the chosen round; follow the interview and funding instructions.",
+      "how_to_apply": "Register on Ashoka’s YIF application portal (yifapplication.ashoka.edu.in) for Round 1 priority review.\nPrepare three written essays, a video essay, government ID, photo, one-page CV, marksheets and activity evidence.\nShortlisted applicants arrange one recommendation and attend personal interviews.\nApply once per admissions cycle in one round only.",
       "event_window": "Residential fellowship July 2027–July 2028.",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -2176,7 +2180,7 @@
       "name": "Teach For India Fellowship — Round 1",
       "source_url": "https://www.teachforindia.org/faqs",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Read the current Teach For India cohort eligibility and live round deadline.\nComplete the official online application and required assessments using your own account.\nApply only once per cohort and follow the assessment-centre instructions.",
+      "how_to_apply": "Apply through Teach For India’s fellowship portal (apply.teachforindia.org) for Round 1.\nComplete the online application and English assessment, describing your achievements and motivation.\nShortlisted applicants attend an assessment centre with sample teaching, a group activity, critical-thinking assessment and interview.\nIndian citizens/OCI holders need a bachelor’s degree by the start and can apply once per selection cycle.",
       "event_window": "Two-year teaching fellowship for the 2027 cohort. Current official selection cycle July 2026–March 2027.",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -2210,7 +2214,7 @@
       "name": "SBI Youth for India Fellowship",
       "source_url": "https://register.youthforindia.org/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
+      "how_to_apply": "Fresh SBI Youth for India applications are paused. Check the registration site for an announced resumption.\nWhen submissions resume, complete registration and the online assessment on the Youth for India portal.\nSelected applicants attend a personal interview and must meet the graduate, age and Indian-citizen/OCI conditions.",
       "event_window": null,
       "rolling_reason": "Fresh applications are paused; await an announced resumption and round deadline.",
       "rolling_kind": "paused"
@@ -2231,7 +2235,7 @@
       "name": "Gandhi Fellowship",
       "source_url": "https://gandhifellowship.org/apply-now/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
+      "how_to_apply": "Use Apply Now on Gandhi Fellowship’s website to reach the Aspire portal (aspire.gandhifellowship.org).\nFor the published cohort, graduate by June 2027, be at most 26 and meet the 55% average across Class X, XII and graduation.\nComplete the application and follow the fellowship’s assessment and interview invitations.",
       "event_window": "Two-year full-time community and public-education fellowship after the selected intake.",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -2259,7 +2263,7 @@
       "name": "INSPIRE Scholarship (SHE)",
       "source_url": "https://online-inspire.gov.in/Account/OpenDocument?documentId=5130603",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Register on INSPIRE and select SHE-2025.\nUpload photo, birth-date proof, Class XII marksheet, institutional endorsement and applicable eligibility evidence.\nSubmit by 7 December 2026, 23:59 IST and monitor the board/merit-based evaluation.",
+      "how_to_apply": "Register and apply for INSPIRE SHE through the INSPIRE online portal (online-inspire.gov.in).\nUpload a photo, Class X and XII marksheets, and the prescribed endorsement signed by your principal, director or registrar.\nInclude the qualifying rank/award certificate if using that route and the advisory note if your board provided one.\nMatch the advertised Class XII passing year and eligible basic/natural-science degree conditions.",
       "event_window": "SHE-2025 cohort support follows the award and renewal rules."
     },
     "inlaks-scholarship": {
@@ -2278,7 +2282,7 @@
       "name": "Inlaks Shivdasani Foundation Scholarship",
       "source_url": "https://inlaksfoundation.org/opportunities/scholarship/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
+      "how_to_apply": "Apply through the Inlaks Scholarship online application linked by the foundation.\nIndian citizens resident in India need the required first degree, age eligibility and admission offer.\nIf applying with a conditional offer, fulfil its conditions before the final interview when shortlisted.",
       "event_window": "Postgraduate study at an eligible overseas institution after the scholarship selection.",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -2306,7 +2310,7 @@
       "name": "J. N. Tata Endowment Loan Scholarship",
       "source_url": "https://www.jntataendowment.org/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Register during the new Endowment call.\nSupply the academic, admission and financial documents it requires.\nComplete the aptitude test and subject-expert interview if shortlisted.",
+      "how_to_apply": "Use the J. N. Tata Endowment loan-scholarship application route linked from the endowment’s website.\nIndian-national graduates should match their recognised-university degree to the endowment’s published scholarship criteria.",
       "event_window": "Fall 2027–Spring 2028 study (tentative)."
     },
     "fulbright-nehru": {
@@ -2325,7 +2329,7 @@
       "name": "Fulbright-Nehru Master’s Fellowships",
       "source_url": "https://usief.org.in/fulbright-fellowships/fellowships-for-indian-citizen/fulbright-nehru-masters-fellowships/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Choose the relevant Indian-citizen Fulbright-Nehru award on USIEF.\nUse its linked system with category-specific academic, research and reference documents.\nMeet that award deadline and complete review, interview and placement stages.",
+      "how_to_apply": "Apply through the USIEF online application for Fulbright-Nehru Master’s Fellowships.\nIndian applicants need the qualifying degree and at least three years of relevant full-time paid work by the deadline.\nUpload the work/professional-experience proof requested in the application instructions.\nApply for one Fulbright-Nehru category per cycle. Nominees take the required tests, such as TOEFL and GRE.",
       "event_window": "Master’s award cycle after the projected 2027 application round, subject to resumption of a new call.",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -2353,7 +2357,7 @@
       "name": "Commonwealth Scholarships and Fellowships",
       "source_url": "https://cscuk.fcdo.gov.uk/scholarships/commonwealth-masters-scholarships/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Check Masters eligibility and your national nominating agency rules.\nSubmit through CSC Central with identity, academic records and references.\nMeet the separate nominating-agency cutoff and await CSC selection.",
+      "how_to_apply": "Apply through CSC’s online system and the eligible national nominating agency’s Commonwealth Master’s route.\nUpload citizenship/refugee-status proof, full higher-education transcripts and at least two signed references.\nMeet the nominator’s separate deadline and eligibility conditions as well as CSC’s requirements.",
       "event_window": "UK Masters begins Sep/Oct 2027 (official)."
     },
     "erasmus-mundus-joint-masters": {
@@ -2372,7 +2376,7 @@
       "name": "Erasmus Mundus Joint Masters Scholarships",
       "source_url": "https://erasmus-plus.ec.europa.eu/opportunities/individuals/students/erasmus-mundus-joint-masters-scholarships",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Choose a Joint Masters from the official catalogue.\nCheck the consortium eligibility and prepare its requested degree, language and reference documents.\nApply directly to that consortium for admission and scholarship by its own deadline.",
+      "how_to_apply": "Find a joint master’s in the Erasmus Mundus course catalogue and apply directly to the institution running it.\nUse that programme’s admission and scholarship application process and meet its own academic entry requirements.",
       "event_window": "Course starts in the following academic year; consortium dates vary."
     },
     "swiss-government-excellence": {
@@ -2391,7 +2395,7 @@
       "name": "Swiss Government Excellence Scholarships",
       "source_url": "https://www.sbfi.admin.ch/sbfi/en/home/education/scholarships-and-grants/swiss-government-excellence-scholarships.html",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Check your country-specific Swiss Government Excellence award.\nObtain required Swiss academic supervisor support for a research award.\nSubmit the country dossier to the Swiss diplomatic representation by its stated cutoff.",
+      "how_to_apply": "Find a Swiss academic supervisor willing to support your project before applying for the relevant country’s scholarship call.\nPrepare a CV, motivation letter, research proposal, supervisor support letter and the supervisor’s short CV.\nUse the Swiss Government Excellence Scholarships online application and provide two academic referees’ email addresses.",
       "event_window": "Research or arts scholarship in academic year 2027–28 (official cycle).",
       "deadline_rolling": true,
       "unpublished_cutoff": true
@@ -2412,7 +2416,7 @@
       "name": "Reliance Foundation Scholarships",
       "source_url": "https://www.reliancefoundation.org/media/media-release/Reliance_Foundation_Scholarships_2026-27",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
+      "how_to_apply": "Select the undergraduate or postgraduate track on the Reliance Foundation Scholarships portal.\nMatch the track’s Indian-student academic and household-income criteria before completing the application.\nComplete the track’s required aptitude assessment. Academic and aptitude evidence are assessed together.",
       "event_window": "UG/PG scholarship for academic year 2027–28 (tentative).",
       "deadline_rolling": true
     },
@@ -2432,7 +2436,7 @@
       "name": "Aditya Birla Scholarship",
       "source_url": "https://www.adityabirlascholars.net/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
+      "how_to_apply": "Confirm that your institution is an Aditya Birla Scholarship partner and obtain its campus application instructions.\nComplete the scholarship application and submit it to your Dean for institute nomination.\nShortlisted students attend the scholarship interview.",
       "event_window": null,
       "rolling_reason": "Institute nomination and campus shortlisting determine application timing.",
       "rolling_kind": "nomination_based"
@@ -2453,7 +2457,7 @@
       "name": "Narotam Sekhsaria Foundation Scholarship",
       "source_url": "https://pg.nsfoundation.co.in/final-call/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
+      "how_to_apply": "Register on the Narotam Sekhsaria Foundation PG portal and pay the stated Rs 500 non-refundable application-access fee.\nComplete Full Application Parts 1–2–3 and submit for shortlisting.\nIf shortlisted, upload attested marksheets and test scores, university acceptance/fees, references, funding proof, co-applicant ITR and passport.\nAttend the required interview and, if selected, the in-person orientation.",
       "event_window": "Postgraduate study after the scholarship and interview process.",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -2481,7 +2485,7 @@
       "name": "MIT Summer Research Program (MSRP)",
       "source_url": "https://oge.mit.edu/msrp/application/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Check eligibility, including full-time study at a US institution.\nApply using the MIT link with essays, CV, unlocked transcript and two recommendation letters.\nEnsure all materials and both letters arrive by 19 January 2027, 23:59 ET.",
+      "how_to_apply": "Use the MIT MSRP application link and confirm that you study full-time at an eligible US institution.\nPrepare a personal statement, research goals, CV and unofficial transcripts from all institutions attended.\nList your top three department, faculty and research-area preferences and arrange two recommendation letters.",
       "event_window": "Programme 7 June–7 August 2027 (official)."
     },
     "caltech-surf": {
@@ -2500,7 +2504,7 @@
       "name": "Summer Undergraduate Research Fellowships (SURF)",
       "source_url": "https://sfp.caltech.edu/undergraduate-research/programs/surf/application_information",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Secure faculty mentor agreement and develop a project before applying.\nApply through SFP Online with a proposal, visiting-student transcript and two reference letters.\nMeet the 22 February deadline and await faculty review.",
+      "how_to_apply": "Arrange a Caltech research mentor and develop your proposed SURF project before applying through SFP Online.\nUpload your own research proposal and an unofficial transcript if you are a visiting student.\nEnter two recommenders, including at least one faculty member, so their confidential letters reach SFP Online by the deadline.",
       "event_window": "Ten-week summer research project in 2027; verify mentor dates."
     },
     "nus-summer-research": {
@@ -2519,7 +2523,7 @@
       "name": "NUS Research Attachment Programmes",
       "source_url": "https://nus.edu.sg/gro/global-programmes/research-attachments",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
+      "how_to_apply": "NUS undergraduates should choose a partner-university research attachment from the NUS Global Relations list.\nFollow that attachment’s nomination and direct application instructions and its separate deadlines.\nConfirm eligibility as an outward NUS exchange participant and maintain the required clean disciplinary record.",
       "event_window": "Attachment dates depend on the chosen partner programme.",
       "rolling_reason": "Partner research attachments are programme-specific; check exchange direction, eligibility and its own cutoff.",
       "rolling_kind": "nomination_based"
@@ -2540,7 +2544,7 @@
       "name": "JSPS Summer Program",
       "source_url": "https://www.jsps.go.jp/english/e-summer/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Check eligibility through a listed JSPS nominating authority.\nArrange a Japanese host and the requested research/academic documents.\nApply through that authority by its own cutoff and await nomination.",
+      "how_to_apply": "Check the JSPS Summer Program’s eligible countries and designated nominating authority before applying.\nArrange a research attachment with a Japanese host and follow your nominating authority’s application process.\nUse that authority’s deadline and qualification rules for nomination.",
       "event_window": "JSPS Summer Program 2027; confirm host and nomination-authority dates.",
       "rolling_reason": "Nominating authorities have separate application windows and eligibility; no worldwide cutoff applies.",
       "rolling_kind": "nomination_based"
@@ -2561,7 +2565,7 @@
       "name": "IAESTE Internships",
       "source_url": "https://iaeste.org/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Contact your IAESTE national committee and create its applicant account.\nChoose an eligible offer and prepare academic, language and CV documents.\nComplete committee nomination and employer selection for that offer.",
+      "how_to_apply": "Register on the IAESTE Exchange Platform and contact your national or local IAESTE committee.\nOnce your profile is approved, choose an internship offer and follow the committee’s application and nomination instructions.",
       "event_window": null,
       "rolling_reason": "Offer and committee recruitment cycles vary; each internship has a separate deadline.",
       "rolling_kind": "vacancy_based"
@@ -2582,7 +2586,7 @@
       "name": "Heidelberg Laureate Forum",
       "source_url": "https://www.heidelberg-laureate-forum.org/young-researchers/faq/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Choose your academic stage in the HLF young-researcher application.\nUpload CV, motivation and requested records; invite a professor/supervisor to submit the reference directly.\nSubmit by 11 February 2027, 23:59 Berlin time and await academic selection.",
+      "how_to_apply": "Apply through the Heidelberg Laureate Forum young-researcher application system.\nPrepare a CV, motivation statement and academic diplomas with English translations.\nEnter your professor/supervisor referee’s name and email so they can submit the recommendation directly.\nMaths/computer-science researchers can participate once at each academic level. PhD graduates/postdocs provide the added thesis material.",
       "event_window": "14th Heidelberg Laureate Forum in September 2027 (official month)."
     },
     "nic-digital-india-winter": {
@@ -2595,15 +2599,15 @@
       "hiring_mode": "Selection under the current official notice",
       "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
       "duration_start": "Offline internship 1 December 2026–31 January 2027 (official).",
-      "verification_note": "NIC states winter registration starts 2 November 2026 without a retrieved cutoff. This is distinct from MeitY.",
+      "verification_note": "NIC winter 2026 registration ran from 2 November to 13 November 2026, 05:00 PM IST, and is closed. Internship runs 1 December 2026–31 January 2027.",
       "opening_text": "2 Nov 2026",
-      "deadline_text": "Cutoff not published; check the current call",
+      "deadline_text": "13 Nov 2026 (official)",
       "name": "NIC Digital India Internship — winter",
       "source_url": "https://dii.nic.in/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Use Intern Registration on dii.nic.in for the winter intake.\nCheck discipline and study-year rules and prepare requested academic/institutional evidence.\nSubmit through NIC and follow its selection instructions.",
+      "how_to_apply": "Winter 2026 registration closed on 13 November at 05:00 PM IST. That intake no longer accepts applications.\nFor a future NIC winter call, use Intern Registration on the NIC Digital India Internship portal (dii.nic.in).",
       "event_window": "Offline internship 1 December 2026–31 January 2027 (official).",
-      "deadline_rolling": true
+      "deadline_rolling": false
     },
     "nic-digital-india-summer": {
       "row_id": "OPP-249",
@@ -2621,7 +2625,7 @@
       "name": "NIC Digital India Internship — summer intake",
       "source_url": "https://dii.nic.in/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
+      "how_to_apply": "Use the NIC Digital India Internship summer-intake registration (dii.nic.in) when that call is announced.\nMatch your academic, nationality and age details to the NIC summer intake’s eligibility conditions.",
       "event_window": "Summer research attachment at NIC in 2027, subject to the new summer notice.",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -2649,7 +2653,7 @@
       "name": "Lok Sabha Internship Programme",
       "source_url": "https://sansad.in/ls/pride/internship",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Read the internship advertisement on Digital Sansad.\nPrepare the application and requested academic/age evidence.\nSubmit through its stated route and follow the Internship Committee selection.",
+      "how_to_apply": "Check the Lok Sabha PRIDE internship advertisement and use its prescribed application format.\nThe 2020 need-based notice accepted email to pride.internship@sansad.nic.in or hard copy to PRIDE. Confirm the new call’s route.\nThe standing programme page specifies Indian citizens aged 21–28.",
       "event_window": "Normally January–December, subject to the new notice."
     },
     "nhrc-internships": {
@@ -2668,7 +2672,7 @@
       "name": "NHRC Summer Internship Programme",
       "source_url": "https://nhrc.nic.in/assets/uploads/summer_winter/1776080420_39da71cfc896a687f6f4.pdf",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Choose the correct NHRC summer, winter or online call.\nPrepare the marksheets and institutional recommendation required by that call.\nApply through its official link and check the selection list.",
+      "how_to_apply": "Apply through the online NHRC Summer Internship link in the SIP notification.\nThe 2026 call required eligible regular law/PG study, at least 60% in Class XII and the first six degree semesters, and age at most 28.\nPrepare attested Class X, XII and degree-semester marksheets and the prescribed recommendation signed and sealed by your principal/HoD/dean.",
       "event_window": "Four-week in-person summer internship during June 2027 (tentative).",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -2696,7 +2700,7 @@
       "name": "Morgan Stanley Code to Give — India",
       "source_url": "https://morganstanley.tal.net/vx/mobile-0/brand-2/spa-1/candidate/so/pm/1/pl/2/opp/19200-India-Code-to-Give-Hackathon-2025/en-GB",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
+      "how_to_apply": "Use the Morgan Stanley Code to Give India candidate application for the advertised hackathon.\nMatch your academic and other eligibility details to the India Code to Give notice before submitting the candidate form.",
       "event_window": "India virtual hackathon during March 2027 (tentative).",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -2724,7 +2728,7 @@
       "name": "L’Oréal Brandstorm — India",
       "source_url": "https://brandstorm.loreal.com/en",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
+      "how_to_apply": "Register your Brandstorm entry on L’Oréal’s Brandstorm platform for the India competition.\nSubmit slides explaining your idea and a three-minute video presenting your team and answering the five supplied questions.\nSelected teams pitch their solution at the country-level L’Oréal round.",
       "event_window": "Competition rounds and final dates are event-specific.",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -2752,7 +2756,7 @@
       "name": "Tata Crucible Campus Quiz",
       "source_url": "https://www.tatacrucible.com/campus-quiz/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
+      "how_to_apply": "Register individually through the Tata Crucible Campus Quiz website and choose your institution’s location.\nYou must be at least 18 and a full-time student at a recognised Indian institution.\nQualify through the online preliminary rounds, followed by cluster, zonal and national finals.",
       "event_window": "Competition rounds and final dates are event-specific.",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -2780,7 +2784,7 @@
       "name": "ITC Interrobang",
       "source_url": "https://itcportal.com/careers/itc-interrobang.html",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
+      "how_to_apply": "Register a three- to four-member team through your B-school’s ITC Interrobang campus launch.\nUse Interroconnect mentorship to develop your Marketing, HR or Supply Chain case solution and submit it for evaluation.\nCampus finalists present to ITC leaders at Interrojam. Campus winners may qualify for the national round and a PPI.",
       "event_window": "Competition rounds and final dates are event-specific.",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -2808,7 +2812,7 @@
       "name": "Shell Eco-marathon — Asia-Pacific and Middle East",
       "source_url": "https://www.shellecomarathon.com/about/faq.html",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Read the organiser’s APME cancellation and next-season updates.\nWait for the next announced APME registration call.\nFollow the technical and logistics registration phases when the new call is published.",
+      "how_to_apply": "The Asia-Pacific/Middle East Qatar 2027 event is cancelled. Check Shell’s official FAQ for the next announced season.\nWhen the regional entry route resumes, use that season’s team-registration instructions and plan funding for your vehicle and participation.",
       "event_window": "Asia-Pacific/Middle East and Global Championship Qatar 2027 cancelled. Await 2028 season announcements.",
       "rolling_reason": "The organiser has cancelled Qatar 2027, covering Asia-Pacific/Middle East and the Global Championship, and publishes no replacement APME registration. Await the announced 2028 season.",
       "rolling_kind": "paused"
@@ -2829,7 +2833,7 @@
       "name": "Code for GovTech — Dedicated Mentoring Program",
       "source_url": "https://c4gt-docs.netlify.app/initiatives/dmp/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Read the new DMP project list and each project’s skill requirements.\nJoin the official community, discuss the project and prepare the requested proposal.\nApply through the platform linked by the new DMP call and complete any organisation-specific assessment.",
+      "how_to_apply": "Choose a Code for GovTech DMP project and apply through the Unstop candidate-selection link in the C4GT documentation.\nMatch your skills to the technology or product-usability/design track and the chosen digital-public-goods problem statement.",
       "event_window": "Three-month dedicated mentoring and coding programme after the application round (tentative).",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -2857,7 +2861,7 @@
       "name": "FOSSEE Summer Fellowship",
       "source_url": "https://fossee.in/node/82",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Choose a FOSSEE project and screening task.\nComplete the task and prepare requested source files and report.\nSubmit through the project link and complete further screening if required.",
+      "how_to_apply": "Register for the FOSSEE Summer Fellowship and choose a project’s published screening task.\nComplete and submit the required task in that project’s submission format. Selection is based on task quality.",
       "event_window": "Six to eight weeks of summer FOSSEE work, normally starting May (tentative).",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -2891,7 +2895,7 @@
       "name": "Kharagpur Winter of Code (KWoC)",
       "source_url": "https://kwoc.kossiitkgp.org/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the official portal and read the current call and eligibility.\nPrepare the academic, identity and supporting documents specified in that call.\nSubmit using the organiser's stated route and follow its selection instructions.",
+      "how_to_apply": "Use the Kharagpur Winter of Code site to find the edition’s contributor registration when it is announced.\nFollow the KWoC edition’s published participation and selection conditions.",
       "event_window": "Winter open-source contributions during December–January (tentative).",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -2925,7 +2929,7 @@
       "name": "NCBS Research Internships",
       "source_url": "https://www.ncbs.res.in/faculty/vkumar-positions",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Choose an NCBS lab currently inviting interns.\nPrepare a one-page research-interest statement and requested academic/CV evidence.\nContact the lab through its published route and obtain supervisor acceptance.",
+      "how_to_apply": "Check the NCBS host laboratory’s positions page for a research-internship opening.\nApproach the advertised host through its laboratory-specific application route and confirm project fit and attachment dates.",
       "event_window": null,
       "rolling_reason": "Lab/supervisor-specific attachments have separate acceptance and timing.",
       "rolling_kind": "lab_dependent"
@@ -2946,7 +2950,7 @@
       "name": "Chevening Scholarships — India",
       "source_url": "https://www.chevening.org/scholarships/application-timeline/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Check India eligibility and choose eligible UK Masters courses.\nApply through the country system with academic and leadership material.\nIf shortlisted, supply references and degree evidence, attend interview and meet the university-offer deadline.",
+      "how_to_apply": "Submit your Chevening application through the online system and choose three eligible UK master’s courses.\nMeet the 2,800-hour post-degree work-experience requirement over at least two years.\nComplete the four essays and give two referees’ contact details.\nIf invited to interview, upload both reference letters and your official undergraduate degree certificate.",
       "event_window": "UK Masters starts Sep/Oct 2028 (tentative)."
     },
     "rhodes-india": {
@@ -2965,7 +2969,7 @@
       "name": "Rhodes Scholarships — India",
       "source_url": "https://www.rhodeshouse.ox.ac.uk/scholarships/applications/india/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Read the India Information for Candidates and check constituency eligibility.\nPrepare the requested statements, records and referee details.\nSubmit through Rhodes and attend selection interviews if shortlisted.",
+      "how_to_apply": "Apply through the Rhodes Trust India application route after checking the India-specific Information for Candidates.\nPrepare the CV, academic statement, personal statement and four referees specified for the India constituency.\nProvide age and Indian-citizenship evidence with official English translations where required.",
       "event_window": "Oxford study starts in 2028 (tentative)."
     },
     "mext-research-scholarship": {
@@ -2984,7 +2988,7 @@
       "name": "MEXT Research Students Scholarship — India",
       "source_url": "https://www.in.emb-japan.go.jp/education/Research_Student.html",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Read the Embassy of Japan India Research Students notice.\nSend its preliminary Word form under 1 MB by the route and cutoff stated in the notice.\nIf shortlisted, supply the full application documents and complete the written examination and interview.",
+      "how_to_apply": "Email the Embassy of Japan in India’s MEXT Research Students preliminary form as a Word attachment of at most 1 MB.\nUse scholarship-india@nd.mofa.go.jp for the India preliminary application under the published call.\nCheck the under-35 gate and required degree/marks. Shortlisted applicants provide the full supporting-document application.\nSelection proceeds through preliminary screening, a written examination and interview.",
       "event_window": "Written examination and interviews around Jul 2027 (tentative, from the 2026 schedule)."
     },
     "google-phd-fellowship-india": {
@@ -3003,7 +3007,7 @@
       "name": "Google PhD Fellowship — India",
       "source_url": "https://research.google/programs-and-events/phd-fellowship/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Read the India-specific nomination route and eligibility.\nPrepare the required research proposal, CV, academic records and references.\nSubmit the complete nomination during the announced call and await research review.",
+      "how_to_apply": "Ask your department or graduate school for nomination to the Google PhD Fellowship through the university’s internal process.\nPrepare an English flat PDF with your CV, research proposal, advisor CV and transcripts from your first bachelor’s semester onward.\nArrange two or three recommendations, including your thesis advisor for current PhD students.\nThe nominated university submits through the programme portal. Maintain full-time PhD enrolment for the award.",
       "event_window": "Research fellowship term follows the selected regional award."
     },
     "upsc-cse": {
@@ -3022,7 +3026,7 @@
       "name": "UPSC Civil Services Examination",
       "source_url": "https://www.upsc.gov.in/sites/default/files/Calendar-Year-2027-Engl-200526.pdf",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Register on the UPSC application portal linked by upsc.gov.in.\nComplete the exam form with identity, academic, photo/signature and applicable category evidence; pay any fee.\nSubmit by the cutoff and complete the exam-specific written and subsequent interview, SSB or physical stages.",
+      "how_to_apply": "Register on UPSC Online (upsconline.nic.in), complete the URN/Common Application Form and submit the CSE exam application.\nGraduates generally need age 21–32, subject to category relaxations and nationality rules in the notification.\nThe 2026 fee was Rs 100 for Prelims and Rs 200 for Mains, with women/SC/ST/PwBD exemptions.\nSelection proceeds through Prelims, Mains and the personality-test interview.",
       "event_window": "Prelims 23 May 2027; Mains starts 20 August 2027, five days (official)."
     },
     "upsc-ese": {
@@ -3041,7 +3045,7 @@
       "name": "UPSC Engineering Services Examination",
       "source_url": "https://www.upsc.gov.in/sites/default/files/Calendar-Year-2027-Engl-200526.pdf",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Register on the UPSC application portal linked by upsc.gov.in.\nComplete the exam form with identity, academic, photo/signature and applicable category evidence; pay any fee.\nSubmit by the cutoff and complete the exam-specific written and subsequent interview, SSB or physical stages.",
+      "how_to_apply": "Register on UPSC Online (upsconline.nic.in), complete the URN/Common Application Form and submit the Engineering Services form.\nHold an accepted engineering degree or equivalent. The reference notice’s standard age band is 21–30, with relaxations.\nThe 2025 ESE fee is Rs 200, with women/SC/ST/PwBD applicants exempt.\nSelection proceeds through the objective Preliminary exam, conventional Main exam and personality-test interview.",
       "event_window": "Prelims 31 January 2027; Mains 18 June 2027 (official)."
     },
     "upsc-cds-i": {
@@ -3060,7 +3064,7 @@
       "name": "UPSC CDS I",
       "source_url": "https://www.upsc.gov.in/sites/default/files/Calendar-Year-2027-Engl-200526.pdf",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Register on the UPSC application portal linked by upsc.gov.in.\nComplete the exam form with identity, academic, photo/signature and applicable category evidence; pay any fee.\nSubmit by the cutoff and complete the exam-specific written and subsequent interview, SSB or physical stages.",
+      "how_to_apply": "Register on UPSC Online (upsconline.nic.in), complete URN/Common Application details and submit the CDS I form.\nCheck academy-specific degree and age rules. Air Force entry needs graduation with Physics/Maths at XII or engineering and age 20–24.\nThe 2025 CDS reference fee is Rs 200, with women and SC/ST applicants exempt.\nTake the written CDS papers, then SSB intelligence/personality assessment and the required medical examination.",
       "event_window": "Written exam 11 April 2027 (official); SSB dates separate."
     },
     "upsc-cds-ii": {
@@ -3079,7 +3083,7 @@
       "name": "UPSC CDS II",
       "source_url": "https://www.upsc.gov.in/sites/default/files/Calendar-Year-2027-Engl-200526.pdf",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Register on the UPSC application portal linked by upsc.gov.in.\nComplete the exam form with identity, academic, photo/signature and applicable category evidence; pay any fee.\nSubmit by the cutoff and complete the exam-specific written and subsequent interview, SSB or physical stages.",
+      "how_to_apply": "Register on UPSC Online (upsconline.nic.in), complete URN/Common Application details and submit the CDS II form.\nCheck academy-specific degree and age rules. Air Force entry needs graduation with Physics/Maths at XII or engineering and age 20–24.\nThe 2025 CDS reference fee is Rs 200, with women and SC/ST applicants exempt.\nTake the written CDS papers, then SSB intelligence/personality assessment and the required medical examination.",
       "event_window": "Written exam 19 September 2027 (official); SSB dates separate."
     },
     "upsc-nda-i": {
@@ -3098,7 +3102,7 @@
       "name": "UPSC NDA and NA I",
       "source_url": "https://www.upsc.gov.in/sites/default/files/Calendar-Year-2027-Engl-200526.pdf",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Register on the UPSC application portal linked by upsc.gov.in.\nComplete the exam form with identity, academic, photo/signature and applicable category evidence; pay any fee.\nSubmit by the cutoff and complete the exam-specific written and subsequent interview, SSB or physical stages.",
+      "how_to_apply": "Register on UPSC Online (upsconline.nic.in), complete the URN/Common Application Form and submit the NDA/NA I application.\nUnmarried candidates need age 16.5–19.5 at training start and Class XII. Air Force/Naval wings require Physics, Chemistry and Maths.\nThe reference NDA fee is Rs 100, with women/SC/ST and the specified service-personnel wards exempt.\nTake the Maths and General Ability written papers, then SSB assessment and the required medical examination.",
       "event_window": "Written exam 11 April 2027 (official); SSB dates separate."
     },
     "upsc-nda-ii": {
@@ -3117,7 +3121,7 @@
       "name": "UPSC NDA and NA II",
       "source_url": "https://www.upsc.gov.in/sites/default/files/Calendar-Year-2027-Engl-200526.pdf",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Register on the UPSC application portal linked by upsc.gov.in.\nComplete the exam form with identity, academic, photo/signature and applicable category evidence; pay any fee.\nSubmit by the cutoff and complete the exam-specific written and subsequent interview, SSB or physical stages.",
+      "how_to_apply": "Register on UPSC Online (upsconline.nic.in), complete the URN/Common Application Form and submit the NDA/NA II application.\nUnmarried candidates need age 16.5–19.5 at training start and Class XII. Air Force/Naval wings require Physics, Chemistry and Maths.\nThe reference NDA fee is Rs 100, with women/SC/ST and the specified service-personnel wards exempt.\nTake the Maths and General Ability written papers, then SSB assessment and the required medical examination.",
       "event_window": "Written exam 19 September 2027 (official); SSB dates separate."
     },
     "upsc-capf": {
@@ -3136,7 +3140,7 @@
       "name": "UPSC CAPF Assistant Commandants",
       "source_url": "https://www.upsc.gov.in/sites/default/files/Calendar-Year-2027-Engl-200526.pdf",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Register on the UPSC application portal linked by upsc.gov.in.\nComplete the exam form with identity, academic, photo/signature and applicable category evidence; pay any fee.\nSubmit by the cutoff and complete the exam-specific written and subsequent interview, SSB or physical stages.",
+      "how_to_apply": "Register on UPSC Online (upsconline.nic.in) and submit the CAPF Assistant Commandants examination application.\nThe reference notice requires a bachelor’s degree and age 20–25, with the prescribed nationality and category relaxations.\nThe 2025 CAPF fee is Rs 200, with women and SC/ST applicants exempt.\nSelection uses written papers, physical standards/efficiency tests, medical assessment and an interview/personality test.",
       "event_window": "Written exam 4 July 2027 (official); physical, medical and interview stages separate."
     },
     "afcat-i": {
@@ -3155,7 +3159,7 @@
       "name": "AFCAT 1",
       "source_url": "https://careerairforce.gov.in/sites/default/files/2026-11/Notification-for-AFCAT-2027.pdf",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Register for AFCAT 01/2027 on its official portal.\nCheck branch, age and academic rules; supply requested identity, academic, photo/signature evidence and any fee.\nComplete AFCAT, AFSB and medical selection as applicable.",
+      "how_to_apply": "Apply for AFCAT 01/2027 through the AFCAT online application portal (afcat.edcil.co.in).\nFlying applicants need age 20–24 on 1 January 2028 and Ground Duty 20–26, plus branch qualifications and unmarried status at course start.\nPrepare your photo, signature and thumb impression, then pay the non-refundable AFCAT-entry fee of Rs 550 plus GST.\nTake the written exam, followed by AFSB testing and the required medical examination if shortlisted.",
       "event_window": "AFCAT written exam 31 January 2027; course starts January 2028 (official)."
     },
     "afcat-ii": {
@@ -3174,7 +3178,7 @@
       "name": "AFCAT 2",
       "source_url": "https://careerairforce.gov.in/sites/default/files/inline-files/AFCAT-Cycle-02-2026-Notification.pdf",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Read the AFCAT 02 notice and register through its official link.\nProvide required academic, identity and photo/signature documents with any fee.\nComplete the written exam, AFSB and medical assessment as applicable.",
+      "how_to_apply": "Apply for the AFCAT 02 entry through the AFCAT registration link published by the Indian Air Force.\nMeet the Flying age 20–24 or Ground Duty 20–26 gate, branch-specific degree rules and the intake’s marriage conditions.\nThe 02/2026 reference notice requires photo, signature and thumb scans and an AFCAT-entry fee of Rs 550 plus GST.\nSelection uses the written AFCAT exam, AFSB testing and medical assessment.",
       "event_window": "Written exam around Aug 2027 (tentative); AFSB and medical dates separate."
     },
     "army-agniveer": {
@@ -3193,7 +3197,7 @@
       "name": "Indian Army Agniveer Recruitment",
       "source_url": "https://www.telangana.gov.in/wp-content/uploads/2026/02/Recruitment-Notification-for-AGNIVEER-2027.pdf",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Create a Join Indian Army profile and choose an eligible category.\nSupply education, domicile and requested identity evidence and pay the CEE fee.\nComplete online CEE, rally/fitness and medical stages if shortlisted.",
+      "how_to_apply": "Register for the relevant Agniveer category on Join Indian Army (joinindianarmy.nic.in) and fill the online CEE application.\nMatch the recruiting-year notice’s date-of-birth block and category-specific Class VIII/X/XII or technical qualification.\nThe 2027 recruiting-year notice charges Rs 250 per category for the online examination.\nQualify in the online CEE, then attend the recruitment rally’s physical, measurement and medical stages.",
       "event_window": "CEE around Jun 2027 (tentative from the Army portal Jun 2026 schedule); rallies and medicals later."
     },
     "navy-agniveer": {
@@ -3212,7 +3216,7 @@
       "name": "Indian Navy Agniveer SSR and MR",
       "source_url": "https://www.joinindiannavy.gov.in/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Choose the current Navy SSR or MR advertisement.\nUse its application link with required school, age, identity and photo evidence and any fee.\nComplete INET and the notified stage-II fitness, document and medical tests.",
+      "how_to_apply": "Register for Navy Agniveer SSR or MR through the candidate application linked from Join Indian Navy.\nThe Navy’s reference age band is 17.5–21. SSR needs XII Maths/Physics or an accepted technical route and MR matriculation with 50%.\nThe reference INET notice charges Rs 550 plus 18% GST at Stage I.\nQualify in INET, then the Stage II written exam, physical fitness test and recruitment medical examination.",
       "event_window": "INET and stage-II testing follow the next Navy notice; 2027 dates unconfirmed.",
       "deadline_rolling": true
     },
@@ -3232,7 +3236,7 @@
       "name": "Indian Air Force Agniveervayu",
       "source_url": "https://iafrecruitment.edcil.co.in/agniveervayu/pdffiles/Advt%20Agniveervayu%2001%20of%2027.pdf",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Choose the correct Agniveervayu intake on the official IAF portal.\nCheck age/subject rules and upload education, domicile, photo and identity evidence with any fee.\nComplete online testing and notified physical, adaptability and medical stages.",
+      "how_to_apply": "Use the Agniveervayu online registration linked from the IAF CASB recruitment portal (iafrecruitment.edcil.co.in).\nFor 01/2027, the eligible birth-date block is 1 January 2006–1 July 2009. Meet the science/non-science qualification route.\nUpload the specified scans, complete live-photo capture and pay Rs 550 plus 18% GST under the 01/2027 notice.\nSelection uses the online test, Phase II physical/adaptability assessments and medical examination.",
       "event_window": "Online exam around Mar 2027 (tentative); fitness, adaptability and medical tests later."
     },
     "army-tes-i": {
@@ -3251,7 +3255,7 @@
       "name": "Army 10+2 Technical Entry Scheme — July intake",
       "source_url": "https://employmentnews.gov.in/Issue-No-31.pdf",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Read the specific TES notice and verify its PCM and JEE rules.\nUse officer-entry registration with the requested school, JEE and identity evidence.\nComplete shortlisting, SSB and medical assessment if called.",
+      "how_to_apply": "Use the Technical Entry Scheme July-intake officer application on Join Indian Army (joinindianarmy.nic.in).\nThe government TES guidance specifies male candidates aged 16.5–19.5, Class XII PCM with 60% and appearance in JEE Main.\nMeet the intake’s exact birth-date/JEE-year conditions, then follow shortlisting, SSB assessment and medical examination.",
       "event_window": "Army 10+2 TES July 2027 intake (tentative registration pattern).",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -3279,7 +3283,7 @@
       "name": "Army 10+2 Technical Entry Scheme — January intake",
       "source_url": "https://employmentnews.gov.in/10-99.pdf",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Read the specific TES notice and verify its PCM and JEE rules.\nUse officer-entry registration with the requested school, JEE and identity evidence.\nComplete shortlisting, SSB and medical assessment if called.",
+      "how_to_apply": "Use the Technical Entry Scheme January-intake officer application on Join Indian Army (joinindianarmy.nic.in).\nThe government TES guidance specifies male candidates aged 16.5–19.5, Class XII PCM with 60% and appearance in JEE Main.\nMeet the intake’s exact birth-date/JEE-year conditions, then follow shortlisting, SSB assessment and medical examination.",
       "event_window": "Army 10+2 TES January 2028 intake (tentative).",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -3307,7 +3311,7 @@
       "name": "SSC Combined Graduate Level",
       "source_url": "https://ssc.gov.in/api/attachment/uploads/masterData/ExamCalendar/Tentative_Calendar2026_27_08012026.pdf",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Complete One Time Registration on SSC.\nChoose the exam, verify age/qualification rules and provide identity, photo and academic details with any fee.\nComplete its computer-based tiers and required skill/document stages.",
+      "how_to_apply": "Complete One-Time Registration on SSC (ssc.gov.in), then submit the CGL examination application with photo and signature.\nA bachelor’s degree is required for most posts. Post-specific age bands include 18–27, 20–30, 18–30 and 18–32, with relaxations.\nThe 2026 fee is Rs 100, with exemptions for women, SC/ST, PwBD and eligible ex-servicemen.\nTake Tier I and Tier II, including the computer/skill modules required for your post, then document verification.",
       "event_window": "Tier I around May–Jun 2027 (tentative historical-calendar projection)."
     },
     "ssc-chsl": {
@@ -3326,7 +3330,7 @@
       "name": "SSC Combined Higher Secondary Level",
       "source_url": "https://ssc.gov.in/api/attachment/uploads/masterData/ExamCalendar/Tentative_Calendar2026_27_08012026.pdf",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Complete One Time Registration on SSC.\nChoose the exam, verify age/qualification rules and provide identity, photo and academic details with any fee.\nComplete its computer-based tiers and required skill/document stages.",
+      "how_to_apply": "Complete SSC One-Time Registration, then apply for CHSL through SSC Online (ssc.gov.in) or mySSC.\nThe 2025 notice requires Class XII or equivalent and age 18–27, with relaxations. Some DEO posts require science with maths.\nThe 2025 fee is Rs 100, with women/SC/ST/PwBD and eligible ex-servicemen exempt.\nTake Tier I and Tier II, including the qualifying typing/skill test for the post.",
       "event_window": "Tier I around Jul–Sep 2027 (tentative historical-calendar projection)."
     },
     "ssc-je": {
@@ -3345,7 +3349,7 @@
       "name": "SSC Junior Engineer",
       "source_url": "https://ssc.gov.in/api/attachment/uploads/masterData/ExamCalendar/Tentative_Calendar2026_27_08012026.pdf",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Complete One Time Registration on SSC.\nChoose the exam, verify age/qualification rules and provide identity, photo and academic details with any fee.\nComplete its computer-based tiers and required skill/document stages.",
+      "how_to_apply": "Complete SSC One-Time Registration and submit the Junior Engineer application through SSC Online (ssc.gov.in).\nHold the listed Civil, Mechanical or Electrical engineering degree/diploma. The 2025 post-specific upper age limits are 30 or 32.\nThe 2025 fee is Rs 100, with women/SC/ST/PwBD and eligible ex-servicemen exempt.\nTake Paper I and Paper II computer-based exams, then the department’s document verification.",
       "event_window": "Paper I around May–Jun 2027 (tentative historical-calendar projection)."
     },
     "gate-registration": {
@@ -3364,7 +3368,7 @@
       "name": "GATE Registration and PSU Score Route",
       "source_url": "https://gate2027.iitm.ac.in/important_dates",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Register through GOAPS linked by the official GATE site.\nChoose eligible papers and upload identity, photo/signature and academic evidence; pay the fee.\nSit GATE and apply separately to any PSU explicitly accepting that score.",
+      "how_to_apply": "Register through GOAPS (goaps.iitm.ac.in) for GATE and upload the required photo, signature and qualification details.\nThird-year-or-higher undergraduates and eligible degree holders can apply. Check your degree route against GATE’s criteria.\nFor one paper, the 2027 regular fee is Rs 1,000 for female/SC/ST/PwD candidates and Rs 2,000 for others. Extended fees are higher.\nTake the GATE computer-based test, then apply separately to each PSU using its eligible paper, score and recruitment rules.",
       "event_window": "GATE exams 6, 7, 13, 14, 20 and 21 February 2027; results 19 March 2027 (official). PSU employers issue separate GATE-score recruitment notices."
     },
     "ibps-po": {
@@ -3383,7 +3387,7 @@
       "name": "IBPS Probationary Officers / Management Trainees",
       "source_url": "https://ibpsreg.ibps.in/crppoxvijun26/index.php?stat=0",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Read the CRP PO/MT notice and register through IBPS.\nUpload its photograph, signature, thumb impression and declaration and pay the fee.\nComplete prelims, mains and notified interview/personality and document stages.",
+      "how_to_apply": "Use IBPS Online (ibps.in), choose CRP PO/MT and register with the New Registration option.\nThe PO XV notice requires a graduate degree and age 20–30, with category relaxations.\nUpload photo, signature, thumb impression and declaration. The XV fee is Rs 175 for SC/ST/PwBD and Rs 850 for others.\nSelection uses Prelims, Mains, a personality test and interview before provisional allotment.",
       "event_window": "Prelims around Aug 2027; Mains around Oct 2027 (tentative from IBPS calendar)."
     },
     "ibps-clerk": {
@@ -3402,7 +3406,7 @@
       "name": "IBPS Clerk / Customer Service Associates",
       "source_url": "https://www.ibps.in/wp-content/uploads/DetailedNotification_CRP_CSA_XV_Final_for_Website.pdf",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Read the CSA notice and check academic/language eligibility.\nUse its registration link with photo, signature, declaration and any fee.\nComplete prelims, mains and notified language/document verification.",
+      "how_to_apply": "Apply for CRP Customer Service Associates through IBPS Online (ibps.in) and upload the requested scans/declaration.\nThe CSA XV notice requires graduation, computer literacy and age 20–28, with applicable relaxations and local-language requirements.\nThe CSA XV fee is Rs 175 for SC/ST/PwBD/ESM/DESM and Rs 850 for other applicants.\nSelection uses preliminary and main online exams, followed by the required local-language proficiency check and allotment.",
       "event_window": "Prelims around Oct 2027; Mains around Dec 2027 (tentative from IBPS calendar)."
     },
     "sbi-po": {
@@ -3421,7 +3425,7 @@
       "name": "SBI Probationary Officers",
       "source_url": "https://ibpsreg.ibps.in/sbipojun26/index.php?stat=0",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Find the SBI PO notice on SBI Careers and use its application link.\nSupply requested academic, identity and photo/signature evidence with the fee.\nComplete prelims, mains and notified assessment/group/interview stages.",
+      "how_to_apply": "Apply through the Probationary Officers link on SBI Careers and complete online registration and payment.\nThe 2025 notice requires graduation and age 21–30, with category relaxations.\nThe 2025 fee is Rs 750 for UR/EWS/OBC and nil for SC/ST/PwBD. Keep the submitted application printout.\nTake Prelims and Mains, then the psychometric test, group exercise and interview if shortlisted.",
       "event_window": "Prelims, mains and group/interview stages follow the new notice; 2027 dates unconfirmed."
     },
     "rbi-grade-b": {
@@ -3440,7 +3444,7 @@
       "name": "RBI Officers Grade B",
       "source_url": "https://www.rbi.org.in/scripts/BS_ViewContent.aspx?Id=4997",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Read the Grade B notice and choose an eligible General, DEPR or DSIM cadre.\nRegister through its linked system with academic, identity and category documents and fee.\nComplete cadre-specific written phases, interview and document verification.",
+      "how_to_apply": "Apply through the RBI Grade B online application linked from Opportunities@RBI and select General, DEPR or DSIM.\nThe 2025 General route requires age 21–30 and graduation with 60% or PG with 55%, with category concessions.\nThe 2025 fee is Rs 850 plus GST for GEN/OBC/EWS, Rs 100 plus GST for SC/ST/PwBD, and nil for eligible RBI staff.\nComplete the cadre’s Phase I and Phase II exams, followed by the interview.",
       "event_window": "General Phase I around Jun 2027; Phase II around Jul 2027 (tentative); specialist cadres have separate papers."
     },
     "barc-oces-dgfs": {
@@ -3459,7 +3463,7 @@
       "name": "BARC OCES / DGFS",
       "source_url": "https://www.barc.gov.in/careers/barc_ts_OCES_DGFS_brochure.pdf",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Read OCES/DGFS eligibility and choose a discipline.\nRegister on BARC with academic documents and any qualifying GATE score; select an allowed screening route.\nComplete online screening or GATE shortlisting and the selection interview.",
+      "how_to_apply": "Indian citizens can apply through the BARC OCES/DGFS online application portal linked from BARC Careers.\nThe 2026 notice requires eligible engineering/science degrees with 60%/6 CGPA and General-category age 18–26, with relaxations.\nThe 2026 fee is Rs 500 for listed male categories. Women, transgender, SC/ST, DODPKIA and qualifying PwD applicants are exempt.\nChoose online-exam and/or eligible GATE-score screening, followed by the selection interview. DGFS also needs an eligible MTech admission.",
       "event_window": "Screening test or eligible GATE score, then interviews; 2027 dates unverified."
     },
     "fulbright-nehru-doctoral": {
@@ -3478,7 +3482,7 @@
       "name": "Fulbright-Nehru Doctoral Research Fellowships",
       "source_url": "https://usief.org.in/fulbright-fellowships/fellowships-for-indian-citizen/fulbright-nehru-doctoral-research-fellowships/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Open the Indian-citizen Fulbright-Nehru Doctoral Research call and check PhD registration and thesis-submission requirements.\nPrepare the research proposal, transcripts, supervisor recommendation and other required references.\nSubmit through the USIEF-linked IIE application portal by the new award-specific deadline.",
+      "how_to_apply": "Apply through the IIE online application linked by USIEF for Fulbright-Nehru Doctoral Research.\nPrepare CV, research objectives, personal statement, marksheets/degrees, PhD registration certificate and a writing sample.\nArrange three references including your PhD supervisor, US host invitation, applicant annexure and employer endorsement if employed.\nMeet the call’s Indian-PhD registration and thesis-submission conditions before academic review and interview.",
       "event_window": "Six to nine months of doctoral research in the subsequent US award year, subject to the next call.",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -3506,7 +3510,7 @@
       "name": "NHRC Winter Internship Programme",
       "source_url": "https://nhrc.nic.in/assets/uploads/summer_winter/1761130984_c2d50603bbcbff9ac67f.pdf",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Choose the correct NHRC summer, winter or online call.\nPrepare the marksheets and institutional recommendation required by that call.\nApply through its official link and check the selection list.",
+      "how_to_apply": "Use the NHRC Winter Internship online form linked in the winter notice.\nPrepare attested marksheets from Class X onward, including all degree/current-course semesters, and a statement of purpose.\nObtain the prescribed HoD/dean/principal recommendation dated after the advertisement.\nSubmit the online form with all supporting material for NHRC’s selection review.",
       "event_window": "In-person winter internship during December 2027–January 2028 (tentative).",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -3540,7 +3544,7 @@
       "name": "Young India Fellowship — Round 1 final",
       "source_url": "https://www.ashoka.edu.in/yif-admissions/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Register on the official YIF application portal and check the current round.\nPrepare academic and professional details, essays, the video essay and an appropriate recommendation.\nSubmit once per admissions cycle in the chosen round; follow the interview and funding instructions.",
+      "how_to_apply": "Register on Ashoka’s YIF application portal (yifapplication.ashoka.edu.in) for the Round 1 final deadline.\nPrepare three written essays, a video essay, government ID, photo, one-page CV, marksheets and activity evidence.\nShortlisted applicants arrange one recommendation and attend personal interviews.\nApply once per admissions cycle in one round only.",
       "event_window": "Residential fellowship July 2027–July 2028.",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -3568,7 +3572,7 @@
       "name": "Young India Fellowship — Round 2 final",
       "source_url": "https://www.ashoka.edu.in/yif-admissions/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Register on the official YIF application portal and check the current round.\nPrepare academic and professional details, essays, the video essay and an appropriate recommendation.\nSubmit once per admissions cycle in the chosen round; follow the interview and funding instructions.",
+      "how_to_apply": "Register on Ashoka’s YIF application portal (yifapplication.ashoka.edu.in) for the Round 2 final deadline.\nPrepare three written essays, a video essay, government ID, photo, one-page CV, marksheets and activity evidence.\nShortlisted applicants arrange one recommendation and attend personal interviews.\nApply once per admissions cycle in one round only.",
       "event_window": "Residential fellowship July 2027–July 2028.",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -3596,7 +3600,7 @@
       "name": "Teach For India Fellowship — Round 2",
       "source_url": "https://www.teachforindia.org/faqs",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Read the current Teach For India cohort eligibility and live round deadline.\nComplete the official online application and required assessments using your own account.\nApply only once per cohort and follow the assessment-centre instructions.",
+      "how_to_apply": "Apply through Teach For India’s fellowship portal (apply.teachforindia.org) for Round 2.\nComplete the online application and English assessment, describing your achievements and motivation.\nShortlisted applicants attend an assessment centre with sample teaching, a group activity, critical-thinking assessment and interview.\nIndian citizens/OCI holders need a bachelor’s degree by the start and can apply once per selection cycle.",
       "event_window": "Two-year teaching fellowship for the 2027 cohort. Current official selection cycle July 2026–March 2027.",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -3630,7 +3634,7 @@
       "name": "Teach For India Fellowship — Round 3",
       "source_url": "https://www.teachforindia.org/faqs",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Read the current Teach For India cohort eligibility and live round deadline.\nComplete the official online application and required assessments using your own account.\nApply only once per cohort and follow the assessment-centre instructions.",
+      "how_to_apply": "Apply through Teach For India’s fellowship portal (apply.teachforindia.org) for Round 3.\nComplete the online application and English assessment, describing your achievements and motivation.\nShortlisted applicants attend an assessment centre with sample teaching, a group activity, critical-thinking assessment and interview.\nIndian citizens/OCI holders need a bachelor’s degree by the start and can apply once per selection cycle.",
       "event_window": "Two-year teaching fellowship for the 2027 cohort. Current official selection cycle July 2026–March 2027.",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -3664,7 +3668,7 @@
       "name": "Teach For India Fellowship — Round 4",
       "source_url": "https://www.teachforindia.org/faqs",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Read the current Teach For India cohort eligibility and live round deadline.\nComplete the official online application and required assessments using your own account.\nApply only once per cohort and follow the assessment-centre instructions.",
+      "how_to_apply": "Apply through Teach For India’s fellowship portal (apply.teachforindia.org) for Round 4.\nComplete the online application and English assessment, describing your achievements and motivation.\nShortlisted applicants attend an assessment centre with sample teaching, a group activity, critical-thinking assessment and interview.\nIndian citizens/OCI holders need a bachelor’s degree by the start and can apply once per selection cycle.",
       "event_window": "Two-year teaching fellowship for the 2027 cohort. Current official selection cycle July 2026–March 2027.",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -3698,7 +3702,7 @@
       "name": "MLH Fellowship — Summer batch",
       "source_url": "https://fellowship.mlh.com/programs/software-engineering",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Check the official Software Engineering track and select the relevant upcoming batch.\nSubmit the application and complete the coordinator and technical interviews.\nConfirm availability for the full batch and follow the organiser’s current cutoff instructions.",
+      "how_to_apply": "Use Apply Now on MLH Fellowship to select the Summer software-engineering batch.\nDescribe your background, coding experience and motivation in the application.\nComplete a coordinator interview and a code discussion with an MLH mentor before enrolment.",
       "event_window": "Summer Software Engineering batch around May–August 2027 (tentative).",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -3732,7 +3736,7 @@
       "name": "MLH Fellowship — Fall batch",
       "source_url": "https://fellowship.mlh.com/programs/software-engineering",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Check the official Software Engineering track and select the relevant upcoming batch.\nSubmit the application and complete the coordinator and technical interviews.\nConfirm availability for the full batch and follow the organiser’s current cutoff instructions.",
+      "how_to_apply": "Use Apply Now on MLH Fellowship to select the Fall software-engineering batch.\nDescribe your background, coding experience and motivation in the application.\nComplete a coordinator interview and a code discussion with an MLH mentor before enrolment.",
       "event_window": "Fall Software Engineering batch around September–December 2027 (tentative).",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -3766,7 +3770,7 @@
       "name": "Google Girl Hackathon — India",
       "source_url": "https://unstop.com/hackathons/girl-hackathon-2023-google-681413",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Read the current organiser call and check the eligible courses, graduation years and team rules.\nUse the registration platform linked by that current call and prepare the requested profile or proposal.\nSubmit before the new edition’s published cutoff and follow the announced selection rounds.",
+      "how_to_apply": "Register individually through Google’s Girl Hackathon India programme page on Unstop.\nWomen in Indian computer-science and allied courses should match the edition’s graduation-year eligibility.\nTake the Google Online Challenge, then the learning-cohort and virtual-ideathon stages if shortlisted.",
       "event_window": "Individual coding challenge, learning cohorts and ideathon after registration (tentative).",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -3794,7 +3798,7 @@
       "name": "Flipkart Runway",
       "source_url": "https://unstop.com/competitions/flipkart-runway-season-5-flipkart-1410891",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Read the current organiser call and check the eligible courses, graduation years and team rules.\nUse the registration platform linked by that current call and prepare the requested profile or proposal.\nSubmit before the new edition’s published cutoff and follow the announced selection rounds.",
+      "how_to_apply": "Register individually on Unstop through the Flipkart Runway programme page.\nThe Season 5 route accepted women in second-year engineering or third-year dual degrees. Confirm the new edition’s cohort.\nTake the coding-fundamentals MCQ assessment, then the coding round and shortlisted interviews.",
       "event_window": "Assessment, coding and interview rounds before the selected summer internship.",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -3822,7 +3826,7 @@
       "name": "Walmart CodeHers — India",
       "source_url": "https://unstop.com/competitions/codehers-2025-walmart-global-tech-india-1372066",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Read the current organiser call and check the eligible courses, graduation years and team rules.\nUse the registration platform linked by that current call and prepare the requested profile or proposal.\nSubmit before the new edition’s published cutoff and follow the announced selection rounds.",
+      "how_to_apply": "Register individually for Walmart CodeHers on the organiser’s Unstop page.\nThe 2025 route required women in listed circuit-branch degrees with CGPA 7+ and the specified graduation cohort.\nTake the MCQ computer-fundamentals challenge and the coding challenge, then submit profile-verification details if shortlisted.\nThe graduating cohort may be invited to interviews, while the internship cohort follows the offer-verification process.",
       "event_window": "Online assessment and coding rounds, followed by eligibility verification and selection.",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -3850,7 +3854,7 @@
       "name": "Accenture Innovation Challenge — India",
       "source_url": "https://unstop.com/competitions/crp-accenture-innovation-challenge-2026-accenture-1714566",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Read the current organiser call and check the eligible courses, graduation years and team rules.\nUse the registration platform linked by that current call and prepare the requested profile or proposal.\nSubmit before the new edition’s published cutoff and follow the announced selection rounds.",
+      "how_to_apply": "Register individually or as a team of up to three through Accenture Innovation Challenge on Unstop.\nEligible pre-final/final-year campus students submit a two- to three-slide solution and a two- to three-minute explanatory video.\nIf shortlisted, submit a public GitHub prototype with README and demo video.\nComplete the live solution discussion and present at the grand finale if selected.",
       "event_window": "Solution submission, prototype development, discussion and national finale under the next call.",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -3878,7 +3882,7 @@
       "name": "Myntra HackerRamp — WeForShe",
       "source_url": "https://unstop.com/hackathons/myntra-hackerramp-weforshe-2025-myntra-1513857",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Read the current organiser call and check the eligible courses, graduation years and team rules.\nUse the registration platform linked by that current call and prepare the requested profile or proposal.\nSubmit before the new edition’s published cutoff and follow the announced selection rounds.",
+      "how_to_apply": "Register a two- to three-member team for Myntra HackerRamp WeForShe through the organiser’s Unstop page.\nMatch the women-engineering, college and study-year rules, then have each teammate complete the online coding assessment.\nDevelop the mentored idea and submit a maximum six-slide template deck, MVP video and repository links.\nPresent virtually, with shortlisted teams taking a working prototype to the campus finale.",
       "event_window": "Fashion-technology hackathon with mentorship and selection stages after registration.",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -3906,7 +3910,7 @@
       "name": "HUL L.I.M.E.",
       "source_url": "https://unstop.com/competitions/hul-lime-season-17-hindustan-unilever-limited-hul-1531679",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Read the current organiser call and check the eligible courses, graduation years and team rules.\nUse the registration platform linked by that current call and prepare the requested profile or proposal.\nSubmit before the new edition’s published cutoff and follow the announced selection rounds.",
+      "how_to_apply": "Register three first-year full-time MBA students from the same campus for HUL L.I.M.E. on Unstop.\nAttend the digital case launch and submit the opening-round brand campaign through Unstop.\nPrepare the shortlisted semi-final presentation and jury Q&A, then the grand-finale presentation if selected.",
       "event_window": "Marketing and business case competition across selection stages.",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -3934,7 +3938,7 @@
       "name": "Mahindra War Room",
       "source_url": "https://unstop.com/competitions/war-room-mahindra-and-mahindra-59127",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Read the current organiser call and check the eligible courses, graduation years and team rules.\nUse the registration platform linked by that current call and prepare the requested profile or proposal.\nSubmit before the new edition’s published cutoff and follow the announced selection rounds.",
+      "how_to_apply": "Follow the announced Mahindra War Room contest-site registration (mahindrawarroom.com in the 2017 reference).\nForm a four-member team from one eligible B-school campus and choose one business caselet.\nUpload a presentation with speaker notes and supporting material for jury evaluation.\nCampus winners present their strategies at the national jury round.",
       "event_window": "Business case evaluation through campus and national rounds, subject to a new edition.",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [
@@ -3962,7 +3966,7 @@
       "name": "Samsung PRISM",
       "source_url": "https://news.samsung.com/in/samsung-prism-new-industry-academia-program-in-india-to-collaborate-with-engineering-students-on-ai-iot-5g-launched",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Check whether your engineering college participates in Samsung PRISM.\nContact its faculty coordinator about available projects, selection tests and team formation.\nApply through the institution’s announced project-selection process.",
+      "how_to_apply": "Contact your engineering college’s Samsung PRISM faculty coordinator to join its institutional project selection.\nTake SRI-B’s selection test through your partner college and form a team of three students with one faculty coordinator.\nWork with the assigned faculty and Samsung mentor on the selected project.",
       "event_window": "Four-to-six-month student research projects through participating engineering colleges.",
       "rolling_kind": "nomination_based",
       "past_cycle_evidence": [
@@ -3991,7 +3995,7 @@
       "name": "Infosys InStep",
       "source_url": "https://www.infosys.com/instep/internship.html",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Review the official InStep programme and eligible university/project routes.\nPrepare a CV and identify the relevant research or business assignment.\nApply through the official InStep route and agree internship dates with the programme team.",
+      "how_to_apply": "Use Apply Now on Infosys InStep and select projects matching your academic background and interests.\nSubmit your resume for the programme coordinators and project mentors to assess your project fit.\nPrepare to discuss your motivation and previous projects in the programme’s interview process.",
       "event_window": "Year-round global internship, with timing aligned to the student’s academic calendar.",
       "rolling_kind": "always_open",
       "past_cycle_evidence": [
@@ -4020,7 +4024,7 @@
       "name": "Fulbright-Nehru Postdoctoral Research Fellowships",
       "source_url": "https://usief.org.in/fulbright-fellowships/fellowships-for-indian-citizen/fulbright-nehru-postdoctoral-research-fellowships/",
       "source_checked_on": "2026-11-13",
-      "how_to_apply": "Read the Indian-citizen Postdoctoral Research call and check the eligible PhD award-date range.\nPrepare a research statement, publications, references and any required employer support.\nSubmit through the official USIEF-linked IIE scholar application portal by its new deadline.",
+      "how_to_apply": "Use the USIEF-linked IIE Visiting Scholar online application and select Fulbright-Nehru Postdoctoral Research.\nPrepare a detailed project statement, bibliography, CV, PhD/DM certificate and a recent significant publication.\nArrange three references, the applicant annexure and home-institution support if employed.\nIndian early-career researchers must meet the call’s PhD award-date range before research review and interviews.",
       "event_window": "Early-career postdoctoral research in the subsequent award year, under the next call.",
       "rolling_kind": "annual_cycle",
       "past_cycle_evidence": [

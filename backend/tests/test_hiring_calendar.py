@@ -79,6 +79,53 @@ def test_source_retains_original_rows_and_adds_researched_programmes():
 
 
 @pytest.mark.parametrize("slug", CALENDAR_META)
+def test_active_rows_have_specific_application_steps(slug):
+    meta = CALENDAR_META[slug]
+    row = ROWS[meta["row_id"]]
+    boilerplate = (
+        "open the linked official portal",
+        "find the current programme or vacancy",
+        "open the official portal and read the current call",
+        "use the stated application route",
+        "prepare the documents specified in that official call",
+        "submit using the organiser's stated route",
+    )
+    for record in (row, meta):
+        text = record.get("how_to_apply", "")
+        assert text.strip(), row["id"]
+        lines = text.splitlines()
+        assert 2 <= len(lines) <= 4, row["id"]
+        assert all(line.strip() and len(line) <= 160 for line in lines), row["id"]
+        assert not any(phrase in text.casefold() for phrase in boilerplate), row["id"]
+    assert row["how_to_apply"] == meta["how_to_apply"]
+
+
+def test_nic_winter_is_closed_with_a_fixed_official_deadline():
+    meta = CALENDAR_META["nic-digital-india-winter"]
+    row = ROWS[meta["row_id"]]
+    window = source_window("nic-digital-india-winter")
+    assert row["registration_deadline"] == meta["deadline_text"] == "13 Nov 2026 (official)"
+    assert row["source_checked_on"] == "2026-11-13"
+    assert not meta["deadline_rolling"]
+    assert window["status"] == "closed"
+    assert not window["deadline_rolling"]
+    with request_client([source_programme("nic-digital-india-winter")]) as client:
+        item = client.get("/calendar?from=2026-11-01&to=2026-11-30").json()["items"][0]
+    assert item["edition"]["status"] == "closed"
+    assert not item["is_open_now"]
+
+
+def test_rise_germany_starts_with_its_university_location_gate():
+    meta = CALENDAR_META["rise-germany"]
+    row = ROWS[meta["row_id"]]
+    for text in (row["target_batch_eligibility"], meta["how_to_apply"].splitlines()[0]):
+        assert "undergraduates" in text.casefold()
+        assert "North America" in text
+        assert "Irish" in text or "Ireland" in text
+        assert "Indian universities are ineligible" in text
+
+
+@pytest.mark.parametrize("slug", CALENDAR_META)
 def test_every_usable_source_date_appears_in_a_cycle_month(slug):
     meta = CALENDAR_META[slug]
     row = ROWS[meta["row_id"]]

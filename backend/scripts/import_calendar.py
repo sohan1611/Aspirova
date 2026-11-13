@@ -164,12 +164,22 @@ def _import_row(session: Session, slug: str, meta: dict) -> None:
     # A daily import must preserve crawler discoveries and later human checks.
     if edition is not None and edition.status != "expected" and window["status"] == "expected":
         return
+    # An explicit closure advances an announced/open edition even when its
+    # verification timestamp is equal to or newer than the authored date.
+    advances_closure = (
+        edition is not None
+        and edition.status in {"announced", "open"}
+        and window["status"] == "closed"
+    )
     if (
         edition is not None
         and edition.verified_at is not None
         and edition.verified_at >= verified_at
+        and not advances_closure
     ):
         return
+    if advances_closure and edition.verified_at is not None:
+        verified_at = max(verified_at, edition.verified_at)
     edition_values = {key: window[key] for key in ("status", "opens_at", "closes_at", "notes")}
     edition_values.update(
         source_url=row.get("source_url", row["official_portal"]), verified_at=verified_at
