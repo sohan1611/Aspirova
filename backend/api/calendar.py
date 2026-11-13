@@ -66,6 +66,7 @@ class CalendarMetadata(BaseModel):
     source_url: str | None = None
     source_checked_on: str | None = None
     rolling_reason: str | None = None
+    rolling_kind: str | None = None
     deadline_rolling: bool = False
     source_cycle_year: int | None = None
     row_id: str | None = None
@@ -282,8 +283,17 @@ def build_calendar(
             for index, (opening, closing) in enumerate(windows):
                 if opening is None and closing is None:
                     continue
-                # An unknown endpoint is a single known boundary, not an infinite window.
-                if (opening or closing) > end_at or (closing or opening) < start_at:
+                # A published opening can stay live while country-specific
+                # cutoffs are unpublished. Exact discovered cutoffs still win.
+                unpublished = (
+                    meta.get("unpublished_cutoff")
+                    and has_rolling_deadline(meta, edition.notes)
+                    and edition.status in {"announced", "open"}
+                )
+                if unpublished:
+                    closing = None
+                right = end_at if unpublished else closing or opening
+                if (opening or closing) > end_at or right < start_at:
                     continue
                 item = _item(
                     programme,
@@ -311,7 +321,12 @@ def build_calendar(
         left, right = at_day(max(start, month)), at_day(min(end, last), end=True)
         count = sum(
             (item.edition.opens_at or item.edition.closes_at) <= right
-            and (item.edition.closes_at or item.edition.opens_at) >= left
+            and (
+                end_at
+                if item.edition.closes_at is None and item.edition.status == "open"
+                else item.edition.closes_at or item.edition.opens_at
+            )
+            >= left
             for item in items
         )
         months.append(CalendarMonth(month=month.strftime("%Y-%m"), count=count))
