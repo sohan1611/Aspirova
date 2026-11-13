@@ -43,6 +43,11 @@ from crawlers.devfolio import DevfolioAdapter
 from crawlers.devpost import DevpostAdapter
 from crawlers.greenhouse import GreenhouseAdapter
 from crawlers.github_lists import GithubListsAdapter
+from crawlers.meity import MeityCareersAdapter
+from crawlers.nic_dii import NicDiiAdapter
+from crawlers.drdo import DrdoAdapter
+from crawlers.nec import NecInternshipsAdapter
+from crawlers.isro import IsroAdapter
 from crawlers.hackerearth import HackerEarthAdapter
 from crawlers.himalayas import HimalayasAdapter
 from crawlers.jobicy import JobicyAdapter
@@ -57,7 +62,12 @@ from crawlers.workday import WorkdayAdapter
 from pipeline.company_resolution import resolve_company
 from pipeline.expire import FULL_INVENTORY_SOURCES
 from pipeline.ingest import ingest_one, load_board_state, load_source_raw_listings
-from pipeline.retirement import ROLLING_WINDOW_SOURCES, meta_without_closed_reason
+from pipeline.retirement import (
+    GOVERNMENT_NOTICE_SOURCES,
+    ROLLING_WINDOW_SOURCES,
+    meta_without_closed_reason,
+    reopen_government_extension,
+)
 from pipeline.revalidate import notify_changed
 from scripts.match_prestige import match_prestige
 
@@ -91,6 +101,11 @@ AGGREGATOR_ADAPTERS: dict[str, type] = {
     "remoteok": RemoteOkAdapter,
     "unstop": UnstopAdapter,
     "github_lists": GithubListsAdapter,
+    "meity_careers": MeityCareersAdapter,
+    "nic_dii": NicDiiAdapter,
+    "drdo": DrdoAdapter,
+    "nec_internships": NecInternshipsAdapter,
+    "isro": IsroAdapter,
 }
 
 ATS_FETCH_MAX_WORKERS = 10
@@ -110,6 +125,11 @@ AGGREGATOR_SOURCE_RESERVE_SECONDS: dict[str, float] = {
     "himalayas": 1100.0,
     "jobicy": 60.0,
     "github_lists": 300.0,
+    "meity_careers": 240.0,
+    "nic_dii": 120.0,
+    "drdo": 180.0,
+    "nec_internships": 300.0,
+    "isro": 600.0,
     "remoteok": 300.0,
     "unstop": 1200.0,
 }
@@ -1396,6 +1416,18 @@ def crawl_aggregator(
                         shared_raw_by_external_id,
                     )
                 board_state = board_states[company.id]
+
+                if source_label in GOVERNMENT_NOTICE_SOURCES:
+                    previous_raw = board_state.raw_by_external_id.get(raw.external_id)
+                    previous = (
+                        board_state.opportunities_by_id.get(previous_raw.opportunity_id)
+                        if previous_raw is not None
+                        else None
+                    )
+                    if previous is not None and reopen_government_extension(
+                        previous, str(source_label), normalized.deadline
+                    ):
+                        pending_changed_slugs.add(previous.slug)
 
                 _opportunity, is_new = ingest_one(
                     session,

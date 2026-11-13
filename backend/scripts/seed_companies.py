@@ -341,7 +341,27 @@ _ADAPTER_SOURCES: dict[str, tuple[str, str, str, list[tuple[str, str, str | None
 # per-company list - crawl_aggregator resolves/creates each listing's
 # Company row dynamically (pipeline/company_resolution.py) - so they're
 # seeded as a bare Source row only, separately from _ADAPTER_SOURCES.
+_DISABLED_AGGREGATORS: dict[str, str] = {
+    "meity_careers": (
+        "WAF returns HTTP 403 to the AspirovaBot User-Agent (verified 2026-11-13); "
+        "re-enable only if MeitY allows our identity"
+    ),
+}
+
 _AGGREGATOR_SOURCES: dict[str, tuple[str, str, str]] = {
+    "meity_careers": ("meity_careers", "MeitY careers", "https://www.meity.gov.in"),
+    "nic_dii": ("nic_dii", "NIC Digital India Internship", "https://dii.nic.in"),
+    "drdo": (
+        "drdo",
+        "DRDO vacancies",
+        "https://xn--m1b0a2bb8esed.xn--11b7cb3a6a.xn--h2brj9c",
+    ),
+    "nec_internships": (
+        "nec_internships",
+        "North Eastern Council internships",
+        "https://necouncil.gov.in",
+    ),
+    "isro": ("isro", "ISRO recruitment", "https://www.isro.gov.in"),
     "arbeitnow": ("arbeitnow", "Arbeitnow", "https://www.arbeitnow.com"),
     "devfolio": ("devfolio", "Devfolio", "https://devfolio.co"),
     "devpost": ("devpost", "Devpost", "https://devpost.com"),
@@ -420,9 +440,12 @@ def seed(*, sources_only: bool = False) -> None:
                         base_url=base_url,
                         crawl_tier=1,
                         adapter_key=adapter_key,
+                        enabled=slug not in _DISABLED_AGGREGATORS,
+                        legal_status="ok",
                     )
                 )
-                print(f"created source: {slug}")
+                reason = _DISABLED_AGGREGATORS.get(slug)
+                print(f"created source: {slug}" + (f" (disabled: {reason})" if reason else ""))
             else:
                 print(f"source already exists: {slug}")
 

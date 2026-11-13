@@ -61,7 +61,12 @@ _ORGANISER_TYPE_PATTERNS: Sequence[tuple[str, str]] = (
     (
         "government",
         r"(^|[^a-z])(government|govt|ministry|department|authority|bureau)([^a-z]|$)"
-        r"|smart india hackathon",
+        r"|smart india hackathon"
+        r"|(^|[^a-z])(DRDO|ISRO)([^a-z]|$)"
+        r"|^national informatics centre$|^north eastern council$"
+        r"|^national e-governance division$|^digital india corporation$"
+        r"|^defence research and development organisation$"
+        r"|^indian space research organisation$",
     ),
     (
         "university",

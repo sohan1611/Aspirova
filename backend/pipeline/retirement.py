@@ -14,7 +14,20 @@ from core import models
 
 DEAD_BOARD_MIN_RUNS = 3
 DEAD_BOARD_MIN_SPAN_HOURS = 48
-ROLLING_WINDOW_TTL_DAYS = {"remoteok": 30, "arbeitnow": 30, "jobicy": 30, "himalayas": 60}
+GOVERNMENT_NOTICE_SOURCES = frozenset(
+    {"meity_careers", "nic_dii", "drdo", "nec_internships", "isro"}
+)
+ROLLING_WINDOW_TTL_DAYS = {
+    "remoteok": 30,
+    "arbeitnow": 30,
+    "jobicy": 30,
+    "himalayas": 60,
+    **{source: 45 for source in GOVERNMENT_NOTICE_SOURCES},
+}
+# These notice boards can replace intakes or retain archives. Absence proves
+# nothing; only an UNDATED notice unseen for 45 days ages out while its source
+# is reachable. Every confirmation refreshes last_seen_at, including unchanged
+# crawls. Dated notices instead use the existing deadline sweep exclusively.
 ROLLING_WINDOW_SOURCES = frozenset(ROLLING_WINDOW_TTL_DAYS)
 # Rolling feeds expose only their newest window. A source outage freezes closure.
 # Himalayas expires jobs at pubDate + 60 days. We see only its newest window,
@@ -40,6 +53,37 @@ def meta_without_closed_reason() -> ColumnElement[Any]:
         ),
         else_=models.Opportunity.meta,
     )
+
+
+def reopen_government_extension(
+    opportunity: models.Opportunity,
+    source: str,
+    deadline: datetime | None,
+    *,
+    now: datetime | None = None,
+) -> bool:
+    """A same-ID extension can reverse deadline closure, never a cancellation.
+
+    Called before ingest overwrites the previous cutoff. Require a genuinely
+    expired old deadline and closure after it; presence alone is insufficient.
+    The existing deadline sweep leaves closed_reason unset.
+    """
+    checked_at = now or datetime.now(timezone.utc)
+    reason = (opportunity.meta or {}).get("closed_reason")
+    if (
+        source in GOVERNMENT_NOTICE_SOURCES
+        and opportunity.primary_source == source
+        and opportunity.status == "active"
+        and opportunity.closed_at is not None
+        and opportunity.deadline is not None
+        and deadline is not None
+        and deadline > checked_at >= opportunity.deadline
+        and opportunity.closed_at >= opportunity.deadline
+        and reason is None
+    ):
+        opportunity.closed_at = None
+        return True
+    return False
 
 
 def aggregator_primary_provenance() -> ColumnElement[bool]:
@@ -226,6 +270,11 @@ def retire_rolling_window_listings(session: Session) -> dict[str, int]:
                 models.Opportunity.closed_at.is_(None),
                 models.Opportunity.primary_source == source,
                 models.Opportunity.last_seen_at < cutoff,
+                (
+                    models.Opportunity.deadline.is_(None)
+                    if source in GOVERNMENT_NOTICE_SOURCES
+                    else True
+                ),
                 recent_contact,
                 ~fresher_link,
             )
