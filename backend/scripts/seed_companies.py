@@ -346,6 +346,11 @@ _DISABLED_AGGREGATORS: dict[str, str] = {
         "WAF returns HTTP 403 to the AspirovaBot User-Agent (verified 2026-11-13); "
         "re-enable only if MeitY allows our identity"
     ),
+    # Both work from India but fail from GitHub's US runners, where the crawl
+    # runs: robots.txt is unreachable there (probe run 43370802148). Re-enable
+    # once the crawl runs from an Indian location or the sites stop blocking.
+    "nic_dii": "unreachable from GitHub Actions US runners (verified 2026-11-13)",
+    "drdo": "unreachable from GitHub Actions US runners (verified 2026-11-13)",
 }
 
 _AGGREGATOR_SOURCES: dict[str, tuple[str, str, str]] = {

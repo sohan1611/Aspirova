@@ -56,7 +56,7 @@ def test_registered_budgeted_seeded_and_no_absence_retirement(monkeypatch, capsy
         assert isinstance(row, models.Source)
         assert row.adapter_key == slug
         assert row.crawl_tier == 1
-        assert row.enabled is (slug != "meity_careers")
+        assert row.enabled is (slug not in {"meity_careers", "nic_dii", "drdo"})
         assert row.legal_status == "ok"
         assert row.type == "aggregator"
     assert all(not isinstance(row, models.Company) for row in rows)
@@ -64,7 +64,12 @@ def test_registered_budgeted_seeded_and_no_absence_retirement(monkeypatch, capsy
         "WAF returns HTTP 403 to the AspirovaBot User-Agent (verified 2026-11-13); "
         "re-enable only if MeitY allows our identity"
     )
-    assert seed_companies._DISABLED_AGGREGATORS == {"meity_careers": reason}
+    us_blocked = "unreachable from GitHub Actions US runners (verified 2026-11-13)"
+    assert seed_companies._DISABLED_AGGREGATORS == {
+        "meity_careers": reason,
+        "nic_dii": us_blocked,
+        "drdo": us_blocked,
+    }
     assert f"created source: meity_careers (disabled: {reason})" in capsys.readouterr().out
 
 
