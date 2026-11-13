@@ -1760,25 +1760,6 @@
       "how_to_apply": "Create an LFID and LFX Mentorship mentee profile, then search LFDT projects accepting applicants.\nPrepare your latest resume and a cover letter explaining your project interest, relevant skills and learning goals.\nComplete the chosen project’s prerequisites, including any requested work samples or coding challenge.\nSubmit through LFX Mentorship for mentor review, within the three-project application limit.",
       "event_window": "Part-time mentorship Jun–Nov 2027 (tentative)."
     },
-    "rise-germany": {
-      "row_id": "OPP-211",
-      "cycle_year": 2027,
-      "organiser": "DAAD",
-      "geography": "Global; verify nationality and institution eligibility",
-      "confidence": "High",
-      "prep_tip": "Read the current official notice and prepare the required eligibility evidence.",
-      "hiring_mode": "Selection under the current official notice",
-      "career_linkage": "Participation or selection under the organiser's terms; verify the current notice",
-      "duration_start": "Research internships in Germany during summer 2027; project dates vary.",
-      "verification_note": "DAAD publishes 15 October–30 November 2026, 23:59 CET, for the 2027 cohort. References close separately on 15 December.",
-      "opening_text": "15 Oct 2026",
-      "deadline_text": "30 Nov 2026",
-      "name": "RISE Germany",
-      "source_url": "https://www.daad.de/rise/en/rise-germany/",
-      "source_checked_on": "2026-11-13",
-      "how_to_apply": "Only undergraduates at North American (US/Canada), British or Irish universities qualify. Students at Indian universities are ineligible.\nApply through the RISE Germany internship database and select suitable research projects.\nUpload your transcript, enrolment certificate and motivation material. Invite a PhD-qualified academic referee through the database.\nHost rankings and DAAD review determine the placement.",
-      "event_window": "Research internships in Germany during summer 2027; project dates vary."
-    },
     "charpak-summer-training": {
       "row_id": "OPP-212",
       "cycle_year": 2027,
@@ -4038,6 +4019,14 @@
     }
   },
   "watchlist": [
+    {
+      "name": "RISE Germany",
+      "status": "unverified/legacy watchlist",
+      "source_url": "https://www.daad.de/rise/en/rise-germany/",
+      "source_checked_on": "2026-11-13",
+      "reason": "Removed by founder decision: open only to undergraduates at North American, British and Irish universities; students at Indian universities are ineligible.",
+      "inactive_programme_slug": "rise-germany"
+    },
     {
       "name": "FOSSASIA Codeheat",
       "status": "unverified/legacy watchlist",

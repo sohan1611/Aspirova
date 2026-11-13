@@ -435,7 +435,8 @@
       "typical_window": "applications usually open in autumn for the following year's internships",
       "country": null,
       "tags": ["international", "research", "science"],
-      "review_months": [9, 10, 11]
+      "review_months": [9, 10, 11],
+      "is_active": false
     },
     {
       "slug": "charpak-summer-training",

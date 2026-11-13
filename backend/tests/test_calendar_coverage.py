@@ -50,7 +50,7 @@ def test_next_12_months_after_import_and_refresh(engine, today):
             session.expire_all()
             programmes = list(session.scalars(select(Programme)))
             active = [item for item in programmes if item.is_active]
-            assert len(active) == 170
+            assert len(active) == 169
             assert calendar_coverage.uncovered_next_12_months(programmes, today=today) == []
             assert calendar_coverage.uncovered_next_12_months(today=today) == []
             edition_count = session.scalar(select(func.count()).select_from(ProgrammeEdition))
