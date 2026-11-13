@@ -17,7 +17,7 @@ from core.hiring_calendar import (
 from core.models import Programme, ProgrammeEdition
 from migrations.versions.a7c9e2b4d6f8_add_early_career_programme_category import OLD_CATEGORIES
 from pipeline.programme_verification import CalendarPageFetcher, extract_official_calendar_dates
-from scripts.import_calendar import category_for, import_calendar
+from scripts.import_calendar import _import_row, category_for, import_calendar
 from scripts.refresh_calendar import apply_page, refresh_calendar, roll_forward
 
 FIXTURES = Path(__file__).parent / "fixtures" / "calendar"
@@ -68,6 +68,33 @@ def test_import_idempotent_matches_registry_and_preserves_refresh(db_session):
     epfl = db_session.scalar(select(Programme).where(Programme.slug == "epfl-life-sciences-srp"))
     assert epfl.editions[0].year == 2027
     assert epfl.editions[0].closes_at.year == 2026
+
+
+@pytest.mark.parametrize("status", ["announced", "open"])
+@pytest.mark.parametrize("verified_day", [13, 14])
+def test_authored_closure_overrides_same_day_or_newer_open_edition(
+    db_session, status, verified_day
+):
+    slug = "nic-digital-india-winter"
+    meta = CALENDAR_META[slug]
+    _import_row(db_session, slug, meta)
+    item = db_session.scalar(select(Programme).where(Programme.slug == slug))
+    edition = item.editions[0]
+    checked = datetime(2026, 11, verified_day, tzinfo=IST)
+    edition.status = status
+    edition.closes_at = None
+    edition.notes = "calendar_deadline_rolling"
+    edition.verified_at = checked
+    db_session.flush()
+
+    _import_row(db_session, slug, meta)
+    assert edition.status == "closed"
+    assert edition.closes_at.astimezone(IST).date().isoformat() == "2026-11-13"
+    assert "calendar_deadline_rolling" not in edition.notes
+    assert edition.verified_at == checked
+    before = (edition.status, edition.closes_at, edition.notes, edition.verified_at)
+    _import_row(db_session, slug, meta)
+    assert (edition.status, edition.closes_at, edition.notes, edition.verified_at) == before
 
 
 def test_old_category_constraint_skips_tech_and_continues(db_session, caplog):
