@@ -965,6 +965,349 @@
       "opening_text": "Project-dependent / rolling",
       "deadline_text": "Project-dependent",
       "name": "Visiting Student Research Program"
+    },
+    "gsoc": {
+      "row_id": "OPP-101",
+      "cycle_year": 2027,
+      "organiser": "Google",
+      "geography": "Global",
+      "confidence": "Medium",
+      "prep_tip": "Discuss a project with an accepted mentoring organisation before writing the proposal.",
+      "hiring_mode": "Application and organiser selection",
+      "career_linkage": "Learning and contribution; no employment guarantee",
+      "duration_start": "Mentored projects; project length and coding dates depend on the edition",
+      "verification_note": "No official 2027 application dates published. The official 2026 contributor window was March 16–31; the organiser's general timeline places contributor applications in March–April. These are tentative contributor application months, not organisation applications or the coding period.",
+      "opening_text": "Mar 2027",
+      "deadline_text": "Mar–Apr 2027",
+      "name": "Google Summer of Code"
+    },
+    "hacktoberfest": {
+      "row_id": "OPP-102",
+      "cycle_year": 2027,
+      "organiser": "Major League Hacking and DEV",
+      "geography": "Global",
+      "confidence": "Medium",
+      "prep_tip": "Read the current rules and prepare evidence of relevant work.",
+      "hiring_mode": "Event participation under the current edition's rules",
+      "career_linkage": "Learning and contribution; no employment guarantee",
+      "duration_start": "Historically October; the next edition's format is unconfirmed",
+      "verification_note": "No official 2027 dates published. The official 2026 event ran in October and ended October 31. October here is a tentative participation month, not a verified registration opening or deadline. The 2026 format changed from counting pull requests to events and building with open-weight models; do not carry forward old reward or PR-count rules. DigitalOcean is the presenting partner; MLH and DEV powered the event.",
+      "opening_text": "Oct 2027 (participation month)",
+      "deadline_text": "Registration and local event cutoffs vary",
+      "name": "Hacktoberfest",
+      "deadline_rolling": true
+    },
+    "mlh-fellowship": {
+      "row_id": "OPP-103",
+      "cycle_year": 2027,
+      "organiser": "Major League Hacking",
+      "geography": "Global",
+      "confidence": "Medium",
+      "prep_tip": "Prepare to discuss code you wrote and check batch time-zone and time-commitment requirements.",
+      "hiring_mode": "Rolling application, interviews and enrolment",
+      "career_linkage": "Learning and contribution; no employment guarantee",
+      "duration_start": "12-week batches; Spring 2027 cohort Jan 25–Apr 16 is listed by the organiser",
+      "verification_note": "The indexed official Software Engineering page lists Spring 2027 (January 25–April 16) and rolling applications closing a few weeks before each batch. Those are cohort dates, not application dates, so this entry stays undated/rolling. Summer and Fall 2027 batch dates were not verified and are not projected onto dates. Direct robots.txt returned HTTP 400, so no live programme-page request was made; verification used the indexed organiser page only.",
+      "opening_text": "Rolling by batch",
+      "deadline_text": "A few weeks before each batch; no exact cutoff",
+      "name": "MLH Fellowship"
+    },
+    "outreachy": {
+      "row_id": "OPP-104",
+      "cycle_year": 2027,
+      "organiser": "Software Freedom Conservancy",
+      "geography": "Global",
+      "confidence": "Medium",
+      "prep_tip": "Read the current rules and prepare evidence of relevant work.",
+      "hiring_mode": "Initial eligibility application, contribution period and final project application",
+      "career_linkage": "Learning and contribution; no employment guarantee",
+      "duration_start": "Three-month remote internships, historically May–August and December–March",
+      "verification_note": "No official 2027 initial application dates published. The official page places May 2026 initial applications in February and December 2026 initial applications in August. Two separate tentative initial-application windows are shown for the May and December 2027 cohorts. Contribution/final-application stages historically follow in March–April and September–October; those later stages are not initial registration windows. The December 2026 cohort ending in March 2027 is not a new 2027 application round.",
+      "opening_text": "Feb 2027 / Aug 2027 (separate rounds)",
+      "deadline_text": "Feb 2027 / Aug 2027 (initial applications)",
+      "name": "Outreachy",
+      "recurrence": {
+        "precision": "month",
+        "windows": [
+          {
+            "open_month": 2,
+            "close_month": 2
+          },
+          {
+            "open_month": 8,
+            "close_month": 8
+          }
+        ]
+      }
+    },
+    "lfx-mentorship": {
+      "row_id": "OPP-105",
+      "cycle_year": 2027,
+      "organiser": "Linux Foundation",
+      "geography": "Global",
+      "confidence": "Medium",
+      "prep_tip": "Read each project's prerequisites and contribute before the selection period.",
+      "hiring_mode": "Project application, prerequisites and mentor selection",
+      "career_linkage": "Learning and contribution; no employment guarantee",
+      "duration_start": "Full-time terms historically March–May, June–August and September–November; part-time project schedules vary",
+      "verification_note": "No project-specific 2027 dates verified. The official schedule makes full-time mentorships available in mid-January, mid-April and mid-July, with applications open for approximately four weeks. Month-precision tentative windows are Jan–Feb, Apr–May and Jul–Aug for spring, summer and fall respectively. Term dates (March–May, June–August, September–November) are not application windows; projects may vary and part-time terms have their own schedules.",
+      "opening_text": "Jan–Feb 2027 / Apr–May 2027 / Jul–Aug 2027",
+      "deadline_text": "Project-specific within each term's application window",
+      "name": "LFX Mentorship",
+      "recurrence": {
+        "precision": "month",
+        "windows": [
+          {
+            "open_month": 1,
+            "close_month": 2
+          },
+          {
+            "open_month": 4,
+            "close_month": 5
+          },
+          {
+            "open_month": 7,
+            "close_month": 8
+          }
+        ]
+      }
+    },
+    "girlscript-summer-of-code": {
+      "row_id": "OPP-106",
+      "cycle_year": 2027,
+      "organiser": "GirlScript Foundation",
+      "geography": "India / global community",
+      "confidence": "Medium",
+      "prep_tip": "Read the current rules and prepare evidence of relevant work.",
+      "hiring_mode": "Contributor application, selection and project contributions",
+      "career_linkage": "Learning and contribution; no employment guarantee",
+      "duration_start": "Edition-specific contribution period; verify the open-source track's new schedule",
+      "verification_note": "No official 2027 dates published. The official 2026 timeline opened applications March 24, with selection in late March/early April and onboarding in April. Only March is projected as a tentative opening month; no registration deadline is invented from selection dates. The open-source track is closed on the checked 2026 page; current AI-track application banners do not establish a 2027 open-source call.",
+      "opening_text": "Mar 2027 (historical opening)",
+      "deadline_text": "Next edition's application cutoff not published",
+      "name": "GirlScript Summer of Code",
+      "deadline_rolling": true
+    },
+    "summer-of-bitcoin": {
+      "row_id": "OPP-107",
+      "cycle_year": 2027,
+      "organiser": "Summer of Bitcoin",
+      "geography": "Global",
+      "confidence": "Medium",
+      "prep_tip": "Prepare a coding or design portfolio and read the organiser's student guide.",
+      "hiring_mode": "Track application, screening/challenges, proposal and mentor review",
+      "career_linkage": "Learning and contribution; no employment guarantee",
+      "duration_start": "Summer open-source Bitcoin projects; new edition dates unconfirmed",
+      "verification_note": "No official 2027 dates published. The official 2026 timeline gives February 1–15 for initial applications, followed by challenges and proposals. February alone is projected at month precision. Later proposal, project and evaluation dates are not treated as the initial application cutoff. The organiser's student guide also confirms the February 2026 initial deadline.",
+      "opening_text": "Feb 2027",
+      "deadline_text": "Feb 2027",
+      "name": "Summer of Bitcoin"
+    },
+    "season-of-kde": {
+      "row_id": "OPP-108",
+      "cycle_year": 2027,
+      "organiser": "KDE",
+      "geography": "Global",
+      "confidence": "Medium",
+      "prep_tip": "Read the current rules and prepare evidence of relevant work.",
+      "hiring_mode": "Proposal, mentor matching and project selection",
+      "career_linkage": "Learning and contribution; no employment guarantee",
+      "duration_start": "Mentored code and non-code KDE projects; next edition schedule unconfirmed",
+      "verification_note": "No official 2027 application dates published. The official SoK 2026 timeline opened December 15, 2025 and closed contributor applications January 14, 2026. The 2027 projection therefore spans December 2026–January 2027 at month precision. The 2027 ideas page exists, but it does not confirm an application window.",
+      "opening_text": "Dec 2026",
+      "deadline_text": "Jan 2027",
+      "name": "Season of KDE"
+    },
+    "women-techmakers-ambassadors": {
+      "row_id": "OPP-109",
+      "cycle_year": 2027,
+      "organiser": "Technovation",
+      "geography": "Global",
+      "confidence": "Medium",
+      "prep_tip": "Read the current rules and prepare evidence of relevant work.",
+      "hiring_mode": "Ambassador application under the current organiser's rules",
+      "career_linkage": "Community leadership and professional development; no Google employment guarantee",
+      "duration_start": "Community ambassador participation; not an internship",
+      "verification_note": "Google's official Women Techmakers Ambassadors URL now redirects to Technovation. The current organiser page says ambassador applications are closed and expected to open in May, without specifying a year or deadline. May 2027 is tentative only; this is a community leadership programme, not a Google internship or hiring promise.",
+      "opening_text": "May 2027 (expected opening)",
+      "deadline_text": "Next application cutoff not published",
+      "name": "Women Techmakers Ambassadors",
+      "deadline_rolling": true
+    },
+    "amazon-ml-summer-school": {
+      "row_id": "OPP-110",
+      "cycle_year": 2027,
+      "organiser": "Amazon",
+      "geography": "India",
+      "confidence": "Medium",
+      "prep_tip": "Read the current rules and prepare evidence of relevant work.",
+      "hiring_mode": "Registration and selection assessment under the edition's rules",
+      "career_linkage": "Skills training and interaction with Amazon scientists; no employment guarantee",
+      "duration_start": "Machine-learning training modules; new edition schedule unconfirmed",
+      "verification_note": "No official 2027 dates published. The official article announced registration on August 24, 2023 and says it closed September 6, 2023; its update links a fifth edition in 2025 without application dates. August–September is a tentative historical watch window based on that dated organiser announcement, not a stable national schedule. Earlier editions used different months. This is training, not an internship offer.",
+      "opening_text": "Aug 2027",
+      "deadline_text": "Sep 2027",
+      "name": "Amazon ML Summer School — India"
+    },
+    "amazon-wow": {
+      "row_id": "OPP-111",
+      "cycle_year": 2027,
+      "organiser": "Amazon",
+      "geography": "Global; verify India session eligibility",
+      "confidence": "Medium",
+      "prep_tip": "Read the current rules and prepare evidence of relevant work.",
+      "hiring_mode": "Community registration and event participation",
+      "career_linkage": "Career readiness and networking; no employment guarantee",
+      "duration_start": "Community resources and events; session-specific",
+      "verification_note": "The current official page confirms a university-student community with resources, events and career-readiness sessions, but publishes no dated 2027 application cycle. Keep undated/rolling; joining the community does not establish an internship vacancy or offer.",
+      "opening_text": "Session-dependent / rolling",
+      "deadline_text": "Event-specific; no national cutoff published",
+      "name": "Amazon Women of the World (WoW)"
+    },
+    "uber-she-plus-plus": {
+      "row_id": "OPP-112",
+      "cycle_year": 2027,
+      "organiser": "Uber",
+      "geography": "India / other listed summit locations",
+      "confidence": "Medium",
+      "prep_tip": "Read the current rules and prepare evidence of relevant work.",
+      "hiring_mode": "Location-specific summit application/selection",
+      "career_linkage": "Professional development and exposure to internship pathways; no offer guarantee",
+      "duration_start": "Professional-development summit; date depends on location",
+      "verification_note": "Uber's current official page includes India among She++ locations and describes a professional-development summit. No India 2027 application dates or fixed annual month were verified. Keep undated/rolling; programme participation is not a confirmed internship opening.",
+      "opening_text": "Location/event-dependent / rolling",
+      "deadline_text": "Summit-specific; no India 2027 cutoff published",
+      "name": "Uber She++"
+    },
+    "cisco-thingqbator": {
+      "row_id": "OPP-113",
+      "cycle_year": 2027,
+      "organiser": "Cisco and nasscom foundation",
+      "geography": "India",
+      "confidence": "Medium",
+      "prep_tip": "Read the current rules and prepare evidence of relevant work.",
+      "hiring_mode": "Institution/cohort participation and project selection",
+      "career_linkage": "Skills, mentorship and venture support; not a Cisco job offer",
+      "duration_start": "Cohort-based makerspace and entrepreneurship support",
+      "verification_note": "Cisco's current India CSR page confirms thingQbator with nasscom foundation for engineering students, including learning, mentorship and support for social ventures. The official programme portal also exists, but no 2027 application cycle is published in the retrieved content. Keep undated/rolling; this is innovation/entrepreneurship support, not Cisco internship recruitment.",
+      "opening_text": "Cohort/institution-dependent / rolling",
+      "deadline_text": "No national 2027 application cutoff published",
+      "name": "Cisco thingQbator"
+    },
+    "cisco-student-internships": {
+      "row_id": "OPP-114",
+      "cycle_year": 2027,
+      "organiser": "Cisco",
+      "geography": "Global; verify a current India vacancy",
+      "confidence": "Medium",
+      "prep_tip": "Read the current rules and prepare evidence of relevant work.",
+      "hiring_mode": "Vacancy application and role-specific interviews",
+      "career_linkage": "Internship/co-op only where a matching vacancy is advertised",
+      "duration_start": "3–12 months depending on region and business group",
+      "verification_note": "The current official entry-level page describes 3–12-month internships/co-ops with schedules varying by region and business group. No India-wide 2027 application window was verified. Keep undated/rolling and verify an actual India vacancy before applying; a global programme page does not confirm a local opening.",
+      "opening_text": "Vacancy-dependent / rolling",
+      "deadline_text": "Per vacancy; no India-wide 2027 deadline published",
+      "name": "Cisco Internships and Co-ops"
     }
-  }
+  },
+  "watchlist": [
+    {
+      "name": "FOSSASIA Codeheat",
+      "status": "unverified/legacy watchlist",
+      "source_url": "https://codeheat.org/",
+      "source_checked_on": "2026-11-13",
+      "reason": "The checked official site still advertises December 2023–March 2024. No current cycle confirmed; do not project dates."
+    },
+    {
+      "name": "Google STEP — India",
+      "status": "unverified/legacy watchlist",
+      "source_url": "https://www.google.com/about/careers/applications/students/",
+      "source_checked_on": "2026-11-13",
+      "reason": "No current India STEP call or dated successor verified. Do not infer it from general SWE roles."
+    },
+    {
+      "name": "Microsoft Engage",
+      "status": "unverified/legacy watchlist",
+      "source_url": "https://careers.microsoft.com/v2/global/en/engage",
+      "source_checked_on": "2026-11-13",
+      "reason": "Official route resolves to a page-not-found screen. No current Engage cycle or named successor verified; Explore already has OPP-034."
+    },
+    {
+      "name": "Walmart CodeHers",
+      "status": "unverified/legacy watchlist",
+      "source_url": "https://tech.walmart.com/content/walmart-global-tech/en_us/careers.html.html",
+      "source_checked_on": "2026-11-13",
+      "reason": "No organiser-hosted CodeHers call or usable India cycle found; checked candidate programme paths return 404. Sparkathon already exists separately."
+    },
+    {
+      "name": "Goldman Sachs Women in Tech / Engineering Campus Hiring",
+      "status": "unverified/legacy watchlist",
+      "source_url": "https://www.goldmansachs.com/worldwide/india/careers",
+      "source_checked_on": "2026-11-13",
+      "reason": "No current named India call or dated engineering-campus cycle verified. Checked engineering-campus paths return 404; generic careers and existing analyst rows do not establish another programme."
+    },
+    {
+      "name": "Intel India student internships",
+      "status": "unverified/legacy watchlist",
+      "source_url": "https://jobs.intel.com/en/students",
+      "source_checked_on": "2026-11-13",
+      "reason": "Official student/India links redirect to a Workday page with no programme facts in retrieved content. No current India application cycle verified; old employee stories are insufficient."
+    },
+    {
+      "name": "Samsung R&D India",
+      "status": "unverified/legacy watchlist",
+      "source_url": "https://research.samsung.com/sri-b",
+      "source_checked_on": "2026-11-13",
+      "reason": "Current official centre and career links exist, but no India 2027 application cycle was verified. PrePARe is described on an indexed 2025 official article, but newsroom robots retrieval was inconclusive. Do not infer application months from internship start dates."
+    },
+    {
+      "name": "Directi / Media.net campus cycles",
+      "status": "unverified/legacy watchlist",
+      "source_url": "https://careers.media.net/",
+      "source_checked_on": "2026-11-13",
+      "reason": "Current Media.net careers content describes hiring but no student cycle months. Directi careers path checked returned 404."
+    },
+    {
+      "name": "Sprinklr campus cycles",
+      "status": "unverified/legacy watchlist",
+      "source_url": "https://www.sprinklr.com/careers/internship-and-early-careers/",
+      "source_checked_on": "2026-11-13",
+      "reason": "The official internship/early-careers page confirms the programmes and university recruiting steps but gives no India application months. Summer/Spring/Winter '26 labels on the general site are product releases, not application dates."
+    },
+    {
+      "name": "ZS campus cycles",
+      "status": "unverified/legacy watchlist",
+      "source_url": "https://www.zs.com/careers/interview-process",
+      "source_checked_on": "2026-11-13",
+      "reason": "Campus hiring season is mentioned without months; a two-to-four-week response time is not an annual application window."
+    },
+    {
+      "name": "Deloitte campus cycles",
+      "status": "unverified/legacy watchlist",
+      "source_url": "https://www.deloitte.com/ui/en/careers/students.html",
+      "source_checked_on": "2026-11-13",
+      "reason": "Official US-India campus page directs applicants to their placement team for visit dates; no national window published."
+    },
+    {
+      "name": "PwC campus cycles",
+      "status": "unverified/legacy watchlist",
+      "source_url": "https://www.pwc.in/careers/campus-careers.html",
+      "source_checked_on": "2026-11-13",
+      "reason": "Official India page confirms campus programmes and internship/full-time channels but no application months."
+    },
+    {
+      "name": "EY campus cycles",
+      "status": "unverified/legacy watchlist",
+      "source_url": "https://www.ey.com/en_in/careers/student-entry-level-programs",
+      "source_checked_on": "2026-11-13",
+      "reason": "Official India student page confirms pathways but no India application cycle. The separate scholarship page still describes 2025; overseas cycles must not be used for India."
+    },
+    {
+      "name": "KPMG campus cycles",
+      "status": "unverified/legacy watchlist",
+      "source_url": "https://kpmg.com/in/en/careers/campus-recruitment.html",
+      "source_checked_on": "2026-11-13",
+      "reason": "Student page links an FY-25 campus campaign; no dated 2027 India cycle verified."
+    }
+  ]
 }
