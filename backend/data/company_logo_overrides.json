@@ -26,8 +26,17 @@
   "accor-eab55a57": {
     "domain": "accor.com"
   },
+  "acxiom-3135ab6c": {
+    "domain": "acxiom.com"
+  },
+  "adda247": {
+    "domain": "adda247.com"
+  },
   "adidas-08bb42a3": {
     "domain": "adidas.com"
+  },
+  "aditya-birla-capital-627b4976": {
+    "domain": "adityabirlacapital.com"
   },
   "affirm": {
     "domain": "affirm.com"
@@ -53,8 +62,17 @@
   "akamai-technologies-84923816": {
     "domain": "akamai.com"
   },
+  "akuna-capital-university-ba539443": {
+    "domain": "akunacapital.com"
+  },
+  "akunacapitaloci": {
+    "domain": "akunacapital.com"
+  },
   "algolia": {
     "domain": "algolia.com"
+  },
+  "alliance-wd3-nissanjobs": {
+    "domain": "nissan-global.com"
   },
   "allianz-group-94d5f785": {
     "domain": "allianz.com"
@@ -62,8 +80,14 @@
   "allianz-se-8c2b1c31": {
     "domain": "allianz.com"
   },
+  "alphasense-inc-68323c14": {
+    "domain": "alpha-sense.com"
+  },
   "alstom-36e26473": {
     "domain": "alstom.com"
+  },
+  "altera-wd1-altera": {
+    "domain": "altera.com"
   },
   "amazon": {
     "domain": "amazon.com"
@@ -73,6 +97,15 @@
   },
   "amd-240389f4": {
     "domain": "amd.com"
+  },
+  "amentum-3497591e": {
+    "domain": "amentum.com"
+  },
+  "american-express-066b5b5a": {
+    "domain": "americanexpress.com"
+  },
+  "american-heart-association-d1cc3a83": {
+    "domain": "heart.org"
   },
   "amgen-48272715": {
     "domain": "amgen.com"
@@ -94,6 +127,9 @@
   },
   "apple-3a7bd3e2": {
     "domain": "apple.com"
+  },
+  "applied-systems-b617e5de": {
+    "domain": "appliedsystems.com"
   },
   "aqr": {
     "domain": "aqr.com"
@@ -125,11 +161,20 @@
   "aws-7d150728": {
     "domain": "amazon.com"
   },
+  "backmarket-18f39df7": {
+    "domain": "backmarket.com"
+  },
+  "badgermeter-wd5-us_careersite": {
+    "domain": "badgermeter.com"
+  },
   "bain-company-937b4116": {
     "domain": "bain.com"
   },
   "barclays-71f566ab": {
     "domain": "barclays.com"
+  },
+  "baringa-41261f89": {
+    "domain": "baringa.com"
   },
   "baseten": {
     "domain": "baseten.co"
@@ -137,11 +182,26 @@
   "bayer-107eaa27": {
     "domain": "bayer.com"
   },
+  "bedrock-robotics": {
+    "domain": "bedrockrobotics.com"
+  },
   "benchling-143be1d0": {
     "domain": "benchling.com"
   },
+  "bertelsmann-jobs-f1eec484": {
+    "domain": "bertelsmann.com"
+  },
+  "bertelsmann-se-co-kgaa-99d5d2d8": {
+    "domain": "bertelsmann.com"
+  },
+  "betterme-1781ee17": {
+    "domain": "betterme.world"
+  },
   "binance-59bba357": {
     "domain": "binance.com"
+  },
+  "blackhawk-network-holdings-inc-cbea114b": {
+    "domain": "blackhawknetwork.com"
   },
   "block": {
     "domain": "block.xyz"
@@ -152,11 +212,17 @@
   "bnp-paribas-56046651": {
     "domain": "bnpparibas.com"
   },
+  "bny-5af53503": {
+    "domain": "bny.com"
+  },
   "bombardier-d418045c": {
     "domain": "bombardier.com"
   },
   "bosch-india-3be96df4": {
     "domain": "bosch.com"
+  },
+  "brevan-howard-c479a145": {
+    "domain": "brevanhoward.com"
   },
   "brex": {
     "domain": "brex.com"
@@ -170,8 +236,14 @@
   "bybit-8c2785d1": {
     "domain": "bybit.com"
   },
+  "caci-wd1-external": {
+    "domain": "caci.com"
+  },
   "calendly": {
     "domain": "calendly.com"
+  },
+  "cambridgeconsultantslimited-8034695b": {
+    "domain": "cambridgeconsultants.com"
   },
   "canonical-0deeb8fa": {
     "domain": "canonical.com"
@@ -187,6 +259,9 @@
   },
   "caterpillar-inc-baffdf37": {
     "domain": "caterpillar.com"
+  },
+  "cbrands-wd5-cbi_external_careers": {
+    "domain": "cbrands.com"
   },
   "centurylink-2d782a08": {
     "domain": "centurylink.com"
@@ -211,6 +286,9 @@
   },
   "cisco-e73b79a0": {
     "domain": "cisco.com"
+  },
+  "citizens-financial-group-1e2c600b": {
+    "domain": "citizensbank.com"
   },
   "clickpost": {
     "domain": "clickpost.ai"
@@ -257,6 +335,15 @@
   "contentful": {
     "domain": "contentful.com"
   },
+  "cook-group-85a0410b": {
+    "domain": "cookgroup.com"
+  },
+  "copart-wd12-copart": {
+    "domain": "copart.com"
+  },
+  "costco-22ffba7a": {
+    "domain": "costco.com"
+  },
   "coursera": {
     "domain": "coursera.org"
   },
@@ -274,6 +361,9 @@
   },
   "cultureamp": {
     "domain": "cultureamp.com"
+  },
+  "cummins-49762afb": {
+    "domain": "cummins.com"
   },
   "cursor": {
     "domain": "cursor.com"
@@ -296,6 +386,9 @@
   "decagon": {
     "domain": "decagon.ai"
   },
+  "decathlontechnology-24261e4f": {
+    "domain": "decathlon.com"
+  },
   "deepgram": {
     "domain": "deepgram.com"
   },
@@ -317,6 +410,9 @@
   "deutsche-telekom-8ccfa892": {
     "domain": "telekom.com"
   },
+  "devfolio-9e32e869": {
+    "domain": "devfolio.co"
+  },
   "devrev": {
     "domain": "devrev.ai"
   },
@@ -329,14 +425,26 @@
   "discord": {
     "domain": "discord.com"
   },
+  "distribusion-technologies-e42c5242": {
+    "domain": "distribusion.com"
+  },
   "docker": {
     "domain": "docker.com"
+  },
+  "doctrine-a6747a6b": {
+    "domain": "doctrine.fr"
   },
   "dropbox": {
     "domain": "dropbox.com"
   },
   "druva": {
     "domain": "druva.com"
+  },
+  "drweng": {
+    "domain": "drw.com"
+  },
+  "dtcc-94705f9b": {
+    "domain": "dtcc.com"
   },
   "duckduckgo-5b8eeb90": {
     "domain": "duckduckgo.com"
@@ -359,11 +467,20 @@
   "elevenlabs": {
     "domain": "elevenlabs.io"
   },
+  "emc-insurance-companies-8e7651eb": {
+    "domain": "emcinsurance.com"
+  },
   "emerson-c023b7b0": {
+    "domain": "emerson.com"
+  },
+  "emerson-electric-e68cfb3f": {
     "domain": "emerson.com"
   },
   "epicgames-d39455d7": {
     "domain": "epicgames.com"
+  },
+  "ernst-young-969711ca": {
+    "domain": "ey.com"
   },
   "etched": {
     "domain": "etched.com"
@@ -386,8 +503,14 @@
   "fidelity-investments-c92a057e": {
     "domain": "fidelity.com"
   },
+  "field-ai": {
+    "domain": "fieldai.com"
+  },
   "figma": {
     "domain": "figma.com"
+  },
+  "fioneer-3f7b5f43": {
+    "domain": "sapfioneer.com"
   },
   "fireworksai": {
     "domain": "fireworks.ai"
@@ -395,8 +518,14 @@
   "fivetran": {
     "domain": "fivetran.com"
   },
+  "flex-222f930b": {
+    "domain": "flex.com"
+  },
   "flexport": {
     "domain": "flexport.com"
+  },
+  "flir-wd1-flircareers": {
+    "domain": "teledyne.com"
   },
   "flowtraders": {
     "domain": "flowtraders.com"
@@ -407,8 +536,14 @@
   "ford-india-8cd9affb": {
     "domain": "ford.com"
   },
+  "fortinet-da2f4179": {
+    "domain": "fortinet.com"
+  },
   "four-seasons-8e6c0388": {
     "domain": "fourseasons.com"
+  },
+  "framatome-e2d0c701": {
+    "domain": "framatome.com"
   },
   "freshworks": {
     "domain": "freshworks.com"
@@ -418,6 +553,9 @@
   },
   "gamma": {
     "domain": "gamma.app"
+  },
+  "gdit-wd5-gdit_earlytalent": {
+    "domain": "gdit.com"
   },
   "ge-aerospace-a83512a7": {
     "domain": "geaerospace.com"
@@ -446,14 +584,23 @@
   "google-bbdefa29": {
     "domain": "google.com"
   },
+  "google-india-c8670f1e": {
+    "domain": "google.com"
+  },
   "grafanalabs": {
     "domain": "grafana.com"
   },
   "granola": {
     "domain": "granola.ai"
   },
+  "graphcore-early-careers-a26b4ce9": {
+    "domain": "graphcore.ai"
+  },
   "groww": {
     "domain": "groww.in"
+  },
+  "guidepoint-security-llc-9c21d2b9": {
+    "domain": "guidepointsecurity.com"
   },
   "gusto": {
     "domain": "gusto.com"
@@ -503,6 +650,9 @@
   "honeywell-technologies-e497044e": {
     "domain": "honeywell.com"
   },
+  "hp-wd5-externalcareersite": {
+    "domain": "hp.com"
+  },
   "hsbc-ce749e84": {
     "domain": "hsbc.com"
   },
@@ -518,11 +668,23 @@
   "ibm-916a98f0": {
     "domain": "ibm.com"
   },
+  "icf-d210f3b9": {
+    "domain": "icf.com"
+  },
+  "ideas-53d8ba90": {
+    "domain": "ideas.com"
+  },
   "imc": {
     "domain": "imc.com"
   },
+  "imerit-technology-b6d04c78": {
+    "domain": "imerit.net"
+  },
   "includedhealth": {
     "domain": "includedhealth.com"
+  },
+  "indian-army-e3efa6c4": {
+    "domain": "indianarmy.nic.in"
   },
   "infosys-ab877737": {
     "domain": "infosys.com"
@@ -536,11 +698,17 @@
   "intel-96eebba4": {
     "domain": "intel.com"
   },
+  "intercontinental-exchange-1b322458": {
+    "domain": "ice.com"
+  },
   "intuit-80daf15e": {
     "domain": "intuit.com"
   },
   "itc-limited-34a51378": {
     "domain": "itcportal.com"
+  },
+  "iwoca-de5901c6": {
+    "domain": "iwoca.co.uk"
   },
   "janestreet": {
     "domain": "janestreet.com"
@@ -551,8 +719,17 @@
   "jetbrains": {
     "domain": "jetbrains.com"
   },
+  "jmfamily-wd1-jmfamily_external": {
+    "domain": "jmfamily.com"
+  },
+  "john-deere-e58c9634": {
+    "domain": "deere.com"
+  },
   "johnson-controls-905e3a41": {
     "domain": "johnsoncontrols.com"
+  },
+  "jp-morgan-chase-50fcb8c0": {
+    "domain": "jpmorganchase.com"
   },
   "jumptrading": {
     "domain": "jumptrading.com"
@@ -563,17 +740,29 @@
   "khan-academy-9ec5fcfb": {
     "domain": "khanacademy.org"
   },
+  "kla-d59ffd35": {
+    "domain": "kla.com"
+  },
+  "koch-industries-b23d9e39": {
+    "domain": "kochinc.com"
+  },
   "kpmg-india-205ed74f": {
     "domain": "kpmg.com"
   },
   "krea": {
     "domain": "krea.ai"
   },
+  "labcorp-corporation-d42035d8": {
+    "domain": "labcorp.com"
+  },
   "labelbox": {
     "domain": "labelbox.com"
   },
   "langchain": {
     "domain": "langchain.com"
+  },
+  "langdock-080f487f": {
+    "domain": "langdock.com"
   },
   "larsen-toubro-2ba593af": {
     "domain": "larsentoubro.com"
@@ -584,14 +773,32 @@
   "launchdarkly": {
     "domain": "launchdarkly.com"
   },
+  "lendable-5c46c87f": {
+    "domain": "lendable.co.uk"
+  },
+  "lennox-international-7d179985": {
+    "domain": "lennox.com"
+  },
+  "leonardocompany-wd3-leonardocareersite": {
+    "domain": "leonardo.com"
+  },
+  "lilasciences": {
+    "domain": "lila.ai"
+  },
   "linear": {
     "domain": "linear.app"
   },
   "linkedin-84308bea": {
     "domain": "linkedin.com"
   },
+  "localiza-co-bbcf1d02": {
+    "domain": "localiza.com"
+  },
   "lockheed-martin-c3760135": {
     "domain": "lockheedmartin.com"
+  },
+  "loftorbital-344e97f0": {
+    "domain": "loftorbital.com"
   },
   "logitech-1db0046b": {
     "domain": "logitech.com"
@@ -599,17 +806,29 @@
   "lovable": {
     "domain": "lovable.dev"
   },
+  "lplfinancial-wd1-university": {
+    "domain": "lpl.com"
+  },
   "lumel": {
     "domain": "lumel.com"
   },
+  "luxury-presence-db0a889c": {
+    "domain": "luxurypresence.com"
+  },
   "lyft": {
     "domain": "lyft.com"
+  },
+  "macy-s-16ed1b61": {
+    "domain": "macys.com"
   },
   "maersk-4ac6b1d4": {
     "domain": "maersk.com"
   },
   "makemytrip-06c08557": {
     "domain": "makemytrip.com"
+  },
+  "mantech-8bfaade9": {
+    "domain": "mantech.com"
   },
   "marriott-international-6bacc597": {
     "domain": "marriott.com"
@@ -623,6 +842,9 @@
   "meesho": {
     "domain": "meesho.com"
   },
+  "mekari-60e14627": {
+    "domain": "mekari.com"
+  },
   "mercor": {
     "domain": "mercor.com"
   },
@@ -634,6 +856,9 @@
   },
   "metlife-2194d6eb": {
     "domain": "metlife.com"
+  },
+  "metropolitan-transportation-authority-b191c766": {
+    "domain": "mta.info"
   },
   "micron-37b5fece": {
     "domain": "micron.com"
@@ -653,11 +878,20 @@
   "mintlify": {
     "domain": "mintlify.com"
   },
+  "mirakl-labs-abf438f7": {
+    "domain": "mirakl.com"
+  },
+  "mirakllabs-041dab78": {
+    "domain": "mirakl.com"
+  },
   "mistral-ai-c14044aa": {
     "domain": "mistral.ai"
   },
   "mixpanel": {
     "domain": "mixpanel.com"
+  },
+  "mmc-wd1-mmc": {
+    "domain": "marsh.com"
   },
   "modal": {
     "domain": "modal.com"
@@ -670,6 +904,18 @@
   },
   "motorola-solutions-9b51eb20": {
     "domain": "motorolasolutions.com"
+  },
+  "msd-wd5-searchjobs": {
+    "domain": "merck.com"
+  },
+  "mufgub-wd3-mufg-careers": {
+    "domain": "mufg.jp"
+  },
+  "nagarro-86980728": {
+    "domain": "nagarro.com"
+  },
+  "netflix-13ed0704": {
+    "domain": "netflix.com"
   },
   "netlify": {
     "domain": "netlify.com"
@@ -686,6 +932,15 @@
   "newrelic": {
     "domain": "newrelic.com"
   },
+  "nobroker-d34d1901": {
+    "domain": "nobroker.in"
+  },
+  "nokia-2ab6d53e": {
+    "domain": "nokia.com"
+  },
+  "normalcomputing": {
+    "domain": "normalcomputing.ai"
+  },
   "notion": {
     "domain": "notion.so"
   },
@@ -700,6 +955,12 @@
   },
   "observeai": {
     "domain": "observe.ai"
+  },
+  "ocadogroup-ba08f203": {
+    "domain": "ocadogroup.com"
+  },
+  "onsemi-3af02c62": {
+    "domain": "onsemi.com"
   },
   "openai": {
     "domain": "openai.com"
@@ -740,6 +1001,9 @@
   "physicalintelligence": {
     "domain": "physicalintelligence.company"
   },
+  "pigment-7c6eefba": {
+    "domain": "pigment.com"
+  },
   "pika": {
     "domain": "pika.art"
   },
@@ -767,6 +1031,9 @@
   "procter-gamble-0b993672": {
     "domain": "pg.com"
   },
+  "prosus-302aa746": {
+    "domain": "prosus.com"
+  },
   "pwc-india-788191e5": {
     "domain": "pwc.com"
   },
@@ -778,6 +1045,12 @@
   },
   "qualminds": {
     "domain": "qualminds.com"
+  },
+  "quantbot-technologies-1e347e0b": {
+    "domain": "quantbot.com"
+  },
+  "quberesearchandtechnologies": {
+    "domain": "qube-rt.com"
   },
   "railway": {
     "domain": "railway.app"
@@ -818,6 +1091,12 @@
   "revolut-a5c1835f": {
     "domain": "revolut.com"
   },
+  "revvity-37352117": {
+    "domain": "revvity.com"
+  },
+  "rippling-462084cb": {
+    "domain": "rippling.com"
+  },
   "ro": {
     "domain": "ro.co"
   },
@@ -829,6 +1108,9 @@
   },
   "rockwell-automation-3fac3110": {
     "domain": "rockwellautomation.com"
+  },
+  "roku-db041e4c": {
+    "domain": "roku.com"
   },
   "royal-caribbean-group-985a9e65": {
     "domain": "royalcaribbeangroup.com"
@@ -844,6 +1126,12 @@
   },
   "s-p-global-24d9197f": {
     "domain": "spglobal.com"
+  },
+  "saic-646b3e25": {
+    "domain": "saic.com"
+  },
+  "saks-off-5th-15a15f25": {
+    "domain": "saksoff5th.com"
   },
   "salesforce-3ccbd910": {
     "domain": "salesforce.com"
@@ -866,8 +1154,14 @@
   "scaleai-36489710": {
     "domain": "scale.com"
   },
+  "schonfeld": {
+    "domain": "schonfeld.com"
+  },
   "seagate-technology-llc-02db8a1d": {
     "domain": "seagate.com"
+  },
+  "sedgwick-ac8cfddb": {
+    "domain": "sedgwick.com"
   },
   "sentry": {
     "domain": "sentry.io"
@@ -875,8 +1169,14 @@
   "sephora-8db0f429": {
     "domain": "sephora.com"
   },
+  "sharkninjaoperatingllc": {
+    "domain": "sharkninja.com"
+  },
   "shell-global-60a1cda2": {
     "domain": "shell.com"
+  },
+  "shifttechnology-81ba9366": {
+    "domain": "shift-technology.com"
   },
   "siemens-30e363d3": {
     "domain": "siemens.com"
@@ -892,6 +1192,15 @@
   },
   "slice": {
     "domain": "sliceit.com"
+  },
+  "smule-inc-57a23e62": {
+    "domain": "smule.com"
+  },
+  "snc-wd1-snc_external_career_site": {
+    "domain": "sncorp.com"
+  },
+  "soda-data-nv-cf50126c": {
+    "domain": "soda.io"
   },
   "sofi": {
     "domain": "sofi.com"
@@ -920,6 +1229,9 @@
   "squarespace": {
     "domain": "squarespace.com"
   },
+  "sri-international-17722cd4": {
+    "domain": "sri.com"
+  },
   "stabilityai": {
     "domain": "stability.ai"
   },
@@ -941,6 +1253,9 @@
   "supabase": {
     "domain": "supabase.com"
   },
+  "susquehanna-international-group-sig-ce3ff655": {
+    "domain": "sig.com"
+  },
   "swarovski-ce496a3d": {
     "domain": "swarovski.com"
   },
@@ -950,11 +1265,17 @@
   "swisscom-701622b7": {
     "domain": "swisscom.ch"
   },
+  "symetra-a7eea415": {
+    "domain": "symetra.com"
+  },
   "synack": {
     "domain": "synack.com"
   },
   "synthesia": {
     "domain": "synthesia.io"
+  },
+  "systems-planning-and-analysis-cd097c6a": {
+    "domain": "spa.com"
   },
   "tailscale": {
     "domain": "tailscale.com"
@@ -968,23 +1289,50 @@
   "temu-5849f0db": {
     "domain": "temu.com"
   },
+  "tencent-wd1-tencent_careers": {
+    "domain": "tencent.com"
+  },
   "tesco-b922b7e0": {
     "domain": "tesco.com"
+  },
+  "testnisc": {
+    "domain": "nisc.coop"
+  },
+  "textron-66d65c4e": {
+    "domain": "textron.com"
   },
   "the-heineken-company-e88d6c9f": {
     "domain": "theheinekencompany.com"
   },
+  "the-home-depot-canada-46399686": {
+    "domain": "homedepot.com"
+  },
   "the-walt-disney-company-b7ec53a6": {
     "domain": "thewaltdisneycompany.com"
   },
+  "thenewyorktimes": {
+    "domain": "nytimes.com"
+  },
   "thenewyorktimes-db8d9414": {
     "domain": "nytimes.com"
+  },
+  "thenuclearcompany": {
+    "domain": "thenuclearcompany.com"
+  },
+  "thgingenuity-4ac35dde": {
+    "domain": "thgingenuity.com"
   },
   "thomson-reuters-cb571403": {
     "domain": "thomsonreuters.com"
   },
   "thoughtworks": {
     "domain": "thoughtworks.com"
+  },
+  "thrivent-financial-for-lutherans-580b4cb5": {
+    "domain": "thrivent.com"
+  },
+  "trading212-4e0e653b": {
+    "domain": "trading212.com"
   },
   "turing": {
     "domain": "turing.com"
@@ -1006,6 +1354,12 @@
   },
   "unity-a5790b06": {
     "domain": "unity.com"
+  },
+  "upvest-8b67990b": {
+    "domain": "upvest.co"
+  },
+  "v2x-02625ea9": {
+    "domain": "gov2x.com"
   },
   "vanta": {
     "domain": "vanta.com"
@@ -1036,6 +1390,9 @@
   },
   "vonage-f5454ed4": {
     "domain": "vonage.com"
+  },
+  "voodoo-714b74b9": {
+    "domain": "voodoo.io"
   },
   "walmart-943c3eeb": {
     "domain": "walmart.com"
@@ -1070,6 +1427,9 @@
   "westerndigital": {
     "domain": "westerndigital.com"
   },
+  "wex-4fa78aa0": {
+    "domain": "wexinc.com"
+  },
   "wipro-5528a266": {
     "domain": "wipro.com"
   },
@@ -1082,6 +1442,9 @@
   "workday-4e44ddff": {
     "domain": "workday.com"
   },
+  "workiva-e785b65f": {
+    "domain": "workiva.com"
+  },
   "workos": {
     "domain": "workos.com"
   },
@@ -1090,6 +1453,12 @@
   },
   "writer": {
     "domain": "writer.com"
+  },
+  "wtw-5bd1391d": {
+    "domain": "wtwco.com"
+  },
+  "xai": {
+    "domain": "x.ai"
   },
   "yelp-bd11be25": {
     "domain": "yelp.com"
