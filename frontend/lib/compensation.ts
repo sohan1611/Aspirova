@@ -2,6 +2,17 @@ const SYMBOLS: Record<string, string> = {
   INR: "₹", USD: "$", CAD: "C$", AUD: "A$", SGD: "S$", GBP: "£", EUR: "€",
 };
 
+// Mirror core/pay_format.py. Shared fixture tests cover both display guards.
+const INR_PER_UNIT: Record<string, number> = {
+  INR: 1, USD: 88, EUR: 102, GBP: 117, CAD: 63, AUD: 58, SGD: 68,
+};
+const PERIOD_TO_MONTH: Record<string, number> = {
+  month: 1, year: 1 / 12, hour: 173, week: 52 / 12,
+};
+const MAX_PLAUSIBLE_HOURLY_INR = 10000;
+const MAX_PLAUSIBLE_MONTHLY_INR = 10000000;
+const MAX_PLAUSIBLE_RANGE_RATIO = 5;
+
 function compact(value: number): string {
   return Number(value.toFixed(2)).toLocaleString("en-US", { maximumFractionDigits: 2 });
 }
@@ -16,11 +27,14 @@ export function formatCompensation(
   const low = pay.min;
   const high = pay.max;
   const currency = typeof pay.currency === "string" ? pay.currency : "";
-  const period = pay.period;
+  const period = typeof pay.period === "string" ? pay.period : "";
   if (
     typeof low !== "number" || !Number.isFinite(low) || low <= 0 ||
     typeof high !== "number" || !Number.isFinite(high) || high < low ||
-    !SYMBOLS[currency] || !["month", "year", "hour"].includes(String(period))
+    !Object.hasOwn(SYMBOLS, currency) || !Object.hasOwn(PERIOD_TO_MONTH, period) ||
+    (pay.source === "text" && high > low * MAX_PLAUSIBLE_RANGE_RATIO) ||
+    (period === "hour" && high * INR_PER_UNIT[currency] > MAX_PLAUSIBLE_HOURLY_INR) ||
+    high * PERIOD_TO_MONTH[period] * INR_PER_UNIT[currency] > MAX_PLAUSIBLE_MONTHLY_INR
   ) return pay.paid === true ? "Paid" : null;
 
   let divisor = 1;

@@ -16,6 +16,7 @@ from core.pay_format import (
     INR_PER_UNIT,
     MAX_PLAUSIBLE_HOURLY_INR,
     MAX_PLAUSIBLE_MONTHLY_INR,
+    MAX_PLAUSIBLE_RANGE_RATIO,
     PERIOD_TO_MONTH,
 )
 from pipeline.normalize import NEW_GRAD_TITLE_PATTERN, _INTERNSHIP_PATTERN
@@ -160,6 +161,16 @@ def pay_rank_expression():
     monthly = amount * factor * fx
     return case(
         (unpaid.is_(True), None),
+        (
+            and_(
+                compensation["source"].as_string() == "text",
+                amounts[1] > 0,
+                amounts[1] <= Decimal(float_info.max),
+                amounts[0] <= Decimal(float_info.max),
+                amounts[0] > amounts[1] * Decimal(str(MAX_PLAUSIBLE_RANGE_RATIO)),
+            ),
+            None,
+        ),
         # Bound finite but enormous numbers before any float multiplication.
         (
             amount

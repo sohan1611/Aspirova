@@ -1,0 +1,520 @@
+[
+  {
+    "name": "USD monthly",
+    "pay": {
+      "min": 5000,
+      "max": 5000,
+      "currency": "USD",
+      "period": "month"
+    },
+    "display": "$5,000/month"
+  },
+  {
+    "name": "CAD monthly",
+    "pay": {
+      "min": 5000,
+      "max": 5000,
+      "currency": "CAD",
+      "period": "month"
+    },
+    "display": "C$5,000/month"
+  },
+  {
+    "name": "AUD monthly",
+    "pay": {
+      "min": 5000,
+      "max": 5000,
+      "currency": "AUD",
+      "period": "month"
+    },
+    "display": "A$5,000/month"
+  },
+  {
+    "name": "SGD monthly",
+    "pay": {
+      "min": 5000,
+      "max": 5000,
+      "currency": "SGD",
+      "period": "month"
+    },
+    "display": "S$5,000/month"
+  },
+  {
+    "name": "GBP monthly",
+    "pay": {
+      "min": 5000,
+      "max": 5000,
+      "currency": "GBP",
+      "period": "month"
+    },
+    "display": "\u00a35,000/month"
+  },
+  {
+    "name": "EUR monthly",
+    "pay": {
+      "min": 5000,
+      "max": 5000,
+      "currency": "EUR",
+      "period": "month"
+    },
+    "display": "\u20ac5,000/month"
+  },
+  {
+    "name": "INR monthly",
+    "pay": {
+      "min": 5000,
+      "max": 5000,
+      "currency": "INR",
+      "period": "month"
+    },
+    "display": "\u20b95,000/month"
+  },
+  {
+    "name": "weekly",
+    "pay": {
+      "min": 250,
+      "max": 250,
+      "currency": "USD",
+      "period": "week"
+    },
+    "display": "$250/week"
+  },
+  {
+    "name": "valid annual range",
+    "pay": {
+      "min": 150640,
+      "max": 185790,
+      "currency": "USD",
+      "period": "year"
+    },
+    "display": "$150.64K\u2013185.79K/year"
+  },
+  {
+    "name": "INR annual",
+    "pay": {
+      "min": 600000,
+      "max": 600000,
+      "currency": "INR",
+      "period": "year"
+    },
+    "display": "\u20b96 LPA"
+  },
+  {
+    "name": "fivefold range accepted",
+    "pay": {
+      "min": 5000,
+      "max": 25000,
+      "currency": "INR",
+      "period": "month",
+      "source": "text"
+    },
+    "display": "\u20b95,000\u201325,000/month"
+  },
+  {
+    "name": "over fivefold range rejected",
+    "pay": {
+      "min": 5000,
+      "max": 25001,
+      "currency": "INR",
+      "period": "month",
+      "source": "text"
+    },
+    "display": null
+  },
+  {
+    "name": "hourly ceiling accepted",
+    "pay": {
+      "min": 10000,
+      "max": 10000,
+      "currency": "INR",
+      "period": "hour"
+    },
+    "display": "\u20b910,000/hour"
+  },
+  {
+    "name": "hourly ceiling rejected",
+    "pay": {
+      "min": 10001,
+      "max": 10001,
+      "currency": "INR",
+      "period": "hour"
+    },
+    "display": null
+  },
+  {
+    "name": "monthly ceiling accepted",
+    "pay": {
+      "min": 10000000,
+      "max": 10000000,
+      "currency": "INR",
+      "period": "month"
+    },
+    "display": "\u20b91,00,00,000/month"
+  },
+  {
+    "name": "monthly ceiling rejected",
+    "pay": {
+      "min": 10000001,
+      "max": 10000001,
+      "currency": "INR",
+      "period": "month"
+    },
+    "display": null
+  },
+  {
+    "name": "unsupported day",
+    "pay": {
+      "min": 20,
+      "max": 20,
+      "currency": "USD",
+      "period": "day"
+    },
+    "display": null
+  },
+  {
+    "name": "unsupported fortnight",
+    "pay": {
+      "min": 20,
+      "max": 20,
+      "currency": "USD",
+      "period": "fortnight"
+    },
+    "display": null
+  },
+  {
+    "name": "unsupported constructor",
+    "pay": {
+      "min": 20,
+      "max": 20,
+      "currency": "USD",
+      "period": "constructor"
+    },
+    "display": null
+  },
+  {
+    "name": "unsupported toString",
+    "pay": {
+      "min": 20,
+      "max": 20,
+      "currency": "USD",
+      "period": "toString"
+    },
+    "display": null
+  },
+  {
+    "name": "stored bad hourly 800",
+    "pay": {
+      "min": 800,
+      "max": 800,
+      "currency": "USD",
+      "period": "hour",
+      "source": "text"
+    },
+    "display": null
+  },
+  {
+    "name": "stored bad hourly paid 800",
+    "pay": {
+      "min": 800,
+      "max": 800,
+      "currency": "USD",
+      "period": "hour",
+      "paid": true
+    },
+    "display": "Paid"
+  },
+  {
+    "name": "stored bad hourly 500",
+    "pay": {
+      "min": 500,
+      "max": 500,
+      "currency": "USD",
+      "period": "hour",
+      "source": "text"
+    },
+    "display": null
+  },
+  {
+    "name": "stored bad hourly paid 500",
+    "pay": {
+      "min": 500,
+      "max": 500,
+      "currency": "USD",
+      "period": "hour",
+      "paid": true
+    },
+    "display": "Paid"
+  },
+  {
+    "name": "stored bad hourly 399",
+    "pay": {
+      "min": 399,
+      "max": 399,
+      "currency": "USD",
+      "period": "hour",
+      "source": "text"
+    },
+    "display": null
+  },
+  {
+    "name": "stored bad hourly paid 399",
+    "pay": {
+      "min": 399,
+      "max": 399,
+      "currency": "USD",
+      "period": "hour",
+      "paid": true
+    },
+    "display": "Paid"
+  },
+  {
+    "name": "stored bad hourly 250",
+    "pay": {
+      "min": 250,
+      "max": 250,
+      "currency": "USD",
+      "period": "hour",
+      "source": "text"
+    },
+    "display": null
+  },
+  {
+    "name": "stored bad hourly paid 250",
+    "pay": {
+      "min": 250,
+      "max": 250,
+      "currency": "USD",
+      "period": "hour",
+      "paid": true
+    },
+    "display": "Paid"
+  },
+  {
+    "name": "stored bad hourly 158",
+    "pay": {
+      "min": 158,
+      "max": 158,
+      "currency": "USD",
+      "period": "hour",
+      "source": "text"
+    },
+    "display": null
+  },
+  {
+    "name": "stored bad hourly paid 158",
+    "pay": {
+      "min": 158,
+      "max": 158,
+      "currency": "USD",
+      "period": "hour",
+      "paid": true
+    },
+    "display": "Paid"
+  },
+  {
+    "name": "stored bad range False",
+    "pay": {
+      "min": 150640,
+      "max": 1185789,
+      "currency": "USD",
+      "period": "year",
+      "source": "text"
+    },
+    "display": null
+  },
+  {
+    "name": "stored bad range True",
+    "pay": {
+      "min": 150640,
+      "max": 1185789,
+      "currency": "USD",
+      "period": "year",
+      "paid": true,
+      "source": "text"
+    },
+    "display": "Paid"
+  },
+  {
+    "name": "paid fallback",
+    "pay": {
+      "paid": true
+    },
+    "display": "Paid"
+  },
+  {
+    "name": "empty pay",
+    "pay": {},
+    "display": null
+  },
+  {
+    "name": "invalid currency",
+    "pay": {
+      "min": 25,
+      "max": 25,
+      "currency": "JPY",
+      "period": "hour"
+    },
+    "display": null
+  },
+  {
+    "name": "invalid inverted range",
+    "pay": {
+      "min": 50,
+      "max": 25,
+      "currency": "USD",
+      "period": "hour"
+    },
+    "display": null
+  },
+  {
+    "name": "numeric strings",
+    "pay": {
+      "min": "25",
+      "max": "25",
+      "currency": "USD",
+      "period": "hour"
+    },
+    "display": null
+  },
+  {
+    "name": "unstop wide INR stipend 15000",
+    "pay": {
+      "min": 1000,
+      "max": 15000,
+      "currency": "INR",
+      "period": "month",
+      "source": "unstop"
+    },
+    "display": "\u20b91,000\u201315,000/month"
+  },
+  {
+    "name": "structured wide INR stipend 15000",
+    "pay": {
+      "min": 1000,
+      "max": 15000,
+      "currency": "INR",
+      "period": "month",
+      "source": "structured"
+    },
+    "display": "\u20b91,000\u201315,000/month"
+  },
+  {
+    "name": "None wide INR stipend 15000",
+    "pay": {
+      "min": 1000,
+      "max": 15000,
+      "currency": "INR",
+      "period": "month",
+      "source": null
+    },
+    "display": "\u20b91,000\u201315,000/month"
+  },
+  {
+    "name": "missing wide INR stipend 15000",
+    "pay": {
+      "min": 1000,
+      "max": 15000,
+      "currency": "INR",
+      "period": "month"
+    },
+    "display": "\u20b91,000\u201315,000/month"
+  },
+  {
+    "name": "text wide INR stipend 15000",
+    "pay": {
+      "min": 1000,
+      "max": 15000,
+      "currency": "INR",
+      "period": "month",
+      "source": "text"
+    },
+    "display": null
+  },
+  {
+    "name": "unstop wide INR stipend 20000",
+    "pay": {
+      "min": 1000,
+      "max": 20000,
+      "currency": "INR",
+      "period": "month",
+      "source": "unstop"
+    },
+    "display": "\u20b91,000\u201320,000/month"
+  },
+  {
+    "name": "structured wide INR stipend 20000",
+    "pay": {
+      "min": 1000,
+      "max": 20000,
+      "currency": "INR",
+      "period": "month",
+      "source": "structured"
+    },
+    "display": "\u20b91,000\u201320,000/month"
+  },
+  {
+    "name": "None wide INR stipend 20000",
+    "pay": {
+      "min": 1000,
+      "max": 20000,
+      "currency": "INR",
+      "period": "month",
+      "source": null
+    },
+    "display": "\u20b91,000\u201320,000/month"
+  },
+  {
+    "name": "missing wide INR stipend 20000",
+    "pay": {
+      "min": 1000,
+      "max": 20000,
+      "currency": "INR",
+      "period": "month"
+    },
+    "display": "\u20b91,000\u201320,000/month"
+  },
+  {
+    "name": "text wide INR stipend 20000",
+    "pay": {
+      "min": 1000,
+      "max": 20000,
+      "currency": "INR",
+      "period": "month",
+      "source": "text"
+    },
+    "display": null
+  },
+  {
+    "name": "unstop wide INR stipend 1500 to 10000",
+    "pay": {
+      "min": 1500,
+      "max": 10000,
+      "currency": "INR",
+      "period": "month",
+      "source": "unstop"
+    },
+    "display": "\u20b91,500\u201310,000/month"
+  },
+  {
+    "name": "unstop wide INR stipend 2000 to 15000",
+    "pay": {
+      "min": 2000,
+      "max": 15000,
+      "currency": "INR",
+      "period": "month",
+      "source": "unstop"
+    },
+    "display": "\u20b92,000\u201315,000/month"
+  },
+  {
+    "name": "unstop wide INR stipend 2400 to 24000",
+    "pay": {
+      "min": 2400,
+      "max": 24000,
+      "currency": "INR",
+      "period": "month",
+      "source": "unstop"
+    },
+    "display": "\u20b92,400\u201324,000/month"
+  }
+]
