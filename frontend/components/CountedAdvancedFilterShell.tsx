@@ -137,6 +137,7 @@ export function CountedAdvancedFilterShell({
   panelLabel,
   mobileDescription,
   idPrefixBase,
+  mobileContentClassName,
   onOpenChange,
   children,
 }: {
@@ -146,6 +147,7 @@ export function CountedAdvancedFilterShell({
   panelLabel: string;
   mobileDescription: string;
   idPrefixBase: string;
+  mobileContentClassName?: string;
   onOpenChange?: (open: boolean) => void;
   children: (props: { idPrefix: string; onClose?: () => void }) => ReactNode;
 }) {
@@ -193,7 +195,7 @@ export function CountedAdvancedFilterShell({
           </SheetTrigger>
           <SheetContent
             side="bottom"
-            className="max-h-[85vh] rounded-t-md border-border p-0"
+            className={cn("max-h-[85vh] rounded-t-md border-border p-0", mobileContentClassName)}
           >
             <SheetHeader className="border-b border-border pr-12">
               <SheetTitle className="font-serif text-2xl">Filters</SheetTitle>
