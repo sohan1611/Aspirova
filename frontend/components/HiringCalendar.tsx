@@ -1,391 +1,202 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Badge } from "@/components/ui/badge";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  CALENDAR_CATEGORIES, calendarDays, calendarParams, currentCycleYear, dateLabel,
-  fetchCalendar, itemDate, monthRange, openingInMonth, parseCalendarParams, presetRange, programmeSummaryName, rangeError,
-  shiftMonth, todayIST, windowText,
-} from "@/lib/hiringCalendar";
-import type { CalendarItem, CalendarQuery, CalendarResponse, CalendarView } from "@/lib/hiringCalendar";
-
-const INPUT = "min-h-11 min-w-0 max-w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
-const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
-
-function CalendarCard({ item }: { item: CalendarItem; }) {
-  return (
-    <article className="min-w-0 rounded-xl border border-border bg-card p-4 shadow-soft sm:p-5">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="secondary">{item.programme.category_label}</Badge>
-        <Badge variant={item.is_open_now ? "default" : "outline"}>{item.edition.status_label}</Badge>
-      </div>
-      <h3 className="mt-3 break-words font-serif text-lg font-semibold">{item.programme.name}</h3>
-      <p className="mt-1 text-sm text-muted-foreground">{item.programme.organiser} · {item.edition.year} cycle</p>
-      <p className="mt-3 text-sm font-medium">{windowText(item)}</p>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.programme.eligibility}</p>
-      {item.programme.geography && <p className="mt-2 text-sm text-muted-foreground">{item.programme.geography}</p>}
-      {item.metadata.hiring_mode && <p className="mt-2 text-sm leading-6">{item.metadata.hiring_mode}</p>}
-      {item.metadata.duration_start && (
-        <p className="mt-2 text-sm text-muted-foreground">
-          {item.metadata.source_cycle_year !== item.edition.year && `Source cycle ${item.metadata.source_cycle_year} · `}
-          {item.metadata.duration_start}
-        </p>
-      )}
-      <details className="mt-3 border-t border-border text-sm">
-        <summary className={`flex min-h-11 cursor-pointer items-center font-medium ${FOCUS}`}>Preparation and programme details</summary>
-        <div className="space-y-2 pb-3 leading-6 text-muted-foreground">
-          <p>{item.metadata.prep_tip}</p>
-          <p>{item.metadata.career_linkage}</p>
-          <p>{item.metadata.verification_note}</p>
-          {item.edition.status_label === "Rolling" && <p>Source cycle {item.metadata.source_cycle_year} guidance · {item.metadata.opening_text} · {item.metadata.deadline_text}</p>}
-        </div>
-      </details>
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-        <Button variant="outline" asChild className="min-h-11">
-          <a href={item.programme.url} target="_blank" rel="noopener noreferrer">Official site ↗</a>
-        </Button>
-        <p className="text-xs text-muted-foreground">
-          {item.verified_at ? `Last checked ${dateLabel(item.verified_at)}` : "Awaiting a current-cycle check"}
-        </p>
-      </div>
-    </article>
-  );
-}
-
-function agendaGroup(item: CalendarItem, query: CalendarQuery): string {
-  const edition = item.edition;
-  const candidates = item.metadata.deadline_rolling ? [
-    [edition.opens_at, edition.opens_precision],
-  ] : [
-    [edition.closes_at, edition.closes_precision],
-    [edition.opens_at, edition.opens_precision],
-  ];
-  for (const [value, precision] of candidates) {
-    if (!value) continue;
-    const day = itemDate(value);
-    if (day >= query.from && day <= query.to) return precision === "month" ? day.slice(0, 7) : day;
-  }
-  if (item.metadata.deadline_rolling && edition.opens_precision === "month" &&
-      openingInMonth(item, query.from.slice(0, 7))) return query.from.slice(0, 7);
-  return "Continuing windows";
-}
-
-function Agenda({ items, query }: { items: CalendarItem[]; query: CalendarQuery; }) {
-  const groups = new Map<string, CalendarItem[]>();
-  for (const item of items) {
-    const key = agendaGroup(item, query);
-    groups.set(key, [...(groups.get(key) ?? []), item]);
-  }
-  if (!items.length) return <p className="py-8 text-sm text-muted-foreground">No dated windows match this range and these filters.</p>;
-  return (
-    <div className="space-y-6">
-      {[...groups].sort(([left], [right]) => left.localeCompare(right)).map(([group, values]) => (
-        <section key={group}>
-          <h2 className="mb-3 font-serif text-xl font-semibold">
-            {group === "Continuing windows" ? group : dateLabel(`${group}${group.length === 7 ? "-01" : ""}T12:00:00Z`, group.length === 7 ? "month" : "day")}
-          </h2>
-          <div className="grid min-w-0 gap-4 md:grid-cols-2">{values.map((item) => <CalendarCard key={item.id} item={item} />)}</div>
-        </section>
-      ))}
-    </div>
-  );
-}
+import { Skeleton } from "@/components/ui/skeleton";
+import CalendarFilters from "@/components/calendar/Filters";
+import OpenNow from "@/components/calendar/OpenNow";
+import PeriodControl from "@/components/calendar/PeriodControl";
+import MonthList, { AnytimeSection, RecurringSection } from "@/components/calendar/MonthList";
+import Timeline from "@/components/calendar/Timeline";
+import MonthGrid from "@/components/calendar/MonthGrid";
+import DetailsDrawer from "@/components/calendar/DetailsDrawer";
+import { calendarParams, collapseRecurrences, fetchCalendar, filterCalendarItems, monthRange, parseCalendarParams, registrationEvents, todayIST } from "@/lib/hiringCalendar";
+import type { CalendarItem, CalendarQuery, CalendarResponse } from "@/lib/hiringCalendar";
 
 export default function HiringCalendar({ initialQuery, initialData }: {
   initialQuery: CalendarQuery; initialData: CalendarResponse | null;
 }) {
   const [query, setQuery] = useState(initialQuery);
   const [data, setData] = useState(initialData);
-  const [loading, setLoading] = useState(false);
+  const [today, setToday] = useState(initialQuery.from);
+  const [search, setSearch] = useState(initialQuery.q);
+  const [loading, setLoading] = useState(!initialData);
   const [error, setError] = useState("");
-  const [custom, setCustom] = useState({ from: initialQuery.from, to: initialQuery.to });
-  const [selectedDay, setSelectedDay] = useState("");
-  const activeRequest = useRef<AbortController | null>(null);
+  const [retry, setRetry] = useState(0);
+  const queryRef = useRef(query);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTrigger = useRef<HTMLElement | null>(null);
+  const fallbackFocus = useRef<HTMLDivElement>(null);
+  const skipInitialFetch = useRef(!!initialData);
 
-  const load = useCallback((next: CalendarQuery, push = true) => {
-    activeRequest.current?.abort();
+  const change = useCallback((next: CalendarQuery, replace = false) => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    queryRef.current = next;
     setQuery(next);
-    setCustom({ from: next.from, to: next.to });
-    setSelectedDay("");
-    setError("");
-    if (push) window.history.pushState(null, "", `/calendar?${calendarParams(next)}`);
-    const controller = new AbortController();
-    activeRequest.current = controller;
-    setLoading(true);
-    setData(null);
-    void fetchCalendar(next, { signal: controller.signal }).then((result) => {
-      if (!controller.signal.aborted) setData(result);
-    }).catch(() => {
-      if (!controller.signal.aborted) setError("The calendar could not be loaded. Try again.");
-    }).finally(() => {
-      if (!controller.signal.aborted) setLoading(false);
-    });
+    setSearch(next.q);
+    const href = `/calendar?${calendarParams(next)}`;
+    if (replace) {
+      window.history.replaceState(null, "", href);
+    } else {
+      window.history.pushState(null, "", href);
+    }
   }, []);
 
   useEffect(() => {
-    const restore = () => load(parseCalendarParams(new URLSearchParams(window.location.search), todayIST()), false);
-    const next = parseCalendarParams(new URLSearchParams(window.location.search), todayIST());
-    if (!initialData || calendarParams(next).toString() !== calendarParams(initialQuery).toString()) {
-      // Defer URL restoration until hydration has preserved the static HTML.
-      queueMicrotask(() => load(next, false));
-    }
+    const restore = () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+      const next = parseCalendarParams(new URLSearchParams(window.location.search), todayIST());
+      queryRef.current = next;
+      setQuery(next);
+      setSearch(next.q);
+      setToday(todayIST());
+    };
+    queueMicrotask(restore);
     window.addEventListener("popstate", restore);
-    return () => { window.removeEventListener("popstate", restore); activeRequest.current?.abort(); };
-  }, [initialData, initialQuery, load]);
+    return () => {
+      window.removeEventListener("popstate", restore);
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, []);
 
-  function chooseView(view: CalendarView) {
-    const today = todayIST();
-    const range = view === "custom" ? { from: query.from, to: query.to } : presetRange(view, today, {
-      year: Number(query.from.slice(0, 4)), month: query.from.slice(0, 7), days: query.days,
+  useEffect(() => {
+    if (skipInitialFetch.current && query.from === initialQuery.from && query.to === initialQuery.to && retry === 0) {
+      skipInitialFetch.current = false;
+      return;
+    }
+    skipInitialFetch.current = false;
+    const controller = new AbortController();
+    queueMicrotask(() => {
+      if (!controller.signal.aborted) {
+        setLoading(true);
+        setError("");
+      }
     });
-    load({ ...query, ...range, view });
+    void fetchCalendar(queryRef.current, { signal: controller.signal })
+      .then((result) => {
+        if (!controller.signal.aborted) setData(result);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setError("The calendar could not be loaded. Try again.");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [query.from, query.to, retry, initialQuery.from, initialQuery.to]);
+
+  function updateSearch(value: string) {
+    setSearch(value);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => change({ ...queryRef.current, q: value.trim() }, true), 220);
   }
 
-  function openMonth(month: string) {
-    load({ ...query, ...monthRange(month), view: "month" });
+  function clearFilters() {
+    change({ ...query, category: [], status: "", closingSoon: false, officialOnly: false, q: "" });
   }
 
-  const customError = rangeError(custom.from, custom.to);
-  const year = Number(query.from.slice(0, 4));
-  const years = [...new Set([year, ...Array.from({ length: 7 }, (_, index) => currentCycleYear(todayIST()) - 2 + index)])].sort();
-  const month = query.from.slice(0, 7);
-  const items = data?.items ?? [];
-  const dayItems = selectedDay ? items.filter((item) =>
-    (item.edition.opens_precision === "day" && item.edition.opens_at && itemDate(item.edition.opens_at) === selectedDay) ||
-    (!item.metadata.deadline_rolling && item.edition.closes_precision === "day" && item.edition.closes_at && itemDate(item.edition.closes_at) === selectedDay)) : items;
+  function changeWithSearch(next: CalendarQuery) {
+    change({ ...next, q: search.trim() });
+  }
+
+  function selectItem(item: CalendarItem) {
+    lastTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    changeWithSearch({ ...query, item: item.id });
+  }
+
+  const all = useMemo(() => {
+    const entries = [...(data?.items ?? []), ...(data?.rolling ?? [])];
+    return [...new Map(entries.map((item) => [item.id, item])).values()];
+  }, [data]);
+  const filtered = filterCalendarItems(all, query, today);
+  const rollingIds = new Set(data?.rolling.map((item) => item.id) ?? []);
+  const undated = filtered.filter((item) => rollingIds.has(item.id) || !registrationEvents(item).length);
+  const dated = filtered.filter((item) => !undated.includes(item));
+  const collapsed = collapseRecurrences(dated, today);
+  const count = collapsed.dated.length + collapsed.recurring.length + undated.length;
+  const range = data ? { from: data.from, to: data.to } : query;
+  const previousPeriod = range.from !== query.from || range.to !== query.to;
+  const selectedItem = all.find((item) => item.id === query.item) ?? null;
 
   return (
-    <div className="mt-6 min-w-0">
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Calendar range">
-        {([["year", "Full year"], ["month", "Month"], ["days", "Days"], ["custom", "Custom range"]] as const).map(([view, label]) => (
-          <Button
-            key={view}
-            variant={query.view === view ? "default" : "outline"}
-            className="min-h-11"
-            aria-pressed={query.view === view}
-            onClick={() => chooseView(view)}
-          >{label}</Button>
-        ))}
-      </div>
-      <div className="mt-4 flex min-w-0 flex-wrap items-end gap-3">
-        {query.view === "year" && <label className="grid gap-1 text-sm">Year
-          <select
-            className={INPUT}
-            value={year}
-            onChange={(event) => load({ ...query, ...presetRange("year", todayIST(), { year: Number(event.target.value) }) })}
-          >
-            {years.map((value) => <option key={value} value={value}>{value}</option>)}
-          </select>
-        </label>}
-        {query.view === "month" && <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
-          <Button
-            className="min-h-11 min-w-11"
-            variant="outline"
-            aria-label="Previous month"
-            onClick={() => openMonth(shiftMonth(month, -1))}
-          >‹</Button>
-          <label className="grid min-w-0 flex-1 gap-1 text-sm">Month
-            <input
-              type="month"
-              className={`${INPUT} w-full`}
-              value={month}
-              onChange={(event) => { if (/^\d{4}-\d{2}$/.test(event.target.value)) openMonth(event.target.value); }}
-            />
-          </label>
-          <Button
-            className="min-h-11 min-w-11"
-            variant="outline"
-            aria-label="Next month"
-            onClick={() => openMonth(shiftMonth(month, 1))}
-          >›</Button>
-        </div>}
-        {query.view === "days" && <div className="flex flex-wrap gap-2" role="group" aria-label="Days from today">
-          {([7, 30, 90] as const).map((days) => <Button
-            key={days}
-            className="min-h-11"
-            variant={query.days === days ? "default" : "outline"}
-            aria-pressed={query.days === days}
-            onClick={() => load({ ...query, ...presetRange("days", todayIST(), { days }), days })}
-          >Next
-            {days} days
-          </Button>)}
-        </div>}
-        {query.view === "custom" && <form
-          className="flex w-full min-w-0 flex-wrap items-end gap-3"
-          onSubmit={(event) => { event.preventDefault(); if (!customError) load({ ...query, ...custom }); }}
-        >
-          <label className="grid min-w-0 flex-1 basis-36 gap-1 text-sm">From
-            <input
-              type="date"
-              required
-              className={`${INPUT} w-full`}
-              value={custom.from}
-              aria-describedby="calendar-range-error"
-              onChange={(event) => setCustom({ ...custom, from: event.target.value })}
-            />
-          </label>
-          <label className="grid min-w-0 flex-1 basis-36 gap-1 text-sm">To
-            <input
-              type="date"
-              required
-              className={`${INPUT} w-full`}
-              value={custom.to}
-              aria-describedby="calendar-range-error"
-              onChange={(event) => setCustom({ ...custom, to: event.target.value })}
-            />
-          </label>
-          <Button className="min-h-11" disabled={!!customError}>Show range</Button>
-          <p id="calendar-range-error" className="w-full text-sm text-destructive" aria-live="polite">{customError}</p>
-        </form>}
-      </div>
-      <div className="mt-5 flex flex-wrap gap-2" role="group" aria-label="Categories">
-        <Button
-          variant={query.category.length ? "outline" : "default"}
-          className="min-h-11"
-          aria-pressed={!query.category.length}
-          onClick={() => load({ ...query, category: [] })}
-        >All</Button>
-        {CALENDAR_CATEGORIES.map(([key, label]) => <Button
-          key={key}
-          className="min-h-11"
-          variant={query.category.includes(key) ? "default" : "outline"}
-          aria-pressed={query.category.includes(key)}
-          onClick={() => load({ ...query, category: query.category.includes(key) ? query.category.filter((value) => value !== key) : [...query.category, key] })}
-        >{label}</Button>)}
-      </div>
-      <form
-        className="mt-4 flex min-w-0 flex-wrap items-end gap-3"
-        onSubmit={(event) => {
-          event.preventDefault(); const form = new FormData(event.currentTarget);
-          load({ ...query, q: String(form.get("q") ?? "").trim().slice(0, 200) });
-        }}
-      >
-        <label className="grid min-w-0 gap-1 text-sm">Status
-          <select
-            className={INPUT}
-            value={query.status}
-            onChange={(event) => load({ ...query, status: event.target.value })}
-          >
-            <option value="">All statuses</option>
-            <option value="open">Open now</option>
-            <option value="announced">Official upcoming</option>
-            <option value="expected">Tentative</option>
-            <option value="closed">Closed</option>
-          </select>
-        </label>
-        <label className="grid min-w-0 flex-1 basis-40 gap-1 text-sm">Programme or organiser
-          <input
-            key={query.q}
-            name="q"
-            type="search"
-            maxLength={200}
-            defaultValue={query.q}
-            className={`${INPUT} w-full`}
-          />
-        </label>
-        <Button className="min-h-11" variant="outline">Search</Button>
-      </form>
-      <p className="my-5 text-sm text-muted-foreground">
-        {`${dateLabel(`${query.from}T12:00:00Z`)} – ${dateLabel(`${query.to}T12:00:00Z`)}`}
-      </p>
-      <div aria-live="polite" role="status" className="text-sm">{loading ? "Loading calendar…" : error}</div>
-      {error && <Button className="mt-3 min-h-11" variant="outline" onClick={() => load(query, false)}>Try again</Button>}
-      {data && <section aria-label="Calendar results">
-        {query.view === "year" && <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {data.months.map(({ month: key, count }) => {
-            const highlights = items.filter((item) => item.metadata.deadline_rolling
-              ? openingInMonth(item, key)
-              : item.edition.closes_at && itemDate(item.edition.closes_at).startsWith(key)
-            ).sort((left, right) => {
-              const leftDate = left.metadata.deadline_rolling ? left.edition.opens_at! : left.edition.closes_at!;
-              const rightDate = right.metadata.deadline_rolling ? right.edition.opens_at! : right.edition.closes_at!;
-              return leftDate.localeCompare(rightDate);
-            }).slice(0, 3);
-            return <button
-              type="button"
-              key={key}
-              className={`flex min-h-36 min-w-0 flex-col items-stretch justify-start rounded-xl border border-border p-4 text-left transition-colors hover:bg-accent ${count ? "bg-card" : "bg-secondary/30"} ${FOCUS}`}
-              onClick={() => openMonth(key)}
-              aria-label={`${dateLabel(`${key}-01T12:00:00Z`, "month")}, ${count} windows`}
-            >
-              <span className="flex items-center justify-between gap-2">
-
-                <span className="font-serif text-lg font-semibold">{dateLabel(`${key}-01T12:00:00Z`, "month")}</span>
-
-                <Badge variant={count ? "default" : "secondary"}>{count}</Badge>
-              </span>
-              <span className="mt-2 block text-xs text-muted-foreground">{count} intersecting windows</span>
-              {highlights.map((item) => <span key={item.id} className="mt-2 block break-words text-sm">
-
-                {item.metadata.deadline_rolling
-                  ? item.edition.opens_precision === "day" ? `Opens ${dateLabel(item.edition.opens_at!)} · ` : "Opening window · "
-                  : item.edition.closes_precision === "day" ? `${dateLabel(item.edition.closes_at!)} · ` : "Deadline month · "}
-
-                {programmeSummaryName(item.programme)}
-              </span>)}
-            </button>;
-          })}
-        </div>}
-        {query.view === "month" && <>
-          <div
-            className="mb-6 overflow-hidden rounded-xl border border-border bg-card p-1 sm:p-3"
-            aria-label="Opening and deadline dates"
-          >
-            <div className="grid grid-cols-7 text-center text-xs text-muted-foreground">{["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => <span key={day} className="py-2">{day}</span>)}</div>
-            <div className="grid grid-cols-7">{calendarDays(month).map((day, index) => {
-              const opens = day && items.some((item) => item.edition.opens_precision === "day" && item.edition.opens_at && itemDate(item.edition.opens_at) === day);
-              const closes = day && items.some((item) => !item.metadata.deadline_rolling && item.edition.closes_precision === "day" && item.edition.closes_at && itemDate(item.edition.closes_at) === day);
-              return day ? <button
-
-                key={day}
-
-                type="button"
-
-                className={`flex min-h-12 min-w-0 flex-col items-center justify-center rounded-md text-sm hover:bg-accent aria-pressed:bg-primary aria-pressed:text-primary-foreground ${FOCUS}`}
-
-                aria-pressed={selectedDay === day}
-
-                aria-label={`${dateLabel(`${day}T12:00:00Z`)}${opens ? ", window opens" : ""}${closes ? ", deadline" : ""}`}
-
-                onClick={() => setSelectedDay(selectedDay === day ? "" : day)}
-              >
-
-
-                {Number(day.slice(8))}
-
-                <span className="flex h-2 gap-1" aria-hidden="true">
-
-                  {opens && <span className="size-1.5 rounded-full bg-primary" />}
-
-                  {closes && <span className="size-1.5 rounded-full bg-amber-500" />}
-
-                </span>
-              </button> : <span key={`empty-${index}`} />;
-            })}</div>
-            <p className="px-2 py-3 text-xs text-muted-foreground">Blue marks openings. Amber marks deadlines. Month-precision openings are marked below.</p>
-            {items.some((item) => item.edition.opens_precision === "month" && openingInMonth(item, month)) && (
-              <section className="border-t border-border px-2 py-3" aria-label="Month-precision openings">
-                <h2 className="mb-2 text-sm font-semibold">Opening windows · {dateLabel(`${month}-01T12:00:00Z`, "month")}</h2>
-                <ul className="space-y-2">
-                  {items.filter((item) => item.edition.opens_precision === "month" && openingInMonth(item, month)).map((item) => (
-                    <li key={item.id} className="min-w-0 break-words rounded-md border border-primary/30 bg-accent px-3 py-2 text-sm">{programmeSummaryName(item.programme)}</li>
-                  ))}
-                </ul>
-              </section>
-            )}
+    <div className="mt-4 min-w-0 space-y-5">
+      <CalendarFilters
+        query={query}
+        search={search}
+        onSearch={updateSearch}
+        items={all}
+        today={today}
+        onChange={changeWithSearch}
+        onClear={clearFilters}
+      />
+      <OpenNow items={filtered} today={today} onSelect={selectItem} />
+      <div id="calendar-results" tabIndex={-1} ref={fallbackFocus} className="min-w-0 scroll-mt-20 space-y-4 outline-none">
+        <PeriodControl query={query} today={today} onChange={changeWithSearch} />
+        <div role="status" aria-live="polite" className="flex min-h-5 flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          {loading ? (
+            <>
+              <Skeleton className="h-1 w-16 motion-reduce:animate-none" />
+              <span>{previousPeriod ? "Updating period · previous results shown below" : "Updating calendar…"}</span>
+            </>
+          ) : <span>{count} {count === 1 ? "programme" : "programmes"}</span>}
+        </div>
+        {error && (
+          <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-destructive/25 bg-red-50 p-3 text-sm">
+            <p>{error}{previousPeriod ? " Previous results are shown below." : ""}</p>
+            <Button variant="outline" className="min-h-11" onClick={() => setRetry((value) => value + 1)}>Try again</Button>
           </div>
-          {selectedDay && <Button variant="outline" className="mb-4 min-h-11" onClick={() => setSelectedDay("")}>Show every window this month</Button>}
-        </>}
-        {query.view !== "year" && <Agenda items={dayItems} query={query} />}
-        <details className="mt-8 rounded-xl border border-border bg-card p-4">
-          <summary className={`flex min-h-11 cursor-pointer items-center font-serif text-lg font-semibold ${FOCUS}`}>Rolling and unfixed windows (
-            {data.rolling.length})
-          </summary>
-          <p className="mb-4 text-sm leading-6 text-muted-foreground">These routes have vacancy-specific, campus, lab or unconfirmed timing. Check their live notices and eligibility.</p>
-          <div className="grid min-w-0 gap-4 md:grid-cols-2">{data.rolling.map((item) => <CalendarCard key={item.id} item={item} />)}</div>
-        </details>
-      </section>}
+        )}
+        {!data && loading && (
+          <div className="space-y-3" aria-label="Loading calendar">
+            <Skeleton className="h-24 motion-reduce:animate-none" />
+            <Skeleton className="h-24 motion-reduce:animate-none" />
+            <Skeleton className="h-24 motion-reduce:animate-none" />
+          </div>
+        )}
+        {data && count === 0 && (
+          <section className="rounded-xl border border-dashed border-border px-5 py-10 text-center">
+            <h2 className="font-serif text-xl font-semibold">No programmes match these filters</h2>
+            <p className="mt-2 text-sm text-muted-foreground">Try another company, event or exam, or clear the filters.</p>
+            <Button variant="outline" className="mt-4 min-h-11" onClick={clearFilters}>Clear filters</Button>
+          </section>
+        )}
+        {data && count > 0 && (
+          <section aria-label="Calendar results" aria-busy={loading} className={`min-w-0 space-y-7 ${loading ? "opacity-70" : ""}`}>
+            {query.view === "list" && (
+              <MonthList items={collapsed.dated} recurring={collapsed.recurring} range={range} onSelect={selectItem} />
+            )}
+            {query.view === "timeline" && (
+              <Timeline items={collapsed.dated} recurring={collapsed.recurring} range={range} today={today} onSelect={selectItem} />
+            )}
+            {query.view === "grid" && (
+              <>
+                <MonthGrid
+                  key={`${range.from}-${range.to}`}
+                  items={dated}
+                  range={range}
+                  today={today}
+                  onSelect={selectItem}
+                  onOutsideMonth={(month) => changeWithSearch({ ...query, ...monthRange(month), period: "month" })}
+                />
+                <RecurringSection rows={collapsed.recurring} onSelect={selectItem} />
+              </>
+            )}
+            <AnytimeSection items={undated} onSelect={selectItem} />
+          </section>
+        )}
+      </div>
+      <DetailsDrawer
+        key={query.item}
+        item={selectedItem}
+        query={query}
+        recurringRule={collapsed.recurring.find(({ item }) => item.programme.slug === selectedItem?.programme.slug)?.rule}
+        loading={loading}
+        onClose={() => change({ ...query, item: "" })}
+        onRestoreFocus={() => {
+          if (lastTrigger.current?.isConnected) lastTrigger.current.focus();
+          else fallbackFocus.current?.focus();
+        }}
+      />
     </div>
   );
 }
