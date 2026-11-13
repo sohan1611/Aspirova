@@ -13,10 +13,11 @@ from urllib.robotparser import RobotFileParser
 import httpx
 from bs4 import BeautifulSoup
 
-from core.domains import clean_domain, http_url, same_site
+from core.domains import brand_label, clean_domain, http_url, same_site
 from pipeline.normalize import company_key
 
 MAX_BODY_BYTES = 1_048_576
+MAX_ATS_BODY_BYTES = 5 * MAX_BODY_BYTES
 USER_AGENT = "AspirovaBot/1.0 (+https://www.aspirova.org)"
 WIKIDATA_API = "https://www.wikidata.org/w/api.php"
 CLEARBIT_API = "https://autocomplete.clearbit.com/v1/companies/suggest"
@@ -55,7 +56,9 @@ class FetchResult:
 
 
 class Fetcher(Protocol):
-    def get(self, url: str, *, params: Params | None = None) -> FetchResult | None: ...
+    def get(
+        self, url: str, *, params: Params | None = None, max_bytes: int = MAX_BODY_BYTES
+    ) -> FetchResult | None: ...
 
 
 class HttpFetcher:
@@ -73,7 +76,9 @@ class HttpFetcher:
         self.sleep = sleep
         self._last_request: dict[str, float] = {}
 
-    def get(self, url: str, *, params: Params | None = None) -> FetchResult | None:
+    def get(
+        self, url: str, *, params: Params | None = None, max_bytes: int = MAX_BODY_BYTES
+    ) -> FetchResult | None:
         try:
             for redirects in range(6):
                 if not http_url(url):
@@ -98,12 +103,12 @@ class HttpFetcher:
                         url = urljoin(str(response.url), location)
                         params = None
                         continue
-                    if int(response.headers.get("content-length", "0")) > MAX_BODY_BYTES:
+                    if int(response.headers.get("content-length", "0")) > max_bytes:
                         return None
                     content = bytearray()
                     for chunk in response.iter_bytes(chunk_size=65_536):
                         content.extend(chunk)
-                        if len(content) > MAX_BODY_BYTES:
+                        if len(content) > max_bytes:
                             return None
                     return FetchResult(
                         response.status_code,
@@ -266,10 +271,8 @@ def listing_candidates(texts: list[str], *, owner_key: str | None = None) -> lis
     return [Candidate(domain, {"listing"}) for domain, _ in hosts.most_common(5)]
 
 
-def inspect_homepage(
-    fetcher: Fetcher, domain: str, robots_cache: dict[str, RobotFileParser]
-) -> Homepage:
-    url = f"https://{domain}/"
+def robots_allowed(fetcher: Fetcher, url: str, robots_cache: dict[str, RobotFileParser]) -> bool:
+    domain = urlsplit(url).netloc
     if domain not in robots_cache:
         robots_url = urljoin(url, "robots.txt")
         robots = fetcher.get(robots_url)
@@ -280,7 +283,14 @@ def inspect_homepage(
             else []
         )
         robots_cache[domain] = parser
-    if not robots_cache[domain].can_fetch("AspirovaBot", url):
+    return robots_cache[domain].can_fetch("AspirovaBot", url)
+
+
+def inspect_homepage(
+    fetcher: Fetcher, domain: str, robots_cache: dict[str, RobotFileParser]
+) -> Homepage:
+    url = f"https://{domain}/"
+    if not robots_allowed(fetcher, url, robots_cache):
         return Homepage(domain, allowed=False)
     result = fetcher.get(url)
     if result is None:
@@ -307,11 +317,7 @@ def inspect_homepage(
             icon = http_url(urljoin(result.url, href)) if isinstance(href, str) else None
         except ValueError:
             continue
-        if (
-            not icon
-            or urlsplit(icon).path.lower().endswith(".svg")
-            or str(link.get("type", "")).lower().split(";")[0].strip() == "image/svg+xml"
-        ):
+        if not icon:
             continue
         sizes = re.findall(r"(\d+)x(\d+)", str(link.get("sizes", "")), re.IGNORECASE)
         area = max((int(width) * int(height) for width, height in sizes), default=0)
@@ -336,13 +342,17 @@ def inspect_homepage(
     )
 
 
+def same_brand_site(domain: str, final_domain: str) -> bool:
+    return same_site(domain, final_domain) or brand_label(domain) == brand_label(final_domain)
+
+
 def title_matches(key: str, homepage: Homepage) -> bool:
     final_host = clean_domain(http_url(homepage.url), owner_key=key)
     if (
         not key
         or not homepage.allowed
         or not final_host
-        or not same_site(homepage.domain, final_host)
+        or not same_brand_site(homepage.domain, final_host)
     ):
         return False
     return any(

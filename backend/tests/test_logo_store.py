@@ -4,6 +4,7 @@ import hashlib
 import random
 from dataclasses import replace
 from io import BytesIO
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -17,7 +18,13 @@ from core.logo_store import (
     upload_logo,
     validate_and_normalize,
 )
-from pipeline.company_logos import MAX_BODY_BYTES, FetchResult, Params, wikimedia_logo_url
+from pipeline.company_logos import (
+    MAX_ATS_BODY_BYTES,
+    MAX_BODY_BYTES,
+    FetchResult,
+    Params,
+    wikimedia_logo_url,
+)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -156,6 +163,43 @@ def test_single_colour_glyph_on_transparent_background_is_valid() -> None:
     assert validate_and_normalize(image_result(image)) is not None
 
 
+@pytest.mark.parametrize("source", [None, "ats_board", "source_payload"])
+@pytest.mark.parametrize(
+    ("colour", "background", "recoloured"),
+    [
+        ((255, 255, 255), (0, 0, 0, 0), True),
+        ((255, 255, 255), (0, 0, 0, 255), False),
+        ((35, 110, 210), (0, 0, 0, 0), False),
+    ],
+    ids=["white-on-transparent", "white-on-black", "coloured"],
+)
+def test_white_on_transparent_recolouring_preserves_alpha(
+    source: str | None,
+    colour: tuple[int, int, int],
+    background: tuple[int, int, int, int],
+    recoloured: bool,
+) -> None:
+    # Fill the bounds with a glyph and translucent edges so trimming keeps its size.
+    image = Image.new("RGBA", (112, 112), background)
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((0, 0, 111, 111), fill=(*colour, 255))
+    if background[3] == 0:
+        for x, alpha in enumerate((1, 64, 127, 128, 200, 254)):
+            image.putpixel((x + 50, 0), (*colour, alpha))
+    logo = validate_and_normalize(image_result(image), source=source)
+    assert logo is not None
+    assert logo.recoloured == ("white_on_transparent" if recoloured else None)
+    assert logo.sha256 == hashlib.sha256(logo.png_bytes).hexdigest()
+    expected = image.copy()
+    if recoloured:
+        expected = Image.new("RGBA", image.size, "#1F2937")
+        expected.putalpha(image.getchannel("A"))
+    with Image.open(BytesIO(logo.png_bytes)) as normalized:
+        mark = normalized.crop((8, 8, 120, 120))
+        assert mark.getchannel("A").tobytes() == image.getchannel("A").tobytes()
+        assert mark.tobytes() == expected.tobytes()
+
+
 def test_single_opaque_pixel_is_practically_empty() -> None:
     image = patterned_image((64, 64))
     image.putalpha(0)
@@ -238,14 +282,141 @@ def test_ddg_google_404_placeholders_ignored() -> None:
 
 
 @pytest.mark.parametrize(
-    ("size", "accepted"), [((192, 64), False), ((64, 64), True), ((160, 100), True)]
+    ("size", "accepted"),
+    [((192, 64), True), ((64, 64), True), ((160, 100), True), ((320, 64), False)],
 )
 def test_p154_aspect_gate(size: tuple[int, int], accepted: bool) -> None:
     url = wikimedia_logo_url("Acme logo.png")
     result = image_result(patterned_image(size), url=url)
-    assert validate_and_normalize(result) is not None
     logo = best_logo(ImageFetcher({url: result}), [url], p154_url=url)
     assert (logo is not None) == accepted
+
+
+def test_wide_p154_is_used_only_after_domain_icons_fail() -> None:
+    icon = "https://acme.example/icon.png"
+    p154 = wikimedia_logo_url("Acme.svg")
+    responses = {
+        icon: image_result(patterned_image((32, 32)), url=icon),
+        p154: image_result(patterned_image((384, 128)), url=p154),
+    }
+    fetcher = ImageFetcher(responses)
+    logo = best_logo(fetcher, [icon, p154], p154_url=p154)
+    assert logo and logo.url == icon
+    assert fetcher.calls == [icon]
+    responses[icon] = image_result(patterned_image((16, 16)), url=icon)
+    fetcher.calls.clear()
+    logo = best_logo(fetcher, [icon, p154], p154_url=p154)
+    assert logo and logo.url == p154
+    assert fetcher.calls == [icon, p154]
+
+
+def test_p154_is_not_lost_after_four_invalid_icons() -> None:
+    icons = [f"https://acme.example/{index}.png" for index in range(4)]
+    p154 = wikimedia_logo_url("Acme.svg")
+    responses = {url: image_result(patterned_image((16, 16)), url=url) for url in icons}
+    responses[p154] = image_result(patterned_image((192, 64)), url=p154)
+    logo = best_logo(ImageFetcher(responses), [*icons, p154], p154_url=p154)
+    assert logo and logo.url == p154
+
+
+def test_large_cmyk_jpeg_is_accepted_only_for_ats_board() -> None:
+    image = patterned_image((1024, 1024)).convert("CMYK")
+    output = BytesIO()
+    image.save(output, format="JPEG", quality=95)
+    assert MAX_BODY_BYTES < len(output.getvalue()) < MAX_ATS_BODY_BYTES
+    result = FetchResult(
+        200, "https://cdn.example/logo.jpg", {"content-type": "image/jpeg"}, output.getvalue()
+    )
+    assert validate_and_normalize(result) is None
+    assert validate_and_normalize(result, source="source_payload") is None
+    logo = validate_and_normalize(result, source="ats_board")
+    assert logo and (logo.width, logo.height) == (1024, 1024)
+    with Image.open(BytesIO(logo.png_bytes)) as normalized:
+        assert normalized.mode == "RGBA"
+
+
+@pytest.mark.parametrize("mode", ["P", "LA", "CMYK"])
+def test_non_rgb_ats_images_convert_before_normalizing(mode: str) -> None:
+    image = patterned_image((64, 64)).convert(mode)
+    output = BytesIO()
+    image.save(output, format="JPEG" if mode == "CMYK" else "PNG")
+    result = FetchResult(
+        200, "https://cdn.example/logo", {"content-type": "image/png"}, output.getvalue()
+    )
+    assert validate_and_normalize(result, source="ats_board") is not None
+
+
+def test_ats_images_retain_download_and_pixel_caps(monkeypatch: pytest.MonkeyPatch) -> None:
+    result = image_result(patterned_image((64, 64)))
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 3000)
+    assert validate_and_normalize(result, source="ats_board") is None
+    assert (
+        validate_and_normalize(
+            replace(result, content=b"x" * (MAX_ATS_BODY_BYTES + 1)), source="ats_board"
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize("content_type", ["image/svg+xml", "image/png", "application/octet-stream"])
+def test_svg_is_sniffed_and_rasterized(content_type: str) -> None:
+    content = (Path(__file__).parent / "fixtures/logos/board_square.svg").read_bytes()
+    result = FetchResult(
+        200, "https://cdn.example/logo.png", {"content-type": content_type}, content
+    )
+    logo = validate_and_normalize(result)
+    assert logo and (logo.width, logo.height) == (256, 256)
+    with Image.open(BytesIO(logo.png_bytes)) as normalized:
+        assert normalized.size == (128, 128)
+        assert normalized.format == "PNG"
+
+
+@pytest.mark.parametrize(
+    "resource",
+    [
+        '<image href="https://example.com/logo.png"/>',
+        '<image xlink:href="http://example.com/logo.png"/>',
+        '<image href="file:///private/logo.png"/>',
+        '<image href="&#104;ttps://example.com/logo.png"/>',
+        '<image href="//example.com/logo.png"/>',
+        '<image href="relative.png"/>',
+        "<style>path { fill: url(file:///private/logo.svg); }</style>",
+        '<style>@import "https://example.com/style.css";</style>',
+    ],
+)
+def test_svg_external_resources_are_refused_before_rendering(resource, monkeypatch) -> None:
+    calls = []
+
+    def forbidden(**kwargs):
+        calls.append(kwargs)
+        raise AssertionError("unsafe SVG must never reach resvg")
+
+    monkeypatch.setattr("core.logo_store.resvg_py.svg_to_bytes", forbidden)
+    content = (
+        '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 64 64">'
+        + resource
+        + "</svg>"
+    ).encode()
+    result = FetchResult(
+        200, "https://cdn.example/logo.png", {"content-type": "image/svg+xml"}, content
+    )
+    assert validate_and_normalize(result) is None
+    assert calls == []
+
+
+def test_svg_input_and_render_dimensions_are_bounded() -> None:
+    content = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100000 100000"><circle cx="50000" cy="50000" r="40000"/></svg>'
+    result = FetchResult(
+        200, "https://cdn.example/logo", {"content-type": "image/svg+xml"}, content
+    )
+    logo = validate_and_normalize(result, source="ats_board")
+    assert logo and max(logo.width, logo.height) <= 512
+    assert (
+        validate_and_normalize(
+            replace(result, content=content + b" " * MAX_BODY_BYTES), source="ats_board"
+        )
+        is None
+    )
 
 
 def test_best_logo_largest_smallest_side_and_earlier_ties() -> None:

@@ -236,6 +236,7 @@ def test_worker_reuses_storage_pipeline_and_keeps_dry_run_write_free(monkeypatch
     notify = Mock()
     monkeypatch.setattr(organiser_companies, "link_organiser_companies", backfill)
     monkeypatch.setattr(worker, "select_companies", lambda *_: [(company.id, 0)])
+    monkeypatch.setattr(worker, "load_company_boards", lambda *_: {})
     monkeypatch.setattr(worker, "recent_listing_texts", lambda *_: ["https://acme.example/summer"])
     monkeypatch.setattr(worker, "generic_post_pass", lambda *_: set())
     monkeypatch.setattr(worker, "print_missing", lambda *_: None)

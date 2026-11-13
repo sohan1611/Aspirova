@@ -5,6 +5,7 @@ import json
 import random
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -14,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from core import models
 from core.config import Settings
-from pipeline.company_logos import FetchResult
+from pipeline.company_logos import MAX_ATS_BODY_BYTES, MAX_BODY_BYTES, Candidate, FetchResult
 from pipeline.company_resolution import resolve_company
 from scripts import logo_worker as worker
 
@@ -51,9 +52,11 @@ class FakeFetcher:
     def __init__(self):
         self.responses = {}
         self.calls = []
+        self.limits = []
 
-    def get(self, url, *, params=None):
+    def get(self, url, *, params=None, max_bytes=MAX_BODY_BYTES):
         self.calls.append((url, params))
+        self.limits.append((url, max_bytes))
         return self.responses.get(url)
 
     def image(self, url, seed=0):
@@ -136,13 +139,22 @@ def run_worker(db_session, monkeypatch):
         uploads.append((slug, logo))
         return f"https://stored.example/{slug}-{logo.sha256}.png"
 
-    def run(*, overrides=None, dry_run=False, limit=1500, time_budget_min=45, renormalize=False):
+    def run(
+        *,
+        overrides=None,
+        dry_run=False,
+        limit=1500,
+        time_budget_min=45,
+        renormalize=False,
+        recheck_days=30,
+    ):
         # Persist fixtures into the outer transaction, which the fixture alone
         # owns. Worker commits and rollbacks only release its own savepoints.
         db_session.commit()
         args = worker.parse_args(["--limit", str(limit), "--time-budget-min", str(time_budget_min)])
         args.dry_run = dry_run
         args.renormalize = renormalize
+        args.recheck_days = recheck_days
         return worker.run_db(db_session, args, fetcher, overrides or {}, upload)
 
     run.fetcher = fetcher
@@ -664,3 +676,228 @@ def test_guard_groups_domainless_names_by_first_token():
         guard.add(placeholder, None, name)
     assert crest not in guard.rejected
     assert placeholder in guard.rejected
+
+
+def board_listing(
+    company_id=1, name="Acme", domain=None, url="https://jobs.lever.co/acme/job", **kwargs
+):
+    return worker.BoardListing(
+        company_id=company_id,
+        name=name,
+        domain=domain,
+        ats_type=None,
+        ats_board_id=None,
+        apply_url=url,
+        primary_source=None,
+        source_url=None,
+        source_slug=None,
+        **kwargs,
+    )
+
+
+def test_own_board_rejects_other_brands_even_if_their_board_is_ambiguous():
+    rows = [
+        board_listing(),
+        board_listing(2, "Other"),
+        board_listing(2, "Other", url="https://jobs.ashbyhq.com/other/job"),
+    ]
+    assert worker.own_company_boards(rows) == {}
+
+
+def test_own_board_allows_sibling_brands_and_non_ats_listings():
+    rows = [
+        board_listing(domain="acme.com"),
+        board_listing(2, "Acme India", "acme.in"),
+        board_listing(url="https://acme.com/careers"),
+    ]
+    assert worker.own_company_boards(rows) == {
+        1: "https://jobs.lever.co/acme",
+        2: "https://jobs.lever.co/acme",
+    }
+    assert worker.own_company_boards([board_listing(), board_listing(2, "Acme Labs")]) == {
+        1: "https://jobs.lever.co/acme",
+        2: "https://jobs.lever.co/acme",
+    }
+
+
+@pytest.mark.parametrize(
+    "other_url",
+    [
+        "https://jobs.lever.co/other/job",
+        "https://acme.workable.com/jobs/123",
+        "https://jobs.lever.co/",
+    ],
+)
+def test_own_board_requires_all_ats_listings_to_identify_the_same_board(other_url):
+    assert worker.own_company_boards([board_listing(), board_listing(url=other_url)]) == {}
+
+
+def test_board_id_without_an_active_listing_is_not_ownership_evidence():
+    assert worker.own_company_boards([]) == {}
+    row = worker.BoardListing(
+        1, "Acme", None, "lever", "acme", "https://acme.com/jobs/1", "lever", None, None
+    )
+    assert worker.own_company_boards([row]) == {1: "https://jobs.lever.co/acme"}
+    # A configured board may not be borrowed by an unrelated aggregator listing.
+    row = worker.BoardListing(
+        1, "Acme", None, "lever", "acme", "https://github.com/list/jobs", "github", None, None
+    )
+    assert worker.own_company_boards([row]) == {}
+
+
+def test_ats_fallback_uses_ashby_square_svg_and_preserves_source_priority():
+    fetcher = FakeFetcher()
+    fixtures = Path(__file__).parent / "fixtures/logos"
+    board = "https://jobs.ashbyhq.com/saronic"
+    image = "https://cdn.example/saronic-square.png"
+    fetcher.responses[board] = FetchResult(
+        200, board, {}, (fixtures / "board_ashby.html").read_bytes()
+    )
+    fetcher.responses[image] = FetchResult(
+        200, image, {"content-type": "image/png"}, (fixtures / "board_square.svg").read_bytes()
+    )
+    result = worker.resolve_logo(
+        fetcher, "Saronic", None, None, None, lambda: [], {}, lambda _: None, board=board
+    )
+    assert result.source == "ats_board" and result.logo is not None
+    assert result.evidence["board"] == board
+    assert result.evidence["image_url"] == image
+    assert result.evidence["sha256"] == result.logo.sha256
+    assert (image, MAX_ATS_BODY_BYTES) in fetcher.limits
+    fetcher.calls.clear()
+    hint = "https://images.example/logo.png"
+    fetcher.image(hint)
+    result = worker.resolve_logo(
+        fetcher, "Saronic", None, hint, None, lambda: [], {}, lambda _: None, board=board
+    )
+    assert result.source == "source_payload"
+    assert fetcher.calls == [(hint, None)]
+    fetcher.calls.clear()
+    result = worker.resolve_logo(
+        fetcher, "Saronic", None, hint, {"block": True}, lambda: [], {}, lambda _: None, board=board
+    )
+    assert not result.found and fetcher.calls == []
+
+
+def test_generic_ats_logo_is_rejected():
+    fetcher = FakeFetcher()
+    board = "https://acme.wd1.myworkdayjobs.com/Jobs"
+    fetcher.image(board + "/assets/logo")
+    logo = worker.best_logo(fetcher, [board + "/assets/logo"])
+    guard = worker.GenericGuard()
+    guard.add(logo.sha256, None, "One")
+    guard.add(logo.sha256, None, "Two")
+    result = worker.resolve_logo(
+        fetcher,
+        "Three",
+        None,
+        None,
+        None,
+        lambda: [],
+        {},
+        lambda _: None,
+        lambda candidate: worker.guard_outcome(guard, candidate, "Three"),
+        board=board,
+    )
+    assert result.status == "rejected_generic" and not result.found
+
+
+@pytest.mark.parametrize("final_domain,accepted", [("notion.com", True), ("unrelated.com", False)])
+def test_trusted_homepage_redirect_uses_final_domain_icons(final_domain, accepted):
+    fetcher = FakeFetcher()
+    fetcher.responses["https://notion.so/"] = FetchResult(
+        200, f"https://{final_domain}/", {}, b"<title>Notion</title>"
+    )
+    fetcher.image(f"https://{final_domain}/apple-touch-icon.png")
+    result = worker.domain_logo(fetcher, "Notion", "notion.so", {}, lambda _: None)
+    assert result.found == accepted
+    assert result.domain == "notion.so"
+    if accepted:
+        assert result.evidence["image_url"] == "https://notion.com/apple-touch-icon.png"
+        assert not any("notion.so/apple" in url for url, _ in fetcher.calls)
+    else:
+        assert result.evidence["reason"] == "homepage redirected off domain"
+        assert not any("apple-touch" in url for url, _ in fetcher.calls)
+
+
+def test_trusted_domain_wordmark_requires_matching_official_website(monkeypatch):
+    fetcher = FakeFetcher()
+    image = worker.wikimedia_logo_url("Acme.svg")
+    fetcher.image(image)
+    candidates = [Candidate("other.example", {"wikidata"}, "Acme.svg")]
+    monkeypatch.setattr(worker, "wikidata_candidates", lambda *_: candidates)
+    assert not worker.domain_logo(fetcher, "Acme", "acme.example", {}, lambda _: None).found
+    assert (image, None) not in fetcher.calls
+    candidates[0].domain = "acme.example"
+    assert (
+        worker.domain_logo(fetcher, "Acme", "acme.example", {}, lambda _: None).source
+        == "wikidata_logo"
+    )
+
+
+def test_forced_recheck_selects_all_missing_statuses_but_preserves_blocks(
+    db_session, companies, run_worker
+):
+    rows = [
+        companies(logo_status=status, logo_checked_at=datetime.now(UTC))
+        for status in ("not_found", "ambiguous", "error", "manual")
+    ]
+    blocked = companies(logo_status="manual", logo_evidence={"override": {"block": True}})
+    stored = companies(logo_status="manual", logo_url="https://stored.example/keep.png")
+    manual = rows[-1]
+    override = {"domain": f"retry-{uuid4().hex}.example"}
+    manual.logo_evidence = {"override": override}
+    overrides = {manual.slug: override, blocked.slug: {"block": True}}
+    selected = worker.select_companies(
+        db_session, worker.parse_args(["--recheck-days", "0"]), overrides
+    )
+    assert {row[0] for row in selected} == {company.id for company in rows}
+    assert worker.select_companies(db_session, worker.parse_args([]), overrides) == []
+    run_worker.fetcher.homepage(override["domain"])
+    run_worker(overrides=overrides, recheck_days=0)
+    db_session.refresh(manual)
+    db_session.refresh(blocked)
+    db_session.refresh(stored)
+    assert manual.logo_url and manual.logo_status == "manual"
+    assert blocked.logo_url is None
+    assert stored.logo_url == "https://stored.example/keep.png"
+
+
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_worker_uses_listing_board_and_prints_image_url(
+    db_session, companies, run_worker, capsys, dry_run
+):
+    company = companies()
+    opportunity = db_session.scalar(
+        select(models.Opportunity).where(models.Opportunity.company_id == company.id)
+    )
+    opportunity.apply_url = "https://acme.wd1.myworkdayjobs.com/en-US/Jobs/job/123"
+    image = "https://acme.wd1.myworkdayjobs.com/Jobs/assets/logo"
+    run_worker.fetcher.image(image)
+    result = run_worker(dry_run=dry_run)[0]
+    assert result.source == "ats_board"
+    assert f"image_url={image}" in capsys.readouterr().out
+    db_session.refresh(company)
+    assert bool(company.logo_url) != dry_run
+
+
+def test_ownership_map_includes_secondary_source_urls(db_session, companies):
+    company = companies()
+    opportunity = db_session.scalar(
+        select(models.Opportunity).where(models.Opportunity.company_id == company.id)
+    )
+    source = models.Source(slug=f"test-logos-{uuid4().hex}", name="Logo fixture")
+    db_session.add(source)
+    db_session.flush()
+    db_session.add(
+        models.OpportunitySource(
+            opportunity_id=opportunity.id,
+            source_id=source.id,
+            source_url="https://boards.greenhouse.io/acme/jobs/123",
+        )
+    )
+    db_session.flush()
+    assert (
+        worker.load_company_boards(db_session)[company.id]
+        == "https://job-boards.greenhouse.io/acme"
+    )

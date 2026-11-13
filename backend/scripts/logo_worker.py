@@ -17,7 +17,7 @@ import html
 import json
 import time
 from collections import Counter, defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -27,7 +27,7 @@ from urllib.robotparser import RobotFileParser
 import httpx
 
 from core.config import Settings, get_settings
-from core.domains import brand_label, clean_domain, http_url, same_site
+from core.domains import brand_label, clean_domain, http_url
 from core.logo_store import (
     NormalizedLogo,
     best_logo,
@@ -36,7 +36,10 @@ from core.logo_store import (
     upload_logo,
     validate_and_normalize,
 )
+from pipeline.ats_logos import ats_hosted, board_from_token, board_from_url, board_logo_url
 from pipeline.company_logos import (
+    MAX_ATS_BODY_BYTES,
+    MAX_BODY_BYTES,
     Fetcher,
     FetchResult,
     Homepage,
@@ -45,6 +48,8 @@ from pipeline.company_logos import (
     discover_domain,
     icon_candidates,
     inspect_homepage,
+    same_brand_site,
+    wikidata_candidates,
     wikimedia_logo_url,
 )
 from pipeline.normalize import company_key
@@ -81,6 +86,71 @@ class Outcome:
     @property
     def found(self) -> bool:
         return self.logo is not None or self.cached_url is not None
+
+
+@dataclass(frozen=True)
+class BoardListing:
+    company_id: int
+    name: str
+    domain: str | None
+    ats_type: str | None
+    ats_board_id: str | None
+    apply_url: str | None
+    primary_source: str | None
+    source_url: str | None
+    source_slug: str | None
+
+
+def own_company_boards(rows: Iterable[BoardListing]) -> dict[int, str]:
+    """Require a single board across all ATS listings and a single owning brand."""
+    company_boards: dict[int, set[str | None]] = defaultdict(set)
+    board_groups: dict[str, set[str]] = defaultdict(set)
+    for row in rows:
+        boards = {board_from_url(url) for url in (row.apply_url, row.source_url) if ats_hosted(url)}
+        if (
+            row.ats_board_id
+            and row.ats_type
+            and row.ats_type in (row.primary_source, row.source_slug)
+        ):
+            boards.add(board_from_token(row.ats_type, row.ats_board_id))
+        company_boards[row.company_id].update(boards)
+        for board in boards:
+            if board:
+                board_groups[board].add(guard_group(row.domain, row.name))
+    owned = {}
+    for company_id, boards in company_boards.items():
+        if len(boards) == 1:
+            board = next(iter(boards))
+            if board and len(board_groups[board]) == 1:
+                owned[company_id] = board
+    return owned
+
+
+def load_company_boards(session: "Session") -> dict[int, str]:
+    from sqlalchemy import select
+
+    from core.models import Company, Opportunity, OpportunitySource, Source
+
+    # Include every active listing, even ones hidden from the public feed. Any
+    # unrelated brand sharing a board disqualifies it for the whole run.
+    rows = session.execute(
+        select(
+            Company.id,
+            Company.name,
+            Company.domain,
+            Company.ats_type,
+            Company.ats_board_id,
+            Opportunity.apply_url,
+            Opportunity.primary_source,
+            OpportunitySource.source_url,
+            Source.slug,
+        )
+        .join(Opportunity, Opportunity.company_id == Company.id)
+        .outerjoin(OpportunitySource, OpportunitySource.opportunity_id == Opportunity.id)
+        .outerjoin(Source, Source.id == OpportunitySource.source_id)
+        .where(Opportunity.status == "active")
+    ).all()
+    return own_company_boards(BoardListing(*row) for row in rows)
 
 
 def guard_group(domain: str | None, name: str) -> str:
@@ -121,8 +191,14 @@ class LogoFetches:
         self.fetcher = fetcher
         self.origins: dict[str, str] = {}
 
-    def get(self, url: str, *, params: Params | None = None) -> FetchResult | None:
-        result = self.fetcher.get(url, params=params)
+    def get(
+        self, url: str, *, params: Params | None = None, max_bytes: int = MAX_BODY_BYTES
+    ) -> FetchResult | None:
+        result = (
+            self.fetcher.get(url, params=params)
+            if max_bytes == MAX_BODY_BYTES
+            else self.fetcher.get(url, params=params, max_bytes=max_bytes)
+        )
         if result is not None:
             self.origins.setdefault(result.url, url)
         return result
@@ -195,12 +271,27 @@ def domain_logo(
         return result
     # A trusted input still must not acquire an unrelated redirect target's icon.
     final_domain = clean_domain(http_url(homepage.url), owner_key=company_key(name))
-    if homepage.url and (not final_domain or not same_site(domain, final_domain)):
+    if homepage.url and (not final_domain or not same_brand_site(domain, final_domain)):
         result.evidence["reason"] = "homepage redirected off domain"
         return result
     p154_url = wikimedia_logo_url(p154_filename) if p154_filename else None
     requests = LogoFetches(fetcher)
-    logo = best_logo(requests, icon_candidates(domain, homepage, p154_filename), p154_url=p154_url)
+    logo = best_logo(
+        requests,
+        icon_candidates(final_domain or domain, homepage, p154_filename),
+        p154_url=p154_url,
+    )
+    if logo is None and p154_url is None:
+        # Trusted domains bypass discovery; still require the exact entity-name
+        # and current official-website match before using its P154 wordmark.
+        filenames = {
+            candidate.p154_filename
+            for candidate in wikidata_candidates(fetcher, name)
+            if candidate.p154_filename and same_brand_site(domain, candidate.domain)
+        }
+        if len(filenames) == 1:
+            p154_url = wikimedia_logo_url(next(iter(filenames)))
+            logo = best_logo(requests, [], p154_url=p154_url)
     if logo is None:
         result.evidence["reason"] = "no valid icon"
         return result
@@ -210,6 +301,22 @@ def domain_logo(
         else "domain_icon"
     )
     return image_outcome(logo, source, domain)
+
+
+def ats_board_logo(
+    fetcher: Fetcher, board: str, robots: dict[str, RobotFileParser], domain: str | None
+) -> Outcome:
+    url = board_logo_url(fetcher, board, robots)
+    result = Outcome(domain=domain, evidence={"board": board, "image_url": url})
+    if url:
+        fetched = fetcher.get(url, max_bytes=MAX_ATS_BODY_BYTES)
+        logo = validate_and_normalize(fetched, source="ats_board") if fetched else None
+        if logo:
+            result = image_outcome(logo, "ats_board", domain)
+            result.evidence["board"] = board
+            return result
+    result.evidence["reason"] = "no valid ATS board logo"
+    return result
 
 
 def resolve_logo(
@@ -222,6 +329,8 @@ def resolve_logo(
     robots: dict[str, RobotFileParser],
     cache_lookup: CacheLookup,
     accept: Callable[[Outcome], None] | None = None,
+    *,
+    board: str | None = None,
 ) -> Outcome:
     attempts = []
     rejected_images = []
@@ -284,6 +393,17 @@ def resolve_logo(
         result.evidence["candidates"] = candidates
         result.searched = True
     acceptable(result)
+    if not result.found and board:
+        attempts.append({"step": "domain", **result.evidence})
+        fallback = ats_board_logo(fetcher, board, robots, result.domain)
+        fallback.searched = result.searched
+        fallback.evidence["candidates"] = result.evidence.get("candidates", {})
+        if result.evidence.get("accepted_domain"):
+            fallback.evidence["accepted_domain"] = True
+        if acceptable(fallback):
+            result = fallback
+        else:
+            attempts.append({"step": "ats_board", **fallback.evidence})
     if not result.found and rejected_images:
         result.status = "rejected_generic"
         result.evidence["reason"] = "same image on at least 3 independent groups"
@@ -346,13 +466,18 @@ def retry_filter(recheck_days: int) -> "ColumnElement[bool]":
 
     from core.models import Company
 
+    if recheck_days == 0:
+        return and_(
+            Company.logo_url.is_(None),
+            Company.logo_evidence["override"]["block"].as_boolean().is_not(True),
+        )
     return and_(
         Company.logo_url.is_(None),
         Company.logo_status.is_distinct_from("manual"),
         or_(
             Company.logo_status.is_(None),
             and_(
-                Company.logo_status.in_(("not_found", "ambiguous", "rejected_generic")),
+                Company.logo_status.in_(("not_found", "ambiguous", "rejected_generic", "error")),
                 Company.logo_checked_at < datetime.now(UTC) - timedelta(days=recheck_days),
             ),
         ),
@@ -398,8 +523,9 @@ def select_companies(
             )
         )
     )
+    blocked = [slug for slug, override in overrides.items() if override.get("block") is True]
     rows = session.execute(
-        query.where(retry_filter(args.recheck_days))
+        query.where(retry_filter(args.recheck_days), Company.slug.not_in(blocked))
         .order_by(count.desc(), Company.id)
         .limit(args.limit)
     ).all()
@@ -576,6 +702,7 @@ def run_db(
         link_organiser_companies(session)
         session.commit()
     selected = select_companies(session, args, overrides)
+    boards = load_company_boards(session)
     guard = GenericGuard()
     for company in session.scalars(select(Company).where(Company.logo_status == "found")):
         if company.logo_url:
@@ -594,7 +721,12 @@ def run_db(
             continue
         override = overrides.get(company.slug)
         needs_override = override_needed(company, override)
-        if not needs_override and (company.logo_url is not None or company.logo_status == "manual"):
+        blocked = (override or (company.logo_evidence or {}).get("override") or {}).get("block")
+        if not needs_override and (
+            company.logo_url is not None
+            or blocked
+            or (company.logo_status == "manual" and getattr(args, "recheck_days", 30) != 0)
+        ):
             session.rollback()
             continue
         old_url = company.logo_url
@@ -619,6 +751,7 @@ def run_db(
                 robots,
                 cache_lookup,
                 lambda candidate, name=name: guard_outcome(guard, candidate, name),
+                board=boards.get(company_id),
             )
         except Exception as exc:
             # Exception text can contain credential-bearing URLs. Log only its type.
@@ -652,6 +785,7 @@ def run_db(
         print(
             f"{prefix} {slug} status={'manual' if override else result.status} "
             f"source={result.source} domain={result.domain or domain} "
+            f"image_url={result.evidence.get('image_url') or result.evidence.get('board') or result.cached_url or ''} "
             f"sha256={result.evidence.get('sha256', '')} {result.evidence.get('reason', '')}"
         )
 
