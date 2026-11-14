@@ -1,27 +1,21 @@
 "use client";
 
-import { AlertCircle, Bookmark, Trash2 } from "lucide-react";
+import { AlertCircle, ArrowUpRight, BookmarkPlus, Clock, Loader2, MoreHorizontal, Pencil, SlidersHorizontal, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { ConfirmDialog, EmptyState, Meter, SectionHeader } from "@/components/account/primitives";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { deleteSavedSearch, getSavedSearches, setSavedSearchAlerts, updateSavedSearch } from "@/lib/api";
 import { canonicalSavedSearchParams, savedSearchEditHref, savedSearchHref, savedSearchParamsFromQuery, savedSearchSummary } from "@/lib/savedSearchParams";
 import { formatDate } from "@/lib/date";
 import type { SavedSearchItem, SavedSearchParams } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
 interface SavedSearchLoadState {
   accessToken: string | null;
@@ -51,7 +45,7 @@ function isSavedSearchItem(value: unknown): value is SavedSearchItem {
 }
 
 export default function SavedSearchesSection({ accessToken }: { accessToken: string }) {
-  const headingRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const renameTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SavedSearchItem | null>(null);
   const [renameTarget, setRenameTarget] = useState<SavedSearchItem | null>(null);
@@ -217,193 +211,158 @@ export default function SavedSearchesSection({ accessToken }: { accessToken: str
 
   if (loading) {
     return (
-      <Card aria-busy="true" aria-label="Loading saved searches">
-        <CardHeader>
-          <CardTitle className="font-serif text-2xl">Saved searches</CardTitle>
-          <CardDescription>Loading your saved filters…</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-3">
+      <section aria-labelledby="account-saved-searches-heading" className="grid gap-6" aria-busy="true" aria-label="Loading saved searches">
+        <SectionHeader id="account-saved-searches-heading" headingRef={headingRef} eyebrow="Alerts" title="Saved searches" description="Loading your saved filters…" />
+        <div className="grid gap-4">
           {Array.from({ length: 3 }).map((_, index) => (
-            <div
-              key={index}
-              className="rounded-xl border border-border bg-secondary/25 p-5 shadow-soft"
-              aria-hidden="true"
-            >
-              <Skeleton className="h-5 w-2/5" />
-              <Skeleton className="mt-3 h-4 w-4/5" />
-              <Skeleton className="mt-5 h-8 w-32" />
+            <div key={index} className="rounded-xl border border-border bg-card p-5 shadow-soft" aria-hidden="true">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <Skeleton className="h-6 w-2/5" />
+                  <Skeleton className="mt-3 h-4 w-4/5" />
+                  <Skeleton className="mt-3 h-3 w-1/3" />
+                </div>
+                <Skeleton className="h-6 w-11 rounded-full" />
+              </div>
+              <div className="mt-4 flex gap-2 border-t border-border pt-4">
+                <Skeleton className="h-8 w-32" />
+                <Skeleton className="h-8 w-24" />
+              </div>
             </div>
           ))}
-        </CardContent>
-        <span className="sr-only" role="status">
-          Loading saved searches…
-        </span>
-      </Card>
+        </div>
+        <span className="sr-only" role="status">Loading saved searches…</span>
+      </section>
     );
   }
 
   if (loadState.status === "error") {
     return (
-      <Card className="text-center" role="alert">
-        <CardHeader>
-          <AlertCircle className="mx-auto size-9 text-destructive" aria-hidden="true" />
-          <CardTitle className="font-serif text-2xl">
-            We couldn&apos;t load your saved searches
-          </CardTitle>
-          <CardDescription>
-            Check your connection and try loading them again.
-          </CardDescription>
-        </CardHeader>
-        <CardFooter className="justify-center">
-          <Button type="button" onClick={() => setRetryKey((current) => current + 1)}>
-            Retry
-          </Button>
-        </CardFooter>
-      </Card>
+      <section aria-labelledby="account-saved-searches-heading" className="grid gap-6">
+        <SectionHeader id="account-saved-searches-heading" headingRef={headingRef} eyebrow="Alerts" title="Saved searches" description="Revisit your filters, or choose whether each search can send new-match alerts." />
+        <div role="alert" className="rounded-xl border border-border bg-card shadow-soft">
+          <EmptyState
+            icon={AlertCircle}
+            tone="destructive"
+            title="We couldn't load your saved searches"
+            description="Check your connection and try loading them again."
+            action={<Button type="button" onClick={() => setRetryKey((current) => current + 1)}>Retry</Button>}
+          />
+        </div>
+      </section>
     );
   }
 
-
   return (
-    <div className="grid gap-4">
-      <Card>
-        <CardHeader>
-          <CardTitle ref={headingRef} tabIndex={-1} className="font-serif text-2xl">Saved searches</CardTitle>
-          <p className="text-xs text-muted-foreground">{loadState.items.length} of 25 saved searches</p>
-          <CardDescription>
-            Revisit your filters, or choose whether each search can send new-match alerts.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-3">
-          {loadState.items.length === 0 && (
-            <div className="grid justify-items-center gap-3 py-4 text-center">
-              <Bookmark className="size-6 text-muted-foreground" aria-hidden="true" />
-              <p>No saved searches yet.</p>
-              <p className="text-sm text-muted-foreground">Save a search from the feed to return to the same filters whenever you need them.</p>
-              <Button asChild><Link href="/">Browse opportunities</Link></Button>
-            </div>
-          )}
-          {loadState.items.map((item) => {
-            const summary = savedSearchSummary(safeSavedSearchParams(item.params));
-            const name = typeof item.name === "string" ? item.name.trim() : "";
-            const title = name || summary;
-            const createdAt = typeof item.created_at === "string" ? item.created_at : null;
-            const isUpdatingAlerts = pendingAlertIds.has(item.id);
-            const isDeleting = pendingDeleteIds.has(item.id);
-            const controlsDisabled = isUpdatingAlerts || isDeleting;
-            const titleId = `saved-search-title-${item.id}`;
-            const alertsLabelId = `saved-search-alerts-${item.id}`;
+    <section aria-labelledby="account-saved-searches-heading" className="grid gap-6">
+      <SectionHeader
+        id="account-saved-searches-heading"
+        headingRef={headingRef}
+        eyebrow="Alerts"
+        title="Saved searches"
+        description="Revisit your filters, or choose whether each search can send new-match alerts."
+        action={
+          <div className="grid gap-2">
+            <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium tnum">{loadState.items.length} of 25</span>
+            <Meter value={loadState.items.length} max={25} label="Saved searches" valueText={`${loadState.items.length} of 25 saved searches`} />
+          </div>
+        }
+      />
+      <div className="grid gap-4">
+        {loadState.items.length === 0 && (
+          <div className="rounded-xl border border-border bg-card shadow-soft">
+            <EmptyState
+              icon={BookmarkPlus}
+              title="No saved searches yet"
+              description="Save a search from the feed to come back to the same filters, and get an email when new matches appear."
+              action={<Button asChild><Link href="/">Browse opportunities</Link></Button>}
+            />
+          </div>
+        )}
+        {loadState.items.map((item) => {
+          const summary = savedSearchSummary(safeSavedSearchParams(item.params));
+          const name = typeof item.name === "string" ? item.name.trim() : "";
+          const title = name || summary;
+          const createdAt = typeof item.created_at === "string" ? item.created_at : null;
+          const isUpdatingAlerts = pendingAlertIds.has(item.id);
+          const isDeleting = pendingDeleteIds.has(item.id);
+          const controlsDisabled = isUpdatingAlerts || isDeleting;
+          const titleId = `saved-search-title-${item.id}`;
+          const alertsLabelId = `saved-search-alerts-${item.id}`;
 
-            return (
-              <article
-                key={item.id}
-                aria-busy={controlsDisabled || undefined}
-                className="rounded-xl border border-border bg-secondary/20 p-5 shadow-soft"
-              >
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <h2
-                      id={titleId}
-                      className="truncate font-serif text-lg font-bold text-foreground"
-                    >
-                      {title}
-                    </h2>
-                    {name && (
-                      <p className="mt-1 text-sm text-muted-foreground">{summary}</p>
-                    )}
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {createdAt ? (
-                        <>
-                          Saved <time dateTime={createdAt}>{formatDate(createdAt, "long")}</time>
-                        </>
-                      ) : (
-                        "Saved recently"
-                      )}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2 self-start">
-                    <span
-                      id={alertsLabelId}
-                      className="text-sm font-medium text-muted-foreground"
-                    >
-                      Alerts {item.alerts_enabled ? "on" : "off"}
-                    </span>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={item.alerts_enabled}
-                      aria-labelledby={`${titleId} ${alertsLabelId}`}
-                      disabled={controlsDisabled}
-                      onClick={() => void handleAlertsToggle(item.id)}
-                      className={cn(
-                        "relative inline-flex h-6 w-11 shrink-0 rounded-full border border-transparent transition-colors duration-200 ease-premium outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-60",
-                        item.alerts_enabled ? "bg-primary" : "bg-muted-foreground/35",
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "pointer-events-none mt-0.5 block size-5 rounded-full bg-white shadow-sm transition-transform duration-200 ease-premium",
-                          item.alerts_enabled ? "translate-x-5" : "translate-x-0.5",
-                        )}
-                      />
-                    </button>
-                  </div>
+          return (
+            <article key={item.id} aria-busy={controlsDisabled || undefined} className="rounded-xl border border-border bg-card p-5 shadow-soft">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 flex-1">
+                  <h3 id={titleId} className="truncate font-serif text-lg font-bold text-foreground">{title}</h3>
+                  {name && <p className="mt-1 text-sm text-muted-foreground">{summary}</p>}
+                  <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Clock className="size-3.5 shrink-0" aria-hidden="true" />
+                    {createdAt ? (
+                      <>Saved <time dateTime={createdAt}>{formatDate(createdAt, "long")}</time></>
+                    ) : "Saved recently"}
+                  </p>
                 </div>
-
-                {hasDuplicateFilters(item) && <p role="status" className="mt-3 text-xs text-muted-foreground">Another saved search already uses these filters.</p>}
-                <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-border pt-4">
-                  <Button asChild variant="outline" size="sm">
-                    <Link href={savedSearchEditHref(safeSavedSearchParams(item.params), item.id)}>Edit filters</Link>
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" disabled={controlsDisabled} onClick={(event) => {
-                    renameTriggerRef.current = event.currentTarget;
-                    setNameDraft(item.name ?? ""); setRenameError(null); setRenameTarget(item);
-                  }}>Rename</Button>
-                  <Button asChild variant="outline" size="sm">
-                    <Link
-                      href={savedSearchHref(safeSavedSearchParams(item.params))}
-                      aria-label={`View ${title} on the opportunity feed`}
-                    >
-                      View
-                    </Link>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
+                <div className="flex shrink-0 items-center gap-3 self-start">
+                  <p id={alertsLabelId} className="text-sm font-medium text-muted-foreground">Alerts {item.alerts_enabled ? "on" : "off"}</p>
+                  <Switch
+                    checked={item.alerts_enabled}
+                    onCheckedChange={() => void handleAlertsToggle(item.id)}
                     disabled={controlsDisabled}
-                    onClick={() => setDeleteTarget(item)}
-                    aria-label={`Delete saved search: ${title}`}
-                  >
-                    <Trash2 aria-hidden="true" />
-                    Delete
-                  </Button>
+                    aria-labelledby={`${titleId} ${alertsLabelId}`}
+                  />
                 </div>
-              </article>
-            );
-          })}
-        </CardContent>
-      </Card>
-      <Dialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
-        <DialogContent onCloseAutoFocus={(event) => { event.preventDefault(); headingRef.current?.focus(); }}>
-          <DialogHeader>
-            <DialogTitle>Delete this saved search?</DialogTitle>
-            <DialogDescription>
-              Delete {deleteTarget?.name || savedSearchSummary(safeSavedSearchParams(deleteTarget?.params))}? Alerts for this search will stop. This can&apos;t be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={() => {
-              if (!deleteTarget) return;
-              const id = deleteTarget.id;
-              setDeleteTarget(null);
-              void handleDelete(id);
-            }}>Delete</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              </div>
+
+              {hasDuplicateFilters(item) && <p role="status" className="mt-3 text-xs text-muted-foreground">Another saved search already uses these filters.</p>}
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
+                <Button asChild variant="soft" size="sm">
+                  <Link href={savedSearchHref(safeSavedSearchParams(item.params))} aria-label={`View ${title} on the opportunity feed`}>
+                    <ArrowUpRight aria-hidden="true" />View results
+                  </Link>
+                </Button>
+                <Button asChild variant="ghost" size="sm">
+                  <Link href={savedSearchEditHref(safeSavedSearchParams(item.params), item.id)}><SlidersHorizontal aria-hidden="true" />Edit filters</Link>
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button id={`saved-search-actions-${item.id}`} variant="ghost" size="icon-sm" className="ml-auto" aria-label={`More actions for ${title}`} disabled={controlsDisabled}>
+                      <MoreHorizontal aria-hidden="true" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" onCloseAutoFocus={(event) => { if (renameTarget || deleteTarget) event.preventDefault(); }}>
+                    <DropdownMenuItem disabled={controlsDisabled} onSelect={() => {
+                      renameTriggerRef.current = document.getElementById(`saved-search-actions-${item.id}`) as HTMLButtonElement | null;
+                      setNameDraft(item.name ?? ""); setRenameError(null); setRenameTarget(item);
+                    }}>
+                      <Pencil aria-hidden="true" />Rename
+                    </DropdownMenuItem>
+                    <DropdownMenuItem variant="destructive" className="text-destructive-text data-[variant=destructive]:text-destructive-text data-[variant=destructive]:focus:text-destructive-text data-[variant=destructive]:*:[svg]:text-destructive-text!" disabled={controlsDisabled} onSelect={() => setDeleteTarget(item)}>
+                      <Trash2 aria-hidden="true" />Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+        title="Delete this saved search?"
+        description={<>Delete {deleteTarget?.name || savedSearchSummary(safeSavedSearchParams(deleteTarget?.params))}? Alerts for this search will stop. This can&apos;t be undone.</>}
+        confirmLabel="Delete"
+        pendingLabel="Deleting…"
+        pending={false}
+        onCloseAutoFocus={(event) => { event.preventDefault(); headingRef.current?.focus(); }}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          const id = deleteTarget.id;
+          setDeleteTarget(null);
+          void handleDelete(id);
+        }}
+      />
       <Dialog open={renameTarget !== null} onOpenChange={(open) => { if (!open && !renaming) setRenameTarget(null); }}>
         <DialogContent onCloseAutoFocus={(event) => { event.preventDefault(); (renameTriggerRef.current ?? headingRef.current)?.focus(); }}>
           <form onSubmit={handleRename} className="grid gap-4">
@@ -411,17 +370,23 @@ export default function SavedSearchesSection({ accessToken }: { accessToken: str
               <DialogTitle>Rename saved search</DialogTitle>
               <DialogDescription>Choose a name to recognise these filters.</DialogDescription>
             </DialogHeader>
-            <Label htmlFor="saved-search-name">Name</Label>
-            <Input id="saved-search-name" maxLength={80} value={nameDraft} disabled={renaming} onChange={(event) => setNameDraft(event.target.value)} />
+            <div className="grid gap-2">
+              <Label htmlFor="saved-search-name">Name</Label>
+              <Input id="saved-search-name" aria-describedby="saved-search-name-help" maxLength={80} value={nameDraft} disabled={renaming} onChange={(event) => setNameDraft(event.target.value)} />
+              <p id="saved-search-name-help" className="text-xs text-muted-foreground">Up to 80 characters.</p>
+            </div>
             {renameTarget && hasDuplicateFilters(renameTarget) && <p role="status" className="text-xs text-muted-foreground">Another saved search already uses these filters.</p>}
-            {renameError && <p role="alert" className="text-sm text-destructive">{renameError}</p>}
+            {renameError && <p role="alert" className="text-sm text-destructive-text">{renameError}</p>}
             <DialogFooter>
-              <Button type="button" variant="outline" disabled={renaming} onClick={() => setRenameTarget(null)}>Cancel</Button>
-              <Button type="submit" disabled={renaming}>{renaming ? "Saving…" : "Save"}</Button>
+              <Button type="button" variant="ghost" disabled={renaming} onClick={() => setRenameTarget(null)}>Cancel</Button>
+              <Button type="submit" disabled={renaming}>
+                {renaming && <Loader2 className="animate-spin" aria-hidden="true" />}
+                {renaming ? "Saving…" : "Save"}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </section>
   );
 }

@@ -49,3 +49,39 @@ export function getProfileChecklist(account: AccountMe, hasFieldSelections: bool
     },
   ];
 }
+
+export type ProfileStrengthStep = {
+  key: "display_name" | "college" | "graduation_year" | "field" | "skills" | "resume";
+  label: string;
+  reason: string;
+  done: boolean;
+  optional: boolean;
+};
+
+export function getProfileStrength(account: AccountMe, hasFieldSelections: boolean): {
+  steps: ProfileStrengthStep[];
+  done: number;
+  total: number;
+  percentage: number;
+  nextStep: ProfileStrengthStep | null;
+} {
+  const steps: ProfileStrengthStep[] = [
+    { key: "display_name", label: "Display name", reason: "Makes your account and emails feel personal.", done: Boolean(account.display_name?.trim()), optional: false },
+    { key: "college", label: "College", reason: "Helps surface opportunities for your campus.", done: Boolean(account.college?.trim()), optional: false },
+    { key: "graduation_year", label: "Graduation year", reason: "Finds programmes and roles for your stage.", done: account.graduation_year != null, optional: false },
+    ...getProfileChecklist(account, hasFieldSelections).map((step) => ({
+      ...step,
+      key: step.key as "field" | "skills" | "resume",
+    })),
+  ];
+  const done = steps.filter((step) => step.done).length;
+  const total = steps.length;
+  return {
+    steps,
+    done,
+    total,
+    percentage: (done / total) * 100,
+    nextStep: steps.find((step) => !step.done && !step.optional)
+      ?? steps.find((step) => !step.done) ?? null,
+  };
+}
