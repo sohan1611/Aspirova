@@ -255,7 +255,7 @@ function SignedInResumeWorkspace({
 
         setSavedSkills(accountSkills);
         setSavedResume(account.resume ?? null);
-        storeSkillNames(accountSkills.map((skill) => skill.name));
+        storeSkillNames(accountSkills.map((skill) => skill.name), userId);
         setSavedExposure(accountExposure);
         setSkills((currentSkills) => mergeSkills(accountSkills, currentSkills));
         setExposure((currentExposure) =>
@@ -275,7 +275,7 @@ function SignedInResumeWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [accessToken]);
+  }, [accessToken, userId]);
 
   function getSuggestedResumeSkills(text: string): ProfileSkill[] {
     return extractSkills(text).filter(
@@ -301,7 +301,7 @@ function SignedInResumeWorkspace({
 
     setSkills(persistedSkills);
     setSavedSkills(persistedSkills);
-    storeSkillNames(persistedSkills.map((skill) => skill.name));
+    storeSkillNames(persistedSkills.map((skill) => skill.name), userId);
     setSavedExposure(accountExposure);
     setExposure((currentExposure) =>
       exposureTouchedRef.current ? currentExposure : accountExposure,
@@ -468,7 +468,7 @@ function SignedInResumeWorkspace({
 
       setSkills(nextSkills);
       setSavedSkills(nextSkills);
-      storeSkillNames(nextSkills.map((skill) => skill.name));
+      storeSkillNames(nextSkills.map((skill) => skill.name), userId);
       setExposure(nextExposure);
       setSavedExposure(nextExposure);
       exposureTouchedRef.current = false;

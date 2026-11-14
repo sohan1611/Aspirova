@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import { useHydrated } from "@/lib/useHydrated";
 
 export const SKILLS_STORAGE_KEY = "aspirova.skills";
+const SKILLS_OWNER_STORAGE_KEY = "aspirova.skills.owner";
 export const SKILLS_EVENT = "aspirova:skills-change";
 
 const EMPTY_SKILL_NAMES: string[] = [];
@@ -9,6 +10,7 @@ const EMPTY_SKILL_NAMES: string[] = [];
 let cachedRawValue: string | null | undefined;
 let cachedSnapshot = EMPTY_SKILL_NAMES;
 let inMemoryRawValue: string | null = null;
+let inMemoryOwnerId: string | null = null;
 let storageUnavailable = false;
 
 function normalizeSkillNames(values: unknown): string[] {
@@ -65,6 +67,19 @@ function getSkillNamesSnapshot(): string[] {
   return cachedSnapshot;
 }
 
+function getSkillNamesOwnerSnapshot(): string | null {
+  if (typeof window === "undefined") return null;
+  if (storageUnavailable) return inMemoryOwnerId;
+
+  try {
+    return window.localStorage.getItem(SKILLS_OWNER_STORAGE_KEY);
+  } catch {
+    // Keep ownership available alongside the in-memory skills fallback.
+    storageUnavailable = true;
+    return inMemoryOwnerId;
+  }
+}
+
 function subscribeToSkillNames(onStoreChange: () => void): () => void {
   if (typeof window === "undefined") return () => {};
 
@@ -85,18 +100,20 @@ export function readStoredSkillNames(): string[] {
   return getSkillNamesSnapshot();
 }
 
-export function storeSkillNames(names: string[]): void {
+export function storeSkillNames(names: string[], ownerId: string): void {
   const normalizedNames = normalizeSkillNames(names);
   const rawValue = JSON.stringify(normalizedNames);
 
   cachedRawValue = rawValue;
   cachedSnapshot = normalizedNames;
   inMemoryRawValue = rawValue;
+  inMemoryOwnerId = ownerId;
 
   if (typeof window === "undefined") return;
 
   try {
     window.localStorage.setItem(SKILLS_STORAGE_KEY, rawValue);
+    window.localStorage.setItem(SKILLS_OWNER_STORAGE_KEY, ownerId);
     storageUnavailable = false;
   } catch {
     // The in-memory snapshot remains available for this browser session.
@@ -104,6 +121,34 @@ export function storeSkillNames(names: string[]): void {
   }
 
   window.dispatchEvent(new Event(SKILLS_EVENT));
+}
+
+export function clearStoredSkillNames(): void {
+  cachedRawValue = null;
+  cachedSnapshot = EMPTY_SKILL_NAMES;
+  inMemoryRawValue = null;
+  inMemoryOwnerId = null;
+
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.removeItem(SKILLS_STORAGE_KEY);
+    window.localStorage.removeItem(SKILLS_OWNER_STORAGE_KEY);
+    storageUnavailable = false;
+  } catch {
+    // The in-memory snapshot is still cleared when storage is unavailable.
+    storageUnavailable = true;
+  }
+
+  window.dispatchEvent(new Event(SKILLS_EVENT));
+}
+
+export function useSkillNamesOwner(): string | null {
+  return useSyncExternalStore(
+    subscribeToSkillNames,
+    getSkillNamesOwnerSnapshot,
+    () => null,
+  );
 }
 
 export function useSkillNames(): { skillNames: string[]; hydrated: boolean } {

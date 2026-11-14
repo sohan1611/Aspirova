@@ -1,13 +1,20 @@
 "use client";
 
 import { Check, Target, X } from "lucide-react";
+import HeaderAuth from "@/components/HeaderAuth";
 import HoverPrefetchLink from "@/components/HoverPrefetchLink";
 import { Button } from "@/components/ui/button";
-import { useSkillNames } from "@/lib/personalizationSkills";
+import { useSkillNames, useSkillNamesOwner } from "@/lib/personalizationSkills";
+import { useSessionState } from "@/lib/useSession";
 
 export default function SkillMatchCard({ skills }: { skills: string[] }) {
+  const { session, resolved } = useSessionState();
   const { skillNames, hydrated } = useSkillNames();
+  const ownerId = useSkillNamesOwner();
   if (skills.length === 0) return null;
+
+  const signedIn = resolved && hydrated && session !== null;
+  const hasSavedSkills = skillNames.length > 0 && (!ownerId || ownerId === session?.user.id);
 
   const saved = new Set(skillNames.map((skill) => skill.trim().toLowerCase()));
   const matched = skills.filter((skill) => saved.has(skill.trim().toLowerCase()));
@@ -20,13 +27,23 @@ export default function SkillMatchCard({ skills }: { skills: string[] }) {
         <Target className="size-5 shrink-0 text-primary" aria-hidden="true" />
         Your skill match
       </h2>
-      {/* Most visitors have no saved skills, so the server and pre-hydration render
-          show that state rather than a skeleton: the card then never changes after
-          load for them, which is what keeps this sidebar from shifting (CLS). */}
-      {!hydrated || skillNames.length === 0 ? (
+      {/* Most visitors are signed out, so the server and renders before both auth
+          and skills resolve show the sign-in state to avoid sidebar shifts (CLS).
+          Hide its body while auth is pending so likely signed-in visitors do not
+          see a sign-in prompt flash before their match appears. */}
+      {!signedIn ? (
+        <div className="auth-hide-while-pending flex flex-col items-start gap-4 pt-5">
+          <p className="text-sm leading-6 text-muted-foreground">{skills.length === 1
+            ? "Sign in and add your resume to see if you already have this skill."
+            : `Sign in and add your resume to see how many of these ${skills.length} skills you already have.`}</p>
+          <HeaderAuth triggerLabel="Sign in to see your match" triggerSize="default" />
+        </div>
+      ) : !hasSavedSkills ? (
         <div className="flex flex-col items-start gap-4 pt-5">
-          <p className="text-sm leading-6 text-muted-foreground">See which of these {skills.length} skills you already have.</p>
-          <Button asChild variant="outline" className="min-h-11"><HoverPrefetchLink href="/resume">Check my resume</HoverPrefetchLink></Button>
+          <p className="text-sm leading-6 text-muted-foreground">{skills.length === 1
+            ? "Upload your resume to see if you already have this skill."
+            : `Upload your resume to see how many of these ${skills.length} skills you already have.`}</p>
+          <Button asChild variant="outline" className="min-h-11"><HoverPrefetchLink href="/resume">Upload my resume</HoverPrefetchLink></Button>
         </div>
       ) : (
         <div className="space-y-5 pt-6">
