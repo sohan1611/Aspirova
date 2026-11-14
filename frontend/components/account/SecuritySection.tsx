@@ -27,39 +27,12 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { providersFor, providerLabel } from "@/lib/authProviders";
 import { exportAccountData } from "@/lib/api";
 import { passwordUpdateErrorMessage } from "@/lib/authErrors";
 import { signOutWithFeedback } from "@/lib/signOut";
 import { MIN_PASSWORD_LENGTH } from "@/lib/password";
 import { createClient } from "@/lib/supabase/client";
-
-function providersFor(user: User | null | undefined): string[] {
-  const identityProviders = Array.isArray(user?.identities)
-    ? user.identities
-        .map((identity) => identity?.provider)
-        .filter((provider): provider is string => typeof provider === "string")
-    : [];
-  const metadataProviders: unknown = user?.app_metadata?.providers;
-  const fallbackProviders = Array.isArray(metadataProviders)
-    ? metadataProviders.filter(
-        (provider): provider is string => typeof provider === "string",
-      )
-    : [];
-  const primaryProvider: unknown = user?.app_metadata?.provider;
-
-  return Array.from(
-    new Set([
-      ...identityProviders,
-      ...fallbackProviders,
-      ...(typeof primaryProvider === "string" ? [primaryProvider] : []),
-    ]),
-  );
-}
-
-function providerLabel(provider: string): string {
-  if (provider === "github") return "GitHub";
-  return provider.charAt(0).toUpperCase() + provider.slice(1);
-}
 
 export default function SecuritySection({
   user,
