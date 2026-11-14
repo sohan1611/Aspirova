@@ -29,7 +29,7 @@ function getAuthRedirectTo(): string | undefined {
     : undefined;
 }
 
-function GoogleIcon() {
+export function GoogleIcon() {
   return (
     <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path
@@ -52,7 +52,7 @@ function GoogleIcon() {
   );
 }
 
-function GitHubIcon() {
+export function GitHubIcon() {
   return (
     <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path

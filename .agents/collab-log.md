@@ -927,3 +927,13 @@ RESULT (source expansion, live): SmartRecruiters seeded to production and the Ti
 - Task: founder decision ("Remove it"). DAAD RISE Germany accepts only undergraduates at North American, British and Irish universities, so Aspirova's students are ineligible.
 - Codex: built as specified. Removed the OPP-211 calendar row and its authored edition, marked the registry entry inactive, and added a watchlist retirement entry so the next import deactivates production's existing programme. A new test covers importer deactivation and exclusion from both `/calendar` lists. Counts: 169 programmes, 143 dated and 26 rolling in the Next 12 months view.
 - Review: no correction round. Verified 5,248 backend tests, ruff and black; the data diff touches only the RISE block and the row count.
+
+## 2026-11-15 — Work order (Claude → Codex): Account redesign round 1 (foundation, hero, nav, Profile, Resume)
+- Task: founder-approved redesign of `/account` (plan: identity hero with profile-strength ring, grouped nav with live hints, account primitives, Switch/AlertDialog on radix-ui, soft + destructive-ghost button variants, destructive-text token); rebuild Profile and Resume on them with no API/behaviour change. gpt-6.1-sol xhigh, workspace-write, branch feat/account-redesign.
+- Codex: delivered all 16 files; tsc + eslint clean; same API and toast calls; could not run a browser.
+- Review: rendered signed-in against a throwaway DB at 1280/390. Fixed directly: phone page overflowed to 792px (mobile tab row in an auto grid column; added grid-cols-1), first tab pill snapped under the edge fade (scroll-px-4), hero stat captions truncated and "Member since" broke mid-word, extra blank space under the hero meter, faint dashed to-do circles, inconsistent "Add" CTAs. Committed 670c360.
+
+## 2026-11-15 — Work order (Claude → Codex): Account redesign round 2 (Subscription, Notifications, Saved searches, Security)
+- Task: rebuild the remaining four sections on the round-1 primitives; Switch replaces both hand-rolled switches; ConfirmDialog for cancel subscription, delete saved search, unfollow company (new confirm), sign out everywhere; download-data success toast; no API change. gpt-6.1-sol xhigh.
+- Codex: delivered all four plus exported the AuthWidget provider icons and two optional pill tones; tsc + eslint clean.
+- Review: API and toast calls identical to master except the approved download toast; no role="switch" left. Fixed directly: saved-search cards showed both "Email alerts" and "Alerts on" by the switch (kept the original single label). Production build verified signed-in: 24 before/after shots, axe 0 violations (master had 2 dark contrast failures), identical request lists on load, and every action exercised end to end.

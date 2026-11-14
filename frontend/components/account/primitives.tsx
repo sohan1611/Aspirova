@@ -73,13 +73,13 @@ export function StatusPill({ tone, children }: { tone: keyof typeof pillTones; c
   return <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium", pillTones[tone])}><span aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-full", dotTones[tone])} />{children}</span>;
 }
 
-export function EmptyState({ icon: Icon, title, description, action, secondaryAction, compact = false }: {
+export function EmptyState({ icon: Icon, title, description, action, secondaryAction, compact = false, tone = "default" }: {
   icon: LucideIcon; title: string; description: string; action?: React.ReactNode;
-  secondaryAction?: React.ReactNode; compact?: boolean;
+  secondaryAction?: React.ReactNode; compact?: boolean; tone?: "default" | "destructive";
 }) {
   return (
     <div className={cn("flex flex-col items-center text-center", compact ? "px-2 py-6" : "px-5 py-10 sm:px-8 sm:py-12")}>
-      <span className="mb-6 flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-8 ring-primary/5"><Icon className="size-6" aria-hidden="true" /></span>
+      <span className={cn("mb-6 flex size-12 items-center justify-center rounded-2xl ring-8", tone === "destructive" ? "bg-destructive/10 text-destructive-text ring-destructive/5" : "bg-primary/10 text-primary ring-primary/5")}><Icon className="size-6" aria-hidden="true" /></span>
       <h3 className="font-serif text-lg font-semibold text-foreground">{title}</h3>
       <p className="mt-2 max-w-sm text-sm text-muted-foreground">{description}</p>
       {(action || secondaryAction) && <div className="mt-6 flex flex-wrap items-center justify-center gap-2">{action}{secondaryAction}</div>}
@@ -129,12 +129,12 @@ export function StrengthRing({ value, total, size = 88, children }: { value: num
 }
 
 export function Meter({ value, max, label, valueText, tone = "primary" }: {
-  value: number; max: number; label: string; valueText: string; tone?: "primary" | "success";
+  value: number; max: number; label: string; valueText: string; tone?: "primary" | "success" | "warning";
 }) {
   const percentage = max > 0 ? Math.min(100, Math.max(0, value / max * 100)) : 0;
   return (
     <div className="h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label={label} aria-valuenow={value} aria-valuemin={0} aria-valuemax={max} aria-valuetext={valueText}>
-      <div className={cn("h-full rounded-full transition-[width] duration-500 ease-premium", tone === "success" ? "bg-success" : "bg-primary")} style={{ width: percentage + "%" }} />
+      <div className={cn("h-full rounded-full transition-[width] duration-500 ease-premium", tone === "success" ? "bg-success" : tone === "warning" ? "bg-warning" : "bg-primary")} style={{ width: percentage + "%" }} />
     </div>
   );
 }
