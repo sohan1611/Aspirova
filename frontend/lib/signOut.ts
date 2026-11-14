@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { toast } from "sonner";
+import { clearStoredSkillNames } from "@/lib/personalizationSkills";
 
 export async function signOutWithFeedback(
   supabase: SupabaseClient,
@@ -12,6 +13,7 @@ export async function signOutWithFeedback(
     toast.error("We couldn't sign you out. Check your connection and try again.");
     return false;
   }
+  clearStoredSkillNames();
   try {
     for (let index = sessionStorage.length - 1; index >= 0; index--) {
       const key = sessionStorage.key(index);

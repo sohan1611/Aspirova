@@ -81,7 +81,7 @@ export default function ResumeSection({
     const updated = await updateAccount(accessToken, { skills, resume: meta });
     onAccountChange(updated);
     const persistedSkills = mergeSkills(updated.skills ?? skills);
-    storeSkillNames(persistedSkills.map((skill) => skill.name));
+    storeSkillNames(persistedSkills.map((skill) => skill.name), userId);
     setPendingResumeSave(null);
   }
 
