@@ -1,48 +1,21 @@
 "use client";
 
-import { Check, Loader2 } from "lucide-react";
+import { CalendarDays, CircleCheck, CreditCard, ShieldCheck, Sparkles, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog, SectionHeader, SettingsCard, StatusPill } from "@/components/account/primitives";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { cancelSubscription } from "@/lib/api";
 import { formatDate } from "@/lib/date";
 import { FEATURE_LABELS } from "@/lib/planFeatures";
+import { planName } from "@/lib/planName";
 import type { AccountMe, PlanState } from "@/lib/types";
 
 function featureLines(features: PlanState["features"]): string[] {
   return FEATURE_LABELS.map(([key, label]) => label(features[key])).filter(
     (line): line is string => line !== null,
   );
-}
-
-function planName(key: string): string {
-  if (key === "free") return "Free";
-  if (key.startsWith("pro_lite_")) return "Pro Lite";
-  if (key.startsWith("pro_")) return "Pro";
-  return key
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
 }
 
 function billingSummary(plan: PlanState, isFree: boolean): string {
@@ -90,104 +63,91 @@ export default function SubscriptionSection({
     }
   }
 
+  const periodEnd = plan.current_period_end
+    ? formatDate(plan.current_period_end)
+    : "the end of your current billing period";
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="font-serif text-2xl">Subscription</CardTitle>
-        <CardDescription>Your plan and billing.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="rounded-xl border border-border bg-background/60 p-5 sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-serif text-2xl font-semibold">{planName(plan.key)}</h3>
-                <Badge variant={plan.status === "active" ? "default" : "secondary"}>
-                  {plan.status === "active"
-                    ? "Active"
-                    : plan.status === "free"
-                      ? "Free"
-                      : plan.status}
-                </Badge>
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {billingSummary(plan, isFree)}
-              </p>
+    <section aria-labelledby="account-subscription-heading" className="grid gap-6">
+      <SectionHeader id="account-subscription-heading" eyebrow="Account" title="Subscription" description="Your plan, billing and what's included." />
+      <SettingsCard
+        icon={CreditCard}
+        title={planName(plan.key)}
+        className="[&_h3]:font-serif [&_h3]:text-3xl [&_h3]:font-bold"
+        action={
+          <StatusPill tone={isFree ? "muted" : cancellationScheduled ? "warning" : plan.status === "active" ? "success" : "muted"}>
+            {isFree ? "Free plan" : cancellationScheduled
+              ? plan.current_period_end ? `Cancels ${formatDate(plan.current_period_end)}` : "Cancels at period end"
+              : plan.status === "active" ? "Active" : plan.status}
+          </StatusPill>
+        }
+        footer={isFree ? (
+          <>
+            <Button asChild><Link href="/pricing"><Sparkles aria-hidden="true" />Upgrade</Link></Button>
+            <Button asChild variant="ghost"><Link href="/pricing">Compare plans</Link></Button>
+          </>
+        ) : (
+          <>
+            <Button asChild variant="outline"><Link href="/pricing">Change plan</Link></Button>
+            {!cancellationScheduled && (
+              <Button variant="destructive-ghost" onClick={() => setDialogOpen(true)}>Cancel subscription</Button>
+            )}
+          </>
+        )}
+      >
+        {isFree ? (
+          <p className="text-sm text-muted-foreground">{billingSummary(plan, isFree)}</p>
+        ) : (
+          <div className="grid gap-3">
+            <p className="flex flex-wrap items-baseline gap-1">
+              <span className="font-serif text-3xl tnum">₹{plan.price_paise / 100}</span>
+              <span className="text-sm text-muted-foreground">/{plan.billing === "annual" ? "year" : "month"}</span>
+            </p>
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CalendarDays className="size-4 shrink-0" aria-hidden="true" />
+              {cancellationScheduled ? "Access until" : "Renews"} {periodEnd}
+            </p>
+          </div>
+        )}
+
+        {features.length > 0 && (
+          <ul className="mt-6 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
+            {features.map((feature) => (
+              <li key={feature} className="flex items-start gap-2">
+                <CircleCheck className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+                {feature}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {cancellationScheduled && (
+          <div className="mt-6 flex items-start gap-3 rounded-xl border border-warning/40 bg-warning/10 p-4 text-sm">
+            <TriangleAlert className="mt-0.5 size-5 shrink-0 text-warning-foreground dark:text-warning" aria-hidden="true" />
+            <div className="min-w-0">
+              <p>{billingSummary(plan, isFree)}</p>
+              <Link href="/pricing" className="mt-1 inline-flex min-h-11 items-center font-medium text-primary underline underline-offset-4 sm:min-h-0">Resubscribe</Link>
             </div>
           </div>
-
-          {features.length > 0 && (
-            <ul className="mt-6 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
-              {features.map((feature) => (
-                <li key={feature} className="flex items-start gap-2">
-                  <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-                  {feature}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <div className="mt-6 flex flex-col gap-2 sm:flex-row">
-            {isFree ? (
-              <Button asChild>
-                <Link href="/pricing">Upgrade</Link>
-              </Button>
-            ) : (
-              <>
-                <Button asChild variant="outline">
-                  <Link href="/pricing">Change plan</Link>
-                </Button>
-                {!cancellationScheduled && (
-                  <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      >
-                        Cancel subscription
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Cancel your subscription?</DialogTitle>
-                        <DialogDescription>
-                          You&apos;ll keep access until{" "}
-                          {plan.current_period_end
-                            ? formatDate(plan.current_period_end)
-                            : "the end of your current billing period"}
-                          .
-                        </DialogDescription>
-                      </DialogHeader>
-                      <DialogFooter>
-                        <DialogClose asChild>
-                          <Button variant="outline" disabled={cancelling}>
-                            Keep subscription
-                          </Button>
-                        </DialogClose>
-                        <Button
-                          variant="destructive"
-                          disabled={cancelling}
-                          onClick={() => void handleCancel()}
-                        >
-                          {cancelling && (
-                            <Loader2 className="animate-spin" aria-hidden="true" />
-                          )}
-                          {cancelling ? "Scheduling…" : "Confirm cancellation"}
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      </CardContent>
-      <CardFooter>
-        <p className="text-xs text-muted-foreground">
-          Billing is handled securely by Razorpay.
-        </p>
-      </CardFooter>
-    </Card>
+        )}
+      </SettingsCard>
+      <p className="flex items-center gap-2 text-xs text-muted-foreground">
+        <ShieldCheck className="size-4 shrink-0" aria-hidden="true" />
+        Billing is handled securely by Razorpay.
+      </p>
+      {!isFree && !cancellationScheduled && (
+        <ConfirmDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          title="Cancel your subscription?"
+          description={<>You&apos;ll keep access until {periodEnd}.</>}
+          confirmLabel="Confirm cancellation"
+          pendingLabel="Scheduling…"
+          cancelLabel="Keep subscription"
+          pending={cancelling}
+          onConfirm={handleCancel}
+        />
+      )}
+    </section>
   );
 }

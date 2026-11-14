@@ -1,57 +1,28 @@
 "use client";
 
-import { AlertCircle, Loader2, UserRound } from "lucide-react";
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import {
-  Component,
-  Suspense,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
-import AccountAvatar from "@/components/account/AccountAvatar";
-import AccountSidebar, {
-  isAccountSection,
-  type AccountSectionKey,
-} from "@/components/account/AccountSidebar";
+import { AlertCircle, UserRound } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Component, Suspense, type ReactNode, useCallback, useEffect, useState } from "react";
+import AccountHero from "@/components/account/AccountHero";
+import AccountSidebar, { isAccountSection, type AccountSectionKey } from "@/components/account/AccountSidebar";
 import NotificationsSection from "@/components/account/NotificationsSection";
 import ProfileSection from "@/components/account/ProfileSection";
 import ResumeSection from "@/components/account/ResumeSection";
 import SavedSearchesSection from "@/components/account/SavedSearchesSection";
 import SecuritySection from "@/components/account/SecuritySection";
 import SubscriptionSection from "@/components/account/SubscriptionSection";
+import { EmptyState, SettingsCard } from "@/components/account/primitives";
 import HeaderAuth from "@/components/HeaderAuth";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAccount, getBookmarks } from "@/lib/api";
-import { formatDate } from "@/lib/date";
-import {
-  getProfileCompleteness,
-  PROFILE_COMPLETENESS_TOTAL,
-} from "@/lib/profileCompleteness";
+import { providersFor } from "@/lib/authProviders";
+import { hasFieldProfileSelections, useFieldProfile } from "@/lib/fieldProfile";
+import { countEnabledNotifications } from "@/lib/notificationPrefs";
+import { planName } from "@/lib/planName";
+import { getProfileStrength } from "@/lib/profileCompleteness";
 import type { AccountMe } from "@/lib/types";
 import { useSessionState } from "@/lib/useSession";
-
-function planName(key: string): string {
-  if (key === "free") return "Free";
-  if (key.startsWith("pro_lite_")) return "Pro Lite";
-  if (key.startsWith("pro_")) return "Pro";
-  return key
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
 
 export default function AccountPage() {
   return (
@@ -64,8 +35,8 @@ export default function AccountPage() {
 function AccountPageContent() {
   const { session, resolved } = useSessionState();
   const accessToken = session?.access_token;
-  const router = useRouter();
   const searchParams = useSearchParams();
+  const { profile: fieldProfile, hydrated: strengthReady } = useFieldProfile();
   const requestedSection = searchParams.get("section");
   const activeSection: AccountSectionKey = isAccountSection(requestedSection)
     ? requestedSection
@@ -143,34 +114,16 @@ function AccountPageContent() {
     };
   }, [accessToken]);
 
-  function selectSection(section: AccountSectionKey) {
-    const nextParams = new URLSearchParams(searchParams.toString());
-    nextParams.set("section", section);
-    router.replace(`/account?${nextParams.toString()}`, { scroll: false });
-  }
-
   if (!resolved) return <AccountLoadingSkeleton />;
 
   if (!session) {
     return (
-      <main className="mx-auto w-full max-w-5xl px-4 py-10">
-        <h1 className="font-serif text-4xl font-bold tracking-tight text-foreground">
-          Account
-        </h1>
-        <Card className="mx-auto mt-10 max-w-xl text-center">
-          <CardHeader>
-            <UserRound className="mx-auto size-9 text-primary" aria-hidden="true" />
-            <CardTitle className="font-serif text-2xl">
-              Sign in to manage your account
-            </CardTitle>
-            <CardDescription>
-              Access your profile, subscription, notifications, and security settings.
-            </CardDescription>
-          </CardHeader>
-          <CardFooter className="justify-center">
-            <HeaderAuth triggerLabel="Sign in" />
-          </CardFooter>
-        </Card>
+      <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-6 sm:pt-10">
+        <h1 className="sr-only">Account</h1>
+        <h2 className="font-serif text-4xl font-bold tracking-tight text-foreground">Account</h2>
+        <div className="mx-auto mt-10 max-w-xl rounded-xl border border-border bg-card shadow-soft">
+          <EmptyState icon={UserRound} title="Sign in to manage your account" description="Access your profile, subscription, notifications, and security settings." action={<HeaderAuth triggerLabel="Sign in" />} />
+        </div>
       </main>
     );
   }
@@ -181,165 +134,40 @@ function AccountPageContent() {
 
   if (error || !account) {
     return (
-      <main className="mx-auto w-full max-w-5xl px-4 py-10">
-        <h1 className="font-serif text-4xl font-bold tracking-tight text-foreground">
-          Account
-        </h1>
-        <Card className="mx-auto mt-10 max-w-xl text-center">
-          <CardHeader>
-            <AlertCircle className="mx-auto size-9 text-destructive" aria-hidden="true" />
-            <CardTitle>We couldn&apos;t load your account</CardTitle>
-            <CardDescription>
-              Check your connection and try loading your account again.
-            </CardDescription>
-          </CardHeader>
-          <CardFooter className="justify-center">
-            <Button onClick={() => void refresh()}>Retry</Button>
-          </CardFooter>
-        </Card>
+      <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-6 sm:pt-10">
+        <h1 className="sr-only">Account</h1>
+        <h2 className="font-serif text-4xl font-bold tracking-tight text-foreground">Account</h2>
+        <div className="mx-auto mt-10 max-w-xl rounded-xl border border-border bg-card shadow-soft">
+          <EmptyState icon={AlertCircle} title="We couldn't load your account" description="Check your connection and try loading your account again." action={<Button onClick={() => void refresh()}>Retry</Button>} />
+        </div>
       </main>
     );
   }
 
   const authenticatedAccessToken = session.access_token;
   const email = account.email ?? session.user.email;
-  const displayName =
-    account.display_name?.trim() || email?.split("@")[0] || "Aspirova member";
+  const displayName = account.display_name?.trim() || email?.split("@")[0] || "Aspirova member";
   const avatarUrl: unknown = session.user.user_metadata?.avatar_url;
-  const isFreePlan = account.plan.key === "free" || account.plan.status === "free";
-  const { completedFields, percentage: profileCompletion } = getProfileCompleteness(account);
-  const planTileHref = isFreePlan ? "/pricing" : "/account?section=subscription";
-  const planTileValue = isFreePlan ? "Free plan" : planName(account.plan.key);
-  const planTileCaption = isFreePlan
-    ? "Upgrade →"
-    : account.plan.current_period_end
-      ? `${account.plan.cancel_at_period_end ? "Cancels" : "Renews"} ${formatDate(account.plan.current_period_end)}`
-      : "Manage plan";
+  const strength = getProfileStrength(account, hasFieldProfileSelections(fieldProfile));
+  const providerCount = providersFor(session.user).length;
+  const hints: Partial<Record<AccountSectionKey, string>> = {
+    profile: strengthReady ? `${strength.done} of ${strength.total}` : "…",
+    resume: account.resume ? `ATS ${account.resume.ats.score}` : "Not added",
+    notifications: `${countEnabledNotifications(account)} on`,
+    subscription: planName(account.plan.key) + (account.plan.cancel_at_period_end ? " · ends" : ""),
+    security: `${providerCount} ${providerCount === 1 ? "method" : "methods"}`,
+  };
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-10">
-      <div className="mb-8">
-        <p className="eyebrow mb-2">Your almanac</p>
-        <h1 className="font-serif text-4xl font-bold tracking-tight text-foreground">
-          Account
-        </h1>
-        <p className="mt-2 text-muted-foreground">
-          Manage your profile, resume, plan, preferences, and security.
-        </p>
-      </div>
-
-      <Card className="mb-8 shadow-soft">
-        <CardContent className="flex flex-col gap-5">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 items-center gap-4">
-              <AccountAvatar
-                email={email}
-                avatarUrl={typeof avatarUrl === "string" ? avatarUrl : null}
-                className="size-14 text-lg"
-              />
-              <div className="min-w-0">
-                <p className="truncate font-serif text-xl font-semibold text-foreground">
-                  {displayName}
-                </p>
-                <p className="mt-1 truncate text-sm text-muted-foreground">{email}</p>
-              </div>
-            </div>
-            <Badge
-              className="self-start sm:self-auto"
-              variant={isFreePlan ? "secondary" : "heritage"}
-            >
-              {planName(account.plan.key)}
-            </Badge>
-          </div>
-
-          {bookmarkStatsLoading ? (
-            <div
-              className="grid gap-3 border-t border-border pt-5 sm:grid-cols-3"
-              aria-hidden="true"
-            >
-              {Array.from({ length: 3 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="rounded-xl border border-border bg-secondary/25 px-4 py-3 shadow-soft"
-                >
-                  <Skeleton className="h-6 w-10" />
-                  <Skeleton className="mt-2 h-3 w-20" />
-                </div>
-              ))}
-            </div>
-          ) : bookmarkStats ? (
-            <div className="grid gap-3 border-t border-border pt-5 sm:grid-cols-3">
-              <Link
-                href="/saved"
-                className="rounded-xl border border-border bg-secondary/25 px-4 py-3 shadow-soft transition-colors duration-200 ease-premium hover:bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <span className="tnum block font-serif text-xl font-semibold tracking-tight text-foreground">
-                  {bookmarkStats.saved.toLocaleString()}
-                </span>
-                <span className="mt-1 block text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                  Tracked
-                </span>
-              </Link>
-              <Link
-                href="/saved"
-                className="rounded-xl border border-border bg-secondary/25 px-4 py-3 shadow-soft transition-colors duration-200 ease-premium hover:bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <span className="tnum block font-serif text-xl font-semibold tracking-tight text-foreground">
-                  {bookmarkStats.inProgress.toLocaleString()}
-                </span>
-                <span className="mt-1 block text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                  In progress
-                </span>
-              </Link>
-              <Link
-                href={planTileHref}
-                className="rounded-xl border border-border bg-secondary/25 px-4 py-3 shadow-soft transition-colors duration-200 ease-premium hover:bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <span className="tnum block font-serif text-xl font-semibold tracking-tight text-foreground">
-                  {planTileValue}
-                </span>
-                <span className="mt-1 block text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                  {planTileCaption}
-                </span>
-              </Link>
-            </div>
-          ) : null}
-
-          {completedFields < PROFILE_COMPLETENESS_TOTAL && (
-            <Link
-              href="/account?section=profile"
-              className="block rounded-lg border border-border bg-muted/30 px-4 py-3 transition-colors duration-200 ease-premium hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <p className="text-sm font-medium text-foreground">
-                Academic basics {completedFields} of {PROFILE_COMPLETENESS_TOTAL}{" "}
-                <span aria-hidden="true">·</span> Add the rest
-              </p>
-              <div
-                className="mt-2 h-1 overflow-hidden rounded-full bg-border/70"
-                role="progressbar"
-                aria-label="Academic basics"
-                aria-valuemin={0}
-                aria-valuemax={PROFILE_COMPLETENESS_TOTAL}
-                aria-valuenow={completedFields}
-                aria-valuetext={`${completedFields} of ${PROFILE_COMPLETENESS_TOTAL} academic details complete`}
-              >
-                <div
-                  className="h-full rounded-full bg-muted-foreground/45"
-                  style={{ width: `${profileCompletion}%` }}
-                />
-              </div>
-            </Link>
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-6 md:grid-cols-[13rem_minmax(0,1fr)] md:items-start">
-        <AccountSidebar
-          activeSection={activeSection}
-          onSectionChange={selectSection}
-        />
-        <section aria-live="polite">
+    <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-6 sm:pt-10">
+      <h1 className="sr-only">Account</h1>
+      <AccountHero account={account} email={email} displayName={displayName} avatarUrl={typeof avatarUrl === "string" ? avatarUrl : null} bookmarkStats={bookmarkStats} bookmarkStatsLoading={bookmarkStatsLoading} strength={strength} strengthReady={strengthReady} />
+      <div className="mt-6 grid grid-cols-1 gap-6 md:mt-8 md:grid-cols-[15rem_minmax(0,1fr)] lg:gap-10">
+        <AccountSidebar activeSection={activeSection} hints={hints} />
+        <section aria-live="polite" className="min-w-0">
           <AccountSectionErrorBoundary key={activeSection}>
+            <div key={activeSection} className="animate-rise">
+
             {activeSection === "profile" && (
               <ProfileSection
                 account={account}
@@ -374,6 +202,8 @@ function AccountPageContent() {
               <SavedSearchesSection accessToken={authenticatedAccessToken} />
             )}
             {activeSection === "security" && <SecuritySection user={session.user} accessToken={authenticatedAccessToken} />}
+
+            </div>
           </AccountSectionErrorBoundary>
         </section>
       </div>
@@ -394,19 +224,9 @@ class AccountSectionErrorBoundary extends Component<
   render() {
     if (this.state.hasError) {
       return (
-        <Card role="alert">
-          <CardContent className="flex items-start gap-3 py-5">
-            <AlertCircle className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden="true" />
-            <div>
-              <p className="font-medium text-foreground">
-                Something went wrong loading this section.
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Try another settings section or refresh the page.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        <div role="alert">
+          <SettingsCard icon={AlertCircle} tone="danger" title="Something went wrong loading this section." description="Try another settings section or refresh the page." />
+        </div>
       );
     }
 
@@ -416,26 +236,25 @@ class AccountSectionErrorBoundary extends Component<
 
 function AccountLoadingSkeleton() {
   return (
-    <main
-      className="mx-auto w-full max-w-5xl px-4 py-10"
-      role="status"
-      aria-label="Loading account"
-    >
-      <div className="flex items-center gap-3">
-        <Loader2 className="size-5 animate-spin text-primary" aria-hidden="true" />
-        <Skeleton className="h-10 w-44" />
-      </div>
-      <div className="mt-8 grid gap-6 md:grid-cols-[13rem_minmax(0,1fr)]">
-        <Skeleton className="hidden h-64 rounded-xl md:block" />
-        <div className="rounded-lg border border-border bg-card p-6">
-          <Skeleton className="h-7 w-40" />
-          <Skeleton className="mt-3 h-4 w-3/4" />
-          <div className="mt-8 grid gap-5">
-            <Skeleton className="h-16 w-16 rounded-full" />
-            <Skeleton className="h-9 w-full" />
-            <Skeleton className="h-9 w-full" />
-            <Skeleton className="h-9 w-full" />
+    <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-6 sm:pt-10" role="status" aria-label="Loading account">
+      <h1 className="sr-only">Account</h1>
+      <div className="overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-soft sm:p-7" aria-hidden="true">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-center">
+          <div className="flex items-center gap-4">
+            <Skeleton className="size-22 shrink-0 rounded-full" />
+            <div className="grid min-w-0 flex-1 gap-3"><Skeleton className="h-3 w-24" /><Skeleton className="h-8 w-3/4" /><Skeleton className="h-4 w-full" /></div>
           </div>
+          <div className="flex divide-x divide-border">
+            {Array.from({ length: 3 }, (_, index) => <div key={index} className="flex min-w-0 flex-1 flex-col items-center gap-2 px-2 py-3"><Skeleton className="h-7 w-12" /><Skeleton className="h-3 w-4/5" /></div>)}
+          </div>
+        </div>
+        <Skeleton className="mt-6 h-1.5 w-full" /><Skeleton className="mt-2.5 h-5 w-52" />
+      </div>
+      <div className="mt-6 grid grid-cols-1 gap-6 md:mt-8 md:grid-cols-[15rem_minmax(0,1fr)] lg:gap-10" aria-hidden="true">
+        <div className="hidden content-start gap-3 md:grid">{Array.from({ length: 6 }, (_, index) => <Skeleton key={index} className="h-12 w-full rounded-xl" />)}</div>
+        <div className="grid gap-6">
+          <div><Skeleton className="h-3 w-12" /><Skeleton className="mt-3 h-9 w-36" /><Skeleton className="mt-3 h-4 w-3/4" /></div>
+          {Array.from({ length: 2 }, (_, index) => <div key={index} className="rounded-xl border border-border bg-card p-5 shadow-soft sm:p-6"><Skeleton className="h-9 w-44" /><Skeleton className="mt-5 h-11 w-full" /><Skeleton className="mt-4 h-11 w-full" /></div>)}
         </div>
       </div>
       <span className="sr-only">Loading your account settings…</span>

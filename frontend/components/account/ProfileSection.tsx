@@ -1,55 +1,32 @@
 "use client";
 
 import type { User } from "@supabase/supabase-js";
-import { CalendarDays, Check, ChevronDown, ExternalLink, Loader2, X } from "lucide-react";
+import { Check, ChevronDown, Compass, Gauge, GraduationCap, Loader2, Lock, Pencil, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import AccountAvatar from "@/components/account/AccountAvatar";
+import { EmptyState, Meter, SectionHeader, SettingsCard, SettingsRow } from "@/components/account/primitives";
 import { CollegePicker } from "@/components/CollegePicker";
 import { CountryPicker } from "@/components/CountryPicker";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { updateAccount } from "@/lib/api";
 import { storeCountryCode, useStoredCountryCode } from "@/lib/country";
 import { getCountry } from "@/lib/countries";
-import { formatDate } from "@/lib/date";
 import { hasFieldProfileSelections, requestOnboarding, useFieldProfile } from "@/lib/fieldProfile";
-import {
-  getProfileChecklist,
-  getProfileCompleteness,
-  PROFILE_COMPLETENESS_TOTAL,
-} from "@/lib/profileCompleteness";
+import { getProfileStrength } from "@/lib/profileCompleteness";
 import { getDivision, getStream, interestsFor } from "@/lib/taxonomy";
 import type { AccountMe } from "@/lib/types";
 import { useHydrated } from "@/lib/useHydrated";
+import { cn } from "@/lib/utils";
 
 interface ProfileSectionProps {
   account: AccountMe;
   accessToken: string;
   user: User;
   onAccountChange: (account: AccountMe) => void;
-}
-
-function avatarUrlFor(user: User): string | null {
-  const avatarUrl: unknown = user.user_metadata?.avatar_url;
-  return typeof avatarUrl === "string" ? avatarUrl : null;
 }
 
 function getProfilePatch(
@@ -107,7 +84,6 @@ export default function ProfileSection({
   );
   const [collegeCountryNotice, setCollegeCountryNotice] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [completionNudgeVisible, setCompletionNudgeVisible] = useState(true);
   const storedCountryCode = useStoredCountryCode();
   const hydrated = useHydrated();
   const selectedCountry = hydrated ? getCountry(storedCountryCode) : undefined;
@@ -119,9 +95,6 @@ export default function ProfileSection({
   const fieldInterestLabels = interestsFor(fieldProfile.stream, fieldProfile.divisions)
     .filter((interest) => fieldProfile.interests.includes(interest.key))
     .map((interest) => interest.label);
-  const { completedFields, percentage: profileCompletion } = getProfileCompleteness(account);
-  const showCompletionNudge =
-    completionNudgeVisible && completedFields < PROFILE_COMPLETENESS_TOTAL;
   const currentYear = new Date().getFullYear();
   const graduationYears = Array.from(
     { length: 17 },
@@ -137,7 +110,7 @@ export default function ProfileSection({
   );
   const isDirty = Object.keys(profilePatch).length > 0;
 
-  const checklist = getProfileChecklist(account, hasFieldProfileSelections(fieldProfile));
+  const strength = getProfileStrength(account, hasFieldProfileSelections(fieldProfile));
 
   useEffect(() => {
     try {
@@ -194,210 +167,139 @@ export default function ProfileSection({
     }
   }
 
+  function focusProfileField(id: string) {
+    const field = document.getElementById(id);
+    if (!field) return;
+    field.focus({ preventScroll: true });
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    field.scrollIntoView({ block: "center", behavior: reduced ? "auto" : "smooth" });
+  }
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="font-serif text-2xl">Profile</CardTitle>
-        <CardDescription>Your name and academic details.</CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-7">
-        {showCompletionNudge && (
-          <div className="rounded-lg border border-border bg-muted/40 px-4 py-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground">
-                  Finish your academic basics{" "}
-                  <span className="tnum text-muted-foreground">
-                    ({completedFields} of {PROFILE_COMPLETENESS_TOTAL})
-                  </span>
-                </p>
-                <p className="mt-0.5 text-sm text-muted-foreground">
-                  Add your remaining academic details to get more from Aspirova.
-                </p>
+    <section aria-labelledby="account-profile-heading" className="grid gap-6">
+      <SectionHeader id="account-profile-heading" eyebrow="You" title="Profile" description="How you appear on Aspirova, and what we use to tailor your feed." />
+
+      <form onSubmit={handleSubmit} className="grid gap-6">
+        <SettingsCard icon={UserRound} title="Personal" description="Your name as it appears across Aspirova.">
+          <div className="divide-y divide-border">
+            <SettingsRow label="Display name" htmlFor="account-display-name" description="Shown on your account and emails.">
+              <Input id="account-display-name" value={displayName} maxLength={80} onChange={(event) => setDisplayName(event.target.value)} placeholder="How should we address you?" />
+            </SettingsRow>
+            <SettingsRow label="Email" htmlFor="account-email" description="Managed by your sign-in provider.">
+              <div className="relative">
+                <Input id="account-email" type="email" value={account.email ?? user.email ?? ""} readOnly aria-readonly="true" className="bg-muted/50 pr-10 text-muted-foreground" />
+                <Lock className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                className="-mr-1 -mt-1 shrink-0 text-muted-foreground"
-                onClick={() => setCompletionNudgeVisible(false)}
-                aria-label="Dismiss profile completion reminder"
-              >
-                <X aria-hidden="true" />
-              </Button>
-            </div>
-            <div
-              className="mt-3 h-1.5 overflow-hidden rounded-full bg-border/70"
-              role="progressbar"
-              aria-label="Academic basics"
-              aria-valuemin={0}
-              aria-valuemax={PROFILE_COMPLETENESS_TOTAL}
-              aria-valuenow={completedFields}
-              aria-valuetext={`${completedFields} of ${PROFILE_COMPLETENESS_TOTAL} academic details complete`}
-            >
-              <div
-                className="h-full rounded-full bg-muted-foreground/45"
-                style={{ width: `${profileCompletion}%` }}
-              />
-            </div>
+            </SettingsRow>
           </div>
-        )}
+        </SettingsCard>
 
-        <div className="flex items-center gap-4">
-          <AccountAvatar
-            email={account.email ?? user.email}
-            avatarUrl={avatarUrlFor(user)}
-            className="size-16 text-xl"
-          />
-          <div className="min-w-0">
-            <p className="truncate font-medium text-foreground">
-              {account.display_name || account.email || "Aspirova member"}
-            </p>
-            <p className="truncate text-sm text-muted-foreground">
-              {account.email ?? user.email}
-            </p>
-          </div>
-        </div>
-
-        <Separator />
-
-        <form onSubmit={handleSubmit} className="grid gap-6">
-          <div className="grid gap-2.5">
-            <Label className="eyebrow" htmlFor="account-display-name">
-              Display name
-            </Label>
-            <Input
-              id="account-display-name"
-              value={displayName}
-              maxLength={80}
-              onChange={(event) => setDisplayName(event.target.value)}
-              placeholder="How should we address you?"
-            />
-          </div>
-
-          <div className="grid gap-2.5">
-            <Label className="eyebrow" htmlFor="account-email">
-              Email
-            </Label>
-            <Input
-              id="account-email"
-              type="email"
-              value={account.email ?? user.email ?? ""}
-              readOnly
-              aria-readonly="true"
-              className="bg-muted/50 text-muted-foreground"
-            />
-          </div>
-
-          <div className="grid gap-6 sm:grid-cols-2">
-            <div className="grid gap-2.5 content-start">
-              <Label className="eyebrow" htmlFor="account-college">
-                College
-              </Label>
-              {!hydrated ? (
-                <Button
-                  id="account-college"
-                  type="button"
-                  variant="outline"
-                  disabled
-                  className="w-full justify-between font-normal"
-                >
-                  <span className="min-w-0 flex-1 truncate text-left">
-                    {college.trim() ? college : "Select your college"}
-                  </span>
-                  <ChevronDown
-                    className="shrink-0 text-muted-foreground"
-                    aria-hidden="true"
-                  />
-                </Button>
-              ) : collegeEntryMode === "manual" ? (
-                <>
-                  <Input
+        <SettingsCard icon={GraduationCap} title="Academics" description="Used to surface programmes and roles for your stage.">
+          <div className="divide-y divide-border">
+            <SettingsRow label="College" htmlFor="account-college" align="start">
+              <div className="grid content-start gap-2.5">
+                {!hydrated ? (
+                  <Button
                     id="account-college"
-                    value={college}
-                    maxLength={120}
-                    onChange={(event) => setCollege(event.target.value)}
-                    placeholder="Your college"
-                  />
-                  <Button
                     type="button"
-                    variant="link"
-                    size="xs"
-                    className="h-auto w-fit px-0 text-muted-foreground"
-                    onClick={() => setCollegeEntryMode("list")}
+                    variant="outline"
+                    disabled
+                    className="w-full justify-between font-normal"
                   >
-                    Choose from list
+                    <span className="min-w-0 flex-1 truncate text-left">
+                      {college.trim() ? college : "Select your college"}
+                    </span>
+                    <ChevronDown
+                      className="shrink-0 text-muted-foreground"
+                      aria-hidden="true"
+                    />
                   </Button>
-                </>
-              ) : selectedCountry ? (
-                <CollegePicker
-                  id="account-college"
-                  countryCode={selectedCountry.code}
-                  value={college}
-                  onSelect={(selectedCollege) => setCollege(selectedCollege)}
-                  onOther={() => setCollegeEntryMode("manual")}
-                />
-              ) : (
-                <>
-                  <CountryPicker value={null} onSelect={handleCountrySelect}>
-                    <Button
+                ) : collegeEntryMode === "manual" ? (
+                  <>
+                    <Input
                       id="account-college"
-                      type="button"
-                      variant="outline"
-                      className="w-full justify-between font-normal"
-                    >
-                      <span>Choose your country</span>
-                      <ChevronDown
-                        className="shrink-0 text-muted-foreground"
-                        aria-hidden="true"
-                      />
-                    </Button>
-                  </CountryPicker>
-                  <Button
-                    type="button"
-                    variant="link"
-                    size="xs"
-                    className="h-auto w-fit px-0 text-muted-foreground"
-                    onClick={() => setCollegeEntryMode("manual")}
-                  >
-                    Enter manually
-                  </Button>
-                </>
-              )}
-              {hydrated && selectedCountry && collegeEntryMode === "list" && (
-                <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-                  <span>Showing colleges in {selectedCountry.name}</span>
-                  <span aria-hidden="true">·</span>
-                  <CountryPicker
-                    value={selectedCountry.code}
-                    onSelect={handleCountrySelect}
-                  >
+                      value={college}
+                      maxLength={120}
+                      onChange={(event) => setCollege(event.target.value)}
+                      placeholder="Your college"
+                    />
                     <Button
                       type="button"
                       variant="link"
                       size="xs"
-                      className="h-auto px-0 text-xs text-muted-foreground"
+                      className="min-h-11 w-fit px-0 text-muted-foreground sm:h-auto sm:min-h-0"
+                      onClick={() => setCollegeEntryMode("list")}
                     >
-                      Change
+                      Choose from list
                     </Button>
-                  </CountryPicker>
-                  <p className="basis-full">Your country is saved to your account, so it follows you across devices.</p>
-                </div>
-              )}
-              {collegeCountryNotice && selectedCountry && (
-                <div role="status" className="text-xs text-muted-foreground">
-                  <p>{college} is still selected. Keep it, or choose a college in {selectedCountry.name}.</p>
-                  <div className="mt-1 flex gap-2">
-                    <Button type="button" variant="link" size="xs" onClick={() => setCollegeCountryNotice(false)}>Keep it</Button>
-                    <Button type="button" variant="link" size="xs" onClick={() => { setCollege(""); setCollegeCountryNotice(false); }}>Choose a new college</Button>
+                  </>
+                ) : selectedCountry ? (
+                  <CollegePicker
+                    id="account-college"
+                    countryCode={selectedCountry.code}
+                    value={college}
+                    onSelect={(selectedCollege) => setCollege(selectedCollege)}
+                    onOther={() => setCollegeEntryMode("manual")}
+                  />
+                ) : (
+                  <>
+                    <CountryPicker value={null} onSelect={handleCountrySelect}>
+                      <Button
+                        id="account-college"
+                        type="button"
+                        variant="outline"
+                        className="w-full justify-between font-normal"
+                      >
+                        <span>Choose your country</span>
+                        <ChevronDown
+                          className="shrink-0 text-muted-foreground"
+                          aria-hidden="true"
+                        />
+                      </Button>
+                    </CountryPicker>
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="xs"
+                      className="min-h-11 w-fit px-0 text-muted-foreground sm:h-auto sm:min-h-0"
+                      onClick={() => setCollegeEntryMode("manual")}
+                    >
+                      Enter manually
+                    </Button>
+                  </>
+                )}
+                {hydrated && selectedCountry && collegeEntryMode === "list" && (
+                  <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                    <span>Showing colleges in {selectedCountry.name}</span>
+                    <span aria-hidden="true">·</span>
+                    <CountryPicker
+                      value={selectedCountry.code}
+                      onSelect={handleCountrySelect}
+                    >
+                      <Button
+                        type="button"
+                        variant="link"
+                        size="xs"
+                        className="min-h-11 px-0 text-xs text-muted-foreground sm:h-auto sm:min-h-0"
+                      >
+                        Change
+                      </Button>
+                    </CountryPicker>
+                    <p className="basis-full">Your country is saved to your account, so it follows you across devices.</p>
                   </div>
-                </div>
-              )}
-            </div>
-            <div className="grid gap-2.5 content-start">
-              <Label className="eyebrow" htmlFor="account-graduation-year">
-                Graduation year
-              </Label>
+                )}
+                {collegeCountryNotice && selectedCountry && (
+                  <div role="status" className="text-xs text-muted-foreground">
+                    <p>{college} is still selected. Keep it, or choose a college in {selectedCountry.name}.</p>
+                    <div className="mt-1 flex gap-2">
+                      <Button type="button" variant="link" size="xs" onClick={() => setCollegeCountryNotice(false)}>Keep it</Button>
+                      <Button type="button" variant="link" size="xs" onClick={() => { setCollege(""); setCollegeCountryNotice(false); }}>Choose a new college</Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </SettingsRow>
+            <SettingsRow label="Graduation year" htmlFor="account-graduation-year">
               <Select
                 value={graduationYear || "none"}
                 onValueChange={(value) => setGraduationYear(value === "none" ? "" : value)}
@@ -417,120 +319,95 @@ export default function ProfileSection({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </SettingsRow>
           </div>
+        </SettingsCard>
 
-          <section
-            aria-labelledby="account-field-interests"
-            className="grid gap-3 rounded-lg border border-border bg-muted/20 p-4"
-          >
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p id="account-field-interests" className="eyebrow">
-                  Fields &amp; interests
-                </p>
-                {!fieldProfileHydrated ? (
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Loading your field preferences…
-                  </p>
-                ) : !fieldStream ? (
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Add your field and interests to personalise your feed.
-                  </p>
-                ) : (
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Used to personalise the opportunities you see first.
-                  </p>
-                )}
-              </div>
-              <Button type="button" variant="outline" size="sm" onClick={requestOnboarding}>
-                Edit
+        {(isDirty || submitting) && (
+          <div className="animate-bar-in sticky bottom-[calc(5rem+env(safe-area-inset-bottom))] z-20 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-soft-md md:bottom-4">
+            <p className="flex items-center gap-2 text-sm text-foreground"><span className="size-1.5 shrink-0 rounded-full bg-warning" aria-hidden="true" />Unsaved changes</p>
+            <div className="ml-auto flex items-center gap-2">
+              <Button type="button" variant="ghost" disabled={submitting} onClick={discardDraft}>Discard</Button>
+              <Button type="submit" disabled={submitting}>
+                {submitting && <Loader2 className="animate-spin" aria-hidden="true" />}
+                {submitting ? "Saving…" : "Save changes"}
               </Button>
             </div>
+          </div>
+        )}
+      </form>
 
-            {fieldProfileHydrated && fieldStream && (
-              <dl className="grid gap-3 text-sm sm:grid-cols-3">
-                <div>
-                  <dt className="text-muted-foreground">Field</dt>
-                  <dd className="mt-1 font-medium text-foreground">{fieldStream.label}</dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Specialisation</dt>
-                  <dd className="mt-1 font-medium text-foreground">
-                    {fieldDivisionLabels.length > 0
-                      ? fieldDivisionLabels.join(", ")
-                      : "Not selected"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Interests</dt>
-                  <dd className="mt-1 font-medium text-foreground">
-                    {fieldInterestLabels.length > 0
-                      ? fieldInterestLabels.join(", ")
-                      : "No interests selected"}
-                  </dd>
-                </div>
-              </dl>
-            )}
-          </section>
-
-          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border pt-6">
-            {isDirty && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>You have unsaved changes.</span>
-                <Button type="button" variant="link" size="xs" disabled={submitting} onClick={discardDraft}>Discard</Button>
+      <SettingsCard icon={Compass} title="Fields & interests" action={<Button type="button" variant="outline" size="sm" onClick={requestOnboarding}><Pencil aria-hidden="true" />Edit</Button>}>
+        {!fieldProfileHydrated ? (
+          <p className="py-4 text-sm text-muted-foreground">Loading your field preferences…</p>
+        ) : !fieldStream ? (
+          <EmptyState compact icon={Compass} title="Tell us your field" description="Add your field and interests to personalise your feed." action={<Button type="button" variant="soft" onClick={requestOnboarding}>Add interests</Button>} />
+        ) : (
+          <dl className="grid gap-5 py-2 text-sm">
+            {[
+              { label: "Field", values: [fieldStream.label], empty: "Not selected" },
+              { label: "Specialisation", values: fieldDivisionLabels, empty: "Not selected" },
+              { label: "Interests", values: fieldInterestLabels, empty: "No interests selected" },
+            ].map(({ label, values, empty }) => (
+              <div key={label}>
+                <dt className="mb-2 text-xs font-medium text-muted-foreground">{label}</dt>
+                <dd className="flex flex-wrap gap-2">
+                  {values.length ? values.map((value) => <span key={value} className="rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground">{value}</span>) : <span className="text-sm text-muted-foreground">{empty}</span>}
+                </dd>
               </div>
-            )}
-            <Button type="submit" disabled={submitting || !isDirty}>
-              {submitting && <Loader2 className="animate-spin" aria-hidden="true" />}
-              {submitting ? "Saving…" : "Save changes"}
-            </Button>
-          </div>
-        </form>
-
-        <section aria-labelledby="profile-checklist" className="grid gap-3">
-          <h3 id="profile-checklist" className="text-sm font-medium">Improve your recommendations</h3>
-          <ul className="grid gap-3 text-sm">
-            {checklist.map((item) => (
-              <li key={item.key} className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="flex items-center gap-2 font-medium">
-                    {item.done && <Check className="size-4 text-primary" aria-label="Done" />}
-                    {item.label}{item.optional && <span className="text-xs text-muted-foreground">Optional</span>}
-                  </p>
-                  {!item.done && <p className="mt-1 text-xs text-muted-foreground">{item.reason}</p>}
-                </div>
-                {!item.done && (item.key === "field" ? (
-                  <Button type="button" variant="outline" size="xs" onClick={requestOnboarding}>Add interests</Button>
-                ) : (
-                  <Button asChild variant="outline" size="xs"><Link href="/resume">{item.key === "skills" ? "Add skills" : "Add resume"}</Link></Button>
-                ))}
-              </li>
             ))}
-          </ul>
-        </section>
+          </dl>
+        )}
+      </SettingsCard>
 
-        <Separator />
-
-        <div className="grid gap-4 text-sm sm:grid-cols-2">
-          <div>
-            <p className="text-muted-foreground">Member since</p>
-            <p className="mt-1 flex items-center gap-2 font-medium text-foreground">
-              <CalendarDays className="size-4 text-primary" aria-hidden="true" />
-              {formatDate(account.created_at, "long")}
-            </p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">Your referral link</p>
-            <Button asChild variant="link" className="mt-1 h-auto justify-start p-0 has-[>svg]:px-0">
-              <Link href="/referral">
-                {account.invite_code ? `Invite code: ${account.invite_code}` : "Open referrals"}
-                <ExternalLink aria-hidden="true" />
-              </Link>
-            </Button>
-          </div>
+      <SettingsCard icon={Gauge} title="Profile strength" description="Each step makes your recommendations sharper.">
+        <div className="mb-6 grid gap-2">
+          {fieldProfileHydrated ? (
+            <>
+              <Meter value={strength.done} max={strength.total} label="Profile strength" valueText={`${strength.done} of ${strength.total} profile steps complete`} tone={strength.done === strength.total ? "success" : "primary"} />
+              <p className="tnum text-sm text-muted-foreground">{strength.done} of {strength.total} complete</p>
+            </>
+          ) : <><Skeleton className="h-1.5 w-full" /><Skeleton className="h-5 w-32" /></>}
         </div>
-      </CardContent>
-    </Card>
+        <ol>
+          {strength.steps.map((step, index) => (
+            <li key={step.key} className="relative pb-5 last:pb-0">
+              {index < strength.steps.length - 1 && <span className="absolute top-6 bottom-0 left-[11px] w-px bg-border" aria-hidden="true" />}
+              {step.key === "field" && !fieldProfileHydrated ? (
+                <div className="flex items-center gap-3" aria-label="Loading field preferences"><Skeleton className="size-6 rounded-full" /><Skeleton className="h-5 w-40" /></div>
+              ) : (
+                <div className="flex items-start gap-3">
+                  <span aria-hidden="true" className={cn("relative flex size-6 shrink-0 items-center justify-center rounded-full", step.done ? "bg-primary text-primary-foreground" : "border-2 border-dashed border-muted-foreground/45 bg-card")}>{step.done && <Check className="size-3.5" />}</span>
+                  <div className="flex min-w-0 flex-1 flex-wrap items-start justify-between gap-x-3 gap-y-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-foreground">
+                        {step.label}
+                        {step.optional && <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">Optional</span>}
+                        {step.done && <span className="sr-only"> — complete</span>}
+                      </p>
+                      {!step.done && <p className="mt-1 text-sm text-muted-foreground">{step.reason}</p>}
+                    </div>
+                    {!step.done && (
+                      step.key === "display_name" || step.key === "college" || step.key === "graduation_year" ? (
+                        <Button type="button" variant="soft" size="sm" onClick={() => focusProfileField(step.key === "display_name" ? "account-display-name" : step.key === "college" ? "account-college" : "account-graduation-year")}>{`Add ${step.label.toLowerCase()}`}</Button>
+                      ) : step.key === "field" ? (
+                        <Button type="button" variant="soft" size="sm" onClick={requestOnboarding}>Add interests</Button>
+                      ) : (
+                        <Button asChild variant="soft" size="sm"><Link href={step.key === "skills" ? "/resume" : "/account?section=resume"}>{step.key === "skills" ? "Add skills" : "Add resume"}</Link></Button>
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+            </li>
+          ))}
+        </ol>
+      </SettingsCard>
+
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-border bg-card px-5 py-3 text-sm shadow-soft sm:px-6">
+        <p className="text-muted-foreground">Invite code {account.invite_code && <span className="tnum ml-2 font-mono font-medium text-foreground">{account.invite_code}</span>}</p>
+        <Button asChild variant="link"><Link href="/referral">Open referrals →</Link></Button>
+      </div>
+    </section>
   );
 }

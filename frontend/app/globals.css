@@ -82,6 +82,7 @@
   --accent: #eaf0fd;
   --accent-foreground: #0b3fae;
   --destructive: #c2362b;
+  --destructive-text: #b42318;
   --destructive-foreground: #ffffff;
   --border: #e2e7f0;
   --input: #dfe4ee;
@@ -94,6 +95,7 @@
 }
 
 .dark {
+  --destructive-text: #ff9b91;
   --background: #0b1220;
   --foreground: #e8eef8;
   --card: #111c2f;
@@ -142,6 +144,7 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-text: var(--destructive-text);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
@@ -217,6 +220,39 @@ html[data-auth-pending] .auth-show-while-pending {
 
 .animate-rise {
   animation: rise 0.5s var(--ease-premium) both;
+}
+
+.edge-fade-x {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 1rem, #000 calc(100% - 1rem), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 1rem, #000 calc(100% - 1rem), transparent);
+}
+
+.account-wash {
+  background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--primary) 9%, transparent) 0%, transparent 55%),
+    radial-gradient(90% 120% at 100% 0%, color-mix(in srgb, var(--heritage) 7%, transparent) 0%, transparent 60%),
+    var(--card);
+}
+
+@keyframes account-bar-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+.animate-bar-in {
+  animation: account-bar-in 0.28s var(--ease-premium) both;
+}
+
+@keyframes account-upload-progress {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(250%); }
+}
+
+.animate-account-upload {
+  animation: account-upload-progress 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-account-upload { animation: none; transform: translateX(75%); }
 }
 
 @keyframes brand-letter-in {
