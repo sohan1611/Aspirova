@@ -712,10 +712,11 @@ export async function createCheckout(
   return res.json();
 }
 
-export async function getAccount(accessToken: string): Promise<AccountMe> {
+export async function getAccount(accessToken: string, signal?: AbortSignal): Promise<AccountMe> {
   const res = await fetch(`${API_URL}/account/me`, {
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: "no-store",
+    signal,
   });
   if (!res.ok) throw new Error(`Failed to load account: ${res.status}`);
   return res.json();

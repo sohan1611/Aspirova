@@ -247,12 +247,7 @@ export default function PricingPlans({
   const byKey = Object.fromEntries(plans.map((p) => [p.key, p]));
   const tiers: Tier[] = [
     { name: "Free", free: byKey.free },
-    // Pro Lite Annual RETIRED (founder decision 2026-07-22): under the
-    // cancel-then-resubscribe policy, a mistaken Pro Lite Annual purchase would
-    // lock the customer into the bottom tier for a FULL YEAR with no way up.
-    // No `annual` mapping means the Pro Lite card simply doesn't render on the
-    // Annual toggle (the `if (!plan) return null` below). Nobody was ever
-    // subscribed to it - verified in prod before retiring.
+    // Pro Lite remains monthly-only, including on the Annual view.
     { name: "Pro Lite", monthly: byKey.pro_lite_monthly },
     { name: "Pro", highlight: true, monthly: byKey.pro_monthly, annual: byKey.pro_annual },
   ];
@@ -306,18 +301,20 @@ export default function PricingPlans({
             (billingLoading
               ? (tier.monthly ?? tier.annual)
               : billing === "annual"
-                ? tier.annual
+                ? (tier.annual ?? tier.monthly)
                 : tier.monthly);
           if (!plan) return null;
 
           const isFree = tier.name === "Free";
           const price = isFree ? "Free" : rupees(plan.price_paise);
-          const billingSuffix = isFree ? null : billing === "annual" ? "/yr" : "/mo";
+          const billingSuffix = isFree ? null : plan.billing === "annual" ? "/yr" : "/mo";
+          const monthlyOnly = billing === "annual" && !tier.annual && Boolean(tier.monthly);
           const usdPricingPending = !isFree && currency === "USD";
           const isCurrentPlan = currentPlanKey != null && plan.key === currentPlanKey;
           const isCurrentTier =
             currentPlanKey != null &&
-            (tier.monthly?.key === currentPlanKey || tier.annual?.key === currentPlanKey);
+            (tier.monthly?.key === currentPlanKey || tier.annual?.key === currentPlanKey ||
+              (tier.name === "Pro Lite" && currentPlanKey === "pro_lite_annual"));
           const availableAfter =
             currentPlan?.cancel_at_period_end && currentPlan.current_period_end
               ? `Available after ${formatDate(currentPlan.current_period_end)}`
@@ -363,9 +360,16 @@ export default function PricingPlans({
                     </>
                   )}
                 </div>
+                <p className="min-h-5 text-xs leading-5 text-muted-foreground">
+                  {monthlyOnly && !billingLoading ? "Monthly billing only" : "\u00a0"}
+                </p>
               </CardHeader>
               <CardContent className="flex-1">
                 <ul className="space-y-3 text-sm leading-6 text-muted-foreground">
+                  <li className="flex items-start gap-2.5">
+                    <Check className="mt-1 size-4 shrink-0 text-primary" aria-hidden="true" />
+                    <span>Unlimited saved listings and application tracking</span>
+                  </li>
                   {featureLines(plan.features).map(({ key, line }) => (
                     <li key={key} className="flex items-start gap-2.5">
                       <Check
@@ -419,6 +423,7 @@ export default function PricingPlans({
                     planKey={plan.key}
                     planLabel={tier.name}
                     highlight={tier.highlight}
+                    onSubscribed={refreshPlan}
                   />
                 ) : (
                   <WaitlistForm planLabel={tier.name} highlight={tier.highlight} />
