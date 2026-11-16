@@ -296,7 +296,9 @@ def test_post_still_unsubscribes_in_one_shot(db_session):
     db_session.refresh(user)
 
     assert response.status_code == 200
-    assert "daily digest (opportunities and hackathons)" in response.body.decode()
+    assert (
+        "daily digest (opportunities, hackathons and watched programmes)" in response.body.decode()
+    )
     assert user.notification_prefs["daily_digest"] is False
 
 

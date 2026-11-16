@@ -10,10 +10,17 @@ import MonthList, { AnytimeSection, RecurringSection } from "@/components/calend
 import Timeline from "@/components/calendar/Timeline";
 import MonthGrid from "@/components/calendar/MonthGrid";
 import DetailsDrawer from "@/components/calendar/DetailsDrawer";
+import { ProgrammeWatchSummary } from "@/components/calendar/ProgrammeWatches";
 import { calendarParams, collapseRecurrences, fetchCalendar, filterCalendarItems, monthRange, parseCalendarParams, registrationEvents, todayIST } from "@/lib/hiringCalendar";
 import type { CalendarItem, CalendarQuery, CalendarResponse } from "@/lib/hiringCalendar";
 
 export default function HiringCalendar({ initialQuery, initialData }: {
+  initialQuery: CalendarQuery; initialData: CalendarResponse | null;
+}) {
+  return <HiringCalendarContent initialQuery={initialQuery} initialData={initialData} />;
+}
+
+function HiringCalendarContent({ initialQuery, initialData }: {
   initialQuery: CalendarQuery; initialData: CalendarResponse | null;
 }) {
   const [query, setQuery] = useState(initialQuery);
@@ -120,6 +127,7 @@ export default function HiringCalendar({ initialQuery, initialData }: {
 
   return (
     <div className="mt-4 min-w-0 space-y-5">
+      <ProgrammeWatchSummary />
       <CalendarFilters
         query={query}
         search={search}

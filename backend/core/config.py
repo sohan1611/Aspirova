@@ -68,6 +68,7 @@ class Settings(BaseSettings):
     rate_limit_user_bookmark_write_per_minute: int = 30
     rate_limit_user_dream_company_write_per_minute: int = 30
     rate_limit_user_saved_search_write_per_minute: int = 20
+    rate_limit_user_programme_watch_write_per_minute: int = 30
     rate_limit_user_copilot_per_day: int = 20
     rate_limit_ip_waitlist_per_minute: int = 5
     rate_limit_ip_report_per_minute: int = 5

@@ -202,6 +202,12 @@ def export_account(
         .where(models.DreamCompany.user_id == user.id)
         .order_by(models.Company.slug)
     ).all()
+    watches = db.execute(
+        select(models.ProgrammeWatch, models.Programme)
+        .join(models.Programme, models.Programme.id == models.ProgrammeWatch.programme_id)
+        .where(models.ProgrammeWatch.user_id == user.id)
+        .order_by(models.ProgrammeWatch.created_at, models.ProgrammeWatch.id)
+    ).all()
     subscription = db.execute(
         select(models.Subscription, models.Plan.key)
         .join(models.Plan, models.Plan.id == models.Subscription.plan_id)
@@ -253,6 +259,16 @@ def export_account(
         "followed_companies": [
             {"name": company.name, "slug": company.slug, "domains": roles}
             for company, roles in followed
+        ],
+        "programme_watches": [
+            {
+                "programme_slug": programme.slug,
+                "programme_name": programme.name,
+                "programme_url": programme.url,
+                "created_at": watch.created_at,
+                "notified_at": watch.notified_at,
+            }
+            for watch, programme in watches
         ],
         "subscription": {
             "plan_key": subscription[1] if subscription else "free",

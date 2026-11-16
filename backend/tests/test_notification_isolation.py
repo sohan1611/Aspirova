@@ -36,6 +36,8 @@ def test_daily_digest_isolates_per_user_render_failure(
         user.id: _make_opportunity(db_session, company, first_seen_at=now) for user in users
     }
     monkeypatch.setattr(notifications_module, "_hackathon_digest_opportunities", lambda *_args: [])
+    monkeypatch.setattr(notifications_module, "collect_programme_watch_changes", lambda *_args: 0)
+    monkeypatch.setattr(notifications_module, "programme_watch_updates", lambda *_args: [])
     failed_opportunity = opportunities_by_user[failed_user.id]
     rollback_calls = []
 

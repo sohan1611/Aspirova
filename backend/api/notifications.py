@@ -16,6 +16,7 @@ from api.deps import get_db
 from api.schemas import NotificationItem, NotificationsResponse
 from core import models
 from core.unsubscribe import verify_token
+from pipeline.programme_watch_notifications import programme_watch_copy
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -87,6 +88,9 @@ def list_notifications(
         opportunity_title = opportunity.title if opportunity else None
         company_name = company.name if company else None
         title, body = _notification_copy(notification.type, opportunity_title, company_name)
+        meta = notification.meta if isinstance(notification.meta, dict) else {}
+        if notification.type == "programme_watch":
+            title, body = programme_watch_copy(meta)
         items.append(
             NotificationItem(
                 id=notification.id,
@@ -94,6 +98,9 @@ def list_notifications(
                 title=title,
                 body=body,
                 opportunity_slug=opportunity.slug if opportunity else None,
+                programme_slug=(
+                    meta.get("programme_slug") if notification.type == "programme_watch" else None
+                ),
                 opportunity_title=opportunity_title,
                 company_name=company_name,
                 created_at=notification_created_at,
@@ -250,7 +257,7 @@ def _unsubscribe_detail(preference_key: str) -> str:
             "You can turn them back on in your account settings."
         )
     list_name = {
-        "daily_digest": "the daily digest (opportunities and hackathons)",
+        "daily_digest": "the daily digest (opportunities, hackathons and watched programmes)",
         "hackathon_digest": "the hackathon digest",
         "instant_alerts": "alerts for companies you follow",
         "weekly_report": "the weekly career report",

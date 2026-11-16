@@ -16,6 +16,7 @@ from api import (
     opportunity,
     payments,
     plans,
+    programme_watches,
     programmes,
     referral,
     reports,
@@ -71,6 +72,7 @@ app.include_router(payments.router)
 app.include_router(plans.router)
 app.include_router(programmes.router)
 app.include_router(calendar.router)
+app.include_router(programme_watches.router)
 app.include_router(referral.router)
 app.include_router(reports.router)
 app.include_router(sitemap.router)

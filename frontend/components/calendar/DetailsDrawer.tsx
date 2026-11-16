@@ -3,12 +3,15 @@
 import { useState } from "react";
 import { Copy, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import ProgrammeEligibility from "@/components/ProgrammeEligibility";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { buildIcs, googleCalendarUrl } from "@/lib/calendar";
 import { calendarParams, dateLabel, officialDeadline, registrationEvents } from "@/lib/hiringCalendar";
 import type { CalendarItem, CalendarQuery } from "@/lib/hiringCalendar";
 import { safeExternalUrl } from "@/lib/safeUrl";
 import { CALENDAR_INPUT, CategoryBadge, HowToApply, OfficialLink, StatusBadge } from "./CalendarItem";
+import { ProgrammeWatchButton } from "./ProgrammeWatches";
+import { WATCH_UPDATES_COPY } from "@/lib/programmeWatches";
 
 function CalendarActions({ item }: { item: CalendarItem }) {
   const deadline = officialDeadline(item);
@@ -91,14 +94,15 @@ export default function DetailsDrawer({ item, query, recurringRule, loading, onC
       <div className="min-h-0 overflow-y-auto overscroll-contain p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         {item ? <div className="space-y-6">
           <div className="flex flex-wrap items-center gap-2"><CategoryBadge item={item} /><StatusBadge item={item} /></div>
+          <section className="space-y-2" aria-label="Programme notifications"><ProgrammeWatchButton slug={item.programme.slug} name={item.programme.name} /><p className="text-xs leading-5 text-muted-foreground">{WATCH_UPDATES_COPY}</p></section>
           <KeyDates item={item} />
           {recurringRule && <section className="space-y-2"><h3 className="text-sm font-semibold">Recurring registration</h3><p className="text-sm leading-6 text-muted-foreground">{recurringRule}</p></section>}
           <div className="flex flex-wrap items-center gap-2"><OfficialLink item={item} /><Button variant="outline" className="min-h-11" onClick={copyLink}><Copy aria-hidden="true" />Copy link</Button></div>
           {copyStatus && <p role="status" className="text-xs text-muted-foreground">{copyStatus}</p>}
           {copyUrl && <input aria-label="Programme share link" readOnly value={copyUrl} onFocus={(event) => event.target.select()} className={`${CALENDAR_INPUT} w-full`} />}
           <section className="space-y-2"><h3 className="text-sm font-semibold">How to apply</h3><HowToApply item={item} /></section>
+          <section className="space-y-2"><h3 className="text-sm font-semibold">Eligibility</h3><p className="whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground"><ProgrammeEligibility value={item.programme.eligibility} officialUrl={item.programme.url} /></p></section>
           {[
-            ["Eligibility", item.programme.eligibility || "Review the eligibility in the current official notice."],
             ["Selection process", item.metadata.hiring_mode || "Refer to the current official notice for the selection process."],
             ["Preparation tip", item.metadata.prep_tip],
             ["Career linkage", item.metadata.career_linkage],

@@ -1,7 +1,7 @@
 import type { AccountMe } from "@/lib/types";
 
 export const NOTIFICATION_KEYS = ["weekly_report", "instant_alerts", "daily_digest", "closing_soon"] as const;
-export const ALWAYS_AVAILABLE_NOTIFICATION_KEYS = new Set<string>(["instant_alerts", "closing_soon"]);
+export const ALWAYS_AVAILABLE_NOTIFICATION_KEYS = new Set<string>(["instant_alerts", "closing_soon", "daily_digest"]);
 
 export function isNotificationLocked(key: (typeof NOTIFICATION_KEYS)[number], account: AccountMe): boolean {
   return !ALWAYS_AVAILABLE_NOTIFICATION_KEYS.has(key)
