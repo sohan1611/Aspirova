@@ -49,13 +49,16 @@ function NotificationRow({ item }: { item: NotificationItem }) {
     </article>
   );
 
-  if (!item.opportunity_slug) {
+  const href = item.programme_slug
+    ? `/programme/${encodeURIComponent(item.programme_slug)}`
+    : item.opportunity_slug ? `/opportunity/${encodeURIComponent(item.opportunity_slug)}` : null;
+  if (!href) {
     return content;
   }
 
   return (
     <Link
-      href={`/opportunity/${item.opportunity_slug}`}
+      href={href}
       className="block rounded-xl focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
     >
       {content}

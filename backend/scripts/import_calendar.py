@@ -131,7 +131,7 @@ def _import_row(session: Session, slug: str, meta: dict) -> None:
         "organiser": meta["organiser"],
         "category": category_for(row),
         "url": row["official_portal"],
-        "eligibility": row["target_batch_eligibility"],
+        "eligibility": (row.get("target_batch_eligibility") or "").strip() or None,
         "typical_window": f'{row["application_open"]} · {row["registration_deadline"]}',
         "country": "IN" if row["geography"].startswith("India") else None,
     }

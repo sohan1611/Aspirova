@@ -6,6 +6,7 @@ import AppFooter from "@/components/AppFooter";
 import AppHeader from "@/components/AppHeader";
 import MobileTabBar from "@/components/MobileTabBar";
 import { BookmarksProvider } from "@/components/BookmarksProvider";
+import { ProgrammeWatchesProvider } from "@/components/calendar/ProgrammeWatches";
 import OnboardingDialog from "@/components/OnboardingDialog";
 import ReferralCapture from "@/components/ReferralCapture";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -82,13 +83,15 @@ export default function RootLayout({
             <ReferralCapture />
           </Suspense>
           <BookmarksProvider>
-            <AppHeader />
-            <div id="main-content" tabIndex={-1} className="flex-1">
-              {children}
-            </div>
-            <Suspense fallback={null}>
-              <OnboardingDialog />
-            </Suspense>
+            <ProgrammeWatchesProvider>
+              <AppHeader />
+              <div id="main-content" tabIndex={-1} className="flex-1">
+                {children}
+              </div>
+              <Suspense fallback={null}>
+                <OnboardingDialog />
+              </Suspense>
+            </ProgrammeWatchesProvider>
           </BookmarksProvider>
           <AppFooter />
           <MobileTabBar />

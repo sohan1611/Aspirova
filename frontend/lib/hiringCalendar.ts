@@ -452,7 +452,7 @@ export function howToApply(item: CalendarItem, hasOfficialLink = Boolean(item.pr
   if (supplied) return supplied.split(/\r?\n/).map((line) => line.replace(/^\s*(?:[-*•]\s+|\d+[.)]\s+)/, "").trim()).filter(Boolean);
   return [
     hasOfficialLink ? "Open the official site and find the current cycle’s application notice." : "Find the current application notice on the organiser’s official website.",
-    item.programme.eligibility ? `Check the current notice against the listed eligibility, ${item.programme.eligibility}` : "Check the current notice for course, graduation year, location and other eligibility requirements.",
+    item.programme.eligibility?.trim() ? `Check the current notice against the listed eligibility, ${item.programme.eligibility.trim()}` : "Eligibility not confirmed — check the official page",
     item.metadata.hiring_mode ? `Follow the published application and selection route. ${item.metadata.hiring_mode}` : "Follow the application instructions in the current notice and retain your submission acknowledgement.",
   ];
 }

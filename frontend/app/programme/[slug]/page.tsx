@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import CompanyFavicon from "@/components/CompanyFavicon";
+import ProgrammeEligibility from "@/components/ProgrammeEligibility";
+import { ProgrammePageWatch } from "@/components/calendar/ProgrammeWatches";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getProgramme } from "@/lib/api";
@@ -250,6 +252,7 @@ export default async function ProgrammePage({ params }: PageProps) {
               Dates and eligibility must be verified on the official page for every
               annual edition.
             </p>
+            <div className="mt-4"><ProgrammePageWatch slug={programme.slug} name={programme.name} /></div>
           </div>
         </section>
 
@@ -260,14 +263,12 @@ export default async function ProgrammePage({ params }: PageProps) {
               {programme.description ?? "No programme description is available yet."}
             </div>
 
-            {programme.eligibility && (
-              <section className="mt-10 border-t border-border pt-8">
+            <section className="mt-10 border-t border-border pt-8">
                 <p className="eyebrow">Eligibility</p>
                 <div className="mt-4 whitespace-pre-wrap text-base leading-8 text-foreground">
-                  {programme.eligibility}
+                  <ProgrammeEligibility value={programme.eligibility} officialUrl={programme.url} />
                 </div>
-              </section>
-            )}
+            </section>
           </article>
 
           <aside className="space-y-6">

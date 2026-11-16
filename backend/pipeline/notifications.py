@@ -44,6 +44,13 @@ from core.gating import can
 from core.organisers import REPUTED_ORGANISER_REGEX
 from core.unsubscribe import list_unsubscribe_headers, unsubscribe_url
 from pipeline.company_alert_email import CompanyAlertGroup, render_company_alert
+from pipeline.programme_watch_notifications import (
+    ProgrammeWatchUpdate,
+    collect_programme_watch_changes,
+    mark_programme_watch_updates_emailed,
+    programme_watch_updates,
+    render_programme_watch_updates,
+)
 
 
 def wants(user: models.User, key: str) -> bool:
@@ -87,6 +94,7 @@ def _record_notification(
     opportunity_id: int | None,
     status: str,
     meta: dict | None = None,
+    now: datetime | None = None,
 ) -> None:
     session.add(
         models.Notification(
@@ -94,7 +102,7 @@ def _record_notification(
             type=notification_type,
             opportunity_id=opportunity_id,
             status=status,
-            sent_at=datetime.now(timezone.utc) if status == "sent" else None,
+            sent_at=(now or datetime.now(timezone.utc)) if status == "sent" else None,
             meta=meta,
         )
     )
@@ -215,7 +223,12 @@ def _digest_since_label(history: DigestHistory, since: datetime, now: datetime) 
 
 
 def _digest_reason(
-    *, has_jobs: bool, has_events: bool, jobs_from_followed: bool, since_label: str
+    *,
+    has_jobs: bool,
+    has_events: bool,
+    jobs_from_followed: bool,
+    since_label: str,
+    has_watches: bool = False,
 ) -> str:
     """Why this reader got this digest, stated as the rule that picked it (N-09)."""
     parts = ["You get this because the daily digest is on."]
@@ -232,6 +245,10 @@ def _digest_reason(
         parts.append(
             "The hackathons and competitions are still open for entry, and none repeat "
             "from your digests of the last 7 days."
+        )
+    if has_watches:
+        parts.append(
+            "Programme updates are changes to official application windows for programmes you watch."
         )
     parts.append("Change what you get under Manage email preferences.")
     return " ".join(parts)
@@ -397,6 +414,7 @@ def _render_digest(
     hackathons: list[models.Opportunity] | None = None,
     jobs_from_followed: bool = False,
     since_label: str = "since your last digest",
+    programme_updates: list[ProgrammeWatchUpdate] | None = None,
 ) -> tuple[str, str]:
     current = now or datetime.now(timezone.utc)
     jobs = [o for o in opportunities if o.category not in _HACKATHON_CATEGORIES]
@@ -416,8 +434,16 @@ def _render_digest(
             "hackathon or competition" if event_count == 1 else "hackathons and competitions"
         )
         summary = f"{event_count} {event_noun} you can still enter"
-    else:
+    elif jobs:
         summary = f"{job_count} new {opportunity_noun} picked for you today"
+    else:
+        count = len(programme_updates or [])
+        noun = "programme update" if count == 1 else "programme updates"
+        summary = f"{count} {noun} for programmes you watch"
+    if programme_updates and (jobs or events):
+        count = len(programme_updates)
+        noun = "programme update" if count == 1 else "programme updates"
+        summary += f", plus {count} {noun}"
     body, cards_text, first_card = grouped_cards(jobs, now=current)
     if events:
         cards = [
@@ -441,11 +467,15 @@ def _render_digest(
         if not first_card:
             company = events[0].company.name if events[0].company else "Unknown"
             first_card = f"{events[0].title} at {company}"
+    watch_html, watch_text = render_programme_watch_updates(programme_updates or [])
+    body += watch_html
+    cards_text = "\n\n".join(part for part in (cards_text, watch_text) if part)
     reason = _digest_reason(
         has_jobs=bool(jobs),
         has_events=bool(events),
         jobs_from_followed=jobs_from_followed,
         since_label=since_label,
+        has_watches=bool(programme_updates),
     )
     html = email_layout(
         title="Your daily opportunity digest",
@@ -587,17 +617,23 @@ class DigestDraft:
     window_start: datetime
     opportunities: list[models.Opportunity] = field(default_factory=list)
     hackathons: list[models.Opportunity] = field(default_factory=list)
+    programme_updates: list[ProgrammeWatchUpdate] = field(default_factory=list)
     subject: str | None = None
     html: str | None = None
     text: str | None = None
 
     @property
     def empty(self) -> bool:
-        return not self.opportunities and not self.hackathons
+        return not self.opportunities and not self.hackathons and not self.programme_updates
 
 
 def compose_daily_digest(
-    session: Session, user: models.User, now: datetime, picks: _HackathonPicks
+    session: Session,
+    user: models.User,
+    now: datetime,
+    picks: _HackathonPicks,
+    *,
+    include_recommendations: bool = True,
 ) -> DigestDraft:
     """Select and render one reader's digest. Sends nothing and records nothing."""
     history = _digest_history(session, user.id, now)
@@ -607,11 +643,15 @@ def compose_daily_digest(
     # (session, user_id, *args) stubs.
     opportunities = [
         o
-        for o in _dream_company_opportunities(session, user.id, since, now, history.recent_ids)
+        for o in (
+            _dream_company_opportunities(session, user.id, since, now, history.recent_ids)
+            if include_recommendations
+            else []
+        )
         if not _already_alerted(session, user.id, o.id)
     ]
     jobs_from_followed = bool(opportunities)
-    if not opportunities:
+    if include_recommendations and not opportunities:
         # The generic fallback is a separate, unrelated query (all recent active
         # opportunities, not just dream-company ones) - it must ALSO exclude
         # already-alerted ones, or an opportunity excluded above (because a Pro
@@ -628,10 +668,15 @@ def compose_daily_digest(
     job_ids = {o.id for o in opportunities}
     hackathons = (
         [o for o in picks.for_reader(history.recent_ids) if o.id not in job_ids]
-        if wants(user, "hackathon_digest")
+        if include_recommendations and wants(user, "hackathon_digest")
         else []
     )
-    draft = DigestDraft(window_start=since, opportunities=opportunities, hackathons=hackathons)
+    draft = DigestDraft(
+        window_start=since,
+        opportunities=opportunities,
+        hackathons=hackathons,
+        programme_updates=programme_watch_updates(session, user, now),
+    )
     if draft.empty:
         return draft
 
@@ -639,7 +684,9 @@ def compose_daily_digest(
     has_hackathons = bool(hackathons) or any(
         o.category in _HACKATHON_CATEGORIES for o in opportunities
     )
-    if has_jobs and has_hackathons:
+    if draft.programme_updates:
+        draft.subject = DAILY_DIGEST_SUBJECT
+    elif has_jobs and has_hackathons:
         draft.subject = COMBINED_DIGEST_SUBJECT
     elif has_hackathons:
         draft.subject = HACKATHON_DIGEST_SUBJECT
@@ -653,6 +700,7 @@ def compose_daily_digest(
         hackathons=hackathons,
         jobs_from_followed=jobs_from_followed,
         since_label=_digest_since_label(history, since, now),
+        programme_updates=draft.programme_updates,
     )
     return draft
 
@@ -666,7 +714,13 @@ def preview_daily_digest(
     daily cap or the repeat guard.
     """
     now = _utc(now or datetime.now(timezone.utc))
-    return compose_daily_digest(session, user, now, _HackathonPicks(session, now))
+    return compose_daily_digest(
+        session,
+        user,
+        now,
+        _HackathonPicks(session, now),
+        include_recommendations=bool(can(session, user, "daily_digest")),
+    )
 
 
 def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict:
@@ -677,26 +731,52 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
 
     for user in session.scalars(select(models.User)).all():
         try:
-            if not can(session, user, "daily_digest"):
+            # The same user lock protects collection, the UTC-day cap and the
+            # outbound send across overlapping scheduler runs. Contenders skip
+            # this reader; the worker holding the lock completes their digest.
+            locked_user = session.scalar(
+                select(models.User)
+                .where(models.User.id == user.id)
+                .with_for_update(skip_locked=True)
+                .execution_options(populate_existing=True)
+            )
+            if locked_user is None:
                 continue
+            user = locked_user
+            collect_programme_watch_changes(session, user, now)
             if not wants(user, "daily_digest"):
+                session.commit()
                 continue
             if _already_sent_today(session, user.id, "digest", now):
                 result["skipped_capped"] += 1
+                session.commit()
                 continue
 
-            draft = compose_daily_digest(session, user, now, picks)
+            draft = compose_daily_digest(
+                session,
+                user,
+                now,
+                picks,
+                include_recommendations=bool(can(session, user, "daily_digest")),
+            )
             if draft.empty:
                 result["skipped_empty"] += 1
+                session.commit()
                 continue
 
-            sent = send_email(
-                user.email,
-                draft.subject,
-                draft.html,
-                draft.text,
-                headers=list_unsubscribe_headers(user.id, "daily_digest"),
-            )
+            try:
+                sent = send_email(
+                    user.email,
+                    draft.subject,
+                    draft.html,
+                    draft.text,
+                    headers=list_unsubscribe_headers(user.id, "daily_digest"),
+                )
+            except Exception:
+                logger.exception("daily digest delivery failed for user %s", user.id)
+                sent = False
+            if sent:
+                mark_programme_watch_updates_emailed(session, draft.programme_updates, now)
             _record_notification(
                 session,
                 user.id,
@@ -706,7 +786,19 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
                 meta={
                     "opportunity_ids": [o.id for o in draft.opportunities],
                     "hackathon_ids": [o.id for o in draft.hackathons],
+                    # Only digests that carried watch updates get the key, so
+                    # earlier rows and readers keep their exact shape.
+                    **(
+                        {
+                            "programme_slugs": [
+                                update.meta["programme_slug"] for update in draft.programme_updates
+                            ]
+                        }
+                        if draft.programme_updates
+                        else {}
+                    ),
                 },
+                now=now,
             )
             result["sent" if sent else "failed"] += 1
         except Exception:

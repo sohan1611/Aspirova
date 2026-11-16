@@ -431,6 +431,32 @@ class SavedSearch(Base):
     __table_args__ = (Index("ix_saved_searches_user_created_at", "user_id", "created_at"),)
 
 
+class ProgrammeWatch(Base):
+    """A user's calendar watch and the last observed window signature."""
+
+    __tablename__ = "programme_watches"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    programme_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("programmes.id", ondelete="CASCADE"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+    notified_signature: Mapped[str | None] = mapped_column(Text)
+    notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    programme: Mapped["Programme"] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "programme_id", name="uq_programme_watches_user_programme"),
+        Index("ix_programme_watches_programme_id", "programme_id"),
+    )
+
+
 class Plan(Base):
     """The single source of feature gating (Doc 03 sec 4.1, Doc 08 sec 1:
     'MUST drive plan gating from plans.features via a single can(user,

@@ -330,6 +330,7 @@ export interface NotificationItem {
   title: string;
   body: string;
   opportunity_slug: string | null;
+  programme_slug?: string | null;
   opportunity_title: string | null;
   company_name: string | null;
   created_at: string;

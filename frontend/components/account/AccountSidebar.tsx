@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Bookmark, CreditCard, FileText, Shield, UserRound, type LucideIcon } from "lucide-react";
+import { Bell, BellRing, Bookmark, CreditCard, FileText, Shield, UserRound, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef } from "react";
@@ -11,6 +11,7 @@ export const ACCOUNT_SECTIONS = [
   { key: "resume", label: "Resume", Icon: FileText, group: "You" },
   { key: "notifications", label: "Notifications", Icon: Bell, group: "Alerts" },
   { key: "saved", label: "Saved searches", Icon: Bookmark, group: "Alerts" },
+  { key: "watched", label: "Watched programmes", Icon: BellRing, group: "Alerts" },
   { key: "subscription", label: "Subscription", Icon: CreditCard, group: "Account" },
   { key: "security", label: "Security", Icon: Shield, group: "Account" },
 ] as const satisfies ReadonlyArray<{ key: string; label: string; Icon: LucideIcon; group: "You" | "Alerts" | "Account" }>;

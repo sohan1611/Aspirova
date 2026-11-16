@@ -11,6 +11,7 @@ import ResumeSection from "@/components/account/ResumeSection";
 import SavedSearchesSection from "@/components/account/SavedSearchesSection";
 import SecuritySection from "@/components/account/SecuritySection";
 import SubscriptionSection from "@/components/account/SubscriptionSection";
+import WatchedProgrammesSection from "@/components/account/WatchedProgrammesSection";
 import { EmptyState, SettingsCard } from "@/components/account/primitives";
 import HeaderAuth from "@/components/HeaderAuth";
 import { Button } from "@/components/ui/button";
@@ -201,6 +202,7 @@ function AccountPageContent() {
             {activeSection === "saved" && (
               <SavedSearchesSection accessToken={authenticatedAccessToken} />
             )}
+            {activeSection === "watched" && <WatchedProgrammesSection />}
             {activeSection === "security" && <SecuritySection user={session.user} accessToken={authenticatedAccessToken} />}
 
             </div>

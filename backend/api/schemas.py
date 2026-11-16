@@ -196,6 +196,7 @@ class NotificationItem(BaseModel):
     title: str
     body: str
     opportunity_slug: str | None
+    programme_slug: str | None = None
     opportunity_title: str | None
     company_name: str | None
     created_at: datetime

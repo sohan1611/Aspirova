@@ -81,10 +81,13 @@ function NotificationPreview({
   const className =
     "block w-full rounded-md px-3 py-3 text-left transition-colors duration-200 ease-premium hover:bg-accent focus-visible:bg-accent focus-visible:outline-none";
 
-  if (notification.opportunity_slug) {
+  const href = notification.programme_slug
+    ? `/programme/${encodeURIComponent(notification.programme_slug)}`
+    : notification.opportunity_slug ? `/opportunity/${encodeURIComponent(notification.opportunity_slug)}` : null;
+  if (href) {
     return (
       <Link
-        href={`/opportunity/${notification.opportunity_slug}`}
+        href={href}
         onClick={onNavigate}
         className={className}
       >

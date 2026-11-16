@@ -39,7 +39,7 @@ const NOTIFICATIONS = [
   {
     key: "daily_digest",
     label: "Daily digest",
-    description: "A concise daily roundup of new opportunities selected for you.",
+    description: "A concise daily roundup of new opportunities selected for you, plus updates to programmes you watch. In-app watch updates stay on when email is off.",
   },
   {
     key: "closing_soon",
