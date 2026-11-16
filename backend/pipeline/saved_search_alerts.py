@@ -12,6 +12,7 @@ from core import models
 from core.config import get_settings
 from core.email_components import greeting, grouped_cards
 from core.email_templates import email_layout, text_footer
+from core.mail_recipients import lock_recipient, recipient_filters
 from core.unsubscribe import list_unsubscribe_headers, unsubscribe_url
 from pipeline.notifications import send_email
 
@@ -133,15 +134,20 @@ def send_saved_search_alerts(
     saved_searches = session.execute(
         select(models.SavedSearch, models.User)
         .join(models.User, models.User.id == models.SavedSearch.user_id)
-        .where(models.SavedSearch.alerts_enabled.is_(True))
+        .where(models.SavedSearch.alerts_enabled.is_(True), *recipient_filters())
     ).all()
 
     for saved_search, user in saved_searches:
         result["searches"] += 1
         try:
-            if not user.email:
+            user = lock_recipient(session, user.id)
+            if user is None or not user.email:
                 continue
 
+            # The search may have been removed while the batch was selecting.
+            saved_search = session.get(models.SavedSearch, saved_search.id, populate_existing=True)
+            if saved_search is None or not saved_search.alerts_enabled:
+                continue
             params = saved_search.params
             filters = saved_search_base_filters(params)
             new_since = saved_search.last_alerted_at or saved_search.created_at
@@ -209,5 +215,7 @@ def send_saved_search_alerts(
         except Exception:
             session.rollback()
             logger.exception("saved-search alert failed for saved search %s", saved_search.id)
+        finally:
+            session.commit()
 
     return result

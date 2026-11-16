@@ -1,10 +1,15 @@
 """Authenticated account profile, plan state, and subscription management."""
 
+import base64
 import json
+import logging
+import time
 from datetime import UTC, datetime
+from typing import Literal
 
 import razorpay
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Response
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -13,12 +18,19 @@ from api.deps import get_db
 from api.payments import _razorpay_client
 from api.schemas import AccountMe, AccountUpdate, DigestPreview, DigestStatus, PlanState
 from core import models
+from core.account_deletion import (
+    ActiveSubscriptionError,
+    finish_external_cleanup,
+    tombstone_account,
+)
+from core.email_client import send_email
 from core.gating import active_subscription_filters, get_features
 from core.ratelimit import check_rate_limit
 from core.redis_client import get_redis
 from pipeline.notifications import preview_daily_digest
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 MAX_RESUME_METADATA_BYTES = 8 * 1024
 MAX_RESUME_FILENAME_LENGTH = 255
@@ -276,6 +288,100 @@ def export_account(
             "current_period_end": subscription[0].current_period_end if subscription else None,
         },
     }
+
+
+class AccountDeleteRequest(BaseModel):
+    confirm: Literal["DELETE"]
+
+
+async def enforce_account_delete_limit(
+    user: models.User = Depends(get_current_user),
+) -> models.User:
+    result = await check_rate_limit(
+        get_redis(),
+        bucket="account_delete",
+        identifier=str(user.id),
+        max_requests=5,
+        window_seconds=60,
+    )
+    if not result.allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many requests",
+            headers={"Retry-After": str(result.retry_after_seconds)},
+        )
+    return user
+
+
+def _require_recent_token(authorization: str | None) -> None:
+    # get_current_user has already verified THIS bearer token with Supabase.
+    # Refresh changes iat, but AMR timestamps preserve the sign-in time.
+    # Decoding these claims never substitutes for token verification.
+    try:
+        token = (authorization or "").split(" ", 1)[1]
+        payload = token.split(".")[1]
+        claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+        if not isinstance(claims, dict):
+            raise ValueError("Invalid claims")
+        amr = claims.get("amr")
+        timestamps = [
+            entry["timestamp"]
+            for entry in (amr if isinstance(amr, list) else [])
+            if isinstance(entry, dict)
+            and isinstance(entry.get("timestamp"), int)
+            and not isinstance(entry["timestamp"], bool)
+        ]
+        issued = max(timestamps) if timestamps else claims["iat"]
+        if isinstance(issued, bool) or not isinstance(issued, int):
+            raise ValueError("Invalid iat")
+        if not 0 <= time.time() - issued <= 600:
+            raise ValueError("Stale iat")
+    except (ValueError, KeyError, IndexError, TypeError, UnicodeError):
+        raise HTTPException(status_code=403, detail="reauth_required") from None
+
+
+@router.post("/account/delete")
+def delete_account(
+    body: AccountDeleteRequest,
+    response: Response,
+    authorization: str | None = Header(None),
+    db: Session = Depends(get_db),
+    user: models.User = Depends(enforce_account_delete_limit),
+) -> dict[str, str]:
+    _require_recent_token(authorization)
+    response.headers["Cache-Control"] = "no-store"
+    user_id = user.id
+    try:
+        confirmation_email = tombstone_account(db, user_id)
+        db.commit()
+    except ActiveSubscriptionError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="active_subscription") from None
+    except Exception:
+        db.rollback()
+        raise
+    if confirmation_email:
+        try:
+            sent = send_email(
+                confirmation_email,
+                "Your Aspirova account has been deleted",
+                "",
+                "Your Aspirova account has been deleted. You will no longer receive "
+                "Aspirova alerts or reports. Billing records and backup copies are "
+                "retained as described in our Privacy Policy.",
+            )
+            if not sent:
+                logger.warning("Account deletion confirmation failed for user %s", user_id)
+        except Exception:
+            logger.warning("Account deletion confirmation failed for user %s", user_id)
+    # Once committed, even an unexpected cleanup error must not make deletion
+    # appear to have failed. The durable marker remains for the retry script.
+    try:
+        finish_external_cleanup(db, user_id)
+    except Exception:
+        db.rollback()
+        logger.warning("Account external cleanup pending for user %s", user_id)
+    return {"status": "deleted"}
 
 
 @router.patch("/account/me", response_model=AccountMe)

@@ -25,6 +25,9 @@ from core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
+# Renders FOR KEY SHARE (see get_current_user).
+_KEY_SHARE = {"read": True, "key_share": True}
+
 _supabase_http = httpx.Client(
     timeout=5.0,
     limits=httpx.Limits(max_keepalive_connections=4, keepalive_expiry=30.0),
@@ -84,7 +87,11 @@ def get_current_user(
     auth_user = response.json()
     user_id = uuid.UUID(auth_user["id"])
 
-    user = db.get(models.User, user_id)
+    # FOR KEY SHARE: deletion's FOR UPDATE waits for in-flight requests and new
+    # requests wait for it, but a user's parallel requests never block each other
+    # (FOR UPDATE here serialized every page's API calls). Reload even if this
+    # session already holds an identity-map copy from before the tombstone.
+    user = db.get(models.User, user_id, populate_existing=True, with_for_update=_KEY_SHARE)
     if user is None:
         # First authenticated request from this Supabase Auth user - mirror
         # them into our users table (Doc 03 sec 4.1: users.id matches
@@ -99,9 +106,11 @@ def get_current_user(
             .on_conflict_do_nothing()
         )
         db.commit()
-        user = db.get(models.User, user_id)
+        user = db.get(models.User, user_id, populate_existing=True, with_for_update=_KEY_SHARE)
         if user is None:
             logger.warning("Account mirror conflict for user id %s", user_id)
             raise HTTPException(status_code=409, detail="Account conflict. Please contact support.")
 
+    if user.deleted_at is not None:
+        raise HTTPException(status_code=401, detail="account_deleted")
     return user

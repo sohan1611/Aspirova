@@ -72,7 +72,11 @@ const SOCIAL_PROVIDERS: Array<{
   { provider: "github", label: "Continue with GitHub", Icon: GitHubIcon },
 ];
 
-export default function AuthWidget() {
+export default function AuthWidget({ reauthenticate = false, onAuthenticated, expectedUserId }: {
+  reauthenticate?: boolean;
+  onAuthenticated?: (accessToken: string) => void;
+  expectedUserId?: string;
+} = {}) {
   const session = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -94,7 +98,7 @@ export default function AuthWidget() {
     return () => window.removeEventListener("pageshow", handlePageShow);
   }, []);
 
-  if (session) {
+  if (session && !reauthenticate) {
     return (
       <div className="flex items-center gap-3 text-sm">
         <span className="hidden max-w-48 truncate text-muted-foreground md:inline">
@@ -131,9 +135,13 @@ export default function AuthWidget() {
     setLoading(true);
     try {
       if (mode === "signin") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
           setFormError(authErrorMessage(error));
+        } else if (expectedUserId && data.user?.id !== expectedUserId) {
+          setFormError("Sign in to the account you want to delete, then confirm deletion again.");
+        } else if (data.session) {
+          onAuthenticated?.(data.session.access_token);
         }
         return;
       }
@@ -296,7 +304,7 @@ export default function AuthWidget() {
       <div className="grid gap-1.5">
         <div className="flex items-center justify-between gap-2">
           <Label htmlFor="auth-password">Password</Label>
-          {mode === "signin" && (
+          {mode === "signin" && !reauthenticate && (
             <button
               type="button"
               onClick={() => void handleForgotPassword()}
@@ -331,7 +339,7 @@ export default function AuthWidget() {
         {mode === "signin" ? "Sign in" : "Sign up"}
       </Button>
 
-      <button
+      {!reauthenticate && <button
         type="button"
         onClick={() => {
           setMode(mode === "signin" ? "signup" : "signin");
@@ -341,7 +349,7 @@ export default function AuthWidget() {
         className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
       >
         {mode === "signin" ? "Need an account? Sign up" : "Have an account? Sign in"}
-      </button>
+      </button>}
     </form>
   );
 }

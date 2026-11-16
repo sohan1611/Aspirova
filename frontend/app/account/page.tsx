@@ -203,7 +203,7 @@ function AccountPageContent() {
               <SavedSearchesSection accessToken={authenticatedAccessToken} />
             )}
             {activeSection === "watched" && <WatchedProgrammesSection />}
-            {activeSection === "security" && <SecuritySection user={session.user} accessToken={authenticatedAccessToken} />}
+            {activeSection === "security" && <SecuritySection key={session.user.id} user={session.user} accessToken={authenticatedAccessToken} />}
 
             </div>
           </AccountSectionErrorBoundary>

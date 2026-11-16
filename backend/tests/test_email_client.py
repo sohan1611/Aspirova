@@ -48,3 +48,25 @@ def test_send_email_returns_false_when_unconfigured(monkeypatch) -> None:
         )
         is False
     )
+
+
+def test_plain_transactional_email_omits_html(monkeypatch) -> None:
+    monkeypatch.setattr(
+        email_client,
+        "get_settings",
+        lambda: SimpleNamespace(
+            resend_api_key="test-key",
+            resend_from_email="noreply@example.test",
+            resend_from_name="Aspirova",
+        ),
+    )
+    calls = []
+    monkeypatch.setattr(email_client.resend.Emails, "send", calls.append)
+    assert (
+        email_client.send_email(
+            "deleted@example.test", "Your Aspirova account has been deleted", "", "Account deleted."
+        )
+        is True
+    )
+    assert calls[0]["text"] == "Account deleted."
+    assert "html" not in calls[0]

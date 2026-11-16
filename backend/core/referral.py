@@ -62,7 +62,17 @@ def resolve_code(db: Session, code: str) -> models.User | None:
     if not normalized:
         return None
 
-    return db.scalar(select(models.User).where(func.lower(models.User.invite_code) == normalized))
+    # A referral must finish before deletion clears inbound links. Lock/reload
+    # here so a code read just before a purge cannot recreate that link later.
+    return db.scalar(
+        select(models.User)
+        .where(
+            func.lower(models.User.invite_code) == normalized,
+            models.User.deleted_at.is_(None),
+        )
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
 
 
 def grant_comp_pro(

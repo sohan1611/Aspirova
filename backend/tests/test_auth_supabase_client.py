@@ -45,7 +45,12 @@ def test_200_returns_mirrored_user(supabase_request, db) -> None:
     user = auth.get_current_user(authorization="Bearer test-token", db=db)
 
     assert user is db.get.return_value
-    db.get.assert_called_once_with(models.User, USER_ID)
+    db.get.assert_called_once_with(
+        models.User,
+        USER_ID,
+        populate_existing=True,
+        with_for_update={"read": True, "key_share": True},
+    )
     db.add.assert_not_called()
     db.commit.assert_not_called()
     assert supabase_request.call_count == 1
@@ -91,7 +96,12 @@ def test_dead_connection_then_200_succeeds(supabase_request, db, error_type) -> 
 
     assert auth.get_current_user(authorization="Bearer test-token", db=db) is db.get.return_value
     assert supabase_request.call_count == 2
-    db.get.assert_called_once_with(models.User, USER_ID)
+    db.get.assert_called_once_with(
+        models.User,
+        USER_ID,
+        populate_existing=True,
+        with_for_update={"read": True, "key_share": True},
+    )
 
 
 @pytest.mark.parametrize("error_type", DEAD_CONNECTION_ERRORS)
@@ -119,3 +129,17 @@ def test_missing_user_is_mirrored(supabase_request, db) -> None:
     db.add.assert_not_called()
     db.commit.assert_called_once_with()
     assert supabase_request.call_count == 1
+
+
+def test_mirror_conflict_cannot_refill_a_concurrent_tombstone(supabase_request, db) -> None:
+    from datetime import UTC, datetime
+
+    tombstone = models.User(id=USER_ID, email=None, deleted_at=datetime.now(UTC))
+    db.get.side_effect = [None, tombstone]
+    with pytest.raises(auth.HTTPException) as exc:
+        auth.get_current_user(authorization="Bearer test-token", db=db)
+    assert exc.value.status_code == 401
+    assert exc.value.detail == "account_deleted"
+    assert tombstone.email is None
+    assert tombstone.display_name is None
+    assert "DO NOTHING" in str(db.execute.call_args.args[0])

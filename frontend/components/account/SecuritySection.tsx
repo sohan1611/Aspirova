@@ -3,10 +3,11 @@
 import type { User } from "@supabase/supabase-js";
 import { Download, KeyRound, Loader2, LockKeyhole, LogOut, Mail, MonitorSmartphone, Trash2, TriangleAlert } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PasswordInput } from "@/components/PasswordInput";
-import { GitHubIcon, GoogleIcon } from "@/components/AuthWidget";
+import AuthWidget, { GitHubIcon, GoogleIcon } from "@/components/AuthWidget";
 import { ConfirmDialog, SectionHeader, SettingsCard, SettingsRow, StatusPill } from "@/components/account/primitives";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,8 +21,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { providersFor, providerLabel } from "@/lib/authProviders";
-import { exportAccountData } from "@/lib/api";
+import { AccountDeletionError, deleteAccount, exportAccountData } from "@/lib/api";
+import { clearDeletedAccountStorage, tokenIssuedAt } from "@/lib/accountDeletion";
 import { passwordUpdateErrorMessage } from "@/lib/authErrors";
 import { signOutWithFeedback } from "@/lib/signOut";
 import { MIN_PASSWORD_LENGTH } from "@/lib/password";
@@ -35,6 +38,7 @@ export default function SecuritySection({
   accessToken: string;
 }) {
   const supabase = createClient();
+  const router = useRouter();
   const providers = providersFor(user);
   const canChangePassword = providers.includes("email");
   const [password, setPassword] = useState("");
@@ -43,9 +47,76 @@ export default function SecuritySection({
   const [signingOut, setSigningOut] = useState<"local" | "global" | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [signOutDialogOpen, setSignOutDialogOpen] = useState(false);
-  const deletionHref = "mailto:support@aspirova.org?subject=" +
-    encodeURIComponent("Account deletion request") + "&body=" +
-    encodeURIComponent("Please delete my Aspirova account.\nAccount email: " + (user?.email ?? ""));
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [confirmation, setConfirmation] = useState("");
+  const [deletionError, setDeletionError] = useState<string | null>(null);
+  const [reauthRequired, setReauthRequired] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const deleteInFlight = useRef(false);
+  const resumedReauth = useRef(false);
+
+  const handleDelete = useCallback(async (token: string) => {
+    if (deleteInFlight.current) return;
+    deleteInFlight.current = true;
+    setDeleting(true);
+    setDeletionError(null);
+    try {
+      await deleteAccount(token);
+    } catch (error) {
+      if (error instanceof AccountDeletionError && error.detail === "active_subscription") {
+        setDeletionError("Cancel your subscription under Subscription first so it will not renew. Then return here to delete your account.");
+      } else if (error instanceof AccountDeletionError && error.detail === "reauth_required") {
+        setReauthRequired(true);
+        // OAuth leaves this page. Resume only this confirmed request, for this
+        // same account, within ten minutes. No email or credentials are stored.
+        try {
+          sessionStorage.setItem("aspirova:deletion-reauth", JSON.stringify({ userId: user?.id, at: Date.now(), issuedAt: tokenIssuedAt(token) }));
+        } catch { /* Inline password sign-in still works without storage. */ }
+      } else {
+        setDeletionError("We couldn't confirm account deletion. Check your connection and try again.");
+      }
+      deleteInFlight.current = false;
+      setDeleting(false);
+      return;
+    }
+    let signedOut = false;
+    try {
+      const { error } = await supabase.auth.signOut({ scope: "local" });
+      signedOut = !error;
+    } catch { /* The identity may already be gone. Clear local data anyway. */ }
+    clearDeletedAccountStorage();
+    if (!signedOut) {
+      // A full navigation also discards the client's in-memory session when
+      // revocation was unreachable. The destination displays the success toast.
+      window.location.replace("/?account=deleted");
+      return;
+    }
+    toast.success("Your account has been deleted.");
+    router.replace("/");
+    router.refresh();
+  }, [router, supabase, user, setDeletionError, setReauthRequired, setDeleting]);
+
+  useEffect(() => {
+    if (resumedReauth.current) return;
+    try {
+      const raw = sessionStorage.getItem("aspirova:deletion-reauth");
+      if (!raw) return;
+      const pending = JSON.parse(raw);
+      if (pending.userId !== user?.id || typeof pending.at !== "number" || typeof pending.issuedAt !== "number" || Date.now() - pending.at < 0 || Date.now() - pending.at > 600_000) {
+        sessionStorage.removeItem("aspirova:deletion-reauth");
+        return;
+      }
+      const issuedAt = tokenIssuedAt(accessToken);
+      if (issuedAt === null || issuedAt <= pending.issuedAt) return;
+      resumedReauth.current = true;
+      sessionStorage.removeItem("aspirova:deletion-reauth");
+      void Promise.resolve().then(() => {
+        setDeleteOpen(true);
+        setConfirmation("DELETE");
+        return handleDelete(accessToken);
+      });
+    } catch { /* A missing or invalid pending request cannot trigger deletion. */ }
+  }, [accessToken, handleDelete, user?.id]);
 
   async function handleSignOut(scope?: "global") {
     if (signingOut) return;
@@ -194,25 +265,53 @@ export default function SecuritySection({
       <SettingsCard icon={TriangleAlert} title="Danger zone" tone="danger" description="Account deletion permanently removes your profile and saved data.">
         <SettingsRow label="Delete your account">
           <div className="sm:flex sm:justify-end">
-            <Dialog>
+            <Dialog open={deleteOpen} onOpenChange={(open) => {
+              if (deleting) return;
+              setDeleteOpen(open);
+              if (!open) {
+                setConfirmation("");
+                setReauthRequired(false);
+                setDeletionError(null);
+                try { sessionStorage.removeItem("aspirova:deletion-reauth"); } catch { /* Storage unavailable. */ }
+              }
+            }}>
               <DialogTrigger asChild>
                 <Button variant="destructive-ghost">
-                  <Trash2 aria-hidden="true" />Request account deletion
+                  <Trash2 aria-hidden="true" />Delete account
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-h-[90dvh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Request account deletion</DialogTitle>
+                  <DialogTitle>Delete your account permanently?</DialogTitle>
                   <DialogDescription>
-                    Account deletion isn&apos;t self-serve yet. Email us from the address on your account and we&apos;ll remove your profile, saved data and resume. If you&apos;re on a paid plan, cancel it first under Subscription so it doesn&apos;t renew. Encrypted backup copies are kept for a limited time, as described in our{" "}
+                    This deletes your profile, saved and tracked listings, saved searches, followed companies, watched programmes, notifications, resume file and embedding, and bug reports. Account access is disabled immediately; failed file or identity cleanup is retried. This cannot be undone. Billing records required by law are kept. Encrypted backups keep 7 daily copies and 4 weekly copies; the migration archive has no automatic expiry. See our{" "}
                     <Link href="/privacy" className="font-medium text-foreground underline underline-offset-4">Privacy Policy</Link>.
                   </DialogDescription>
                 </DialogHeader>
+                <div className="grid gap-2">
+                  <Label htmlFor="delete-confirmation">Type DELETE</Label>
+                  <Input id="delete-confirmation" autoComplete="off" value={confirmation} disabled={deleting} onChange={(event) => setConfirmation(event.target.value)} />
+                </div>
+                {deletionError && <div role="alert" className="grid gap-2 text-sm text-destructive">
+                  <p>{deletionError}</p>
+                  {deletionError.startsWith("Cancel your subscription") && <Link href="/account?section=subscription" className="underline">Go to Subscription</Link>}
+                </div>}
+                {reauthRequired && <div className="grid gap-3">
+                  <p className="text-sm">Sign in again to confirm it is you. Deletion will retry after you sign in.</p>
+                  <AuthWidget reauthenticate expectedUserId={user?.id} onAuthenticated={(token) => {
+                    try { sessionStorage.removeItem("aspirova:deletion-reauth"); } catch { /* Storage unavailable. */ }
+                    setReauthRequired(false);
+                    void handleDelete(token);
+                  }} />
+                </div>}
                 <DialogFooter>
                   <DialogClose asChild>
-                    <Button variant="outline">Close</Button>
+                    <Button variant="outline" disabled={deleting}>Cancel</Button>
                   </DialogClose>
-                  <Button asChild><a href={deletionHref}>Email deletion request</a></Button>
+                  <Button variant="destructive" disabled={confirmation !== "DELETE" || deleting || reauthRequired} onClick={() => void handleDelete(accessToken)}>
+                    {deleting && <Loader2 className="animate-spin" aria-hidden="true" />}
+                    {deleting ? "Deleting…" : "Delete my account"}
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>

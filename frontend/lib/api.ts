@@ -33,6 +33,25 @@ import type {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+export class AccountDeletionError extends Error {
+  constructor(readonly detail: string) {
+    super(detail);
+  }
+}
+
+export async function deleteAccount(accessToken: string): Promise<void> {
+  const response = await fetch(`${API_URL}/account/delete`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ confirm: "DELETE" }),
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new AccountDeletionError(typeof body.detail === "string" ? body.detail : "request_failed");
+  }
+}
+
 export type EmailSampleKind = "company-alert" | "weekly-report";
 
 export interface EmailSample {

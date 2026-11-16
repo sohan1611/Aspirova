@@ -156,6 +156,55 @@ section 4 no longer works on its own: going back to Supabase now means restoring
 - **Droplet broken:** DigitalOcean → droplet → Backups → restore the latest daily image. The IP stays the same, so `DATABASE_URL` doesn't change.
 - **Droplet gone:** step 1 → step 2 → restore the latest R2 backup with `restore_from_backup` → step 3e with the new IP.
 
+## Account deletion, retention and cleanup retries
+
+`POST /account/delete` commits a permanent `users.deleted_at` tombstone and
+purges personal columns and user-owned rows before calling Supabase. Billing
+records retain the account ID. `users.deletion_pending` contains only the names
+of unfinished external steps (`storage`, `auth`), never addresses or credentials.
+Resume Storage cleanup precedes Auth deletion because Supabase cannot delete a
+user who still owns Storage objects. Missing objects/users (404) count as success.
+
+After deploying and applying the migration, retry pending cleanup from the backend:
+
+```bash
+uv run python -m scripts.finish_account_deletions
+```
+
+Run this after any Supabase outage or failed deletion cleanup, and until it exits
+zero. It is idempotent, clears each completed step, and exits nonzero if work is
+still pending. It requires the app database and `SUPABASE_URL` /
+`SUPABASE_SERVICE_KEY` in the server environment. Do not run it against production
+as a test. Arrange a recurring operational run so pending cleanup is not forgotten.
+
+`scripts/backup_db.py` retains 7 daily backups and the 4 newest weekly backups
+for both the app DB and Supabase Auth. DigitalOcean keeps 7 daily droplet backups.
+Rotation depends on successful backup runs. The final archive
+`archive/supabase-final-2026-11-02.dump` is outside automatic retention and has no
+configured expiry; do not promise users that every backup expires within a fixed
+number of days. An archive expiry policy still needs an architect/owner ruling.
+
+Before restoring an older backup into service, preserve the current tombstone IDs
+and deletion times securely and reapply their purges to the restored DB before
+enabling API traffic or email jobs. Otherwise a restore can undo a deletion and
+re-enable mail. Never restore erased personal data into a live account.
+
+Known limits requiring an architect ruling: `setup_resume_storage.sql` authorizes
+direct Storage requests by `auth.uid()` alone. Supabase deletion invalidates
+refresh tokens but already-issued access tokens remain valid until expiry
+([Supabase user-management documentation](https://supabase.com/docs/guides/auth/managing-user-data#deleting-users)).
+The app tombstone blocks every authenticated app endpoint, but cannot itself
+prevent a retained token from uploading a new file directly to Storage after a
+successful cleanup. Closing that window needs a Supabase-side session/RLS guard
+or an amended cleanup design. No such external policy change is included here.
+Similarly, mail already submitted to Resend cannot be recalled; sender locks
+prevent new submissions after the tombstone commits, not later delivery of mail
+already accepted by the provider. Deletion is blocked only by an active/trialing
+Razorpay subscription within its period and grace window that is not scheduled
+to cancel. Complimentary/manual subscriptions without a Razorpay ID and periods
+ended beyond grace do not block deletion. Confirmation mail is attempted only
+after the purge transaction commits, using the address captured before erasure.
+
 ## Cutover record — 2026-10-21
 
 | Step | When (UTC) | Result |
