@@ -27,9 +27,13 @@ egress, which is the binding cost constraint for this project.
 
 L1 removes that single point of failure from the hot path: it serves hits
 with no network call, so the cache keeps working whether or not Upstash is
-reachable, in quota, or configured at all. L2 is still written and read
-(best-effort) so a process restart can warm from it and so a future
-multi-instance deployment keeps a shared tier.
+reachable, in quota, or configured at all. When enabled, L2 is written and
+read (best-effort) so a process restart can warm from it and a future
+multi-instance deployment can keep a shared tier.
+
+2026-11-16: the cap was hit again on 2026-11-11 from crawler-driven one-off
+keys. The middleware no longer touches L2 unless read_cache_l2_enabled is
+set; the circuit breaker stays for when it is.
 
 L1 is bounded by BOTH entry size and total bytes - the sitemap response is
 ~1.7MB, so an unbounded map would be a memory leak on a 512MB instance.
@@ -162,6 +166,7 @@ def l1_set(key: str, value: str, ttl_seconds: int) -> None:
 
 _L2_FAILURE_THRESHOLD = 3
 _L2_COOLDOWN_SECONDS = 300.0
+_L2_QUOTA_COOLDOWN_SECONDS = 6 * 60 * 60.0
 
 _L2_LOCK = Lock()
 _L2_CONSECUTIVE_FAILURES = 0
@@ -207,30 +212,36 @@ def _l2_note_success() -> None:
         logger.info("cache L2 recovered - circuit closed")
 
 
-def _l2_note_failure(operation: str, key: str) -> None:
+def _l2_note_failure(operation: str, key: str, error: Exception) -> None:
     """Record a failure and open the circuit once the threshold is hit.
 
-    The traceback is logged only while the circuit is closed. Repeating it
-    for every request during a multi-day outage is what made a best-effort
-    dependency expensive to have broken.
+    Generic errors log a traceback on the first opening. Quota exhaustion
+    uses a longer cooldown and one warning line without a traceback.
     """
     global _L2_CONSECUTIVE_FAILURES, _L2_OPEN_UNTIL
+
+    quota_exhausted = "max requests limit exceeded" in str(error)
+    cooldown = _L2_QUOTA_COOLDOWN_SECONDS if quota_exhausted else _L2_COOLDOWN_SECONDS
 
     with _L2_LOCK:
         _L2_CONSECUTIVE_FAILURES += 1
         failures = _L2_CONSECUTIVE_FAILURES
         just_opened = failures == _L2_FAILURE_THRESHOLD
         if failures >= _L2_FAILURE_THRESHOLD:
-            _L2_OPEN_UNTIL = _now() + _L2_COOLDOWN_SECONDS
+            _L2_OPEN_UNTIL = _now() + cooldown
 
     if failures < _L2_FAILURE_THRESHOLD:
         logger.warning("cache %s failed for key=%s - treating as miss", operation, key)
     elif just_opened:
         logger.warning(
-            "cache L2 failed %d times consecutively - skipping L2 for %.0fs",
+            (
+                "cache L2 quota exhausted after %d failures - skipping L2 for %.0fs"
+                if quota_exhausted
+                else "cache L2 failed %d times consecutively - skipping L2 for %.0fs"
+            ),
             failures,
-            _L2_COOLDOWN_SECONDS,
-            exc_info=True,
+            cooldown,
+            exc_info=not quota_exhausted,
         )
     else:
         # A post-cooldown probe failed, so the circuit re-opens. Logging it
@@ -238,9 +249,15 @@ def _l2_note_failure(operation: str, key: str) -> None:
         # is the point: silence here would trade per-request spam for no
         # signal at all that a dependency is still down.
         logger.warning(
-            "cache L2 still failing after %d attempts - skipping L2 for another %.0fs",
+            (
+                "cache L2 quota exhausted, still failing after %d attempts "
+                "- skipping L2 for another %.0fs"
+                if quota_exhausted
+                else "cache L2 still failing after %d attempts - skipping L2 for another %.0fs"
+            ),
             failures,
-            _L2_COOLDOWN_SECONDS,
+            cooldown,
+            exc_info=False,
         )
 
 
@@ -277,8 +294,8 @@ async def cache_get(
 
     try:
         value = await asyncio.wait_for(redis.get(key), timeout=_CALL_TIMEOUT_SECONDS)
-    except Exception:
-        _l2_note_failure("read", key)
+    except Exception as exc:
+        _l2_note_failure("read", key, exc)
         return None
 
     _l2_note_success()
@@ -309,8 +326,8 @@ async def cache_set(
         return
     try:
         await asyncio.wait_for(redis.set(key, value, ex=ttl_seconds), timeout=_CALL_TIMEOUT_SECONDS)
-    except Exception:
-        _l2_note_failure("write", key)
+    except Exception as exc:
+        _l2_note_failure("write", key, exc)
         return
 
     _l2_note_success()

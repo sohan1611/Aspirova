@@ -22,7 +22,8 @@ from api import middleware
 from api.deps import _engine
 from api.main import app
 from core import ratelimit
-from core.config import get_settings
+from core.config import Settings, get_settings
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 client = TestClient(app)
@@ -50,6 +51,7 @@ class FakeAsyncRedis:
         self._store: dict[str, str] = {}
         self._ttls: dict[str, int | None] = {}
         self.set_calls = 0
+        self.calls: list[str] = []
 
     async def eval(self, script, keys, args):
         key = keys[0]
@@ -58,9 +60,11 @@ class FakeAsyncRedis:
         return self._counters[key]
 
     async def get(self, key):
+        self.calls.append("GET")
         return self._store.get(key)
 
     async def set(self, key, value, ex=None, **kwargs):
+        self.calls.append("SET")
         self.set_calls += 1
         self._store[key] = value
         self._ttls[key] = ex
@@ -82,6 +86,57 @@ class BrokenAsyncRedis:
 
     async def set(self, *args, **kwargs):
         raise ConnectionError("simulated Upstash outage")
+
+
+@pytest.mark.parametrize("l2_enabled", [False, True], ids=["default-off", "enabled"])
+def test_read_cache_l2_flag_preserves_l1_and_controls_redis_calls(monkeypatch, l2_enabled) -> None:
+    from core import cache as cache_module
+
+    assert Settings.model_fields["read_cache_l2_enabled"].default is False
+    settings = Settings(_env_file=None, read_cache_l2_enabled=l2_enabled, l1_cache_enabled=True)
+    monkeypatch.setattr(middleware, "get_settings", lambda: settings)
+    monkeypatch.setattr(cache_module, "get_settings", lambda: settings)
+    fake = FakeAsyncRedis()
+    redis_client_calls = []
+
+    def fake_get_redis():
+        redis_client_calls.append("get_redis")
+        return fake
+
+    monkeypatch.setattr(middleware, "get_redis", fake_get_redis)
+    # The throwaway app declares its own /feed; keep its route-param lookup out of
+    # the module cache the real app shares, or later /feed keys collide.
+    monkeypatch.setattr(middleware, "_ROUTE_QUERY_PARAM_CACHE", {})
+    test_app = FastAPI()
+    test_app.add_middleware(middleware.ReadCacheMiddleware)
+    route_calls = []
+
+    @test_app.get("/feed")
+    async def feed() -> dict[str, bool]:
+        route_calls.append("feed")
+        return {"ok": True}
+
+    with TestClient(test_app) as test_client:
+        first = test_client.get("/feed")
+        assert first.status_code == 200
+        assert first.headers["X-Cache"] == "MISS"
+        assert fake.calls == (["GET", "SET"] if l2_enabled else [])
+
+        second = test_client.get("/feed")
+
+    assert second.status_code == 200
+    assert second.headers["X-Cache"] == "HIT"
+    assert first.json() == second.json() == {"ok": True}
+    assert (
+        first.headers["Cache-Control"]
+        == second.headers["Cache-Control"]
+        == ("public, max-age=120, s-maxage=900, stale-while-revalidate=3600")
+    )
+    assert route_calls == ["feed"]
+    assert fake.calls == (["GET", "SET"] if l2_enabled else [])
+    assert redis_client_calls == (["get_redis", "get_redis"] if l2_enabled else [])
+    if l2_enabled:
+        assert _last_cache_ttl(fake) == settings.read_cache_ttl_seconds
 
 
 def test_burst_of_requests_is_throttled_with_429_and_retry_after(monkeypatch) -> None:
@@ -299,6 +354,7 @@ def test_repeated_feed_request_is_served_from_cache_without_a_db_query(monkeypat
 
 
 def test_long_cache_prefix_uses_long_ttl_and_cache_control(monkeypatch) -> None:
+    monkeypatch.setattr(get_settings(), "read_cache_l2_enabled", True)
     fake = FakeAsyncRedis()
     monkeypatch.setattr(middleware, "get_redis", lambda: fake)
 
@@ -314,6 +370,7 @@ def test_long_cache_prefix_uses_long_ttl_and_cache_control(monkeypatch) -> None:
 
 
 def test_junk_query_params_collapse_to_declared_route_cache_key(monkeypatch) -> None:
+    monkeypatch.setattr(get_settings(), "read_cache_l2_enabled", True)
     fake = FakeAsyncRedis()
     monkeypatch.setattr(middleware, "get_redis", lambda: fake)
 
@@ -339,6 +396,7 @@ def test_request_query_param_cache_has_been_removed() -> None:
 
 
 def test_declared_feed_query_params_stay_separate_cache_entries(monkeypatch) -> None:
+    monkeypatch.setattr(get_settings(), "read_cache_l2_enabled", True)
     fake = FakeAsyncRedis()
     monkeypatch.setattr(middleware, "get_redis", lambda: fake)
 
@@ -361,6 +419,7 @@ def test_declared_feed_query_params_stay_separate_cache_entries(monkeypatch) -> 
 
 
 def test_repeated_feed_query_params_preserve_distinct_cache_entries(monkeypatch) -> None:
+    monkeypatch.setattr(get_settings(), "read_cache_l2_enabled", True)
     fake = FakeAsyncRedis()
     monkeypatch.setattr(middleware, "get_redis", lambda: fake)
 
@@ -385,6 +444,7 @@ def test_repeated_feed_query_params_preserve_distinct_cache_entries(monkeypatch)
 
 
 def test_standard_cacheable_path_uses_read_ttl_and_cache_control(monkeypatch) -> None:
+    monkeypatch.setattr(get_settings(), "read_cache_l2_enabled", True)
     fake = FakeAsyncRedis()
     monkeypatch.setattr(middleware, "get_redis", lambda: fake)
 
@@ -411,6 +471,7 @@ def test_standard_cacheable_path_uses_read_ttl_and_cache_control(monkeypatch) ->
     ),
 )
 def test_trending_and_for_you_are_cacheable(monkeypatch, path, params, ip) -> None:
+    monkeypatch.setattr(get_settings(), "read_cache_l2_enabled", True)
     fake = FakeAsyncRedis()
     monkeypatch.setattr(middleware, "get_redis", lambda: fake)
 
@@ -436,6 +497,7 @@ def test_trending_and_for_you_are_cacheable(monkeypatch, path, params, ip) -> No
 
 
 def test_for_you_cache_key_ignores_junk_but_keeps_declared_limit(monkeypatch) -> None:
+    monkeypatch.setattr(get_settings(), "read_cache_l2_enabled", True)
     fake = FakeAsyncRedis()
     monkeypatch.setattr(middleware, "get_redis", lambda: fake)
 
@@ -467,6 +529,7 @@ def test_for_you_cache_key_ignores_junk_but_keeps_declared_limit(monkeypatch) ->
 
 
 def test_company_detail_path_stays_on_standard_cache_tier(monkeypatch) -> None:
+    monkeypatch.setattr(get_settings(), "read_cache_l2_enabled", True)
     fake = FakeAsyncRedis()
     monkeypatch.setattr(middleware, "get_redis", lambda: fake)
 
@@ -505,6 +568,7 @@ def test_auth_path_does_not_get_public_cache_control(monkeypatch) -> None:
 
 
 def test_cache_fails_open_when_redis_unreachable(monkeypatch) -> None:
+    monkeypatch.setattr(get_settings(), "read_cache_l2_enabled", True)
     monkeypatch.setattr(middleware, "get_redis", lambda: BrokenAsyncRedis())
     response = client.get(
         "/feed",
@@ -600,6 +664,7 @@ class QuotaExceededAsyncRedis:
 def test_cache_still_serves_hits_when_upstash_is_out_of_quota(monkeypatch) -> None:
     """The regression test for the real outage: an exhausted Upstash quota
     must NOT silently send every public request to Postgres."""
+    monkeypatch.setattr(get_settings(), "read_cache_l2_enabled", True)
     broken = QuotaExceededAsyncRedis()
     monkeypatch.setattr(middleware, "get_redis", lambda: broken)
 
@@ -783,7 +848,7 @@ def test_l2_circuit_allows_one_probe_per_cooldown_and_closes_on_recovery(
     assert cache_module.l2_circuit_open() is True
 
     # Still inside the cooldown: no further calls.
-    clock["now"] += cache_module._L2_COOLDOWN_SECONDS - 1
+    clock["now"] += cache_module._L2_QUOTA_COOLDOWN_SECONDS - 1
     asyncio.run(cache_module.cache_get(broken, "p:during", l1_ttl_seconds=60))
     assert broken.get_calls == calls_when_open
 
@@ -794,7 +859,7 @@ def test_l2_circuit_allows_one_probe_per_cooldown_and_closes_on_recovery(
     assert cache_module.l2_circuit_open() is True
 
     # A later probe against a recovered L2 closes the circuit.
-    clock["now"] += cache_module._L2_COOLDOWN_SECONDS + 1
+    clock["now"] += cache_module._L2_QUOTA_COOLDOWN_SECONDS + 1
     asyncio.run(cache_module.cache_set(healthy, "p:ok", "v", 60))
     assert cache_module.l2_circuit_open() is False
 
@@ -839,8 +904,79 @@ def test_l2_circuit_keeps_a_long_outage_visible_once_per_cooldown(monkeypatch, c
 
     with caplog.at_level(logging.WARNING, logger="core.cache"):
         for probe in range(3):
-            clock["now"] += cache_module._L2_COOLDOWN_SECONDS + 1
+            clock["now"] += cache_module._L2_QUOTA_COOLDOWN_SECONDS + 1
             asyncio.run(cache_module.cache_get(broken, f"o:probe{probe}", l1_ttl_seconds=60))
 
     still_failing = [r for r in caplog.records if "still failing" in r.getMessage()]
     assert len(still_failing) == 3
+
+
+@pytest.mark.parametrize("operation", ["read", "write"])
+@pytest.mark.parametrize(
+    ("message", "cooldown", "quota_exhausted"),
+    [
+        ("ERR max requests limit exceeded. Limit: 500000, Usage: 500000", 21600, True),
+        ("simulated Upstash outage", 300, False),
+    ],
+)
+def test_l2_error_cooldown_and_opening_log(
+    monkeypatch, caplog, operation, message, cooldown, quota_exhausted
+) -> None:
+    from core import cache as cache_module
+
+    cache_module.reset_l2_circuit()
+    clock = {"now": 1_000.0}
+    monkeypatch.setattr(cache_module, "_now", lambda: clock["now"])
+    calls = []
+
+    class FailingRedis:
+        async def get(self, *args, **kwargs):
+            calls.append("read")
+            raise RuntimeError(message)
+
+        async def set(self, *args, **kwargs):
+            calls.append("write")
+            raise RuntimeError(message)
+
+    broken = FailingRedis()
+
+    async def attempt() -> None:
+        if operation == "read":
+            assert await cache_module.cache_get(broken, "cooldown:k") is None
+        else:
+            await cache_module.cache_set(broken, "cooldown:k", "v", 60)
+
+    for _ in range(cache_module._L2_FAILURE_THRESHOLD - 1):
+        asyncio.run(attempt())
+        assert not cache_module.l2_circuit_open()
+
+    caplog.clear()
+    asyncio.run(attempt())
+    assert cache_module.l2_circuit_open()
+    assert calls == [operation] * cache_module._L2_FAILURE_THRESHOLD
+    assert len(caplog.records) == 1
+    opening = caplog.records[0]
+    assert opening.levelname == "WARNING"
+    assert (not opening.exc_info) == quota_exhausted
+    assert ("quota exhausted" in opening.getMessage()) == quota_exhausted
+    assert f"{cooldown}s" in opening.getMessage()
+
+    caplog.clear()
+    clock["now"] += cooldown - 1
+    assert cache_module.l2_circuit_open()
+    asyncio.run(attempt())
+    assert len(calls) == cache_module._L2_FAILURE_THRESHOLD
+    assert not caplog.records
+
+    clock["now"] += 1
+    assert not cache_module.l2_circuit_open()
+    asyncio.run(attempt())
+    assert len(calls) == cache_module._L2_FAILURE_THRESHOLD + 1
+    assert cache_module.l2_circuit_open()
+    assert len(caplog.records) == 1
+    assert not caplog.records[0].exc_info
+    assert ("quota exhausted" in caplog.records[0].getMessage()) == quota_exhausted
+    clock["now"] += cooldown - 1
+    assert cache_module.l2_circuit_open()
+    clock["now"] += 1
+    assert not cache_module.l2_circuit_open()

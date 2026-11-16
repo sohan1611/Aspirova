@@ -669,6 +669,7 @@ def test_programme_tag_map_matches_taxonomy_and_registry_vocabulary() -> None:
 def test_programme_routes_carry_long_cache_control(
     client: TestClient, seeded_programmes, monkeypatch
 ) -> None:
+    monkeypatch.setattr(get_settings(), "read_cache_l2_enabled", True)
     fake = FakeAsyncRedis()
     monkeypatch.setattr(middleware, "get_redis", lambda: fake)
 

@@ -80,6 +80,12 @@ class Settings(BaseSettings):
     stats_cache_ttl_seconds: int = 900
     copilot_cache_ttl_seconds: int = 3600
 
+    # L2 (Upstash) for the public read cache is off by default: the service
+    # runs one instance and L1 has the same visibility. Turn it on with
+    # READ_CACHE_L2_ENABLED=true only for a multi-instance deployment, and
+    # re-check Upstash's monthly quota first.
+    read_cache_l2_enabled: bool = False
+
     # In-process (L1) read cache. Render runs ONE instance with no
     # autoscaling, so a process-local entry is as visible as a shared Redis
     # one and costs no Upstash command - the same reasoning that makes the
