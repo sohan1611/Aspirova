@@ -33,7 +33,7 @@ def send_email(
                 "from": _format_from(settings.resend_from_name, settings.resend_from_email),
                 "to": [to],
                 "subject": subject,
-                "html": html,
+                **({"html": html} if html else {}),
                 "text": text,
                 **({"headers": headers} if headers else {}),
             }

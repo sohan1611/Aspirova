@@ -20,6 +20,7 @@ from core.config import get_settings
 from core.email_components import MUTED, TABLE, greeting, opportunity_card, section, status_panel
 from core.email_templates import email_layout, text_footer
 from core.gating import can
+from core.mail_recipients import lock_recipient, recipient_filters
 from core.unsubscribe import list_unsubscribe_headers, unsubscribe_url
 from pipeline.notifications import send_email, wants
 
@@ -296,7 +297,7 @@ def send_weekly_reports(session: Session, *, now: datetime | None = None) -> dic
     }
 
     recipients: list[models.User] = []
-    for user in session.scalars(select(models.User)).all():
+    for user in session.scalars(select(models.User).where(*recipient_filters())).all():
         if not can(session, user, "weekly_report"):
             result["skipped_ineligible"] += 1
             continue
@@ -318,6 +319,9 @@ def send_weekly_reports(session: Session, *, now: datetime | None = None) -> dic
 
     for user in recipients:
         try:
+            user = lock_recipient(session, user.id)
+            if user is None:
+                continue
             data = WeeklyReportData(
                 dream_company_matches=_recent_dream_company_matches(
                     session, user.id, since, current
@@ -348,5 +352,7 @@ def send_weekly_reports(session: Session, *, now: datetime | None = None) -> dic
             logger.exception("weekly report failed for user %s", user.id)
             result["failed"] += 1
             continue
+        finally:
+            session.commit()
 
     return result

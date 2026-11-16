@@ -35,6 +35,7 @@ from core.config import get_settings
 from core.email_client import send_email
 from core.email_templates import subscription_layout, text_footer
 from core.gating import active_subscription_filters
+from core.mail_recipients import lock_recipient
 
 router = APIRouter()
 
@@ -87,7 +88,7 @@ def _send_subscription_status_email(
     """Best-effort customer email plus delivery record after a status transition."""
 
     try:
-        user = db.scalar(select(models.User).where(models.User.id == subscription.user_id))
+        user = lock_recipient(db, subscription.user_id, skip_locked=False)
         if user is None or not user.email:
             return
 

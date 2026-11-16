@@ -382,7 +382,9 @@ class User(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
     )
-    email: Mapped[str] = mapped_column(CITEXT, unique=True, nullable=False)
+    email: Mapped[str | None] = mapped_column(CITEXT, unique=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deletion_pending: Mapped[list | None] = mapped_column(JSONB)
     invite_code: Mapped[str | None] = mapped_column(Text, unique=True)
     display_name: Mapped[str | None] = mapped_column(Text)
     college: Mapped[str | None] = mapped_column(Text)
@@ -392,7 +394,7 @@ class User(Base):
     skills: Mapped[list | None] = mapped_column(JSONB)
     exposure: Mapped[dict | None] = mapped_column(JSONB)
     resume: Mapped[dict | None] = mapped_column(JSONB)
-    created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
+    created_at: Mapped[datetime | None] = mapped_column(server_default=text("now()"))
     referred_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id")
     )

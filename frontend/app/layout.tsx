@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Inter, Source_Serif_4, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 import AppFooter from "@/components/AppFooter";
+import AccountDeletionToast from "@/components/AccountDeletionToast";
 import AppHeader from "@/components/AppHeader";
 import MobileTabBar from "@/components/MobileTabBar";
 import { BookmarksProvider } from "@/components/BookmarksProvider";
@@ -96,6 +97,7 @@ export default function RootLayout({
           <AppFooter />
           <MobileTabBar />
           <Toaster />
+          <AccountDeletionToast />
         </ThemeProvider>
         {/* Aspirova had no analytics of any kind, so "12 registered users" was a
             number with no story attached: nobody arriving, and many arriving and

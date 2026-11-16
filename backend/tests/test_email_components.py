@@ -497,6 +497,8 @@ def test_missing_signing_key_omits_unsubscribe_links_and_headers(kind, monkeypat
     )
     item = previews.sample_opportunities(1)[0]
     session = Mock()
+    # Senders re-lock each recipient (core.mail_recipients.lock_recipient).
+    session.scalar.return_value = user
     users = Mock()
     users.all.return_value = [user]
     send = Mock(return_value=True)
@@ -509,8 +511,11 @@ def test_missing_signing_key_omits_unsubscribe_links_and_headers(kind, monkeypat
         monkeypatch.setattr(notifications, "send_email", send)
         notifications.send_closing_soon_alerts(session, now=NOW)
     elif kind == "saved_search":
-        saved = models.SavedSearch(id=42, user_id=user.id, params={}, created_at=NOW)
+        saved = models.SavedSearch(
+            id=42, user_id=user.id, params={}, created_at=NOW, alerts_enabled=True
+        )
         session.execute.return_value.all.return_value = [(saved, user)]
+        session.get.return_value = saved  # the sender reloads the search before sending
         session.scalars.return_value.unique.return_value.all.return_value = [item]
         monkeypatch.setattr(saved_alerts, "send_email", send)
         saved_alerts.send_saved_search_alerts(session, now=NOW)

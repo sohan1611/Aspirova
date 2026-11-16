@@ -105,7 +105,7 @@ export default function PrivacyPage() {
         <p className="mt-3 text-base leading-7 text-muted-foreground">
           If you used an earlier version of resume matching, we may also hold a
           mathematical embedding of your resume, which is a list of numbers
-          rather than its text. Email us to have it removed. If AI matching is
+          rather than its text. Account deletion also removes this embedding. If AI matching is
           turned on in future, your resume text would be sent to our embedding
           provider to create that embedding, and we&apos;d update this policy first.
         </p>
@@ -203,8 +203,11 @@ export default function PrivacyPage() {
         </h2>
         <p className="mt-4 text-base leading-7 text-muted-foreground">
           We keep account information while your account exists. Raw crawl
-          data is kept on a rolling retention basis. Encrypted backup copies
-          are retained in our backup systems. When you remove your resume, we
+          data is kept on a rolling retention basis. Encrypted database and Auth
+          backups keep 7 daily copies and the 4 newest weekly copies. DigitalOcean
+          also keeps 7 daily droplet backups. These rotate as backups run; a stopped
+          backup schedule can delay expiry. The final migration archive from
+          November 2, 2026 has no automatic expiry. When you remove your resume, we
           delete the stored PDF straight away. Related account records can remain
           in encrypted backups until those backups expire.
         </p>
@@ -220,8 +223,25 @@ export default function PrivacyPage() {
           >
             your account
           </Link>{" "}
-          and turn off emails in your notification preferences. To request
-          access to or deletion of your information, email <ContactEmail />. You can download a copy of your account data any time from Account, under Security.
+          and turn off emails in your notification preferences. Under Account → Security,
+          choose Delete account and type DELETE to permanently delete your profile,
+          saved and tracked listings, saved searches, followed companies, watched
+          programmes, notifications, resume file and embedding, referral links, and
+          bug reports tied to your account. Cancel any renewing paid subscription under
+          Subscription first so it will not renew; deletion can proceed once it is
+          scheduled to cancel. We may ask you to sign in again. We attempt one deletion
+          confirmation email using your captured address after deletion is recorded.
+          We stop submitting alerts and reports. Email already handed to a delivery
+          provider may still arrive.
+        </p>
+        <p className="mt-4 text-base leading-7 text-muted-foreground">
+          Account access is disabled when deletion is recorded. We retry any failed
+          removal of the resume file or sign-in identity. We retain a record containing
+          your account ID and deletion time to prevent access, along with billing
+          records required for tax and accounting. Backup copies follow the retention
+          schedule and archive exception above. You can download a copy of your
+          account data from Account → Security before deleting it. For other privacy
+          requests, email <ContactEmail />.
         </p>
 
         <h2 className="mt-12 scroll-mt-24 font-serif text-2xl font-bold tracking-tight text-foreground">

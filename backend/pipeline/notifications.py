@@ -41,6 +41,7 @@ from core.email_components import (
 )
 from core.email_templates import email_layout, text_footer
 from core.gating import can
+from core.mail_recipients import lock_recipient, recipient_filters
 from core.organisers import REPUTED_ORGANISER_REGEX
 from core.unsubscribe import list_unsubscribe_headers, unsubscribe_url
 from pipeline.company_alert_email import CompanyAlertGroup, render_company_alert
@@ -95,6 +96,7 @@ def _record_notification(
     status: str,
     meta: dict | None = None,
     now: datetime | None = None,
+    commit: bool = True,
 ) -> None:
     session.add(
         models.Notification(
@@ -106,7 +108,8 @@ def _record_notification(
             meta=meta,
         )
     )
-    session.commit()
+    if commit:
+        session.commit()
 
 
 def _already_sent_today(session: Session, user_id, notification_type: str, now: datetime) -> bool:
@@ -729,14 +732,14 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
     result = {"sent": 0, "failed": 0, "skipped_capped": 0, "skipped_empty": 0}
     picks = _HackathonPicks(session, now)
 
-    for user in session.scalars(select(models.User)).all():
+    for user in session.scalars(select(models.User).where(*recipient_filters())).all():
         try:
             # The same user lock protects collection, the UTC-day cap and the
             # outbound send across overlapping scheduler runs. Contenders skip
             # this reader; the worker holding the lock completes their digest.
             locked_user = session.scalar(
                 select(models.User)
-                .where(models.User.id == user.id)
+                .where(models.User.id == user.id, *recipient_filters())
                 .with_for_update(skip_locked=True)
                 .execution_options(populate_existing=True)
             )
@@ -806,6 +809,8 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
             logger.exception("daily digest failed for user %s", user.id)
             result["failed"] += 1
             continue
+        finally:
+            session.commit()
 
     return result
 
@@ -825,14 +830,18 @@ def send_company_alerts(
     }
     users = session.scalars(
         select(models.User).where(
+            *recipient_filters(),
             select(models.DreamCompany.id)
             .where(models.DreamCompany.user_id == models.User.id)
-            .exists()
+            .exists(),
         )
     ).all()
     for user in users:
         user_id = user.id
         try:
+            user = lock_recipient(session, user_id)
+            if user is None:
+                continue
             if not user.email or not wants(user, "instant_alerts"):
                 result["skipped_not_eligible"] += 1
                 continue
@@ -930,6 +939,8 @@ def send_company_alerts(
             session.rollback()
             logger.exception("company alert failed for user %s", user_id)
             result["failed"] += 1
+        finally:
+            session.commit()
     return result
 
 
@@ -944,8 +955,11 @@ def send_closing_soon_alerts(
     cutoff = now + timedelta(days=within_days)
     result = {"users_notified": 0, "opportunities": 0, "failed": 0}
 
-    for user in session.scalars(select(models.User)).all():
+    for user in session.scalars(select(models.User).where(*recipient_filters())).all():
         try:
+            user = lock_recipient(session, user.id)
+            if user is None:
+                continue
             if not wants(user, "closing_soon"):
                 continue
 
@@ -1012,6 +1026,7 @@ def send_closing_soon_alerts(
                     "closing_soon",
                     opportunity_id=opportunity.id,
                     status=status,
+                    commit=False,
                 )
 
             if sent:
@@ -1024,6 +1039,8 @@ def send_closing_soon_alerts(
             logger.exception("closing-soon alert failed for user %s", user.id)
             result["failed"] += 1
             continue
+        finally:
+            session.commit()
 
     return result
 
