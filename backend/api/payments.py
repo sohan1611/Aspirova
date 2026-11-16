@@ -36,6 +36,7 @@ from core.email_client import send_email
 from core.email_templates import subscription_layout, text_footer
 from core.gating import active_subscription_filters
 from core.mail_recipients import lock_recipient
+from core.plans import RETIRED_PLAN_KEYS
 
 router = APIRouter()
 
@@ -47,15 +48,6 @@ PLAN_CHANGE_POLICY_DETAIL = (
     "can't modify an active subscription. Cancel your current plan (you keep "
     "access until it ends), then subscribe to the plan you want."
 )
-
-# Plans deliberately withdrawn from sale (founder decision 2026-07-22).
-# pro_lite_annual: under the cancel-then-resubscribe policy, a mistaken Pro
-# Lite Annual purchase would lock the customer into the bottom tier for a FULL
-# YEAR with no way up. The plans row and the Razorpay plan object remain
-# (Razorpay plans cannot be deleted; the row is historical data) - checkout
-# simply refuses it. Verified in prod before retiring: nobody was ever
-# subscribed to it.
-RETIRED_PLAN_KEYS = frozenset({"pro_lite_annual"})
 
 # Razorpay subscription-lifecycle events this handler acts on -> our
 # subscriptions.status. Events not listed here (e.g. subscription.

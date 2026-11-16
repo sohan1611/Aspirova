@@ -49,12 +49,6 @@ const FALLBACK_PLANS: PlanPublic[] = [
     features: PRO_LITE_FEATURES,
   },
   {
-    key: "pro_lite_annual",
-    price_paise: 39900,
-    billing: "annual",
-    features: PRO_LITE_FEATURES,
-  },
-  {
     key: "pro_monthly",
     price_paise: 4900,
     billing: "monthly",

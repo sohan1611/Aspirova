@@ -238,15 +238,16 @@ class ReadCacheMiddleware(BaseHTTPMiddleware):
     TTL-only for now - see core/cache.py for why version-bump invalidation
     is deferred.
 
-    Reads L1 (in-process) before L2 (Upstash) and writes both, so the cache
-    keeps serving when Upstash is out of quota or unreachable - the failure
-    mode that silently sent every public request to Postgres on 2026-08-18."""
+    Reads and writes L1 (in-process), with L2 (Upstash) only when enabled,
+    so the cache keeps serving when Upstash is out of quota or unreachable -
+    the failure mode that sent every public request to Postgres on 2026-08-18."""
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         if request.method != "GET" or not _is_cacheable(request.url.path):
             return await call_next(request)
 
-        redis = get_redis()
+        settings = get_settings()
+        redis = get_redis() if settings.read_cache_l2_enabled else None
         allowed_params = _allowed_cache_query_params(request)
         key = build_cache_key(
             request.url.path,

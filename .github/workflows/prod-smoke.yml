@@ -1,0 +1,50 @@
+name: Production smoke
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+  deployment_status:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prod-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    if: >-
+      github.event_name != 'deployment_status' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: smoke
+    env:
+      SMOKE_SITE_URL: https://www.aspirova.org
+      SMOKE_API_URL: https://aspirova-api.onrender.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        run: pip install uv
+      - name: Install smoke dependencies
+        run: uv sync
+      - name: Install Chromium
+        run: uv run playwright install --with-deps chromium
+      - name: Run anonymous production checks
+        run: uv run pytest -v
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          path: smoke/artifacts/
+          if-no-files-found: warn
+          retention-days: 7

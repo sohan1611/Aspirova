@@ -1,5 +1,6 @@
 export function planName(key: string): string {
   if (key === "free") return "Free";
+  if (key === "pro_lite_annual") return "Pro Lite (annual)";
   if (key.startsWith("pro_lite_")) return "Pro Lite";
   if (key.startsWith("pro_")) return "Pro";
   return key

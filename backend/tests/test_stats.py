@@ -175,6 +175,7 @@ class FakeCacheRedis:
 def test_stats_is_cached_for_its_route_specific_ttl(
     client: TestClient, db_session: Session, monkeypatch
 ) -> None:
+    monkeypatch.setattr(get_settings(), "read_cache_l2_enabled", True)
     fake = FakeCacheRedis()
     monkeypatch.setattr(middleware, "get_redis", lambda: fake)
     execute_count = 0
