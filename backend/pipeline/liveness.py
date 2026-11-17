@@ -21,6 +21,7 @@ from sqlalchemy import DateTime, cast, func, or_, select, text, update
 from sqlalchemy.orm import Session
 
 from core import models
+from core.listing_safety import without_safety_flag
 from crawlers.common import USER_AGENT, request_with_retries
 from crawlers.workday import REQUEST_DELAY_SECONDS, cxs_endpoints, tenant_lock
 from pipeline.retirement import ROLLING_WINDOW_SOURCES
@@ -168,6 +169,7 @@ def _select_candidates(session: Session, *, limit: int) -> list[LivenessCandidat
         select(models.Opportunity.id, models.Opportunity.apply_url)
         .where(
             models.Opportunity.status == "active",
+            without_safety_flag(),
             models.Opportunity.deadline.is_(None),
             models.Opportunity.closed_at.is_(None),
             models.Opportunity.last_seen_at < func.now() - text("interval '4 days'"),
@@ -235,6 +237,7 @@ def _mark_closed(session: Session, *, opportunity_ids: list[int], detected_at: d
         .where(
             models.Opportunity.id.in_(opportunity_ids),
             models.Opportunity.status == "active",
+            without_safety_flag(),
             models.Opportunity.closed_at.is_(None),
         )
         .values(closed_at=detected_at)
@@ -249,7 +252,11 @@ def _stamp_checked(session: Session, opportunity_ids: list[int], detected_at: da
     # search trigger returns without recomputing search_tsv.
     session.execute(
         update(models.Opportunity)
-        .where(models.Opportunity.id.in_(opportunity_ids))
+        .where(
+            models.Opportunity.id.in_(opportunity_ids),
+            models.Opportunity.status == "active",
+            without_safety_flag(),
+        )
         .values(
             meta=func.coalesce(
                 func.nullif(models.Opportunity.meta, text("'null'::jsonb")), text("'{}'::jsonb")

@@ -26,6 +26,7 @@ import { useSession } from "@/lib/useSession";
 import type { BugReportCategory } from "@/lib/types";
 
 const REPORT_CATEGORIES: Array<{ value: BugReportCategory; label: string }> = [
+  { value: "scam", label: "Looks like a scam or asks for a fee" },
   { value: "dead_link", label: "Dead link" },
   { value: "wrong_info", label: "Wrong info" },
   { value: "bug", label: "Something's broken" },

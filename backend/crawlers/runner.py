@@ -34,6 +34,7 @@ from sqlalchemy.orm import Session
 from core import models
 from core.adapters import RawListing
 from core.db import make_engine, verify_connection_guards
+from core.listing_safety import without_safety_flag
 from crawlers import watchdog
 from crawlers.amazon import AmazonAdapter
 from crawlers.arbeitnow import ArbeitnowAdapter
@@ -1196,6 +1197,22 @@ def _reopen_seen_rolling_listings(session: Session, seen_ids: list[int] | Select
             models.Opportunity.meta["closed_reason"].astext == "rolling_window_ttl",
             (models.Opportunity.deadline.is_(None)) | (models.Opportunity.deadline > func.now()),
             models.Opportunity.status == "active",
+            without_safety_flag(),
+        )
+        .values(closed_at=None, meta=meta_without_closed_reason())
+    )
+
+
+def _reopen_seen_inventory_listings(session: Session, seen_ids: list[int]) -> None:
+    """Full-inventory presence cannot override a founder's safety withdrawal."""
+    session.execute(
+        update(models.Opportunity)
+        .where(
+            models.Opportunity.id.in_(seen_ids),
+            models.Opportunity.status == "active",
+            without_safety_flag(),
+            models.Opportunity.closed_at.is_not(None),
+            (models.Opportunity.deadline.is_(None)) | (models.Opportunity.deadline > func.now()),
         )
         .values(closed_at=None, meta=meta_without_closed_reason())
     )
@@ -1499,16 +1516,7 @@ def crawl_aggregator(
                 # A source listing a listing as open is direct evidence it is open
                 # under the absence ruling; a past deadline still proves closure.
                 for start in range(0, len(seen_ids), 5000):
-                    session.execute(
-                        update(models.Opportunity)
-                        .where(
-                            models.Opportunity.id.in_(seen_ids[start : start + 5000]),
-                            models.Opportunity.closed_at.is_not(None),
-                            (models.Opportunity.deadline.is_(None))
-                            | (models.Opportunity.deadline > func.now()),
-                        )
-                        .values(closed_at=None, meta=meta_without_closed_reason())
-                    )
+                    _reopen_seen_inventory_listings(session, seen_ids[start : start + 5000])
             if source_label in ROLLING_WINDOW_SOURCES:
                 for start in range(0, len(seen_ids), 5000):
                     _reopen_seen_rolling_listings(session, seen_ids[start : start + 5000])

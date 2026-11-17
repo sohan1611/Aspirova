@@ -22,6 +22,7 @@ from pipeline.notifications import (
     _render_digest,
 )
 from pipeline.saved_search_alerts import _render_saved_search_alert
+from core.email_samples import saved_notice_samples
 from pipeline.weekly_report import WeeklyReportData, _render_weekly_report
 
 NOW = datetime(2026, 11, 8, 9, tzinfo=timezone.utc)
@@ -237,14 +238,25 @@ def preview_variants() -> dict[str, tuple[str, str, str]]:
     )
     for opportunity, days in zip(closing, [0, 1, 3]):
         opportunity.deadline = NOW + timedelta(days=days)
+    safety, closed = saved_notice_samples(NOW)
     subject, html = _render_closing_soon(
-        closing, NOW, unsub_url=UNSUBSCRIBE, display_name=user.display_name
+        closing,
+        NOW,
+        unsub_url=UNSUBSCRIBE,
+        display_name=user.display_name,
+        safety=safety,
+        closed=closed,
     )
     variants["closing-soon"] = (
         subject,
         html,
         _render_closing_soon_text(
-            closing, unsub_url=UNSUBSCRIBE, now=NOW, display_name=user.display_name
+            closing,
+            unsub_url=UNSUBSCRIBE,
+            now=NOW,
+            display_name=user.display_name,
+            safety=safety,
+            closed=closed,
         ),
     )
     saved = models.SavedSearch(name="Early-career roles in India", params={"country": "IN"})

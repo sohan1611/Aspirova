@@ -443,7 +443,8 @@ def test_new_notification_unsubscribe_changes_only_the_named_preference(db_sessi
     [
         (
             "closing_soon",
-            "You won't get deadline reminders for your saved opportunities any more. "
+            "You won't get updates about your saved opportunities (deadline reminders, "
+            "closures and safety warnings) by email any more. In-app warnings stay on. "
             "You can turn them back on in your account settings.",
         ),
         (

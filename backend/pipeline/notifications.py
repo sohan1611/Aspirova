@@ -7,7 +7,7 @@ opportunity list and appends shared hackathon picks. Legacy hackathon opt-outs
 suppress those picks. Each digest covers listings first seen since the
 reader's previous digest, never repeats what their last week of digests
 carried, and only carries listings that are still open; preview_daily_digest
-renders the same selection without sending or recording it. Closing-soon reminders keep their own preference.
+renders the same selection without sending or recording it. Saved-listing updates use the closing_soon email preference.
 All entitlements use can(), and sent notification rows provide deduplication.
 """
 
@@ -51,6 +51,11 @@ from pipeline.programme_watch_notifications import (
     mark_programme_watch_updates_emailed,
     programme_watch_updates,
     render_programme_watch_updates,
+)
+from pipeline.saved_listing_notifications import (
+    load_closure_notice_breaker,
+    collect_saved_listing_changes,
+    render_saved_notices,
 )
 
 
@@ -499,9 +504,9 @@ def _render_digest(
 
 
 _CLOSING_SOON_REASON = (
-    "You get this because you saved these listings and each deadline, as its source "
-    "states it, falls within the next 3 days. Turn these reminders off under Manage "
-    "email preferences."
+    "You get this because you saved these listings. A deadline shown here, as its source states it, "
+    "falls within the next 3 days; early closures and safety warnings are included too. "
+    "Turn email off under Manage email preferences. In-app warnings stay on."
 )
 
 
@@ -511,7 +516,10 @@ def _render_closing_soon(
     unsub_url: str | None = None,
     *,
     display_name: str | None = None,
+    safety: list[models.Opportunity] | None = None,
+    closed: list[models.Opportunity] | None = None,
 ) -> tuple[str, str]:
+    safety, closed = safety or [], closed or []
     if len(opportunities) == 1:
         opportunity = opportunities[0]
         assert opportunity.deadline is not None
@@ -526,6 +534,11 @@ def _render_closing_soon(
     else:
         subject = f"{len(opportunities)} opportunities closing soon"
 
+    if safety:
+        subject = "Safety warning about a listing you saved"
+    elif closed:
+        subject = "A listing you saved has closed"
+
     items = sorted(
         (o for o in opportunities if o.deadline is not None), key=lambda o: _utc(o.deadline)
     )
@@ -533,22 +546,39 @@ def _render_closing_soon(
         opportunity_card(o, now=now, button_url=o.apply_url, deadline_policy="any")[0]
         for o in items
     ]
+    safety_html, _ = render_saved_notices(safety, safety=True, now=now)
+    closed_html, _ = render_saved_notices(closed, safety=False, now=now)
     count = len(opportunities)
     summary = (
         f"{count} saved {'opportunity closes' if count == 1 else 'opportunities close'} "
         "in the next 3 days"
     )
+    if safety or closed:
+        # Name only the sections present, singular when there is one item.
+        summary = ", ".join(
+            f"{n} {singular if n == 1 else plural}"
+            for n, singular, plural in (
+                (len(safety), "safety warning", "safety warnings"),
+                (len(closed), "early closure", "early closures"),
+                (count, "closing soon", "closing soon"),
+            )
+            if n
+        )
     html = email_layout(
-        title="Opportunities closing soon",
-        kind_label="Closing soon",
+        title="Saved listing updates",
+        kind_label="Saved listings",
         unsubscribe_url=unsub_url,
         greeting=greeting(display_name),
         summary=summary,
         preheader=summary,
-        body_html="".join(cards)
+        body_html=safety_html
+        + closed_html
+        + (section("Closing soon", count, "".join(cards)) if cards else "")
         + (
             f'<p class="em-muted" style="color:{MUTED};font-size:14px;line-height:20px">'
             "Deadlines can change. Please verify them at the linked source.</p>"
+            if cards
+            else ""
         ),
         cta_label="Review your saved opportunities",
         cta_url=f"{get_settings().site_url.rstrip('/')}/saved",
@@ -563,6 +593,8 @@ def _render_closing_soon_text(
     *,
     display_name: str | None = None,
     now: datetime | None = None,
+    safety: list[models.Opportunity] | None = None,
+    closed: list[models.Opportunity] | None = None,
 ) -> str:
     current = now or datetime.now(timezone.utc)
     items = sorted(
@@ -572,15 +604,21 @@ def _render_closing_soon_text(
         opportunity_card(o, now=current, button_url=o.apply_url, deadline_policy="any")[1]
         for o in items
     ]
+    _, safety_text = render_saved_notices(safety or [], safety=True, now=current)
+    _, closed_text = render_saved_notices(closed or [], safety=False, now=current)
     return "\n\n".join(
-        [
+        part
+        for part in [
             greeting(display_name),
-            "Your bookmarked opportunities are closing soon:",
+            safety_text,
+            closed_text,
+            "Closing soon" if cards else "",
             *cards,
-            "Deadlines can change. Please verify them at the linked source.",
+            "Deadlines can change. Please verify them at the linked source." if cards else "",
             _CLOSING_SOON_REASON,
             text_footer(unsub_url),
         ]
+        if part
     )
 
 
@@ -954,12 +992,24 @@ def send_closing_soon_alerts(
     now = now or datetime.now(timezone.utc)
     cutoff = now + timedelta(days=within_days)
     result = {"users_notified": 0, "opportunities": 0, "failed": 0}
+    breaker = load_closure_notice_breaker(session, now)
 
     for user in session.scalars(select(models.User).where(*recipient_filters())).all():
         try:
             user = lock_recipient(session, user.id)
             if user is None:
                 continue
+            # Serialize only this worker across scheduler retries. Keep the shared
+            # recipient lock (never FOR UPDATE) so browsing is not serialized.
+            if not session.scalar(
+                select(
+                    func.pg_try_advisory_xact_lock(
+                        func.hashtext("saved_listing_notices"), func.hashtext(str(user.id))
+                    )
+                )
+            ):
+                continue
+            pending = collect_saved_listing_changes(session, user, now, breaker=breaker)
             if not wants(user, "closing_soon"):
                 continue
 
@@ -1001,23 +1051,39 @@ def send_closing_soon_alerts(
                     notification_type="closing_soon",
                 )
             ]
-            if not opportunities:
+            safety = [o for row, o in pending if row.type == "saved_safety"]
+            closed = [o for row, o in pending if row.type == "saved_closed"]
+            if not opportunities and not pending:
                 continue
 
             unsub_url = unsubscribe_url(user.id, "closing_soon")
             subject, html = _render_closing_soon(
-                opportunities, now, unsub_url, display_name=user.display_name
+                opportunities,
+                now,
+                unsub_url,
+                display_name=user.display_name,
+                safety=safety,
+                closed=closed,
             )
             text = _render_closing_soon_text(
-                opportunities, unsub_url, display_name=user.display_name, now=now
+                opportunities,
+                unsub_url,
+                display_name=user.display_name,
+                now=now,
+                safety=safety,
+                closed=closed,
             )
-            sent = send_email(
-                user.email,
-                subject,
-                html,
-                text,
-                headers=list_unsubscribe_headers(user.id, "closing_soon"),
-            )
+            try:
+                sent = send_email(
+                    user.email,
+                    subject,
+                    html,
+                    text,
+                    headers=list_unsubscribe_headers(user.id, "closing_soon"),
+                )
+            except Exception:
+                logger.exception("saved listing email failed for user %s", user.id)
+                sent = False
             status = "sent" if sent else "failed"
             for opportunity in opportunities:
                 _record_notification(
@@ -1030,8 +1096,10 @@ def send_closing_soon_alerts(
                 )
 
             if sent:
+                for row, _ in pending:
+                    row.meta = {**row.meta, "email_pending": False, "emailed_at": now.isoformat()}
                 result["users_notified"] += 1
-                result["opportunities"] += len(opportunities)
+                result["opportunities"] += len(opportunities) + len(pending)
             else:
                 result["failed"] += 1
         except Exception:
@@ -1042,6 +1110,7 @@ def send_closing_soon_alerts(
         finally:
             session.commit()
 
+    breaker.log_held()
     return result
 
 
@@ -1199,7 +1268,9 @@ def _hackathon_digest_opportunities(
             return []
         reputed_by_id = {row.id: bool(row.reputed) for row in rows}
         found = session.scalars(
-            select(models.Opportunity).where(models.Opportunity.id.in_(ids))
+            select(models.Opportunity).where(
+                models.Opportunity.id.in_(ids), models.Opportunity.status == "active"
+            )
         ).all()
         by_id = {opportunity.id: opportunity for opportunity in found}
         return [_DigestCandidate(by_id[i], reputed_by_id[i]) for i in ids if i in by_id]

@@ -237,3 +237,16 @@ def test_notification_endpoints_require_authentication(method: str, path: str) -
     response = getattr(client, method)(path)
 
     assert response.status_code == 401
+
+
+def test_saved_warning_and_unsubscribe_copy() -> None:
+    title, body = _notification_copy(
+        "saved_safety", "Internship", None, {"safety": {"kind": "recalled"}}
+    )
+    assert title == "Safety warning"
+    assert body == "‘Internship’ was withdrawn. Don't pay fees or share documents."
+    assert _unsubscribe_detail("closing_soon") == (
+        "You won't get updates about your saved opportunities (deadline reminders, "
+        "closures and safety warnings) by email any more. In-app warnings stay on. "
+        "You can turn them back on in your account settings."
+    )

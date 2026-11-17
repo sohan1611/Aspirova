@@ -225,3 +225,17 @@ HTTP 500) → **296 ms**; "data" internships 742 ms → 83 ms; competitions 276 
 company page 330 ms → 21 ms; main feed 571 ms → 531 ms.
 
 Supabase Pro stays untouched as the rollback target until **2026-10-28**. Step 5 follows.
+
+## Flag a scam or withdrawn listing
+
+From `backend/`, with the founder's existing production environment configured, preview first:
+
+```sh
+uv run python -m scripts.flag_listing --slug <slug> --kind scam --note "Unauthorised fee request" --source-url https://example.com/safety-notice --dry-run
+uv run python -m scripts.flag_listing --slug <slug> --kind scam --note "Unauthorised fee request" --source-url https://example.com/safety-notice
+uv run python -m scripts.flag_listing --slug <slug> --clear
+```
+
+Use `--kind recalled` for a recalled listing. `--source-url` is optional but must be HTTPS when supplied; without it, the Aspirova listing page and founder note are the reference, with no external warning link. Repeating a command is safe. Flagged listings are retained by closed-listing cleanup so saved warnings and notice links remain available. Clearing restores the prior status and removes only the closure timestamp created by the flag. The command requests frontend revalidation after commit; check its printed status. Public API caches expire on their existing TTLs (feed/search 15 minutes; sitemap/facets 6 hours). Saved notices run with the existing daily `--closing-soon` worker. Email follows the Saved listings preference; in-app warnings stay on. Closures settle for 24 hours. The breaker holds each candidate when catalogue-wide early closures within 24 hours either side of its own `closed_at` exceed `SAVED_CLOSURE_NOTICE_BREAKER` (default 1500); safety bypasses it. One query per run reads hourly counts from the last 8 days, covering the full window of every 7-day candidate. Held candidates get no in-app row or email, and stay held on later runs unless closures reopen. A held candidate's pending email is cancelled like any other ineligible event. The run logs one warning with the number held and the largest window count.
+
+Identity and slug matches preserve a flagged listing. A repost under a new source/external id appears as a new listing and must be flagged separately; fuzzy title matching considers active listings only, so an old withdrawal cannot absorb a later genuine opening.
