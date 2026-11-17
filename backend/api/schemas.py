@@ -524,6 +524,7 @@ class DigestStatus(BaseModel):
     last_sent_at: datetime | None
     last_sent_count: int
     last_attempt_failed: bool
+    last_sent_counts_by_category: dict[str, int] = Field(default_factory=dict)
 
 
 class DigestPreview(BaseModel):

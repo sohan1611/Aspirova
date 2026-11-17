@@ -19,15 +19,8 @@ import {
 } from "@/lib/deadline";
 import { isSinglePlace, summarizeLocation } from "@/lib/location";
 import { getSourceLabel } from "@/lib/sourceLabel";
+import { OPPORTUNITY_CATEGORY_LABELS as CATEGORY_LABEL } from "@/lib/opportunityCategory";
 import type { OpportunityListItem } from "@/lib/types";
-
-const CATEGORY_LABEL: Record<string, string> = {
-  internship: "Internship",
-  job: "Job",
-  hackathon: "Hackathon",
-  competition: "Competition",
-  scholarship: "Scholarship",
-};
 
 const SOURCE_LABEL: Record<string, string> = {
   greenhouse: "Greenhouse",

@@ -319,6 +319,17 @@ Withdrawals reuse `scripts.flag_listing.flag_listing`; clearing a safety flag ca
 manual report closure. Account deletion still purges owned reports and notifications.
 Reporting is never attributed publicly and never changes the reporter's account or plan.
 
+## Digest status and preview (ALERT-07)
+
+The account reads `/account/me`'s `digest_status` from the worker ledger. Category
+counts belong to the last successful send even when a newer attempt failed;
+deleted listings count as `removed`, and watched-programme entries as
+`programme_update`. `/account/digest-preview` renders the real next email in an
+iframe without sending or recording it. Empty digests still send no email. The
+signed-out Apply dialog shows `/digest/sample`, a public, non-personal example
+labelled with its Asia/Kolkata date, only when real picks are available. Delivery
+time is not guaranteed. See [the backend contract](../../backend/README.md#digest-status-and-examples-alert-07).
+
 ## Calendar reconciliation
 
 For the daily refresh's `Calendar reconciliation` line, public `/calendar/coverage`

@@ -23,6 +23,7 @@ import DomainPicker from "@/components/DomainPicker";
 import { companyAlertLimitMessage, DigestPreviewRateLimitError, FollowLimitError, getDigestPreview, getDreamCompanies, removeDreamCompany, saveCompanyAlerts, updateAccount } from "@/lib/api";
 import { companyAlertSavedMessage, formatDomains } from "@/lib/roleSignalQuery";
 import { withNewTabLinks } from "@/lib/emailPreview";
+import { categoryCounts } from "@/lib/digest";
 import type { AccountMe, CompanyListItem, DigestPreview, DigestStatus, DreamCompanyItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { isNotificationEnabled, isNotificationLocked } from "@/lib/notificationPrefs";
@@ -168,8 +169,9 @@ function plural(count: number, word: string): string {
 
 function digestStatusText(status: DigestStatus | null, enabled: boolean): string {
   const lastSent = status?.last_sent_at ? new Date(status.last_sent_at) : null;
+  const breakdown = categoryCounts(status?.last_sent_counts_by_category ?? {});
   const delivered = lastSent && !Number.isNaN(lastSent.getTime())
-    ? `Last sent ${DIGEST_TIME_FORMATTER.format(lastSent)} with ${plural(status?.last_sent_count ?? 0, "listing")}.`
+    ? `Last sent ${DIGEST_TIME_FORMATTER.format(lastSent)} with ${plural(status?.last_sent_count ?? 0, "listing")}${breakdown ? ` (${breakdown})` : ""}.`
     : null;
   if (status?.last_attempt_failed) {
     return `The latest digest could not be sent. ${enabled ? "It will be tried again at the next daily run. " : ""}${delivered ?? ""}`.trim();
