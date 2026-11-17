@@ -22,7 +22,7 @@ const overrides = {
   "@/components/OpportunityCardSkeleton": component(() => React.createElement("div", { "data-skeleton": true })),
   "@/lib/externalCompanies": { findExternalCompany: () => undefined },
 };
-for (const name of ["FeedCountryPreference", "FeedViewControls", "ForYouControl", "MostViewed", "PersonalisePrompt", "SearchFilters", "SourceCompanyCard", "TopCompanies", "RecentlyViewed", "SignedInWelcome", "SignedOutHero", "StatsBar"]) overrides["@/components/" + name] = hidden;
+for (const name of ["FeedCountryPreference", "FeedViewControls", "ForYouControl", "MostViewed", "PersonalisePrompt", "SearchFilters", "SourceCompanyCard", "TopCompanies", "RecentlyViewed", "HomeDesk", "SignedOutHero", "StatsBar"]) overrides["@/components/" + name] = hidden;
 
 function renderer(fetch = async () => { throw new Error("Unexpected API request"); }, globals = {}) {
   const load = testModuleLoader(overrides, { fetch, ...globals });
@@ -85,7 +85,11 @@ for (const failure of ["503", "network", "invalid JSON"]) {
 
 test("SSR main feed true zero renders suggestions and calendar", async () => {
   query = new URLSearchParams(); settled = null;
-  const { load } = renderer(async url => url.includes("/feed?") ? Response.json(empty) : new Response("unavailable", { status: 503 }));
+  const { load } = renderer(async url => {
+    if (url.includes("/calendar?")) return Response.json({ items: [], rolling: [], months: [], from: "2026-11-18", to: "2027-11-17" });
+    if (url.endsWith("/stats")) return Response.json({ opportunities: 0 });
+    return Response.json(empty);
+  });
   const html = renderToStaticMarkup(await load("app/(feed)/page.tsx").default());
   assert.match(html, /0 (?:opportunities|open jobs)/);
   assert.match(html, /Clear all filters/);

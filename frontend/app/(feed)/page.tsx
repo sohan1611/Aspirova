@@ -5,12 +5,13 @@ import { FeedNavigationProvider } from "@/components/FeedNavigation";
 import FeedResults from "@/components/FeedResults";
 import MostViewed from "@/components/MostViewed";
 import RecentlyViewed from "@/components/RecentlyViewed";
-import SignedInWelcome from "@/components/SignedInWelcome";
+import HomeActionDesk from "@/components/HomeDesk";
 import SignedOutHero from "@/components/SignedOutHero";
 import StatsBar from "@/components/StatsBar";
 import TopCompanies from "@/components/TopCompanies";
 import { withBuildFallback } from "@/lib/buildFallback";
-import { getStats, getTrending } from "@/lib/api";
+import { getFeed, getStats, getTrending } from "@/lib/api";
+import { fetchCalendar, parseCalendarParams, todayIST } from "@/lib/hiringCalendar";
 import { type FeedResultData, defaultFeedRequest, loadFeedData } from "@/lib/feedQuery";
 import type { OpportunityListItem, StatsResponse } from "@/lib/types";
 
@@ -27,11 +28,7 @@ export const revalidate = 21600;
 const PAGE_REVALIDATE = 21600;
 
 async function loadStats(): Promise<StatsResponse | null> {
-  try {
-    return await getStats(PAGE_REVALIDATE);
-  } catch {
-    return null;
-  }
+  return getStats(PAGE_REVALIDATE);
 }
 
 // Prerendered into the static HTML as the Suspense fallback below. FeedResults
@@ -51,6 +48,7 @@ function DefaultFeed({
   if (!data) return <ListingUnavailable />;
   return (
     <>
+      <div id="feed-search" className="scroll-mt-20" />
       <MostViewed items={trendingItems} />
       <FeedNavigationProvider>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3 pt-10">
@@ -75,26 +73,33 @@ function DefaultFeed({
 export default async function HomePage() {
   const request = defaultFeedRequest();
 
-  const [stats, trending, data] = await Promise.all([
-    loadStats(),
-    getTrending(undefined, PAGE_REVALIDATE, true).catch(() => null),
+  const calendarQuery = parseCalendarParams(new URLSearchParams(), todayIST());
+  const asOf = Date.parse(`${calendarQuery.from}T00:00:00+05:30`);
+  const [stats, trending, data, closing, calendar] = await Promise.all([
+    withBuildFallback(loadStats, data => data?.opportunities ?? 0).then(state => state.data),
+    withBuildFallback(() => getTrending(undefined, PAGE_REVALIDATE, true), data => data.items.length).then(state => state.data),
     withBuildFallback(() => loadFeedData(request, PAGE_REVALIDATE), data => data.items.length).then(state => state.data),
+    withBuildFallback(() => getFeed({ sort: "deadline", deadline_confidence: "explicit", limit: 6 }, PAGE_REVALIDATE), data => data.items.length).then(state => state.data),
+    withBuildFallback(() => fetchCalendar(calendarQuery, undefined, PAGE_REVALIDATE), data => data.items.length).then(state => state.data),
   ]);
 
   return (
     <main className="mx-auto max-w-[1680px] px-4 pb-10 sm:px-6 lg:px-10 xl:px-12">
-      <SignedOutHero />
-      <SignedInWelcome />
+      <SignedOutHero closing={closing?.items ?? null} calendar={calendar?.items ?? null} asOf={asOf} />
+      <HomeActionDesk />
       {stats && <StatsBar stats={stats} />}
       <RecentlyViewed />
 
-      <Suspense
-        fallback={
-          <DefaultFeed data={data} trendingItems={trending?.items ?? []} cols={request.cols} />
-        }
-      >
-        <FeedResults initialData={data} trendingItems={trending?.items ?? []} />
-      </Suspense>
+      <section aria-labelledby="home-feed-title" className="pt-6">
+        <h2 id="home-feed-title" className="font-serif text-2xl font-bold">Explore all opportunities</h2>
+        <Suspense
+          fallback={
+            <DefaultFeed data={data} trendingItems={trending?.items ?? []} cols={request.cols} />
+          }
+        >
+          <FeedResults initialData={data} trendingItems={trending?.items ?? []} />
+        </Suspense>
+      </section>
     </main>
   );
 }
