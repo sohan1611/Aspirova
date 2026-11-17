@@ -31,6 +31,7 @@ from api.filters import (
     location_scope_filters,
     opportunity_filters,
     pay_rank_expression,
+    preferred_country_rank,
     role_signal_filters,
     student_rank_expression,
 )
@@ -202,18 +203,7 @@ def get_feed(
         ordering.append(roles_first.asc())
 
     if prefer_country is not None and sort in {"student", "recent"}:
-        preferred_country = case(
-            (models.Opportunity.country == prefer_country.upper(), 0),
-            (
-                and_(
-                    models.Opportunity.is_remote.is_(True),
-                    func.btrim(func.coalesce(models.Opportunity.country, "")) == "",
-                ),
-                1,
-            ),
-            else_=2,
-        )
-        ordering.append(preferred_country.asc())
+        ordering.append(preferred_country_rank(prefer_country).asc())
 
     student_rank = student_rank_expression()
 
