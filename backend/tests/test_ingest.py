@@ -858,11 +858,15 @@ def test_aggregator_seen_rolling_listing_reopens_only_explicit_ttl_closures(
         closed_reason == "rolling_window_ttl" and deadline_days != -1 and status == "active"
     )
     assert refreshed.closed_at == (None if should_reopen else closed_at)
-    assert refreshed.meta == (
-        {key: value for key, value in meta.items() if key != "closed_reason"}
-        if should_reopen
-        else meta
-    )
+    if should_reopen:
+        reopened_meta = dict(refreshed.meta)
+        assert datetime.fromisoformat(reopened_meta.pop("alert_reopened_after")) == closed_at
+        assert datetime.fromisoformat(reopened_meta.pop("alert_reopened_at")).tzinfo is not None
+        assert reopened_meta == {
+            key: value for key, value in meta.items() if key != "closed_reason"
+        }
+    else:
+        assert refreshed.meta == meta
     assert refreshed.deadline == deadline
     assert refreshed.status == status
     assert refreshed.last_seen_at > now - timedelta(days=1)
@@ -882,7 +886,8 @@ def test_aggregator_full_inventory_reopen_removes_closed_reason(
         update={"source_slug": "unstop"}
     )
     opportunity, _ = _ingest(db_session, source.id, company.id, raw, normalized)
-    opportunity.closed_at = datetime.now(UTC) - timedelta(days=2)
+    closed_at = datetime.now(UTC) - timedelta(days=2)
+    opportunity.closed_at = closed_at
     opportunity.meta = {"closed_reason": "dead_board", "keep": {"nested": True}}
     db_session.flush()
     opportunity_id = opportunity.id
@@ -904,7 +909,10 @@ def test_aggregator_full_inventory_reopen_removes_closed_reason(
     db_session.expire_all()
     refreshed = db_session.get(models.Opportunity, opportunity_id)
     assert refreshed.closed_at is None
-    assert refreshed.meta == {"keep": {"nested": True}}
+    reopened_meta = dict(refreshed.meta)
+    assert datetime.fromisoformat(reopened_meta.pop("alert_reopened_after")) == closed_at
+    assert datetime.fromisoformat(reopened_meta.pop("alert_reopened_at")).tzinfo is not None
+    assert reopened_meta == {"keep": {"nested": True}}
 
 
 def test_ingest_prefers_explicit_normalized_country(db_session: Session, seeded) -> None:

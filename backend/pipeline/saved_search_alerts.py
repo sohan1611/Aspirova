@@ -3,18 +3,29 @@
 import logging
 from datetime import datetime, timezone
 from urllib.parse import urlencode
+from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from api.filters import saved_search_base_filters
 from core import models
+from core.alert_identity import (
+    NEW_LISTING_EVENTS,
+    SentAlertIndex,
+    announcement_meta,
+    collapse_duplicates,
+    listing_window,
+    load_sent_alert_index,
+    role_candidate_filter,
+    role_key,
+)
 from core.config import get_settings
 from core.email_components import greeting, grouped_cards
 from core.email_templates import email_layout, text_footer
 from core.mail_recipients import lock_recipient, recipient_filters
 from core.unsubscribe import list_unsubscribe_headers, unsubscribe_url
-from pipeline.notifications import send_email
+from pipeline.notifications import DIGEST_REPEAT_LOOKBACK, send_email
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +147,9 @@ def send_saved_search_alerts(
         .join(models.User, models.User.id == models.SavedSearch.user_id)
         .where(models.SavedSearch.alerts_enabled.is_(True), *recipient_filters())
     ).all()
+    # At most two identity queries per reader per sender run, regardless of
+    # their number of searches. Successful sends update the in-memory index.
+    sent_indices: dict[UUID, SentAlertIndex] = {}
 
     for saved_search, user in saved_searches:
         result["searches"] += 1
@@ -151,7 +165,7 @@ def send_saved_search_alerts(
             params = saved_search.params
             filters = saved_search_base_filters(params)
             new_since = saved_search.last_alerted_at or saved_search.created_at
-            filters.append(models.Opportunity.first_seen_at > new_since)
+            filters.append(listing_window(new_since, inclusive=False))
             filters.append(models.Opportunity.first_seen_at <= now)
 
             query = params.get("q")
@@ -173,6 +187,27 @@ def send_saved_search_alerts(
                 .unique()
                 .all()
             )
+            if opportunities:
+                copies = session.scalars(
+                    select(models.Opportunity)
+                    .options(joinedload(models.Opportunity.company))
+                    .where(*filters, role_candidate_filter(opportunities))
+                ).all()
+                roles = {role_key(o) for o in opportunities}
+                opportunities = [*opportunities, *(o for o in copies if role_key(o) in roles)]
+            if not opportunities:
+                result["skipped_empty"] += 1
+                continue
+            if user.id not in sent_indices:
+                sent_indices[user.id] = load_sent_alert_index(
+                    session,
+                    user.id,
+                    events=NEW_LISTING_EVENTS,
+                    since=now - DIGEST_REPEAT_LOOKBACK,
+                )
+            sent_index: SentAlertIndex = sent_indices[user.id]
+            notified = sent_index.already_notified(opportunities)
+            opportunities = collapse_duplicates([o for o in opportunities if o.id not in notified])
             if not opportunities:
                 result["skipped_empty"] += 1
                 continue
@@ -197,20 +232,23 @@ def send_saved_search_alerts(
                 headers=list_unsubscribe_headers(user.id, preference_key),
             )
             saved_search.last_alerted_at = now
+            meta = {
+                "saved_search_id": saved_search.id,
+                "opportunity_ids": [opportunity.id for opportunity in opportunities],
+                **announcement_meta(opportunities, "saved_search_alert"),
+            }
             session.add(
                 models.Notification(
                     user_id=user.id,
                     type="saved_search_alert",
                     status="sent" if sent else "failed",
                     sent_at=now if sent else None,
-                    meta={
-                        "saved_search_id": saved_search.id,
-                        "opportunity_ids": [opportunity.id for opportunity in opportunities],
-                    },
+                    meta=meta,
                 )
             )
             session.commit()
             if sent:
+                sent_index.record_sent(meta, "saved_search_alert", now)
                 result["emailed"] += 1
         except Exception:
             session.rollback()
