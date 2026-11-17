@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { addBookmark, getBookmarks, removeBookmark, updateBookmarkStatus } from "@/lib/api";
 import type { BookmarkStage } from "@/lib/types";
 import { useSession } from "@/lib/useSession";
+import { isAppliedStage } from "@/lib/actionCenter";
 
 interface BookmarksContextValue {
   ready: boolean;
@@ -205,7 +206,7 @@ export function BookmarksProvider({ children }: { children: React.ReactNode }) {
     const items = await getBookmarks(accessToken);
     const existing = items.find((item) => item.slug === slug);
     const currentStatus = existing?.bookmark_status;
-    if (!currentStatus || !["applied", "interviewing", "offer"].includes(currentStatus)) {
+    if (!isAppliedStage(currentStatus)) {
       await addBookmark(slug, accessToken);
       setBookmarkState((current) => {
         if (current.accessToken !== accessToken) return current;
@@ -225,7 +226,7 @@ export function BookmarksProvider({ children }: { children: React.ReactNode }) {
         accessToken,
         savedSlugs: new Set(current.savedSlugs).add(slug),
         statuses: new Map(current.statuses).set(slug,
-          currentStatus && ["applied", "interviewing", "offer"].includes(currentStatus)
+          currentStatus && isAppliedStage(currentStatus)
             ? currentStatus : "applied"),
       };
     });
@@ -236,14 +237,15 @@ export function BookmarksProvider({ children }: { children: React.ReactNode }) {
       ready,
       signedIn,
       statusesReady: ready && bookmarkState.statusesLoaded,
-      savedCount: ready && bookmarkState.statusesLoaded ? savedSlugs.size : null,
+      savedCount: ready && bookmarkState.statusesLoaded
+        ? [...savedSlugs].filter(slug => bookmarkState.statuses.get(slug) !== "archived").length : null,
       isSaved,
       toggle,
       status,
       markApplied,
       syncStatus,
     }),
-    [bookmarkState.statusesLoaded, isSaved, markApplied, ready, savedSlugs, signedIn, status, syncStatus, toggle],
+    [bookmarkState.statuses, bookmarkState.statusesLoaded, isSaved, markApplied, ready, savedSlugs, signedIn, status, syncStatus, toggle],
   );
 
   return (

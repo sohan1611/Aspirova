@@ -411,6 +411,9 @@ class Bookmark(Base):
     )
     opportunity_id: Mapped[int] = mapped_column(ForeignKey("opportunities.id"), primary_key=True)
     status: Mapped[str] = mapped_column(Text, server_default=text("'saved'"))
+    note: Mapped[str | None] = mapped_column(Text)
+    status_date: Mapped[date | None] = mapped_column(Date)
+    status_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
 
 

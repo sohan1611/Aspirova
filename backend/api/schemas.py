@@ -3,7 +3,7 @@ responses - the canonical opportunity page links to the real source, never
 mirrors it (Doc 01 sec 7 R1, Doc 04 sec 10)."""
 
 import re
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
@@ -194,13 +194,41 @@ class ProgrammeDetail(ProgrammeListItem):
         )
 
 
+class ApplyDestinationSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    kind: DestinationKind
+    host: str | None
+    label: str | None
+
+
 class SavedOpportunityItem(OpportunityListItem):
     bookmark_status: str
+    note: str | None
+    status_date: date | None
+    status_changed_at: datetime | None
+    apply_url: str
+    destination: ApplyDestinationSchema
 
     @classmethod
-    def from_models(cls, opportunity: "models.Opportunity", status: str) -> "SavedOpportunityItem":
+    def from_models(
+        cls, opportunity: "models.Opportunity", bookmark: "models.Bookmark"
+    ) -> "SavedOpportunityItem":
         base = OpportunityListItem.from_model(opportunity)
-        return cls(**base.model_dump(), bookmark_status=status)
+        return cls(
+            **base.model_dump(),
+            bookmark_status=bookmark.status,
+            note=bookmark.note,
+            status_date=bookmark.status_date,
+            status_changed_at=bookmark.status_changed_at,
+            apply_url=opportunity.apply_url,
+            destination=ApplyDestinationSchema.model_validate(
+                classify_destination(
+                    opportunity.apply_url,
+                    opportunity.company.domain if opportunity.company else None,
+                )
+            ),
+        )
 
 
 class NotificationItem(BaseModel):
@@ -222,7 +250,40 @@ class NotificationsResponse(BaseModel):
 
 
 class BookmarkStatusUpdate(BaseModel):
-    status: Literal["saved", "applied", "interviewing", "offer", "archived"]
+    model_config = ConfigDict(extra="forbid")
+
+    status: (
+        Literal[
+            "saved",
+            "planned",
+            "applied",
+            "assessment",
+            "interviewing",
+            "offer",
+            "rejected",
+            "archived",
+        ]
+        | None
+    ) = None
+    note: str | None = Field(default=None, max_length=1000)
+    status_date: date | None = None
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def _status_not_null(cls, value: object) -> object:
+        # Omission leaves the current stage alone; an explicit null is not a stage.
+        if value is None:
+            raise ValueError("status cannot be null")
+        return value
+
+    @field_validator("status_date", mode="before")
+    @classmethod
+    def _calendar_date(cls, value: object) -> date | None:
+        if value is None or (isinstance(value, date) and not isinstance(value, datetime)):
+            return value
+        if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+            raise ValueError("status_date must be a calendar date (YYYY-MM-DD)")
+        return date.fromisoformat(value)
 
 
 class SavedSearchParams(BaseModel):
@@ -339,14 +400,6 @@ class ReopenEstimateSchema(BaseModel):
     window: str
     basis: Literal["historical", "curated"]
     note: str
-
-
-class ApplyDestinationSchema(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    kind: DestinationKind
-    host: str | None
-    label: str | None
 
 
 class ListingCorrection(BaseModel):

@@ -47,10 +47,19 @@ export interface OpportunityListItem {
 
 export type BookmarkStage =
   | "saved"
+  | "planned"
   | "applied"
+  | "assessment"
   | "interviewing"
   | "offer"
+  | "rejected"
   | "archived";
+
+export interface BookmarkUpdate {
+  status?: BookmarkStage;
+  note?: string | null;
+  status_date?: string | null;
+}
 
 export type BugReportCategory = "dead_link" | "wrong_deadline" | "wrong_company" | "duplicate" | "wrong_info" | "bug" | "other" | "scam";
 
@@ -82,6 +91,11 @@ export interface ReportStatus {
 
 export type SavedOpportunityItem = OpportunityListItem & {
   bookmark_status: BookmarkStage;
+  note: string | null;
+  status_date: string | null;
+  status_changed_at: string | null;
+  apply_url: string;
+  destination: ApplyDestination;
 };
 
 export interface DreamCompanyItem {

@@ -4,6 +4,7 @@ import type {
   AccountMe,
   AccountUpdate,
   BookmarkStage,
+  BookmarkUpdate,
   BugReportRequest,
   BugReportResponse,
   ReportStatus,
@@ -570,13 +571,21 @@ export async function updateBookmarkStatus(
   status: BookmarkStage,
   accessToken: string,
 ): Promise<void> {
+  return updateBookmark(slug, { status }, accessToken);
+}
+
+export async function updateBookmark(
+  slug: string,
+  update: BookmarkUpdate,
+  accessToken: string,
+): Promise<void> {
   const res = await fetch(`${API_URL}/bookmarks/${encodeURIComponent(slug)}`, {
     method: "PATCH",
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ status }),
+    body: JSON.stringify(update),
   });
   if (!res.ok) throw new Error(`Failed to update bookmark status: ${res.status}`);
 }

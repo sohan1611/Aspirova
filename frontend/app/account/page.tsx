@@ -17,6 +17,7 @@ import HeaderAuth from "@/components/HeaderAuth";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAccount, getBookmarks } from "@/lib/api";
+import { bookmarkCounts } from "@/lib/actionCenter";
 import { providersFor } from "@/lib/authProviders";
 import { hasFieldProfileSelections, useFieldProfile } from "@/lib/fieldProfile";
 import { countEnabledNotifications } from "@/lib/notificationPrefs";
@@ -93,15 +94,8 @@ function AccountPageContent() {
     getBookmarks(accessToken)
       .then((bookmarks) => {
         if (cancelled) return;
-        setBookmarkStats({
-          saved: bookmarks.length,
-          inProgress: bookmarks.filter(
-            ({ bookmark_status }) =>
-              bookmark_status === "applied" ||
-              bookmark_status === "interviewing" ||
-              bookmark_status === "offer",
-          ).length,
-        });
+        const counts = bookmarkCounts(bookmarks);
+        setBookmarkStats({ saved: counts.tracked, inProgress: counts.inProgress });
         setBookmarkStatsLoading(false);
       })
       .catch(() => {

@@ -16,6 +16,7 @@ import {
 import { pingOpportunityAction } from "@/lib/api";
 import { safeExternalUrl } from "@/lib/safeUrl";
 import { isAuthPending } from "@/lib/authPending";
+import { isAppliedStage } from "@/lib/actionCenter";
 import { useSessionState } from "@/lib/useSession";
 
 const PENDING_APPLY_KEY = "aspirova:pending-apply";
@@ -37,9 +38,7 @@ export default function ApplyLink({ slug, href, children, size, variant, classNa
   const [promptSlug, setPromptSlug] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const bookmarkStatus = status(slug);
-  const progressed =
-    bookmarkStatus !== undefined &&
-    ["applied", "interviewing", "offer"].includes(bookmarkStatus);
+  const progressed = isAppliedStage(bookmarkStatus);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
