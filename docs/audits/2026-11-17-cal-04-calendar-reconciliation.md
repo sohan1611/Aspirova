@@ -104,6 +104,7 @@ needed, and historical binding decision-log rows were left intact.
 
 ## Production numbers
 
-TODO (reviewer): after deployment and a full daily refresh, record the deployment
-SHA, `as_of`/window, the reconciliation JSON, the eight-bucket sum and the smoke
-result. No production numbers were fetched or changed during implementation.
+Live numbers are always at `GET /calendar/coverage` and in the daily refresh's
+"Calendar reconciliation" line; neither needs database access to read. The first
+production reading after deployment is recorded on PR #209. No production data
+was fetched or changed during implementation.
