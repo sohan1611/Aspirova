@@ -21,9 +21,7 @@ export default async function RemotePage() {
     <OpportunityLandingPage
       title={REMOTE_LANDING.title}
       intro={REMOTE_LANDING.intro}
-      items={data.items}
-      total={data.total}
-      openTotal={data.open_total}
+      initialData={data}
       page={1}
       limit={LANDING_LIMIT}
       basePath={REMOTE_LANDING.basePath}

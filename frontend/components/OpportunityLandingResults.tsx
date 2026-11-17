@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ListingFailure, ListingSnapshotNotice } from "@/components/ListingFeedback";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import FeedCountryPreference from "@/components/FeedCountryPreference";
@@ -30,7 +31,7 @@ import {
 } from "@/lib/opportunityListingQuery";
 
 interface OpportunityLandingResultsProps {
-  initialData: FeedResultData;
+  initialData: FeedResultData | null;
   basePath: OpportunityListingPath;
   baseQuery: FeedParams;
   initialPage: number;
@@ -82,8 +83,9 @@ export default function OpportunityLandingResults({
   );
 
   // A preference-only fetch keeps the prerendered list visible while it settles.
-  const isLoading = !request.canReusePrerendered && (!settled || settled.status === "loading");
+  const isLoading = !settled ? !request.canReusePrerendered : settled.status === "loading";
   const data = settled?.data ?? initialData;
+  if (!data) return <ListingFailure retry={retry} pending={settled?.status === "loading"} />;
   const totalPages = Math.max(1, Math.ceil(data.total / request.limit));
 
   return (
@@ -92,7 +94,7 @@ export default function OpportunityLandingResults({
         <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
           <p className="eyebrow">Open opportunities</p>
           <p className="tnum text-sm text-muted-foreground">
-            {opportunityCountLabel(data.total, data.open_total)}
+            {!isLoading && !settled?.error ? (opportunityCountLabel(data.total, data.open_total)) : (data.items.length ? "Previously loaded opportunities" : settled?.status === "failed" ? "Results unavailable" : "Loading opportunities")}
             {preferenceApplies && (
               <FeedCountryPreference countryCode={countryCode} preferredCountry={preference} />
             )}
@@ -120,7 +122,9 @@ export default function OpportunityLandingResults({
 
       <OpportunityListingRoleChips basePath={basePath} />
 
+      {data.loadedAt && !settled?.error && <ListingSnapshotNotice loadedAt={data.loadedAt} expiresAt={data.expiresAt} />}
       <ListingResultsState
+        loadedAt={settled?.loadedAt ?? data.loadedAt}
         loading={isLoading}
         error={settled?.error ?? null}
         retry={retry}
@@ -130,6 +134,8 @@ export default function OpportunityLandingResults({
         cols={3}
       >
         <FeedGrid
+          emptyQuery={query.toString()}
+          emptyFacets={facetsData?.facets}
           items={data.items}
           cols={3}
           skeletonCount={data.items.length || Math.min(request.limit, 9)}

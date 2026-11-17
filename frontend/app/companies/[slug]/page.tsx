@@ -1,3 +1,5 @@
+import { withBuildFallback } from "@/lib/buildFallback";
+import { CompanyBuildRecovery } from "@/components/BuildListingRecovery";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import CompanyOpportunities from "@/components/CompanyOpportunities";
@@ -45,7 +47,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   // Same URL as the page body, so one render makes one API call, not two.
-  const data = await getCompanyPage(slug, 1, LIMIT);
+  const result = await withBuildFallback(() => getCompanyPage(slug, 1, LIMIT), data => data?.items.length ?? 0);
+  if (result.status === "failed") return { title: "Company opportunities" };
+  const data = result.data;
   if (!data) {
     return { title: "Company not found" };
   }
@@ -83,7 +87,9 @@ export default async function CompanyPage({ params }: PageProps) {
     );
   }
 
-  const data = await getCompanyPage(slug, 1, LIMIT);
+  const result = await withBuildFallback(() => getCompanyPage(slug, 1, LIMIT), data => data?.items.length ?? 0);
+  if (result.status === "failed") return <CompanyBuildRecovery slug={slug} page={1} limit={LIMIT} />;
+  const data = result.data;
   if (!data) {
     notFound();
   }

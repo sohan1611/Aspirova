@@ -41,7 +41,7 @@ export default async function JobsPaginatedPage({ params }: PageProps) {
   }
 
   const data = await loadLandingPage(JOBS_LANDING, page);
-  if (page > totalPagesFor(data.total)) {
+  if (data && page > totalPagesFor(data.total)) {
     notFound();
   }
 
@@ -49,9 +49,7 @@ export default async function JobsPaginatedPage({ params }: PageProps) {
     <OpportunityLandingPage
       title={JOBS_LANDING.title}
       intro={JOBS_LANDING.intro}
-      items={data.items}
-      total={data.total}
-      openTotal={data.open_total}
+      initialData={data}
       page={page}
       limit={LANDING_LIMIT}
       basePath={JOBS_LANDING.basePath}

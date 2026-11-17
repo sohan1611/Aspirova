@@ -37,7 +37,7 @@ export default async function InternshipsPaginatedPage({ params }: PageProps) {
   }
 
   const data = await loadLandingPage(INTERNSHIPS_LANDING, page);
-  if (page > totalPagesFor(data.total)) {
+  if (data && page > totalPagesFor(data.total)) {
     notFound();
   }
 
@@ -45,9 +45,7 @@ export default async function InternshipsPaginatedPage({ params }: PageProps) {
     <OpportunityLandingPage
       title={INTERNSHIPS_LANDING.title}
       intro={INTERNSHIPS_LANDING.intro}
-      items={data.items}
-      total={data.total}
-      openTotal={data.open_total}
+      initialData={data}
       page={page}
       limit={LANDING_LIMIT}
       basePath={INTERNSHIPS_LANDING.basePath}

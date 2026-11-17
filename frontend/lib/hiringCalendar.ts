@@ -1,3 +1,4 @@
+import { fetchListing } from "./listingFetch";
 export type CalendarView = "list" | "timeline" | "grid";
 export type CalendarPeriod = "next12" | "next30" | "next90" | "month" | "custom" | `year-${number}`;
 
@@ -60,6 +61,8 @@ export interface CalendarItem {
 }
 
 export interface CalendarResponse {
+  loadedAt?: number;
+  expiresAt?: number;
   from: string;
   to: string;
   items: CalendarItem[];
@@ -494,7 +497,5 @@ export async function fetchCalendar(query: CalendarQuery, options?: RequestInit)
   const base = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
   // Fetch the complete period so search, facets and quick filters are immediate and local.
   const bounded = { ...query, ...clampRange(query.from, query.to), category: [], status: "", q: "" };
-  const response = await fetch(`${base}/calendar?${calendarParams(bounded, true)}`, options);
-  if (!response.ok) throw new Error("The calendar could not be loaded.");
-  return response.json();
+  return fetchListing<CalendarResponse>(`${base}/calendar?${calendarParams(bounded, true)}`, 3600, "calendar", options?.signal ?? undefined);
 }

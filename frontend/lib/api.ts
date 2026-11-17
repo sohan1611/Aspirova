@@ -1,3 +1,4 @@
+import { fetchListing, type ListingSnapshot } from "./listingFetch";
 import { appendRoleSignalParams, type RoleSignalParams } from "./roleSignalQuery";
 import type {
   AccountMe,
@@ -238,7 +239,7 @@ function appendStringParams(
 export async function getFeed(
   params: FeedParams = {},
   revalidateSeconds = 300,
-): Promise<FeedResponse> {
+): Promise<ListingSnapshot<FeedResponse>> {
   const search = new URLSearchParams();
   if (params.category) search.set("category", params.category);
   if (params.kind) search.set("kind", params.kind);
@@ -276,13 +277,8 @@ export async function getFeed(
   if (params.page) search.set("page", String(params.page));
   if (params.limit) search.set("limit", String(params.limit));
 
-  const res = await fetch(`${API_URL}/feed?${search.toString()}`, {
-    next: { revalidate: revalidateSeconds },
-  });
-  if (!res.ok) throw new Error(`Failed to load feed: ${res.status}`);
-  return res.json();
+  return fetchListing<FeedResponse>(`${API_URL}/feed?${search.toString()}`, revalidateSeconds, "page");
 }
-
 export async function pingOpportunityView(slug: string): Promise<void> {
   try {
     await fetch(`${API_URL}/opportunities/${encodeURIComponent(slug)}/view`, {
@@ -299,22 +295,16 @@ export async function getTrending(
   revalidateSeconds = 600,
   preferLogos = false,
 ): Promise<TrendingResponse> {
-  try {
-    const search = new URLSearchParams();
-    if (limit !== undefined) search.set("limit", String(limit));
-    if (preferLogos) search.set("prefer_logos", "true");
-    const query = search.toString();
-    const res = await fetch(`${API_URL}/trending${query ? `?${query}` : ""}`, {
-      next: { revalidate: revalidateSeconds },
-    });
-    if (!res.ok) return { items: [] };
-    return res.json();
-  } catch {
-    return { items: [] };
-  }
+  const search = new URLSearchParams();
+  if (limit !== undefined) search.set("limit", String(limit));
+  if (preferLogos) search.set("prefer_logos", "true");
+  const query = search.toString();
+  const data = await fetchListing<TrendingResponse>(`${API_URL}/trending${query ? `?${query}` : ""}`, revalidateSeconds, "object");
+  if (!Array.isArray(data.items)) throw new Error("Invalid trending response");
+  return data;
 }
 
-export async function getForYou(params: ForYouParams = {}): Promise<FeedResponse> {
+export async function getForYou(params: ForYouParams = {}): Promise<ListingSnapshot<FeedResponse>> {
   const search = new URLSearchParams();
   if (params.terms?.length) {
     search.set("terms", params.terms.join(","));
@@ -330,44 +320,31 @@ export async function getForYou(params: ForYouParams = {}): Promise<FeedResponse
   if (params.page) search.set("page", String(params.page));
   if (params.limit) search.set("limit", String(params.limit));
 
-  const res = await fetch(`${API_URL}/for-you?${search.toString()}`, {
-    next: { revalidate: 300 },
-  });
-  if (!res.ok) throw new Error(`Failed to load personalized feed: ${res.status}`);
-  return res.json();
+  return fetchListing<FeedResponse>(`${API_URL}/for-you?${search.toString()}`, 300, "page");
 }
-
 // revalidateSeconds caps the calling route's ISR window - see getFeed above.
-export async function getStats(revalidateSeconds = 300): Promise<StatsResponse> {
-  const res = await fetch(`${API_URL}/stats`, { next: { revalidate: revalidateSeconds } });
-  if (!res.ok) throw new Error(`Failed to load stats: ${res.status}`);
-  return res.json();
+export async function getStats(revalidateSeconds = 300): Promise<ListingSnapshot<StatsResponse>> {
+  return fetchListing<StatsResponse>(`${API_URL}/stats`, revalidateSeconds, "object");
 }
-
 export async function getFacets(
   params: Pick<FeedParams, "kind"> & {
     category?: FeedParams["category"] | string | string[];
     source?: "opportunities" | "programmes";
   } = {},
-): Promise<Facets> {
+): Promise<ListingSnapshot<Facets>> {
   const search = new URLSearchParams();
   if (params.kind) search.set("kind", params.kind);
   appendStringParams(search, "category", params.category);
   if (params.source) search.set("source", params.source);
   const query = search.toString();
-  const res = await fetch(`${API_URL}/facets${query ? `?${query}` : ""}`, {
-    next: { revalidate: 3600 },
-  });
-  if (!res.ok) throw new Error(`Failed to load facets: ${res.status}`);
-  return res.json();
+  return fetchListing<Facets>(`${API_URL}/facets${query ? "?" + query : ""}`, 3600, "object");
 }
-
 export async function searchOpportunities(
   q: string,
   filters: SearchFilterParams = {},
   page = 1,
   limit = 20,
-): Promise<SearchResponse> {
+): Promise<ListingSnapshot<SearchResponse>> {
   const search = new URLSearchParams({ q, page: String(page), limit: String(limit) });
   if (filters.category) search.set("category", filters.category);
   if (filters.kind) search.set("kind", filters.kind);
@@ -392,19 +369,14 @@ export async function searchOpportunities(
   if (filters.prize_min !== undefined) search.set("prize_min", String(filters.prize_min));
   if (filters.sort) search.set("sort", filters.sort);
   if (filters.students === true) search.set("students", "true");
-  // No `next: { revalidate }` here: searchOpportunities is only ever called from
-  // client components. The three query modules that import it are all consumed
-  // by "use client" results components, and the static pages never take the `q`
-  // branch because they do not read searchParams. Server fetch-cache options are
-  // meaningless from the browser, so passing them is at best noise.
-  //
-  // This is NOT the fix for the outstanding search bug - removing it was tried
-  // and the bug survived. See the note in OpportunityLandingResults.
-  const res = await fetch(`${API_URL}/search?${search.toString()}`);
-  if (!res.ok) throw new Error(`Failed to search: ${res.status}`);
-  return res.json();
+  // Search is query-specific and browser-driven. These query modules are used
+  // by client results components; static pages never take the q branch because
+  // they do not read searchParams. Server fetch-cache options are meaningless
+  // in the browser, so fetchListing gets a zero server-cache window here.
+  // Removing next: { revalidate } was tried during the earlier search bug and
+  // did not fix it: the lost component state is documented in listingStore.ts.
+  return fetchListing<SearchResponse>(`${API_URL}/search?${search.toString()}`, 0, "page");
 }
-
 // This fetch revalidate caps its route's ISR window; lowering it silently shortens page cache lifetime.
 export async function getOpportunity(
   slug: string,
@@ -421,7 +393,7 @@ export async function getOpportunity(
 export async function getProgrammes(
   params: ProgrammeParams = {},
   revalidateSeconds = 21600,
-): Promise<ProgrammeListResponse> {
+): Promise<ListingSnapshot<ProgrammeListResponse>> {
   const search = new URLSearchParams();
   appendStringParams(search, "category", params.category);
   if (params.country) search.set("country", params.country);
@@ -435,13 +407,8 @@ export async function getProgrammes(
   if (params.limit) search.set("limit", String(params.limit));
 
   const query = search.toString();
-  const res = await fetch(`${API_URL}/programmes${query ? `?${query}` : ""}`, {
-    next: { revalidate: revalidateSeconds },
-  });
-  if (!res.ok) throw new Error(`Failed to load programmes: ${res.status}`);
-  return res.json();
+  return fetchListing<ProgrammeListResponse>(`${API_URL}/programmes${query ? "?" + query : ""}`, revalidateSeconds, "page");
 }
-
 // This fetch revalidate caps its route's ISR window; lowering it silently shortens page cache lifetime.
 export async function getProgramme(slug: string): Promise<ProgrammeDetail | null> {
   const res = await fetch(`${API_URL}/programme/${encodeURIComponent(slug)}`, {
@@ -457,17 +424,8 @@ export async function getSimilarOpportunities(
   slug: string,
   limit = 6,
 ): Promise<OpportunityListItem[]> {
-  try {
-    const search = new URLSearchParams({ limit: String(limit) });
-    const res = await fetch(
-      `${API_URL}/opportunity/${encodeURIComponent(slug)}/similar?${search.toString()}`,
-      { next: { revalidate: 604800 } },
-    );
-    if (!res.ok) return [];
-    return res.json();
-  } catch {
-    return [];
-  }
+  const search = new URLSearchParams({ limit: String(limit) });
+  return fetchListing<OpportunityListItem[]>(`${API_URL}/opportunity/${encodeURIComponent(slug)}/similar?${search}`, 604800, "array");
 }
 
 // This fetch revalidate caps its route's ISR window; lowering it silently shortens page cache lifetime.
@@ -475,32 +433,19 @@ export async function getCompanyPage(
   slug: string,
   page = 1,
   limit = 20,
-): Promise<CompanyPage | null> {
+): Promise<ListingSnapshot<CompanyPage> | null> {
   const search = new URLSearchParams({ page: String(page), limit: String(limit) });
-  const res = await fetch(`${API_URL}/company/${encodeURIComponent(slug)}?${search.toString()}`, {
-    next: { revalidate: 604800 },
-  });
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`Failed to load company: ${res.status}`);
-  return res.json();
+  return fetchListing<CompanyPage | null>(`${API_URL}/company/${encodeURIComponent(slug)}?${search}`, 604800, "company");
 }
 
-export async function getCompanies(): Promise<CompanyListItem[]> {
-  const res = await fetch(`${API_URL}/companies`, { next: { revalidate: 3600 } });
-  if (!res.ok) throw new Error(`Failed to load companies: ${res.status}`);
-  return res.json();
+export async function getCompanies(): Promise<ListingSnapshot<CompanyListItem[]>> {
+  return fetchListing<CompanyListItem[]>(`${API_URL}/companies`, 3600, "array");
 }
-
-export async function getTopCompanies(limit = 12, preferLogos = false): Promise<CompanyListItem[]> {
+export async function getTopCompanies(limit = 12, preferLogos = false): Promise<ListingSnapshot<CompanyListItem[]>> {
   const search = new URLSearchParams({ limit: String(limit) });
   if (preferLogos) search.set("prefer_logos", "true");
-  const res = await fetch(`${API_URL}/companies/top?${search.toString()}`, {
-    next: { revalidate: 21600 },
-  });
-  if (!res.ok) throw new Error(`Failed to load top companies: ${res.status}`);
-  return res.json();
+  return fetchListing<CompanyListItem[]>(`${API_URL}/companies/top?${search.toString()}`, 21600, "array");
 }
-
 export async function addBookmark(slug: string, accessToken: string): Promise<void> {
   const res = await fetch(`${API_URL}/bookmarks/${encodeURIComponent(slug)}`, {
     method: "POST",
@@ -521,9 +466,12 @@ export async function getBookmarks(accessToken: string): Promise<SavedOpportunit
   const res = await fetch(`${API_URL}/bookmarks`, {
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: "no-store",
+    signal: AbortSignal.timeout(20_000),
   });
   if (!res.ok) throw new Error(`Failed to load bookmarks: ${res.status}`);
-  return res.json();
+  const items: SavedOpportunityItem[] = await res.json();
+  if (!Array.isArray(items)) throw new Error("Invalid bookmarks response");
+  return items;
 }
 
 export async function createSavedSearch(
@@ -816,9 +764,13 @@ export async function pingOpportunityAction(slug: string, action: "apply" | "gat
 export async function getDreamCompanies(accessToken: string): Promise<DreamCompanyItem[]> {
   const res = await fetch(`${API_URL}/dream-companies`, {
     headers: { Authorization: `Bearer ${accessToken}` },
+    cache: "no-store",
+    signal: AbortSignal.timeout(20_000),
   });
   if (!res.ok) throw new Error("Couldn't load followed companies");
-  return res.json();
+  const items: DreamCompanyItem[] = await res.json();
+  if (!Array.isArray(items)) throw new Error("Invalid followed companies response");
+  return items;
 }
 
 export class FollowLimitError extends Error {
@@ -852,9 +804,12 @@ export async function searchCompanies(query: string, signal?: AbortSignal): Prom
   const q = query.trim();
   if (q.length < 2) return [];
   const search = new URLSearchParams({ q, limit: "20" });
-  const res = await fetch(`${API_URL}/companies/search?${search.toString()}`, { signal });
+  const timeout = AbortSignal.timeout(20_000);
+  const res = await fetch(`${API_URL}/companies/search?${search.toString()}`, { signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
   if (!res.ok) throw new Error("Couldn't search companies");
-  return res.json();
+  const companies: CompanyListItem[] = await res.json();
+  if (!Array.isArray(companies)) throw new Error("Invalid company search response");
+  return companies;
 }
 
 export async function addDreamCompany(slug: string, accessToken: string): Promise<void> {

@@ -14,9 +14,10 @@ const STATUS_LABELS: Record<string,string>={
   closed: "Closed",
 };
 
-export default function CalendarFilters({ query,search,onSearch,items,today,onChange,onClear }: {
+export default function CalendarFilters({ query,search,onSearch,items,today,onChange,onClear,countsKnown = true }: {
   query: CalendarQuery; search: string; onSearch: (search: string) => void;
   items: CalendarItem[]; today: string; onChange: (query: CalendarQuery) => void; onClear: () => void;
+  countsKnown?: boolean;
 }) {
   const keys=[...new Set([...CALENDAR_CATEGORIES.map(([key]) => key),...items.map((item) => item.programme.category),...query.category])];
   const faceted=filterCalendarItems(items,{ ...query,category: [] },today);
@@ -37,7 +38,7 @@ export default function CalendarFilters({ query,search,onSearch,items,today,onCh
         onClick={() => onChange({ ...query,category: [] })}
         className={`min-h-11 rounded-full border px-3 text-xs font-medium ${!query.category.length? "border-primary bg-accent text-primary":"border-border bg-card"} ${CALENDAR_FOCUS}`}
       >
-        All <span className="ml-1 text-muted-foreground">{count()}</span>
+        All {countsKnown && <span className="ml-1 text-muted-foreground">{count()}</span>}
       </button>
       {keys.map((key) => (
         <button
@@ -49,7 +50,7 @@ export default function CalendarFilters({ query,search,onSearch,items,today,onCh
         >
           <span className="size-2 shrink-0 rounded-full" aria-hidden="true" style={{ backgroundColor: categoryColour(key) }} />
           {categoryLabel(key,items.find((item) => item.programme.category===key)?.programme.category_label)}
-          <span className="text-muted-foreground">{count(key)}</span>
+          {countsKnown && <span className="text-muted-foreground">{count(key)}</span>}
         </button>
       ))}
     </div>

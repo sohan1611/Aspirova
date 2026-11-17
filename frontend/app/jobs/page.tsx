@@ -24,9 +24,7 @@ export default async function JobsPage() {
     <OpportunityLandingPage
       title={JOBS_LANDING.title}
       intro={JOBS_LANDING.intro}
-      items={data.items}
-      total={data.total}
-      openTotal={data.open_total}
+      initialData={data}
       page={1}
       limit={LANDING_LIMIT}
       basePath={JOBS_LANDING.basePath}

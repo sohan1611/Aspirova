@@ -22,9 +22,7 @@ export default async function InternshipsPage() {
     <OpportunityLandingPage
       title={INTERNSHIPS_LANDING.title}
       intro={INTERNSHIPS_LANDING.intro}
-      items={data.items}
-      total={data.total}
-      openTotal={data.open_total}
+      initialData={data}
       page={1}
       limit={LANDING_LIMIT}
       basePath={INTERNSHIPS_LANDING.basePath}

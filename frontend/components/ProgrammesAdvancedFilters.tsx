@@ -136,7 +136,7 @@ function ProgrammesFiltersPanel({
           options={categoryOptions}
           values={activeValues(searchParams, "category")}
           onToggle={(value) => toggleMultiParam("category", value)}
-          disabled={isPending || facetsStatus !== "loaded"}
+          disabled={isPending}
           emptyLabel={emptyLabel}
         />
       </FilterPanelSection>
@@ -147,7 +147,7 @@ function ProgrammesFiltersPanel({
           options={fieldOptions}
           values={activeValues(searchParams, "field")}
           onToggle={(value) => toggleMultiParam("field", value)}
-          disabled={isPending || facetsStatus !== "loaded"}
+          disabled={isPending}
           emptyLabel={emptyLabel}
         />
       </FilterPanelSection>
@@ -162,7 +162,7 @@ function ProgrammesFiltersPanel({
             type="search"
             placeholder="Search organisers"
             value={organiserSearch}
-            disabled={isPending || facetsStatus !== "loaded"}
+            disabled={isPending}
             onChange={(event) => setOrganiserSearch(event.target.value)}
           />
           <CountedMultiSelectGroup
@@ -170,7 +170,7 @@ function ProgrammesFiltersPanel({
             options={visibleOrganiserOptions}
             values={activeValues(searchParams, "organiser")}
             onToggle={(value) => toggleMultiParam("organiser", value)}
-            disabled={isPending || facetsStatus !== "loaded"}
+            disabled={isPending}
             emptyLabel={organiserNeedle ? "No organiser matches" : emptyLabel}
           />
         </div>
@@ -182,7 +182,7 @@ function ProgrammesFiltersPanel({
           options={institutionTypeOptions}
           values={activeValues(searchParams, "institution_type")}
           onToggle={(value) => toggleMultiParam("institution_type", value)}
-          disabled={isPending || facetsStatus !== "loaded"}
+          disabled={isPending}
           emptyLabel={emptyLabel}
         />
       </FilterPanelSection>
@@ -193,7 +193,7 @@ function ProgrammesFiltersPanel({
           options={statusOptions}
           values={activeValues(searchParams, "status")}
           onToggle={(value) => toggleMultiParam("status", value)}
-          disabled={isPending || facetsStatus !== "loaded"}
+          disabled={isPending}
           emptyLabel={emptyLabel}
         />
       </FilterPanelSection>

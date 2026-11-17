@@ -1,4 +1,6 @@
-import { AlertCircle } from "lucide-react";
+import { withBuildFallback } from "@/lib/buildFallback";
+import { ProgrammeBuildRecovery } from "@/components/BuildListingRecovery";
+import { ListingEmpty, ListingSnapshotNotice } from "@/components/ListingFeedback";
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
@@ -17,7 +19,7 @@ import {
   programmeCountLabel,
   type ProgrammeSearchParams,
 } from "@/lib/programmesQuery";
-import type { Facets, ProgrammeListItem } from "@/lib/types";
+import type { Facets } from "@/lib/types";
 
 const TITLE = "Research fellowships & internships";
 const DESCRIPTION =
@@ -85,19 +87,11 @@ export default async function ResearchPage({ searchParams }: PageProps) {
     allowedCategories: RESEARCH_CATEGORY_VALUES,
     defaultCategories: RESEARCH_CATEGORY_VALUES,
   });
-  let programmes: ProgrammeListItem[] = [];
-  let total = 0;
-  let failed = false;
+  const { data } = await withBuildFallback(() => loadProgrammes(request, 100), result => result.items.length);
+  if (!data) return <main className="mx-auto max-w-6xl px-4 py-10"><h1 className="font-serif text-3xl font-bold">Research fellowships & internships</h1><ProgrammeBuildRecovery params={{ ...request, limit: 100 }} pathname="/research" query={new URLSearchParams(Object.entries(query).flatMap(([key, value]) => (Array.isArray(value) ? value : value ? [value] : []).map(v => [key, v]))).toString()} /></main>;
+  const { items: programmes, total } = data;
   let facets: Facets | null = null;
   let facetsStatus: ProgrammesFacetsStatus = "loaded";
-
-  try {
-    const data = await loadProgrammes(request, 100);
-    programmes = data.items;
-    total = data.total;
-  } catch {
-    failed = true;
-  }
 
   try {
     facets = await getFacets({
@@ -159,11 +153,10 @@ export default async function ResearchPage({ searchParams }: PageProps) {
         <div className="mb-5 mt-10 flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
           <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
             <p className="eyebrow">Research programmes</p>
-            {!failed && (
               <p className="tnum text-sm text-muted-foreground">
                 {programmeCountLabel(total)}
               </p>
-            )}
+
           </div>
           <ProgrammesListingControls
             facets={facets}
@@ -179,20 +172,8 @@ export default async function ResearchPage({ searchParams }: PageProps) {
 
         <ProgrammesActiveFilterChips facets={facets} path="/research" />
 
-        {failed ? (
-          <section className="mt-10 flex flex-col items-center rounded-lg border border-border bg-card px-5 py-16 text-center shadow-soft sm:py-20">
-            <div className="rounded-lg border border-border bg-secondary/40 p-3 shadow-soft">
-              <AlertCircle className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
-            </div>
-            <p className="eyebrow mt-5">Programmes</p>
-            <h2 className="mt-2 font-serif text-xl font-bold text-foreground">
-              The research track could not be loaded.
-            </h2>
-            <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-              Check back soon; the official programme pages remain the source of truth.
-            </p>
-          </section>
-        ) : (
+        <ListingSnapshotNotice loadedAt={data.loadedAt} expiresAt={data.expiresAt} />
+        {programmes.length === 0 ? <ListingEmpty facets={facets} pathname="/research" query={new URLSearchParams(Object.entries(query).flatMap(([key, value]) => (Array.isArray(value) ? value : value ? [value] : []).map(v => [key, v]))).toString()} title="No research programmes match this view." /> : (
           <section
             className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
             aria-label="Flagship research programs"

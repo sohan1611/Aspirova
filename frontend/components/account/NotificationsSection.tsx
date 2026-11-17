@@ -17,6 +17,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import CompanyFavicon from "@/components/CompanyFavicon";
 import CompanyPicker from "@/components/CompanyPicker";
+import { ListingFailure } from "@/components/ListingFeedback";
+import { loadedList, failedList, type ListState } from "@/lib/listState";
 import DomainPicker from "@/components/DomainPicker";
 import { companyAlertLimitMessage, DigestPreviewRateLimitError, FollowLimitError, getDigestPreview, getDreamCompanies, removeDreamCompany, saveCompanyAlerts, updateAccount } from "@/lib/api";
 import { companyAlertSavedMessage, formatDomains } from "@/lib/roleSignalQuery";
@@ -254,7 +256,8 @@ function CompanyAlerts({ accessToken, limit, alertsEnabled }: { accessToken: str
   const editDomainsId = useId();
   const [items, setItems] = useState<DreamCompanyItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [listingState, setListingState] = useState<ListState<DreamCompanyItem[]> | null>(null);
+  const error = listingState?.status === "failed";
   const [retry, setRetry] = useState(0);
   const [pickerVersion, setPickerVersion] = useState(0);
   const [chosen, setChosen] = useState<CompanyListItem[]>([]);
@@ -270,16 +273,15 @@ function CompanyAlerts({ accessToken, limit, alertsEnabled }: { accessToken: str
   useEffect(() => {
     let cancelled = false;
     getDreamCompanies(accessToken).then((companies) => {
-      if (!cancelled) { setItems(companies); setLoading(false); setError(false); }
+      if (!cancelled) { setItems(companies); setLoading(false); setListingState(loadedList(companies, companies.length)); }
     }).catch(() => {
-      if (!cancelled) { setLoading(false); setError(true); }
+      if (!cancelled) { setLoading(false); setListingState(previous => failedList(previous)); }
     });
     return () => { cancelled = true; };
   }, [accessToken, retry]);
 
   function refresh() {
     setLoading(true);
-    setError(false);
     setRetry((value) => value + 1);
   }
 
@@ -376,7 +378,8 @@ function CompanyAlerts({ accessToken, limit, alertsEnabled }: { accessToken: str
         </form>
       </div>
       {limitMessage && <p role="alert" className="mt-3 text-sm text-muted-foreground">{limitMessage}{" "}<Link href="/pricing" className="inline-flex min-h-11 items-center underline underline-offset-4 sm:min-h-0">See plans</Link></p>}
-      {loading ? (
+      {error && <ListingFailure retry={refresh} loadedAt={items.length ? listingState?.loadedAt : null} pending={loading} />}
+      {loading && items.length === 0 ? (
         <div role="status" className="mt-4 divide-y divide-border">
           <span className="sr-only">Loading followed companies…</span>
           {[0, 1].map((index) => (
@@ -389,12 +392,8 @@ function CompanyAlerts({ accessToken, limit, alertsEnabled }: { accessToken: str
             </div>
           ))}
         </div>
-      ) : error ? (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
-          <p role="alert" className="flex items-center gap-2 text-sm text-destructive-text"><AlertCircle className="size-4 shrink-0" aria-hidden="true" />Couldn&apos;t load followed companies.</p>
-          <Button type="button" variant="outline" size="sm" onClick={refresh}>Retry</Button>
-        </div>
-      ) : items.length === 0 ? (
+      ) : error && items.length === 0 ? null : items.length === 0 ? (
+
         <EmptyState compact icon={Building2} title="No companies yet" description="Search above to follow your first company." />
       ) : (
         <ul className="mt-4 divide-y divide-border">

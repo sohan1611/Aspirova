@@ -1,11 +1,12 @@
-import { SearchX } from "lucide-react";
+import { withBuildFallback } from "@/lib/buildFallback";
+import { CompaniesBuildRecovery } from "@/components/BuildListingRecovery";
 import type { Metadata } from "next";
 import Link from "next/link";
 import CompanyFavicon from "@/components/CompanyFavicon";
 import SourceCompanyCard from "@/components/SourceCompanyCard";
 import { getCompanies } from "@/lib/api";
 import { EXTERNAL_COMPANIES } from "@/lib/externalCompanies";
-import type { CompanyListItem } from "@/lib/types";
+import { ListingEmpty, ListingSnapshotNotice } from "@/components/ListingFeedback";
 
 const DESCRIPTION =
   "Browse companies with active internships and jobs auto-discovered from public career pages.";
@@ -41,12 +42,8 @@ function companyCountLabel(count: number): string {
 }
 
 export default async function CompaniesPage() {
-  let companies: CompanyListItem[] = [];
-  try {
-    companies = await getCompanies();
-  } catch {
-    companies = [];
-  }
+  const { data: companies } = await withBuildFallback(getCompanies, data => data.length);
+  if (!companies) return <main className="mx-auto max-w-6xl px-4 py-10"><h1 className="font-serif text-3xl font-bold">Companies hiring now</h1><CompaniesBuildRecovery /></main>;
 
   return (
     <main className="mx-auto w-full max-w-[1680px] px-4 py-10 sm:px-6 sm:py-14 lg:px-10 xl:px-12">
@@ -86,6 +83,7 @@ export default async function CompaniesPage() {
         </p>
       </div>
 
+      <ListingSnapshotNotice loadedAt={companies.loadedAt} expiresAt={companies.expiresAt} />
       {companies.length > 0 ? (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {companies.map((company) => (
@@ -108,18 +106,7 @@ export default async function CompaniesPage() {
           ))}
         </div>
       ) : (
-        <section className="flex flex-col items-center rounded-lg border border-border bg-card px-5 py-16 text-center shadow-soft sm:py-20">
-          <div className="rounded-lg border border-border bg-secondary/40 p-3 shadow-soft">
-            <SearchX className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
-          </div>
-          <p className="eyebrow mt-5">The roster</p>
-          <h2 className="mt-2 font-serif text-xl font-bold text-foreground">
-            The next company is still being indexed.
-          </h2>
-          <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-            Check back soon as Aspirova discovers more public career pages.
-          </p>
-        </section>
+        <ListingEmpty pathname="/companies" title="No companies are hiring here yet." />
       )}
     </main>
   );

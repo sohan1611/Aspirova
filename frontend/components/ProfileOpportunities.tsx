@@ -1,7 +1,8 @@
 "use client";
 
 import { ArrowRight } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useListingResults } from "@/lib/listingResults";
+import { ListingFailure, ListingEmpty } from "@/components/ListingFeedback";
 import HoverPrefetchLink from "@/components/HoverPrefetchLink";
 import SaveButton from "@/components/SaveButton";
 import { Button } from "@/components/ui/button";
@@ -11,13 +12,8 @@ import { formatDate } from "@/lib/date";
 import { requestOnboarding } from "@/lib/fieldProfile";
 import { summarizeLocation } from "@/lib/location";
 import { buildFeedTerms, type FieldProfile } from "@/lib/taxonomy";
-import type { OpportunityListItem } from "@/lib/types";
 
 type ProfileFeedRequest = { terms: string[]; skills: string[]; limit: number };
-type FeedState =
-  | { status: "loading" }
-  | { status: "error" }
-  | { status: "loaded"; items: OpportunityListItem[] };
 
 export default function ProfileOpportunities({
   profile,
@@ -29,7 +25,6 @@ export default function ProfileOpportunities({
   skillNames: string[];
   accountLoading: boolean;
 }) {
-  const [attempt, setAttempt] = useState(0);
   const terms = buildFeedTerms(profile, skillNames);
   const hasSignals = terms.length > 0 || skillNames.length > 0;
   const request: ProfileFeedRequest = { terms, skills: skillNames, limit: 6 };
@@ -65,9 +60,7 @@ export default function ProfileOpportunities({
           </div>
         ) : (
           <ProfileFeedResults
-            key={`${JSON.stringify(profile)}:${requestKey}:${attempt}`}
             requestKey={requestKey}
-            onRetry={() => setAttempt((current) => current + 1)}
           />
         )}
       </div>
@@ -84,40 +77,16 @@ export default function ProfileOpportunities({
   );
 }
 
-function ProfileFeedResults({ requestKey, onRetry }: { requestKey: string; onRetry: () => void }) {
-  const [state, setState] = useState<FeedState>({ status: "loading" });
-
-  useEffect(() => {
-    let cancelled = false;
-    const request: ProfileFeedRequest = JSON.parse(requestKey);
-    void getForYou(request).then((data) => {
-      if (!cancelled) setState({ status: "loaded", items: data.items });
-    }).catch(() => {
-      if (!cancelled) setState({ status: "error" });
-    });
-    return () => { cancelled = true; };
-  }, [requestKey]);
-
-  if (state.status === "loading") return <ProfileFeedSkeleton />;
-  if (state.status === "error") {
-    return (
-      <div role="alert" className="rounded-lg border border-border bg-card p-6">
-        <p className="text-sm leading-6 text-muted-foreground">Couldn&apos;t load opportunities right now.</p>
-        <Button type="button" variant="outline" className="mt-4 min-h-11" onClick={onRetry}>Retry</Button>
-      </div>
-    );
-  }
-  if (state.items.length === 0) {
-    return (
-      <p className="rounded-lg border border-border bg-card p-6 text-sm leading-6 text-muted-foreground">
-        Nothing matches yet. Add skills or pick more fields.
-      </p>
-    );
-  }
-
+function ProfileFeedResults({ requestKey }: { requestKey: string }) {
+  const { settled, retry } = useListingResults("/profile-opportunities", requestKey, true, () => getForYou(JSON.parse(requestKey) as ProfileFeedRequest), null);
+  if (!settled || (settled.status === "loading" && !settled.data)) return <ProfileFeedSkeleton />;
+  const items = settled.data?.items ?? [];
+  if (settled.status === "empty") return <ListingEmpty description="Add skills or pick more fields to broaden your matches." />;
   return (
+    <>
+    {settled.status === "failed" && <ListingFailure retry={retry} loadedAt={items.length ? settled.loadedAt : null} />}
     <ol className="grid gap-4">
-      {state.items.map((item) => {
+      {items.map((item) => {
         const path = `/opportunity/${item.slug}`;
         const isRole = item.category === "job" || item.category === "internship";
         const detail = isRole ? formatCompensation(item.meta) : item.deadline
@@ -148,6 +117,7 @@ function ProfileFeedResults({ requestKey, onRetry }: { requestKey: string; onRet
         );
       })}
     </ol>
+    </>
   );
 }
 

@@ -1,6 +1,8 @@
 "use client";
+import { loadedList, failedList, type ListState } from "@/lib/listState";
+import { ListingFailure } from "@/components/ListingFeedback";
 
-import { AlertCircle, Bookmark } from "lucide-react";
+import { Bookmark } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -39,12 +41,12 @@ const STAGES = [
 
 type StageFilter = "all" | BookmarkStage;
 
-interface SavedLoadState {
+type SavedLoadState = ListState<SavedOpportunityItem[]> & {
   accessToken: string | null;
+  userId: string | null;
   requestKey: number;
-  status: "success" | "error";
   items: SavedOpportunityItem[];
-}
+};
 
 function getStageLabel(stage: BookmarkStage): string {
   return STAGES.find((option) => option.value === stage)?.label ?? stage;
@@ -90,13 +92,15 @@ export default function SavedPage() {
   const { syncStatus, isSaved, status, statusesReady } = useBookmarks();
   const { session, resolved } = useSessionState();
   const accessToken = session?.access_token ?? null;
+  const userId = session?.user.id ?? null;
   const [retryKey, setRetryKey] = useState(0);
   const [activeStage, setActiveStage] = useState<StageFilter>("all");
   const [pendingSlugs, setPendingSlugs] = useState<Set<string>>(new Set());
   const [loadState, setLoadState] = useState<SavedLoadState>({
     accessToken: null,
+    userId: null,
     requestKey: -1,
-    status: "success",
+    ...failedList<SavedOpportunityItem[]>(null),
     items: [],
   });
 
@@ -108,22 +112,21 @@ export default function SavedPage() {
     getBookmarks(accessToken)
       .then((items) => {
         if (cancelled) return;
-        setLoadState({ accessToken, requestKey: retryKey, status: "success", items });
+        setLoadState({ accessToken, userId, requestKey: retryKey, ...loadedList(items, items.length), items });
       })
       .catch(() => {
         if (cancelled) return;
-        setLoadState({
-          accessToken,
-          requestKey: retryKey,
-          status: "error",
-          items: [],
-        });
+        setLoadState(previous => ({
+          accessToken, userId, requestKey: retryKey,
+          ...failedList(previous.userId === userId ? previous : null),
+          items: previous.userId === userId ? previous.items : [],
+        }));
       });
 
     return () => {
       cancelled = true;
     };
-  }, [accessToken, retryKey]);
+  }, [accessToken, userId, retryKey]);
 
   // Keep loaded card data so Undo can put a removed card back immediately.
   const savedItems = useMemo(
@@ -224,10 +227,11 @@ export default function SavedPage() {
   const loading =
     !resolved ||
     (accessToken !== null &&
-      (loadState.accessToken !== accessToken || loadState.requestKey !== retryKey));
+      (loadState.userId !== userId || (loadState.requestKey !== retryKey && loadState.loadedAt === null)));
 
   return (
     <main className="mx-auto w-full max-w-[1680px] px-4 py-10 sm:px-6 sm:py-14 lg:px-10 xl:px-12">
+      {loadState.userId === userId && loadState.status === "failed" && savedItems.length > 0 && <ListingFailure retry={() => setRetryKey(current => current + 1)} loadedAt={loadState.loadedAt} pending={loadState.requestKey !== retryKey} />}
       <header className="max-w-3xl">
         <p className="eyebrow">Your shortlist</p>
         <h1 className="mt-3 font-serif text-4xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl">
@@ -264,25 +268,10 @@ export default function SavedPage() {
             ))}
           </div>
         </section>
-      ) : loadState.status === "error" ? (
-        <Card className="mx-auto mt-10 max-w-xl text-center shadow-soft" role="alert">
-          <CardHeader>
-            <AlertCircle className="mx-auto size-9 text-destructive" aria-hidden="true" />
-            <CardTitle className="font-serif text-2xl">
-              We couldn&apos;t load your saved opportunities
-            </CardTitle>
-            <CardDescription>
-              Check your connection and try loading your shortlist again.
-            </CardDescription>
-          </CardHeader>
-          <CardFooter className="justify-center">
-            <Button type="button" onClick={() => setRetryKey((current) => current + 1)}>
-              Retry
-            </Button>
-          </CardFooter>
-        </Card>
+      ) : loadState.status === "failed" && savedItems.length === 0 ? (
+        <ListingFailure retry={() => setRetryKey(current => current + 1)} pending={loadState.requestKey !== retryKey} />
       ) : savedItems.length === 0 ? (
-        <section className="mt-10 flex flex-col items-center rounded-lg border border-border bg-card px-5 py-16 text-center shadow-soft sm:py-20">
+        <section role="status" aria-live="polite" className="mt-10 flex flex-col items-center rounded-lg border border-border bg-card px-5 py-16 text-center shadow-soft sm:py-20">
           <div className="rounded-lg border border-border bg-secondary/40 p-3">
             <Bookmark className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
           </div>
@@ -294,6 +283,9 @@ export default function SavedPage() {
           </p>
           <Button asChild className="mt-5">
             <Link href="/">Browse opportunities</Link>
+          </Button>
+          <Button asChild variant="outline" className="mt-3 min-h-11">
+            <Link href="/calendar">Explore recurring programmes</Link>
           </Button>
         </section>
       ) : (

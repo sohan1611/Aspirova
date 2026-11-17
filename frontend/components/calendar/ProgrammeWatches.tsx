@@ -4,6 +4,8 @@ import { Bell, BellRing, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { loadedList, failedList, type ListState } from "@/lib/listState";
+import { ListingFailure } from "@/components/ListingFeedback";
 import AuthWidget from "@/components/AuthWidget";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -17,6 +19,7 @@ interface WatchContext {
   signedIn: boolean;
   items: ProgrammeWatch[];
   error: string;
+  loadedAt: number | null;
   pending: string | null;
   reload: () => void;
   toggle: (slug: string) => Promise<void>;
@@ -27,7 +30,8 @@ const WatchesContext = createContext<WatchContext | null>(null);
 export function ProgrammeWatchesProvider({ children }: { children: React.ReactNode }) {
   const { session, resolved } = useSessionState();
   const token = session?.access_token ?? null;
-  const [state, setState] = useState<{ token: string | null; items: ProgrammeWatch[]; error: string; loaded: boolean }>({ token: null, items: [], error: "", loaded: false });
+  const ownerId = session?.user.id ?? null;
+  const [state, setState] = useState<ListState<ProgrammeWatch[]> & { token: string | null; ownerId: string | null; items: ProgrammeWatch[]; loaded: boolean }>({ token: null, ownerId: null, items: [], ...failedList<ProgrammeWatch[]>(null), loaded: false });
   const [retry, setRetry] = useState(0);
   const [pending, setPending] = useState<string | null>(null);
   const pendingRef = useRef(false);
@@ -39,19 +43,18 @@ export function ProgrammeWatchesProvider({ children }: { children: React.ReactNo
     if (!token) return;
     const controller = new AbortController();
     void getProgrammeWatches(token, controller.signal).then((items) => {
-      if (!controller.signal.aborted) setState({ token, items, error: "", loaded: true });
+      if (!controller.signal.aborted) setState({ token, ownerId, items, ...loadedList(items, items.length), loaded: true });
     }).catch((error: unknown) => {
-      if (!controller.signal.aborted) setState({ token, items: [], error: error instanceof Error ? error.message : "Couldn't load your programme watches.", loaded: false });
+      if (!controller.signal.aborted) setState(previous => ({ token, ownerId, items: previous.ownerId === ownerId ? previous.items : [], ...failedList(previous.ownerId === ownerId ? previous : null, error instanceof Error ? error.message : "Couldn't load your programme watches."), loaded: previous.ownerId === ownerId && previous.loaded }));
     });
     return () => controller.abort();
-  }, [token, retry]);
+  }, [token, ownerId, retry]);
 
-  const active = token !== null && state.token === token;
+  const active = ownerId !== null && state.ownerId === ownerId;
   const items = active ? state.items : [];
-  const error = active ? state.error : "";
+  const error = active ? state.error ?? "" : "";
   const ready = resolved && (!token || (active && state.loaded));
   const reload = useCallback(() => {
-    setState((current) => ({ ...current, loaded: false, error: "" }));
     setRetry((value) => value + 1);
   }, []);
 
@@ -89,7 +92,7 @@ export function ProgrammeWatchesProvider({ children }: { children: React.ReactNo
     }
   }
 
-  return <WatchesContext.Provider value={{ ready, loading: !ready && !error, signedIn: !!token, items, error, pending, reload, toggle }}>
+  return <WatchesContext.Provider value={{ ready, loading: !ready && !error, signedIn: !!token, items, error, loadedAt: active ? state.loadedAt : null, pending, reload, toggle }}>
     {children}
     <Dialog open={authOpen && !token} onOpenChange={setAuthOpen}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto">
@@ -121,15 +124,15 @@ export function ProgrammeWatchButton({ slug, name }: { slug: string; name: strin
 }
 
 export function ProgrammeWatchSummary() {
-  const { ready, signedIn, items, error, pending, reload, toggle } = useProgrammeWatches();
+  const { ready, signedIn, items, error, loadedAt, pending, reload, toggle } = useProgrammeWatches();
   return <section aria-labelledby="calendar-watches-heading" className="rounded-xl border border-border bg-card p-4">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <h2 id="calendar-watches-heading" className="flex items-center gap-2 text-sm font-semibold"><Bell className="size-4 text-primary" aria-hidden="true" />Watch programmes</h2>
-      {signedIn && ready && <span className="text-xs text-muted-foreground">{items.length} of 50 watched</span>}
+      {signedIn && ready && !error && <span className="text-xs text-muted-foreground">{items.length} of 50 watched</span>}
     </div>
     <p className="mt-2 text-sm leading-6 text-muted-foreground">{WATCH_UPDATES_COPY}</p>
     <Link href="/account?section=notifications" className="inline-flex min-h-11 items-center text-xs text-primary underline underline-offset-4">Manage email preferences</Link>
-    {error && <div role="alert" className="flex flex-wrap items-center gap-2 text-sm"><p>{error}</p><Button type="button" variant="outline" className="min-h-11" onClick={reload}>Try again</Button></div>}
+    {error && <ListingFailure retry={reload} loadedAt={items.length ? loadedAt : null} />}
     {signedIn && !ready && !error && <p role="status" className="text-xs text-muted-foreground">Loading your watches…</p>}
     {signedIn && ready && items.length > 0 && <details className="mt-2 border-t border-border pt-2">
       <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><ChevronDown className="size-4" aria-hidden="true" />Your watched programmes</summary>

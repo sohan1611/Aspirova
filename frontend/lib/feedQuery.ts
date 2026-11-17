@@ -8,6 +8,8 @@ import type { OpportunityListItem } from "@/lib/types";
 // actually renders from. Page and limit come from the parsed request, which is
 // the authority for them anyway.
 export interface FeedResultData {
+  loadedAt?: number;
+  expiresAt?: number;
   items: OpportunityListItem[];
   total: number;
   open_total?: number | null;

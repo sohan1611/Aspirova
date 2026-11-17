@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { loadedList, failedList, type ListState } from "@/lib/listState";
+import { ListingFailure, ListingEmpty, ListingSnapshotNotice } from "@/components/ListingFeedback";
 import { Skeleton } from "@/components/ui/skeleton";
 import CalendarFilters from "@/components/calendar/Filters";
 import OpenNow from "@/components/calendar/OpenNow";
@@ -24,11 +25,12 @@ function HiringCalendarContent({ initialQuery, initialData }: {
   initialQuery: CalendarQuery; initialData: CalendarResponse | null;
 }) {
   const [query, setQuery] = useState(initialQuery);
-  const [data, setData] = useState(initialData);
+  const [state, setState] = useState<ListState<CalendarResponse> | null>(initialData ? loadedList(initialData, initialData.items.length + initialData.rolling.length, initialData.loadedAt) : failedList<CalendarResponse>(null));
+  const data = state?.data ?? null;
+  const error = state?.status === "failed";
   const [today, setToday] = useState(initialQuery.from);
   const [search, setSearch] = useState(initialQuery.q);
-  const [loading, setLoading] = useState(!initialData);
-  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const [retry, setRetry] = useState(0);
   const queryRef = useRef(query);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -76,15 +78,14 @@ function HiringCalendarContent({ initialQuery, initialData }: {
     queueMicrotask(() => {
       if (!controller.signal.aborted) {
         setLoading(true);
-        setError("");
       }
     });
     void fetchCalendar(queryRef.current, { signal: controller.signal })
       .then((result) => {
-        if (!controller.signal.aborted) setData(result);
+        if (!controller.signal.aborted) setState(loadedList(result, result.items.length + result.rolling.length, result.loadedAt));
       })
       .catch(() => {
-        if (!controller.signal.aborted) setError("The calendar could not be loaded. Try again.");
+        if (!controller.signal.aborted) setState(previous => failedList(previous));
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
@@ -133,11 +134,12 @@ function HiringCalendarContent({ initialQuery, initialData }: {
         search={search}
         onSearch={updateSearch}
         items={all}
+        countsKnown={!!data && !error && !loading}
         today={today}
         onChange={changeWithSearch}
         onClear={clearFilters}
       />
-      <OpenNow items={filtered} today={today} onSelect={selectItem} />
+      {!error && <OpenNow items={filtered} today={today} onSelect={selectItem} />}
       <div id="calendar-results" tabIndex={-1} ref={fallbackFocus} className="min-w-0 scroll-mt-20 space-y-4 outline-none">
         <PeriodControl query={query} today={today} onChange={changeWithSearch} />
         <div role="status" aria-live="polite" className="flex min-h-5 flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -146,14 +148,10 @@ function HiringCalendarContent({ initialQuery, initialData }: {
               <Skeleton className="h-1 w-16 motion-reduce:animate-none" />
               <span>{previousPeriod ? "Updating period · previous results shown below" : "Updating calendar…"}</span>
             </>
-          ) : <span>{count} {count === 1 ? "programme" : "programmes"}</span>}
+          ) : !error && data ? <span>{count} {count === 1 ? "programme" : "programmes"}</span> : null}
         </div>
-        {error && (
-          <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-destructive/25 bg-red-50 p-3 text-sm">
-            <p>{error}{previousPeriod ? " Previous results are shown below." : ""}</p>
-            <Button variant="outline" className="min-h-11" onClick={() => setRetry((value) => value + 1)}>Try again</Button>
-          </div>
-        )}
+        {error && <ListingFailure retry={() => setRetry(value => value + 1)} loadedAt={data && count > 0 ? state?.loadedAt : null} pending={loading} />}
+        {state?.loadedAt && !error && <ListingSnapshotNotice loadedAt={state.loadedAt} expiresAt={data?.expiresAt} />}
         {!data && loading && (
           <div className="space-y-3" aria-label="Loading calendar">
             <Skeleton className="h-24 motion-reduce:animate-none" />
@@ -161,13 +159,7 @@ function HiringCalendarContent({ initialQuery, initialData }: {
             <Skeleton className="h-24 motion-reduce:animate-none" />
           </div>
         )}
-        {data && count === 0 && (
-          <section className="rounded-xl border border-dashed border-border px-5 py-10 text-center">
-            <h2 className="font-serif text-xl font-semibold">No programmes match these filters</h2>
-            <p className="mt-2 text-sm text-muted-foreground">Try another company, event or exam, or clear the filters.</p>
-            <Button variant="outline" className="mt-4 min-h-11" onClick={clearFilters}>Clear filters</Button>
-          </section>
-        )}
+        {data && !error && !loading && count === 0 && <ListingEmpty pathname="/calendar" query={calendarParams(query).toString()} title="No programmes match these filters." navigate={href => change(parseCalendarParams(new URL(href, window.location.origin).searchParams, today))} />}
         {data && count > 0 && (
           <section aria-label="Calendar results" aria-busy={loading} className={`min-w-0 space-y-7 ${loading ? "opacity-70" : ""}`}>
             {query.view === "list" && (

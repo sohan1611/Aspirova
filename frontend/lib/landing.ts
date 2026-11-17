@@ -1,9 +1,8 @@
+import { withBuildFallback } from "@/lib/buildFallback";
 import type { Metadata } from "next";
 import { type FeedParams, getFeed } from "@/lib/api";
-import { withBuildFallback } from "@/lib/buildFallback";
 import type { OpportunityListingPath } from "@/lib/opportunityListingQuery";
 import { buildPagePath } from "@/lib/pagination";
-import type { FeedResponse } from "@/lib/types";
 
 export const LANDING_LIMIT = 20;
 
@@ -100,11 +99,11 @@ export function parsePageSegment(value: string): number {
 export async function loadLandingPage(
   config: LandingConfig,
   page: number,
-): Promise<FeedResponse> {
-  return withBuildFallback(
+) {
+  return (await withBuildFallback(
     () => getFeed({ ...config.query, page, limit: LANDING_LIMIT }, LANDING_REVALIDATE),
-    () => ({ items: [], total: 0, page, limit: LANDING_LIMIT }),
-  );
+    data => data.items.length,
+  )).data;
 }
 
 // Out-of-range pages return HTTP 200 while rendering the not-found page. That is
@@ -123,7 +122,7 @@ export async function landingPageMetadata(
 ): Promise<Metadata> {
   const data = await loadLandingPage(config, page);
 
-  if (page > totalPagesFor(data.total)) {
+  if (data && page > totalPagesFor(data.total)) {
     return {
       title: "Page not found",
       robots: { index: false, follow: false },

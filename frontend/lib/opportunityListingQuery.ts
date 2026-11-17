@@ -2,7 +2,7 @@ import { type FeedParams, getFeed, searchOpportunities } from "@/lib/api";
 import { parseRoleSignalParams, ROLE_FILTER_KEYS } from "@/lib/roleSignalQuery";
 import { buildPagePath } from "@/lib/pagination";
 import { parseSortParams, type UiSort } from "@/lib/sortParams";
-import type { FacetOption } from "@/lib/types";
+import type { CountedFilterOption as FacetOption } from "@/components/CountedFilterControls";
 
 export const OPPORTUNITY_LISTING_LIMIT = 20;
 export const INDIA_COUNTRY_CODE = "IN";
@@ -336,17 +336,13 @@ export function defaultOpportunityListingLocationOptions(
   return locationDefinitions(baseQuery).map((option) => ({
     value: option.value,
     label: option.label,
-    count: 0,
+    count: undefined,
   }));
 }
 
 async function totalFor(baseQuery: FeedParams, filters: FeedParams): Promise<number> {
-  try {
-    const data = await getFeed({ ...baseQuery, ...filters, page: 1, limit: 1 });
-    return data.total;
-  } catch {
-    return 0;
-  }
+  const data = await getFeed({ ...baseQuery, ...filters, page: 1, limit: 1 });
+  return data.total;
 }
 
 export async function loadOpportunityListingControlCounts(

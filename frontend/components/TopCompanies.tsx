@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { loadedList, failedList, type ListState } from "@/lib/listState";
 import HoverPrefetchLink from "@/components/HoverPrefetchLink";
 import CompanyFavicon from "@/components/CompanyFavicon";
 import { getTopCompanies } from "@/lib/api";
 import type { CompanyListItem } from "@/lib/types";
 import { useSession } from "@/lib/useSession";
 
-type LoadState = {
+type LoadState = ListState<CompanyListItem[]> & {
   sessionKey: string | null;
-  status: "idle" | "success" | "error";
   companies: CompanyListItem[];
 };
 
@@ -23,7 +23,7 @@ export default function TopCompanies() {
   const sessionKey = session?.user?.id ?? null;
   const [state, setState] = useState<LoadState>({
     sessionKey: null,
-    status: "idle",
+    ...failedList<CompanyListItem[]>(null),
     companies: [],
   });
 
@@ -35,11 +35,11 @@ export default function TopCompanies() {
     getTopCompanies(undefined, true)
       .then((items) => {
         if (cancelled) return;
-        setState({ sessionKey, status: "success", companies: items });
+        setState({ sessionKey, ...loadedList(items, items.length, items.loadedAt), companies: items });
       })
       .catch(() => {
         if (cancelled) return;
-        setState({ sessionKey, status: "error", companies: [] });
+        setState(previous => ({ sessionKey, ...failedList(previous), companies: [] }));
       });
 
     return () => {
@@ -50,7 +50,7 @@ export default function TopCompanies() {
   if (
     !sessionKey ||
     state.sessionKey !== sessionKey ||
-    state.status !== "success" ||
+    state.status !== "results" ||
     state.companies.length === 0
   ) {
     return null;
