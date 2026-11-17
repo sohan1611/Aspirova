@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_valid
 from api.filters import ROLE_TERMS
 from core import models
 from core.destination import DestinationKind, classify_destination
+from core.listing_safety import safety_flag
 
 
 class CompanySummary(BaseModel):
@@ -39,6 +40,13 @@ class SitemapCompany(BaseModel):
     slug: str
 
 
+class ListingSafety(BaseModel):
+    kind: Literal["scam", "recalled"]
+    note: str
+    source_url: str | None = None
+    flagged_at: datetime
+
+
 class OpportunityListItem(BaseModel):
     slug: str
     title: str
@@ -56,6 +64,8 @@ class OpportunityListItem(BaseModel):
     is_hidden: bool
     summary: str | None = None
     meta: dict | None = None
+    safety: ListingSafety | None = None
+    status: str = "active"
 
     @field_validator("location")
     @classmethod
@@ -94,6 +104,8 @@ class OpportunityListItem(BaseModel):
             is_hidden=o.is_hidden,
             summary=o.summary,
             meta=o.meta,
+            safety=safety_flag(o),
+            status=o.status or "active",
         )
 
 
@@ -371,6 +383,8 @@ class OpportunityDetail(OpportunityListItem):
             last_seen_at=o.last_seen_at,
             is_hidden=o.is_hidden,
             meta=o.meta,
+            safety=safety_flag(o),
+            status=o.status or "active",
             description_raw=o.description_raw or "",
             summary=o.summary,
             apply_url=o.apply_url,

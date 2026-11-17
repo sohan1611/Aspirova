@@ -43,8 +43,8 @@ const NOTIFICATIONS = [
   },
   {
     key: "closing_soon",
-    label: "Deadline reminders",
-    description: "An email when an opportunity you saved is about to close.",
+    label: "Saved listings",
+    description: "Deadline reminders, early closures and safety warnings for listings you saved. Safety warnings also appear in-app when email is off.",
   },
 ] as const;
 

@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     indexing_daily_budget: int = 190
     telegram_bot_token: str = ""
     telegram_channel_id: str = ""
+    # Early closures catalogue-wide within 24 hours either side of a listing's closure.
+    saved_closure_notice_breaker: int = 1500
     # Where the API itself is reachable. Needed for one-click unsubscribe, whose
     # URL Gmail POSTs to directly - that endpoint is on the API, not the site.
     api_base_url: str = "https://aspirova-api.onrender.com"

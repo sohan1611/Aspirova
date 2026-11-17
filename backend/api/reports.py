@@ -22,7 +22,7 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 _EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
-_VALID_CATEGORIES = {"dead_link", "wrong_info", "bug", "other"}
+_VALID_CATEGORIES = {"dead_link", "wrong_info", "bug", "other", "scam"}
 
 
 async def enforce_report_rate_limit(request: Request) -> None:
@@ -120,7 +120,11 @@ def _notify_founder(
     try:
         sent = send_email(
             to=settings.waitlist_notify_email,
-            subject=f"Aspirova bug report: {report.category}",
+            subject=(
+                "Aspirova report: possible scam"
+                if report.category == "scam"
+                else f"Aspirova bug report: {report.category}"
+            ),
             html=html_body,
             text=text_body,
         )

@@ -49,6 +49,7 @@ from sqlalchemy.orm import Session
 from core import models
 from core.adapters import NormalizedListing, RawListing
 from core.destination import DIRECT_SOURCE_SLUGS, classify_destination
+from core.listing_safety import safety_flag
 from core.summarise import summarise_description
 from core.textclean import fix_multiline_text, fix_text
 from pipeline.competition_signals import merge_competition_signals
@@ -332,6 +333,12 @@ def ingest_one(
             # opportunity for this company, so this should not happen in
             # practice; a direct lookup keeps correctness if it ever does.
             opportunity = session.get(models.Opportunity, raw_row.opportunity_id)
+        if safety_flag(opportunity) is not None or opportunity.status == "withdrawn":
+            raw_row.processed = True
+            _ensure_provenance(
+                session, board_state, opportunity, source_id, raw, raw_row, is_primary=False
+            )
+            return opportunity, False
         _upgrade_direct_apply_url(opportunity, raw, normalized, changed_slugs)
         content_changed = raw_row.content_hash != raw.content_hash
 
@@ -453,6 +460,13 @@ def ingest_one(
     )
 
     if match is not None:
+        if safety_flag(match) is not None or match.status == "withdrawn":
+            raw_row.opportunity_id = match.id
+            raw_row.processed = True
+            _ensure_provenance(
+                session, board_state, match, source_id, raw, raw_row, is_primary=False
+            )
+            return match, False
         _upgrade_direct_apply_url(match, raw, normalized, changed_slugs)
         if len(normalized.description_raw or "") > len(match.description_raw or ""):
             match.description_raw = normalized.description_raw
@@ -475,6 +489,13 @@ def ingest_one(
             # still a reliable merge key. Soft-merge instead of a hard
             # INSERT failure.
             opportunity = existing_by_slug
+            if safety_flag(opportunity) is not None or opportunity.status == "withdrawn":
+                raw_row.opportunity_id = opportunity.id
+                raw_row.processed = True
+                _ensure_provenance(
+                    session, board_state, opportunity, source_id, raw, raw_row, is_primary=False
+                )
+                return opportunity, False
             _upgrade_direct_apply_url(opportunity, raw, normalized, changed_slugs)
             if len(normalized.description_raw or "") > len(opportunity.description_raw or ""):
                 opportunity.description_raw = normalized.description_raw

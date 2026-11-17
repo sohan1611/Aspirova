@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from core import models
 from pipeline.company_alert_email import CompanyAlertGroup, render_company_alert
 from pipeline.weekly_report import WeeklyReportData, _render_weekly_report
+from pipeline.notifications import _render_closing_soon
 
 
 def _today() -> datetime:
@@ -55,14 +56,42 @@ def _sample_opportunities(now: datetime) -> list[models.Opportunity]:
     ]
 
 
+def saved_notice_samples(
+    now: datetime,
+) -> tuple[list[models.Opportunity], list[models.Opportunity]]:
+    """Fictional source-backed examples, shared by the public and offline previews."""
+    opportunities = _sample_opportunities(now)
+    unsafe, closed = opportunities[:2]
+    unsafe.status = "withdrawn"
+    unsafe.deadline = None
+    unsafe.closed_at = now - timedelta(days=2)
+    unsafe.meta = {
+        "safety": {
+            "kind": "scam",
+            "note": "The source reports an unauthorised fee request.",
+            "source_url": "https://example.com/notices/fee-warning",
+            "flagged_at": now.isoformat(),
+        }
+    }
+    closed.closed_at = now - timedelta(days=2)
+    closed.deadline = None
+    return [unsafe], [closed]
+
+
 def render_sample(kind: str, *, now: datetime | None = None) -> tuple[str, str] | None:
     """Return a real template's subject and HTML without DB, AI or transport calls."""
-    if kind not in {"company-alert", "weekly-report"}:
+    if kind not in {"company-alert", "weekly-report", "saved-listings"}:
         return None
 
     now = now or _today()
     user = models.User(display_name=None)
     opportunities = _sample_opportunities(now)
+    if kind == "saved-listings":
+        safety, closed = saved_notice_samples(now)
+        opportunities[2].deadline = now + timedelta(days=2)
+        return _render_closing_soon(
+            opportunities[2:3], now, UNSUBSCRIBE, safety=safety, closed=closed
+        )
     if kind == "company-alert":
         groups = [
             CompanyAlertGroup(

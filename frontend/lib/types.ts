@@ -16,7 +16,16 @@ export interface CompanyListItem extends CompanySummary {
   active_count: number;
 }
 
+export interface ListingSafety {
+  kind: "scam" | "recalled";
+  note: string;
+  source_url: string | null;
+  flagged_at: string;
+}
+
 export interface OpportunityListItem {
+  status?: string;
+  safety?: ListingSafety | null;
   slug: string;
   title: string;
   company: CompanySummary | null;
@@ -43,7 +52,7 @@ export type BookmarkStage =
   | "offer"
   | "archived";
 
-export type BugReportCategory = "dead_link" | "wrong_info" | "bug" | "other";
+export type BugReportCategory = "dead_link" | "wrong_info" | "bug" | "other" | "scam";
 
 export interface BugReportRequest {
   category: BugReportCategory;

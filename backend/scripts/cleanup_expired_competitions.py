@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from core import models
 from core.db import make_engine
+from core.listing_safety import without_safety_flag
 
 CLOSED_GRACE_DAYS = 14
 BATCH_SIZE = 200
@@ -35,6 +36,8 @@ def cleanup_expired_competitions(
         select(models.Opportunity.id)
         .where(
             models.Opportunity.category.in_(EXPIRING_CATEGORIES),
+            models.Opportunity.status != "withdrawn",
+            without_safety_flag(),
             models.Opportunity.deadline.is_not(None),
             models.Opportunity.deadline < cutoff,
         )
@@ -44,6 +47,8 @@ def cleanup_expired_competitions(
         select(models.Opportunity.id)
         .where(
             models.Opportunity.closed_at.is_not(None),
+            models.Opportunity.status != "withdrawn",
+            without_safety_flag(),
             models.Opportunity.closed_at < cutoff,
         )
         .order_by(models.Opportunity.id)
@@ -52,6 +57,7 @@ def cleanup_expired_competitions(
         select(models.Opportunity.id)
         .where(
             models.Opportunity.status == "expired",
+            without_safety_flag(),
             models.Opportunity.closed_at.is_(None),
             func.coalesce(models.Opportunity.updated_at, models.Opportunity.last_seen_at) < cutoff,
         )
@@ -103,6 +109,21 @@ def _delete_in_batches(
 
 
 def _delete_opportunity_batch(session: Session, opportunity_ids: list[int]) -> int:
+    # Recheck under the row lock before deleting bookmarks/provenance too. A
+    # founder may have withdrawn a row since the candidate batch was selected.
+    opportunity_ids = list(
+        session.scalars(
+            select(models.Opportunity.id)
+            .where(
+                models.Opportunity.id.in_(opportunity_ids),
+                models.Opportunity.status != "withdrawn",
+                without_safety_flag(),
+            )
+            .with_for_update()
+        )
+    )
+    if not opportunity_ids:
+        return 0
     session.execute(
         delete(models.OpportunitySource).where(
             models.OpportunitySource.opportunity_id.in_(opportunity_ids)

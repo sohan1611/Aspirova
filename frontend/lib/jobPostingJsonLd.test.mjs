@@ -138,3 +138,8 @@ test("salary metadata never emits baseSalary", () => {
     }
   }
 });
+
+test("withdrawn listings never emit JobPosting even without closed_at", () => {
+  assert.equal(build({ status: "withdrawn", closed_at: null }), null);
+  assert.equal(build({ safety: { kind: "scam" }, closed_at: null }), null);
+});
