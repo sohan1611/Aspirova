@@ -152,4 +152,6 @@ The full rationale and rejected alternatives live in the relevant docs. This is 
 
 | 2026-11-17 | **Safety and early-closure notices for saved listings are free on every plan (ALERT-04).** The founder flags scam or recalled listings with `scripts/flag_listing.py`. Withdrawn listings remain accessible to savers with a source reference and warning, without an Apply call to action or search indexing. Closure notices have a 24 h settle, a 7-day window and a per-candidate breaker: hold a notice when catalogue-wide early closures within 24 h either side of that listing's `closed_at` exceed `SAVED_CLOSURE_NOTICE_BREAKER` (default 1500), counted in hourly buckets. This fixed window keeps mass closures held on later runs until they reopen or leave the notice window. Safety notices bypass the breaker. In-app notices stay on when email is off. | **Binding** |
 
+| 2026-11-17 | **TRUST-05: user reports have opaque receipts, public status and founder triage via `scripts/reports.py`.** SLA targets are 48 h to triage and 7 days to resolution, measured from receipt for every plan. Manual corrections beat crawls; listing detail pages publish safe correction notes. Reporter identities stay private, and reporting never affects an account or plan. | **Binding** |
+
 > Engineers: do not contradict a **Binding** row without an architect-approved amendment.

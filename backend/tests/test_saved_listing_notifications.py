@@ -502,7 +502,8 @@ def test_flag_cli_dry_run_and_clear(db_session, engine, company, now, monkeypatc
         "scripts.flag_listing.Session",
         lambda _: Session(bind=db_session.connection(), join_transaction_mode="create_savepoint"),
     )
-    monkeypatch.setattr("scripts.flag_listing.notify_changed", lambda _: {"status": "test"})
+    monkeypatch.setattr("scripts.flag_listing.refresh_api_details", lambda _: {"status": "test"})
+    monkeypatch.setattr("scripts.flag_listing.notify_changed", lambda _, **kw: {"status": "test"})
     monkeypatch.setattr(engine, "dispose", lambda: None)
     main(["--slug", row.slug, "--kind", "scam", "--note", "Fee request", "--dry-run"])
     assert "dry run, rolled back" in capsys.readouterr().out

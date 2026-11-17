@@ -236,6 +236,85 @@ uv run python -m scripts.flag_listing --slug <slug> --kind scam --note "Unauthor
 uv run python -m scripts.flag_listing --slug <slug> --clear
 ```
 
-Use `--kind recalled` for a recalled listing. `--source-url` is optional but must be HTTPS when supplied; without it, the Aspirova listing page and founder note are the reference, with no external warning link. Repeating a command is safe. Flagged listings are retained by closed-listing cleanup so saved warnings and notice links remain available. Clearing restores the prior status and removes only the closure timestamp created by the flag. The command requests frontend revalidation after commit; check its printed status. Public API caches expire on their existing TTLs (feed/search 15 minutes; sitemap/facets 6 hours). Saved notices run with the existing daily `--closing-soon` worker. Email follows the Saved listings preference; in-app warnings stay on. Closures settle for 24 hours. The breaker holds each candidate when catalogue-wide early closures within 24 hours either side of its own `closed_at` exceed `SAVED_CLOSURE_NOTICE_BREAKER` (default 1500); safety bypasses it. One query per run reads hourly counts from the last 8 days, covering the full window of every 7-day candidate. Held candidates get no in-app row or email, and stay held on later runs unless closures reopen. A held candidate's pending email is cancelled like any other ineligible event. The run logs one warning with the number held and the largest window count.
+Use `--kind recalled` for a recalled listing. `--source-url` is optional but must be HTTPS when supplied; without it, the Aspirova listing page and founder note are the reference, with no external warning link. Repeating a command is safe. Flagged listings are retained by closed-listing cleanup so saved warnings and notice links remain available. Clearing restores the prior status and removes only the closure timestamp created by the flag. The command refreshes the API detail cache and then requests listing-page revalidation after commit; check both printed results. Saved notices run with the existing daily `--closing-soon` worker. Email follows the Saved listings preference; in-app warnings stay on. Closures settle for 24 hours. The breaker holds each candidate when catalogue-wide early closures within 24 hours either side of its own `closed_at` exceed `SAVED_CLOSURE_NOTICE_BREAKER` (default 1500); safety bypasses it. One query per run reads hourly counts from the last 8 days, covering the full window of every 7-day candidate. Held candidates get no in-app row or email, and stay held on later runs unless closures reopen. A held candidate's pending email is cancelled like any other ineligible event. The run logs one warning with the number held and the largest window count.
+
+For flags and clears, the order is **DB commit → API detail refresh → listing-page revalidation**.
+The refresh bypasses the cached detail and replaces it before Vercel regenerates the listing page.
+When both requests succeed, the listing page updates at once on its next request. Founder commands
+leave landing list pages alone so they cannot regenerate from still-cached feeds: feeds catch up
+within the normal API window (15 minutes), and list pages within their normal window (up to 6 h).
+Set both `REVALIDATE_URL` and `REVALIDATE_SECRET` in the founder's local `backend/.env`, using
+**the same values as the GitHub Actions secrets**. If revalidation is unconfigured, the script prints
+one warning that the listing page may stay stale for up to 7 days. A failed refresh or revalidation
+leaves the DB change committed; repeat the command to retry the cache work.
 
 Identity and slug matches preserve a flagged listing. A repost under a new source/external id appears as a new listing and must be flagged separately; fuzzy title matching considers active listings only, so an old withdrawal cannot absorb a later genuine opening.
+
+
+## TRUST-05: report triage and public corrections
+
+Run from `backend/` using the normal founder credentials. Never point tests at production.
+The founder applies migration `d2f6a8c4e9b1` before merging/deploying this change. A database
+receipt default keeps the old intake working during deployment; the new API generates full-alphabet
+receipts and retries uniqueness collisions:
+
+```sh
+uv run alembic upgrade head
+uv run python -m scripts.reports list
+uv run python -m scripts.reports list --status all --category wrong_deadline --limit 100
+uv run python -m scripts.reports show R-ABC234
+uv run python -m scripts.reports triage R-ABC234 --note "Checking the official source."
+uv run python -m scripts.reports triage R-ABC234 --dry-run
+uv run python -m scripts.reports resolve R-ABC234 --resolution corrected --note "The official deadline is 1 December." --set-deadline 2026-12-01 --dry-run
+uv run python -m scripts.reports resolve R-ABC234 --resolution corrected --note "The official deadline is 1 December." --set-deadline 2026-12-01
+uv run python -m scripts.reports resolve R-ABC234 --resolution closed_listing --note "The source no longer accepts applications." --close-listing
+uv run python -m scripts.reports resolve R-ABC234 --resolution withdrawn --note "A fee request was confirmed. Do not pay." --withdraw --kind scam
+uv run python -m scripts.reports resolve R-ABC234 --resolution withdrawn --note "The organiser recalled this listing." --withdraw --kind recalled
+uv run python -m scripts.reports resolve R-ABC234 --resolution duplicate --note "Use the original listing." --duplicate-of original-listing-slug
+uv run python -m scripts.reports resolve R-ABC234 --resolution corrected --note "The employer attribution was corrected." --company correct-company-slug
+uv run python -m scripts.reports resolve R-ABC234 --resolution no_change --note "The official source confirms the current details."
+uv run python -m scripts.reports resolve R-ABC234 --resolution not_reproducible --note "The link currently works; no issue could be reproduced."
+uv run python -m scripts.reports resolve R-ABC234 --resolution spam --note "No actionable listing issue was found."
+uv run python -m scripts.reports stats --days 30
+uv run python -m scripts.reports remind
+```
+
+Use a different unresolved receipt for each resolution example. A resolved outcome is immutable;
+repeating its resolution and note is a no-op (no repeated correction or reporter email).
+Each resolve accepts at most one listing action, supports `--dry-run`, and commits the report,
+listing diff and in-app notice together. Resolving an open report records triage at the same time.
+For a resolution with a listing action, the order is **DB commit → API detail refresh → listing-page
+revalidation**. Both results are printed. The API refresh replaces the detail cache before Vercel
+regenerates it, so the listing page updates at once on its next request when both calls succeed.
+Actionless resolutions and triage do not refresh listings. Repeating a listing-action resolution
+retries the cache work without changing the outcome or sending a second reporter email.
+Founder corrections do not revalidate landing list pages: feeds catch up within the normal API
+window (15 minutes), and list pages within their normal window (up to 6 h). Put `REVALIDATE_URL`
+and `REVALIDATE_SECRET` in the founder's local `backend/.env`, with **the same values as the GitHub
+Actions secrets**. If either is missing, the script warns that the listing page may stay stale for
+up to 7 days. Crawler revalidation keeps its existing behavior, including landing list pages.
+The one contact-email submission also happens after commit. An email failure is logged;
+re-running a resolved command does not send a second email. Receipt codes are opaque; lookup at
+`/report/status?ref=R-ABC234` exposes only status, dates, category, listing and public outcome.
+All `--note` text (including triage notes) is public: never include names, contact details or
+report text. `show` is a private founder command and includes the full report.
+
+Targets are **triage within 48 hours of receipt** and **resolution within 7 days of receipt**,
+for every plan. `OVERDUE` means open past 48 hours, or triaged and unresolved past 7 days.
+Stats use the cohort received within `--days`: elapsed hours are measured from creation,
+median and linearly interpolated p90 use completed milestones, and SLA percentages include
+completed milestones plus pending reports already past the relevant target. Pending reports still
+within target are excluded from that denominator. Empty samples report null, not 100%.
+The open-overdue count includes the whole backlog, even older than the cohort.
+
+The daily digest workflow calls `remind` after its existing steps, including after a prior failure;
+it never fails the workflow. Each invocation sends one founder summary only when overdue reports
+exist. Configure `WAITLIST_NOTIFY_EMAIL` as a GitHub Actions secret alongside the existing Resend
+secrets. It sends no reporter reminder emails.
+
+Manual closures ('user_report'/'duplicate'), deadlines and company assignments beat crawls.
+Correction history stays on the listing; only date, field and fixed public copy are exposed.
+Manual closures also survive cleanup, preventing a later crawl from recreating them.
+Withdrawals reuse `scripts.flag_listing.flag_listing`; clearing a safety flag cannot reopen a
+manual report closure. Account deletion still purges owned reports and notifications.
+Reporting is never attributed publicly and never changes the reporter's account or plan.

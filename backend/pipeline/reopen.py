@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from core import models
-from core.listing_safety import safety_flag
+from core.listing_safety import has_manual_closure, safety_flag
 
 # Small seed only; longitudinal posting history takes precedence and grows over time.
 CURATED_CYCLES: dict[str, str] = {
@@ -62,7 +62,12 @@ def _curated_estimate(opportunity: models.Opportunity) -> ReopenEstimate | None:
 
 def reopen_estimate(session: Session, opportunity: models.Opportunity) -> ReopenEstimate | None:
     """Estimate a recurring opening window without model or embedding calls."""
-    if safety_flag(opportunity) is not None or opportunity.status == "withdrawn":
+    if (
+        safety_flag(opportunity) is not None
+        or opportunity.status == "withdrawn"
+        or has_manual_closure(opportunity)
+    ):
+
         return None
     if (
         opportunity.company_id is not None

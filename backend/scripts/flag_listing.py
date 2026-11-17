@@ -9,8 +9,12 @@ from sqlalchemy.orm import Session
 
 from core import models
 from core.db import make_engine
-from core.listing_safety import safety_flag
-from pipeline.revalidate import notify_changed
+from core.listing_safety import has_manual_closure, safety_flag
+from pipeline.revalidate import (
+    LOCAL_REVALIDATION_WARNING,
+    notify_changed,
+    refresh_api_details,
+)
 
 
 def https_url(value: str) -> str:
@@ -54,7 +58,11 @@ def flag_listing(
             return False
         opportunity.status = previous["prior_status"]
         # Only undo a closure owned by this flag, never an earlier source closure.
-        if previous.get("set_closed_at") and opportunity.closed_at is not None:
+        if (
+            previous.get("set_closed_at")
+            and opportunity.closed_at is not None
+            and not has_manual_closure(opportunity)
+        ):
             if opportunity.closed_at == datetime.fromisoformat(previous["set_closed_at"]):
                 opportunity.closed_at = None
         meta.pop("safety", None)
@@ -136,8 +144,12 @@ def main(argv: list[str] | None = None) -> None:
             else:
                 session.commit()
                 # Retry cache invalidation even for an idempotent repeat command.
-                result = notify_changed([args.slug])
-                print(f"Frontend revalidation: {result['status']}")
+                refresh = refresh_api_details([args.slug])
+                print(f"API refresh: {refresh}")
+                result = notify_changed([args.slug], landing=False)
+                print(f"Frontend revalidation: {result}")
+                if result["status"] == "unconfigured":
+                    print(LOCAL_REVALIDATION_WARNING)
     finally:
         engine.dispose()
 

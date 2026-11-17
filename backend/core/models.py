@@ -28,6 +28,9 @@ from sqlalchemy.dialects.postgresql import ARRAY, CITEXT, JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
+from core.report_receipts import new_reference
+
+
 class Base(DeclarativeBase):
     type_annotation_map = {
         datetime: DateTime(timezone=True),
@@ -652,6 +655,14 @@ class BugReport(Base):
     __tablename__ = "bug_reports"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    reference: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=new_reference,
+        server_default=text(
+            "'R-' || translate(upper(substr(gen_random_uuid()::text, 1, 6)), '01', 'GH')"
+        ),
+    )
     user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
@@ -668,5 +679,13 @@ class BugReport(Base):
         server_default=text("'open'"),
     )
     created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
+    triaged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resolution: Mapped[str | None] = mapped_column(Text)
+    resolution_note: Mapped[str | None] = mapped_column(Text)
+    correction: Mapped[list | None] = mapped_column(JSONB)
 
-    __table_args__ = (Index("ix_bug_reports_status_created_at", "status", "created_at"),)
+    __table_args__ = (
+        Index("ix_bug_reports_status_created_at", "status", "created_at"),
+        UniqueConstraint("reference", name="uq_bug_reports_reference"),
+    )

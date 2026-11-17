@@ -34,7 +34,7 @@ from sqlalchemy.orm import Session
 from core import models
 from core.adapters import RawListing
 from core.db import make_engine, verify_connection_guards
-from core.listing_safety import without_safety_flag
+from core.listing_safety import without_manual_override, without_safety_flag
 from crawlers import watchdog
 from crawlers.amazon import AmazonAdapter
 from crawlers.arbeitnow import ArbeitnowAdapter
@@ -1198,6 +1198,7 @@ def _reopen_seen_rolling_listings(session: Session, seen_ids: list[int] | Select
             (models.Opportunity.deadline.is_(None)) | (models.Opportunity.deadline > func.now()),
             models.Opportunity.status == "active",
             without_safety_flag(),
+            without_manual_override(),
         )
         .values(closed_at=None, meta=meta_without_closed_reason())
     )
@@ -1211,6 +1212,7 @@ def _reopen_seen_inventory_listings(session: Session, seen_ids: list[int]) -> No
             models.Opportunity.id.in_(seen_ids),
             models.Opportunity.status == "active",
             without_safety_flag(),
+            without_manual_override(),
             models.Opportunity.closed_at.is_not(None),
             (models.Opportunity.deadline.is_(None)) | (models.Opportunity.deadline > func.now()),
         )

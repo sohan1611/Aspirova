@@ -1,6 +1,25 @@
 from types import SimpleNamespace
 
+import httpx
+import pytest
+
+from core.config import Settings
+
 import pipeline.revalidate as revalidate
+
+
+@pytest.fixture(autouse=True)
+def isolated_settings(monkeypatch):
+    monkeypatch.setattr(
+        revalidate,
+        "get_settings",
+        lambda: Settings(
+            _env_file=None,
+            api_base_url="https://api.example",
+            revalidate_url="",
+            revalidate_secret="",
+        ),
+    )
 
 
 def _configure(monkeypatch) -> None:
@@ -147,3 +166,131 @@ def test_notify_changed_skips_above_pathological_bound(monkeypatch) -> None:
     assert result["changed"] == revalidate.MAX_CHANGED_SLUGS + 1
     assert result["notified"] == 0
     assert result["batches"] == 0
+
+
+@pytest.mark.parametrize("slugs", [["software-engineer"], []])
+def test_notify_changed_can_skip_landing_paths(monkeypatch, slugs):
+    _configure(monkeypatch)
+    requests = []
+    monkeypatch.setattr(
+        revalidate.httpx,
+        "post",
+        lambda url, **kw: (
+            requests.append(kw["json"]) or SimpleNamespace(raise_for_status=lambda: None)
+        ),
+    )
+    result = revalidate.notify_changed(slugs, landing=False)
+    assert requests == ([{"slugs": slugs}] if slugs else [])
+    assert result["paths_notified"] == 0
+    assert result["status"] == ("ok" if slugs else "empty")
+
+
+def test_refresh_api_details_validates_deduplicates_and_counts(monkeypatch):
+    requests = []
+
+    def get(url, **kwargs):
+        requests.append((url, kwargs))
+        return SimpleNamespace(raise_for_status=lambda: None)
+
+    monkeypatch.setattr(revalidate.httpx, "get", get)
+    result = revalidate.refresh_api_details(
+        [
+            "role-1",
+            "role-1",
+            "role-2",
+            "",
+            None,
+            [],
+            123,
+            "../feed",
+            "UPPER",
+            "-bad",
+            "role/similar",
+            "role?limit=10",
+            "a" * 121,
+        ]
+    )
+    assert result == {"status": "ok", "changed": 2, "refreshed": 2, "failed": 0, "invalid": 10}
+    assert requests == [
+        (
+            f"https://api.example/opportunity/{slug}",
+            {
+                "headers": {"X-Aspirova-Refresh": "1"},
+                "timeout": revalidate.API_REFRESH_TIMEOUT_SECONDS,
+            },
+        )
+        for slug in ("role-1", "role-2")
+    ]
+    assert revalidate.API_REFRESH_TIMEOUT_SECONDS <= 5
+
+
+@pytest.mark.parametrize("all_fail", [False, True])
+def test_refresh_api_details_continues_after_http_errors(monkeypatch, all_fail):
+    requests = []
+
+    def get(url, **kwargs):
+        requests.append(url)
+        if url.endswith("role-1"):
+            raise httpx.TimeoutException("test timeout")
+        if all_fail:
+            return httpx.Response(503, request=httpx.Request("GET", url))
+        return httpx.Response(200, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(revalidate.httpx, "get", get)
+    result = revalidate.refresh_api_details(["role-1", "role-2"])
+    assert len(requests) == 2
+    assert result["failed"] == (2 if all_fail else 1)
+    assert result["refreshed"] == (0 if all_fail else 1)
+    assert result["status"] == ("failed" if all_fail else "partial")
+
+
+def test_refresh_api_details_skips_empty_unconfigured_and_oversized_input(monkeypatch):
+    monkeypatch.setattr(revalidate.httpx, "get", lambda *a, **kw: pytest.fail("Unexpected HTTP"))
+    assert revalidate.refresh_api_details([])["status"] == "empty"
+    assert (
+        revalidate.refresh_api_details(
+            [f"role-{i}" for i in range(revalidate.MAX_CHANGED_SLUGS + 1)]
+        )["status"]
+        == "skipped_limit"
+    )
+    monkeypatch.setattr(revalidate, "get_settings", lambda: SimpleNamespace(api_base_url=""))
+    assert revalidate.refresh_api_details(["role"])["status"] == "unconfigured"
+
+
+def test_refresh_api_details_never_raises_on_bad_iterable_or_configuration(monkeypatch):
+    def broken():
+        yield "role"
+        raise RuntimeError("bad iterable")
+
+    monkeypatch.setattr(revalidate.httpx, "get", lambda *a, **kw: pytest.fail("Unexpected HTTP"))
+    assert revalidate.refresh_api_details(broken())["status"] == "collection_error"
+
+    def settings():
+        raise RuntimeError("bad configuration")
+
+    monkeypatch.setattr(revalidate, "get_settings", settings)
+    assert revalidate.refresh_api_details(["role"])["status"] == "configuration_error"
+
+
+def test_notify_changed_loads_founder_dotenv_settings(monkeypatch, tmp_path):
+    monkeypatch.delenv("REVALIDATE_URL", raising=False)
+    monkeypatch.delenv("REVALIDATE_SECRET", raising=False)
+    config = tmp_path / "founder.env"
+    config.write_text(
+        "REVALIDATE_URL=https://frontend.example/api/revalidate\nREVALIDATE_SECRET=test-only\n",
+        encoding="utf-8",
+    )
+    settings = Settings(_env_file=config)
+    monkeypatch.setattr(revalidate, "get_settings", lambda: settings)
+    requests = []
+    monkeypatch.setattr(
+        revalidate.httpx,
+        "post",
+        lambda url, **kw: (
+            requests.append((url, kw)) or SimpleNamespace(raise_for_status=lambda: None)
+        ),
+    )
+    result = revalidate.notify_changed(["role"], landing=False)
+    assert result["status"] == "ok" and len(requests) == 1
+    assert requests[0][0] == "https://frontend.example/api/revalidate"
+    assert requests[0][1]["headers"] == {"Authorization": "Bearer test-only"}

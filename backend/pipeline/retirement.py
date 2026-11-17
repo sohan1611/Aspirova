@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
 from core import models
-from core.listing_safety import safety_flag
+from core.listing_safety import has_manual_closure, safety_flag
 
 DEAD_BOARD_MIN_RUNS = 3
 DEAD_BOARD_MIN_SPAN_HOURS = 48
@@ -73,6 +73,8 @@ def reopen_government_extension(
     reason = (opportunity.meta or {}).get("closed_reason")
     if (
         safety_flag(opportunity) is None
+        and not has_manual_closure(opportunity)
+        and "deadline_override" not in (opportunity.meta or {})
         and source in GOVERNMENT_NOTICE_SOURCES
         and opportunity.primary_source == source
         and opportunity.status == "active"

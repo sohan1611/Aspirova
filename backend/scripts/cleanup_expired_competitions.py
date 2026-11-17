@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from core import models
 from core.db import make_engine
-from core.listing_safety import without_safety_flag
+from core.listing_safety import without_manual_override, without_safety_flag
 
 CLOSED_GRACE_DAYS = 14
 BATCH_SIZE = 200
@@ -38,6 +38,7 @@ def cleanup_expired_competitions(
             models.Opportunity.category.in_(EXPIRING_CATEGORIES),
             models.Opportunity.status != "withdrawn",
             without_safety_flag(),
+            without_manual_override(),
             models.Opportunity.deadline.is_not(None),
             models.Opportunity.deadline < cutoff,
         )
@@ -49,6 +50,7 @@ def cleanup_expired_competitions(
             models.Opportunity.closed_at.is_not(None),
             models.Opportunity.status != "withdrawn",
             without_safety_flag(),
+            without_manual_override(),
             models.Opportunity.closed_at < cutoff,
         )
         .order_by(models.Opportunity.id)
@@ -58,6 +60,7 @@ def cleanup_expired_competitions(
         .where(
             models.Opportunity.status == "expired",
             without_safety_flag(),
+            without_manual_override(),
             models.Opportunity.closed_at.is_(None),
             func.coalesce(models.Opportunity.updated_at, models.Opportunity.last_seen_at) < cutoff,
         )
@@ -118,6 +121,7 @@ def _delete_opportunity_batch(session: Session, opportunity_ids: list[int]) -> i
                 models.Opportunity.id.in_(opportunity_ids),
                 models.Opportunity.status != "withdrawn",
                 without_safety_flag(),
+                without_manual_override(),
             )
             .with_for_update()
         )

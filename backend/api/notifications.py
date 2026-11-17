@@ -29,6 +29,12 @@ def _notification_copy(
     meta: dict | None = None,
 ) -> tuple[str, str]:
     """Return client-ready copy so notification rendering stays server-side."""
+    if notification_type == "report_resolved":
+        values = meta or {}
+        return (
+            "Your report was resolved",
+            f"{values.get('reference', '')}: {values.get('note', '')}",
+        )
     if notification_type == "saved_closed":
         title = opportunity_title or "An opportunity"
         company = company_name or "Unknown company"
