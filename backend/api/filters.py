@@ -106,6 +106,21 @@ NOT_SENIOR_TITLE_PATTERN = (
 SCHOOL_AUDIENCE_STRICT = False
 
 
+def preferred_country_rank(country: str):
+    """Prefer local roles, then remote roles without a country, then elsewhere."""
+    return case(
+        (models.Opportunity.country == country.upper(), 0),
+        (
+            and_(
+                models.Opportunity.is_remote.is_(True),
+                func.btrim(func.coalesce(models.Opportunity.country, "")) == "",
+            ),
+            1,
+        ),
+        else_=2,
+    )
+
+
 def student_rank_expression():
     return case(
         (models.Opportunity.category == "internship", 0),

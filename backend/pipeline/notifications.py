@@ -27,6 +27,7 @@ from api.filters import (
     exclude_school_only_opportunities,
     exclude_stale_opportunities,
     followed_company_match,
+    preferred_country_rank,
     student_rank_expression,
 )
 from core import models
@@ -68,6 +69,7 @@ logger = logging.getLogger(__name__)
 
 COMPANY_ALERT_LOOKBACK = timedelta(hours=72)
 DIGEST_GENERIC_SAMPLE_SIZE = 5
+DIGEST_GENERIC_COUNTRY = "IN"
 DIGEST_RANKED_COMPANY_RESERVE_SIZE = 2
 DAILY_DIGEST_SUBJECT = "Your Aspirova daily digest"
 HACKATHON_DIGEST_SUBJECT = "Your Daily Dose of Hackathons 🚀"
@@ -296,12 +298,15 @@ def _generic_recent_opportunities(
     limit: int,
     now: datetime,
     exclude_ids: frozenset[int] = frozenset(),
+    country: str = DIGEST_GENERIC_COUNTRY,
 ) -> list[models.Opportunity]:
     if limit <= 0:
         return []
 
+    country_rank = preferred_country_rank(country)
     student_rank = student_rank_expression()
     ranking_order = [
+        country_rank.asc(),
         student_rank.asc(),
         models.Company.prestige_rank.asc().nullslast(),
         models.Opportunity.first_seen_at.desc(),
@@ -310,6 +315,7 @@ def _generic_recent_opportunities(
     ranked_opportunities = (
         select(
             models.Opportunity,
+            country_rank.label("country_rank"),
             student_rank.label("student_rank"),
             models.Company.prestige_rank.label("prestige_rank"),
             func.row_number()
@@ -333,14 +339,23 @@ def _generic_recent_opportunities(
     )
     opportunity = aliased(models.Opportunity, ranked_opportunities)
 
+    # The prestige reserve draws only from roles open to the reader's country
+    # (local, or remote with no country) whenever any such role exists, so a
+    # famous company's role abroad cannot take a slot ahead of local roles.
+    # With no open roles at all, the reserve behaves exactly as before.
+    best_country_rank = session.scalar(select(func.min(ranked_opportunities.c.country_rank)))
+    reserve_country_rank = 1 if best_country_rank is not None and best_country_rank <= 1 else 2
+
     ranked_company_opportunities = list(
         session.scalars(
             select(opportunity)
             .where(
                 ranked_opportunities.c.company_row_number == 1,
                 ranked_opportunities.c.prestige_rank.is_not(None),
+                ranked_opportunities.c.country_rank <= reserve_country_rank,
             )
             .order_by(
+                ranked_opportunities.c.country_rank.asc(),
                 ranked_opportunities.c.prestige_rank.asc(),
                 ranked_opportunities.c.student_rank.asc(),
                 ranked_opportunities.c.first_seen_at.desc(),
@@ -371,6 +386,7 @@ def _generic_recent_opportunities(
                 select(opportunity)
                 .where(*fill_filters)
                 .order_by(
+                    ranked_opportunities.c.country_rank.asc(),
                     ranked_opportunities.c.student_rank.asc(),
                     ranked_opportunities.c.prestige_rank.asc().nullslast(),
                     ranked_opportunities.c.first_seen_at.desc(),
@@ -394,6 +410,7 @@ def _generic_recent_opportunities(
                 ranked_opportunities.c.id.in_(selected_ids),
             )
             .order_by(
+                ranked_opportunities.c.country_rank.asc(),
                 ranked_opportunities.c.student_rank.asc(),
                 ranked_opportunities.c.prestige_rank.asc().nullslast(),
                 ranked_opportunities.c.first_seen_at.desc(),
@@ -693,6 +710,13 @@ def compose_daily_digest(
     ]
     jobs_from_followed = bool(opportunities)
     if include_recommendations and not opportunities:
+        # Country is stored on the account; abroad/domestic scope is only a
+        # browsing URL parameter, not an account preference.
+        profile = user.field_profile if isinstance(user.field_profile, dict) else {}
+        country = profile.get("country")
+        country = country.strip().upper() if isinstance(country, str) else ""
+        if len(country) != 2 or not country.isascii() or not country.isalpha():
+            country = DIGEST_GENERIC_COUNTRY
         # The generic fallback is a separate, unrelated query (all recent active
         # opportunities, not just dream-company ones) - it must ALSO exclude
         # already-alerted ones, or an opportunity excluded above (because a Pro
@@ -702,7 +726,7 @@ def compose_daily_digest(
         opportunities = [
             o
             for o in _generic_recent_opportunities(
-                session, since, DIGEST_GENERIC_SAMPLE_SIZE, now, history.recent_ids
+                session, since, DIGEST_GENERIC_SAMPLE_SIZE, now, history.recent_ids, country
             )
             if not _already_alerted(session, user.id, o.id)
         ]
