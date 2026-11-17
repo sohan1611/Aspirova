@@ -321,6 +321,7 @@ export interface DigestStatus {
   last_sent_at: string | null;
   last_sent_count: number;
   last_attempt_failed: boolean;
+  last_sent_counts_by_category: Record<string, number>;
 }
 
 /** What the reader's next daily digest would contain if it went out now. */

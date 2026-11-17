@@ -44,6 +44,7 @@ _ROUTE_QUERY_PARAM_CACHE: dict[tuple[str, str], set[str] | None] = {}
 
 # path prefix -> (bucket name, settings attribute holding the per-minute limit)
 _IP_RATE_LIMITED_ROUTES: tuple[tuple[str, str, str], ...] = (
+    ("/digest/sample", "opportunity", "rate_limit_ip_opportunity_per_minute"),
     ("/feed", "feed_search", "rate_limit_ip_feed_search_per_minute"),
     ("/for-you", "feed_search", "rate_limit_ip_feed_search_per_minute"),
     ("/search", "feed_search", "rate_limit_ip_feed_search_per_minute"),
@@ -70,6 +71,7 @@ _IP_RATE_LIMITED_ROUTES: tuple[tuple[str, str, str], ...] = (
 )
 
 _CACHEABLE_PREFIXES = (
+    "/digest/sample",
     "/calendar",
     "/feed",
     "/for-you",
@@ -88,6 +90,7 @@ _CACHEABLE_PREFIXES = (
 )
 
 _LONG_CACHE_PREFIXES = (
+    "/digest/sample",
     "/sitemap-opportunities",
     "/sitemap-companies",
     "/companies",

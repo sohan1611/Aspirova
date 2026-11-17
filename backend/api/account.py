@@ -4,6 +4,7 @@ import base64
 import json
 import logging
 import time
+from collections import Counter
 from datetime import UTC, datetime
 from typing import Literal
 
@@ -102,11 +103,29 @@ def _digest_status(db: Session, user: models.User) -> DigestStatus | None:
         .limit(1)
     ).first()
     count = 0
+    counts_by_category: Counter[str] = Counter()
     if last_sent is not None and isinstance(last_sent.meta, dict):
+        ids = []
         for key in ("opportunity_ids", "hackathon_ids"):
             values = last_sent.meta.get(key)
             if isinstance(values, list):
                 count += len(values)
+                ids.extend(values)
+        if ids:
+            categories = dict(
+                db.execute(
+                    select(models.Opportunity.id, models.Opportunity.category).where(
+                        models.Opportunity.id.in_(ids)
+                    )
+                ).all()
+            )
+            counts_by_category.update(
+                (categories[oid] or "uncategorized") if oid in categories else "removed"
+                for oid in ids
+            )
+        programme_slugs = last_sent.meta.get("programme_slugs")
+        if isinstance(programme_slugs, list) and programme_slugs:
+            counts_by_category["programme_update"] = len(programme_slugs)
     sent_at = last_sent.sent_at if last_sent is not None else None
     if sent_at is not None and sent_at.tzinfo is None:
         sent_at = sent_at.replace(tzinfo=UTC)
@@ -114,6 +133,7 @@ def _digest_status(db: Session, user: models.User) -> DigestStatus | None:
         last_sent_at=sent_at,
         last_sent_count=count,
         last_attempt_failed=newest == "failed",
+        last_sent_counts_by_category=dict(counts_by_category),
     )
 
 

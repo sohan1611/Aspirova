@@ -3,6 +3,7 @@
 import { useEffect, useState, type ComponentProps } from "react";
 import { toast } from "sonner";
 import AuthWidget from "@/components/AuthWidget";
+import DigestSample from "@/components/DigestSample";
 import { useBookmarks } from "@/components/BookmarksProvider";
 import { Button } from "@/components/ui/button";
 import {
@@ -171,7 +172,7 @@ export default function ApplyLink({ slug, href, children, size, variant, classNa
         </div>
       )}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)]">
           <DialogHeader>
             <DialogTitle>{session ? "You're signed in" : "Sign in to apply"}</DialogTitle>
             <DialogDescription>
@@ -201,7 +202,10 @@ export default function ApplyLink({ slug, href, children, size, variant, classNa
               </a>
             </Button>
           ) : (
-            <AuthWidget />
+            <div className="min-h-0 overflow-y-auto">
+              <AuthWidget />
+              {open && <DigestSample />}
+            </div>
           )}
         </DialogContent>
       </Dialog>
