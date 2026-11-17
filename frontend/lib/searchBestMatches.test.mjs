@@ -23,10 +23,6 @@ function response() {
       entity_type: "company", slug: "google", name: "Google", domain: "google.com", logo_url: null,
       active_count: 12, match: "exact", path: "/companies/google",
     }] },
-    listings: { total: 150, by_source: [
-      { value: "direct", label: "Direct from company", count: 120 },
-      { value: "unstop", label: "Unstop", count: 30 },
-    ] },
   };
 }
 function view(data = response(), props = {}) {
@@ -38,7 +34,7 @@ function view(data = response(), props = {}) {
   const Component = load("components/SearchBestMatches.tsx").default;
   return renderToStaticMarkup(React.createElement(Component, {
     scope: "/", queryKey: "q=gsoc", q: "gsoc", loading: false,
-    searchQuery: "q=gsoc&page=3&country=IN", ...props,
+    ...props,
   }));
 }
 
@@ -95,16 +91,12 @@ test("no hits, loading and enhancement failures render nothing", () => {
   assert.equal(view(response(), { loading: true }), "");
 });
 
-test("see all programmes and source chips preserve the search and reset page", () => {
+test("see all programmes links to the Programmes search; listing counts stay with the results", () => {
   const html = view();
   assert.match(html, /href="\/programmes\?q=gsoc"[^>]*>See all 5 programmes/);
   assert.doesNotMatch(html, /See all 8 companies/); // companies page does not read q.
-  assert.match(html, /Listings \(150\)/);
-  assert.match(html, /href="\/\?q=gsoc&amp;country=IN&amp;source=direct#feed-search"/);
-  assert.match(html, /href="\/\?q=gsoc&amp;country=IN&amp;source=unstop#feed-search"/);
-  const category = view(response(), { searchQuery: undefined });
-  assert.doesNotMatch(category, /source=direct|source=unstop/);
-  assert.match(category, /Unstop 30/);
+  // The results header shows the total and the Filter panel owns Source; the strip repeats neither.
+  assert.doesNotMatch(html, /Listings \(|source=/);
 });
 
 test("unsafe official URLs never produce an outbound link", () => {
