@@ -1,10 +1,12 @@
 """POST/PATCH/DELETE /bookmarks + GET /bookmarks - the authenticated surface
 in Phase 1."""
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, undefer
 
 from api.auth import get_current_user
 from api.deps import get_db
@@ -95,7 +97,13 @@ def update_bookmark_status(
     if bookmark is None:
         raise HTTPException(status_code=404, detail="Bookmark not found")
 
-    bookmark.status = update.status
+    changes = update.model_dump(exclude_unset=True)
+    if "status" in changes and changes["status"] != bookmark.status:
+        bookmark.status = changes["status"]
+        bookmark.status_changed_at = datetime.now(timezone.utc)
+    for field in ("note", "status_date"):
+        if field in changes:
+            setattr(bookmark, field, changes[field])
     db.commit()
 
 
@@ -105,10 +113,12 @@ def list_bookmarks(
     user: models.User = Depends(get_current_user),
 ) -> list[SavedOpportunityItem]:
     rows = db.execute(
-        select(models.Opportunity, models.Bookmark.status)
+        select(models.Opportunity, models.Bookmark)
         .join(models.Bookmark, models.Bookmark.opportunity_id == models.Opportunity.id)
-        .options(*opportunity_list_load_options())
+        .options(*opportunity_list_load_options(), undefer(models.Opportunity.apply_url))
         .where(models.Bookmark.user_id == user.id)
         .order_by(models.Bookmark.created_at.desc())
     ).all()
-    return [SavedOpportunityItem.from_models(opportunity, status) for opportunity, status in rows]
+    return [
+        SavedOpportunityItem.from_models(opportunity, bookmark) for opportunity, bookmark in rows
+    ]

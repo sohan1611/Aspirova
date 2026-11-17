@@ -15,6 +15,12 @@ test("describes an offer", () => {
   assert.equal(trackerStageMessage("offer"), "You have an offer for this role.");
 });
 
+test("describes planned, assessment and rejected manual stages", () => {
+  for (const stage of ["planned", "assessment", "rejected"]) {
+    assert.equal(trackerStageMessage(stage), `You marked this as ${stage}.`);
+  }
+});
+
 test("omits saved, missing, and unknown stages", () => {
   for (const stage of ["saved", undefined, "unknown", "", "toString", "constructor"]) {
     assert.equal(trackerStageMessage(stage), null, String(stage));
