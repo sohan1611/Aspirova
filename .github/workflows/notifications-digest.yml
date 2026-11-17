@@ -45,7 +45,11 @@ concurrency:
 jobs:
   digest:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # The day's first run sends every digest: its digest step took 12-14 min on
+    # 2026-11-14..17 (~90 readers) and the 15-min job limit cancelled the run on
+    # 2026-11-16 and 11-17, which also skipped that run's closing-soon and
+    # saved-search alerts. Minutes are free (public repo); this is a hang guard.
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: backend
@@ -79,6 +83,8 @@ jobs:
         run: uv run python -m scripts.notification_worker --company-alerts
 
       - name: Send daily digests
+        # Its own limit leaves the job time for the independent steps below.
+        timeout-minutes: 30
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           UNSUBSCRIBE_SECRET: ${{ secrets.UNSUBSCRIBE_SECRET }}
@@ -101,6 +107,8 @@ jobs:
           exit 1
 
       - name: Send closing-soon deadline alerts
+        # Independent of the digest: a slow or failed digest must not skip it.
+        if: ${{ !cancelled() }}
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           UNSUBSCRIBE_SECRET: ${{ secrets.UNSUBSCRIBE_SECRET }}
@@ -110,6 +118,7 @@ jobs:
         run: uv run python -m scripts.notification_worker --closing-soon
 
       - name: Send saved-search alerts
+        if: ${{ !cancelled() }}
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           UNSUBSCRIBE_SECRET: ${{ secrets.UNSUBSCRIBE_SECRET }}
