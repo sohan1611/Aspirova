@@ -14,6 +14,7 @@ import PersonalisePrompt from "@/components/PersonalisePrompt";
 import SearchFilters from "@/components/SearchFilters";
 import SourceCompanyCard from "@/components/SourceCompanyCard";
 import TopCompanies from "@/components/TopCompanies";
+import SearchBestMatches from "@/components/SearchBestMatches";
 import { Button } from "@/components/ui/button";
 import { useFeedCountry, usePreferredCountry } from "@/lib/feedPreference";
 import { findExternalCompany } from "@/lib/externalCompanies";
@@ -64,6 +65,7 @@ export default function FeedResults({ initialData, trendingItems }: FeedResultsP
     !request.canReusePrerenderedFeed || preference !== null,
     () => loadFeedData({ ...request, prefer_country: preference ?? undefined }),
     initialData,
+    request.q,
   );
 
   // A preference-only fetch keeps the prerendered list visible while it settles.
@@ -123,6 +125,8 @@ export default function FeedResults({ initialData, trendingItems }: FeedResultsP
         )}
 
         <TopCompanies />
+
+        {request.q?.trim() && <SearchBestMatches scope="/" queryKey={queryKey} q={request.q} loading={isLoading || Boolean(settled?.error)} searchQuery={query.toString()} excludeCompanyNames={sourceCompany ? [sourceCompany.name] : undefined} />}
 
         {data.loadedAt && !settled?.error && <ListingSnapshotNotice loadedAt={data.loadedAt} expiresAt={data.expiresAt} />}
         <ListingResultsState

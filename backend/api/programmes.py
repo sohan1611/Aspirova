@@ -4,13 +4,14 @@ import json
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import Text, and_, any_, bindparam, cast, false, func, literal, or_, select
+from sqlalchemy import Text, and_, any_, bindparam, cast, false, func, literal, select
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Session, aliased, joinedload, selectinload
 
 from api.deps import get_db
 from api.schemas import ProgrammeDetail, ProgrammeListItem, ProgrammeListResponse
 from core import models
+from core.entity_search import PROGRAMME_MATCH_ORDER, match_programme
 from core.programme_labels import PROGRAMME_CATEGORY_LABELS
 from core.organisers import ORGANISER_TYPE_LABELS, classify_organiser
 
@@ -104,11 +105,6 @@ def _organisers_for_institution_types(
     ]
 
 
-def _ilike_substring(value: str) -> str:
-    escaped = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-    return f"%{escaped}%"
-
-
 def _selected_divisions(divisions: str | None) -> list[str]:
     """Parse known CSV division keys as a best-effort personalisation hint."""
     selected: list[str] = []
@@ -195,14 +191,6 @@ def list_programmes(
         )
 
     query_text = (q or "").strip()
-    if query_text:
-        pattern = _ilike_substring(query_text)
-        filters.append(
-            or_(
-                models.Programme.name.ilike(pattern, escape="\\"),
-                models.Programme.organiser.ilike(pattern, escape="\\"),
-            )
-        )
 
     total_count = func.count().over().label("total_count")
     selected_tags = _tags_for_divisions(_selected_divisions(divisions))
@@ -246,7 +234,27 @@ def list_programmes(
         .order_by(*ordering)
     )
 
-    rows = db.execute(query.offset((page - 1) * limit).limit(limit)).all()
+    if query_text:
+        # The curated registry is small. Stable sorting retains all existing
+        # personalisation/name/id tie-breakers within each entity match kind.
+        matches = []
+        for row in db.execute(query).all():
+            programme = row[0]
+            kind = match_programme(
+                query_text,
+                slug=programme.slug,
+                name=programme.name,
+                organiser=programme.organiser,
+                company=programme.company.name if programme.company else "",
+            )
+            if kind:
+                matches.append((PROGRAMME_MATCH_ORDER.index(kind), row))
+        matches.sort(key=lambda match: match[0])
+        total = len(matches)
+        rows = [row for _, row in matches[(page - 1) * limit : page * limit]]
+    else:
+        rows = db.execute(query.offset((page - 1) * limit).limit(limit)).all()
+        total = rows[0].total_count if rows else 0
     items = [
         ProgrammeListItem.from_model(
             programme,
@@ -255,7 +263,6 @@ def list_programmes(
         )
         for programme, edition, _total, match_count in rows
     ]
-    total = rows[0].total_count if rows else 0
     return ProgrammeListResponse(items=items, total=total, page=page, limit=limit)
 
 

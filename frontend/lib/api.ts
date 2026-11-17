@@ -30,6 +30,7 @@ import type {
   SavedSearchParams,
   SavedOpportunityItem,
   SearchResponse,
+  SearchRelatedResponse,
   StatsResponse,
   TrendingResponse,
   DigestPreview,
@@ -876,5 +877,20 @@ export async function getHomeDesk(accessToken: string, signal?: AbortSignal): Pr
   if (!response.ok) throw new Error("Couldn't load your action desk");
   const data = await response.json();
   if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("Invalid action desk response");
+  return data;
+}
+
+/** Public client enhancement: no ISR cache or authentication. */
+export async function getSearchRelated(q: string, signal?: AbortSignal): Promise<SearchRelatedResponse> {
+  const timeout = AbortSignal.timeout(8_000);
+  const response = await fetch(
+    `${API_URL}/search/related?${new URLSearchParams({ q: q.trim() })}`,
+    { cache: "no-store", signal: signal ? AbortSignal.any([signal, timeout]) : timeout },
+  );
+  if (!response.ok) throw new Error(`Couldn't load related search: ${response.status}`);
+  const data: SearchRelatedResponse = await response.json();
+  if (!data || !Array.isArray(data.programmes?.items) || !Array.isArray(data.companies?.items) || !Array.isArray(data.listings?.by_source)) {
+    throw new Error("Invalid related search response");
+  }
   return data;
 }

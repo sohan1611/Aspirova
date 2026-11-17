@@ -386,3 +386,26 @@ export interface NotificationsResponse {
   items: NotificationItem[];
   unread: number;
 }
+
+export interface SearchRelatedProgramme {
+  entity_type: "programme";
+  slug: string; name: string; organiser: string; category: string; category_label: string;
+  country: string | null;
+  match: "slug" | "acronym" | "name" | "organiser" | "company";
+  edition: import("./hiringCalendar").CalendarItem["edition"] | null;
+  deadline_rolling: boolean;
+  path: string; calendar_path: string; official_url: string;
+}
+
+export interface SearchRelatedCompany extends CompanyListItem {
+  entity_type: "company";
+  match: "exact" | "acronym" | "prefix" | "substring";
+  path: string;
+}
+
+export interface SearchRelatedResponse {
+  q: string;
+  programmes: { total: number; items: SearchRelatedProgramme[] };
+  companies: { total: number; items: SearchRelatedCompany[] };
+  listings: { total: number; by_source: { value: string; label: string; count: number }[] };
+}

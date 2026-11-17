@@ -21,6 +21,7 @@ from core.hiring_calendar import (
     source_window,
 )
 from core.models import Programme, ProgrammeEdition
+from core.entity_search import match_programme
 
 STATUS_LABELS = {
     "expected": "Tentative · historical trend",
@@ -216,7 +217,9 @@ def build_calendar(
     for programme in programmes:
         if categories and programme.category not in categories:
             continue
-        if q and q.casefold() not in f"{programme.name} {programme.organiser}".casefold():
+        if q and not match_programme(
+            q, slug=programme.slug, name=programme.name, organiser=programme.organiser
+        ):
             continue
         meta = calendar_metadata(programme.slug, programme.name, programme.organiser)
         editions = [edition for edition in programme.editions if edition.status in STATUS_LABELS]
@@ -328,3 +331,36 @@ def default_calendar_window(today: date) -> tuple[date, date]:
         day=min(today.day, month_calendar.monthrange(today.year + 1, today.month)[1]),
     )
     return today, anniversary - timedelta(days=1)
+
+
+def current_calendar_item(programme: Programme, now: datetime) -> CalendarItem | None:
+    """One current/next occurrence, retaining Calendar's precision and provenance."""
+    start, end = default_calendar_window(now.date())
+    calendar = build_calendar([programme], start, end, categories=[], statuses=[], q="", now=now)
+    candidates = calendar.items + calendar.rolling
+    if candidates:
+        return min(
+            candidates,
+            key=lambda item: (
+                {"open": 0, "announced": 1, "expected": 2, "closed": 3}[item.edition.status],
+                item.edition.opens_at or item.edition.closes_at or now,
+                item.id,
+            ),
+        )
+    # Registry-only programmes and editions outside the next12 period still
+    # have a canonical result. Match the Programme page's latest edition rule.
+    edition = max(
+        (edition for edition in programme.editions if edition.status in STATUS_LABELS),
+        key=lambda edition: edition.year,
+        default=None,
+    )
+    if edition is None:
+        return None
+    return _item(
+        programme,
+        edition,
+        calendar_metadata(programme.slug, programme.name, programme.organiser),
+        opening=edition.opens_at,
+        closing=edition.closes_at,
+        now=now,
+    )

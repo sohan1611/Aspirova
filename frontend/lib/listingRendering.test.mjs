@@ -16,7 +16,7 @@ const overrides = {
   "next/navigation": { useSearchParams: () => query, useRouter: () => ({ refresh() {} }) },
   "@/components/ui/button": { Button },
   "@/components/FeedNavigation": { FeedNavigationProvider: container, useFeedNavigation: () => ({ isFeedPending: false }) },
-  "@/lib/listingResults": { useListingResults: () => ({ settled, retry() {} }) },
+  "@/lib/listingResults": { useListingResults: () => ({ settled, retry() {} }), useSearchRelatedResults: () => null },
   "@/lib/feedPreference": { useFeedCountry: () => "IN", usePreferredCountry: () => null },
   "@/components/OpportunityCard": component(({ item }) => React.createElement("article", null, item.title)),
   "@/components/OpportunityCardSkeleton": component(() => React.createElement("div", { "data-skeleton": true })),
