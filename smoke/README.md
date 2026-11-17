@@ -4,8 +4,11 @@ Small, anonymous, read-only canaries for the public Vercel frontend and Render A
 This folder has its own uv environment; backend/frontend dependencies are untouched.
 
 Checks: API health (one retry after 20 seconds), home search/CTA, uncaught home page
-errors and horizontal overflow, at least five cards each on internships/jobs,
-the first internship's detail title and external Apply href, calendar entries and
+errors and horizontal overflow, at least five cards each on internships/jobs with
+honest labels (no "Verified"/"Official"-style badges; "New" only next to a source
+"Posted" date, never a crawler "Seen" date), the first internship's detail title,
+external Apply href and its "Opens … Aspirova never handles your application."
+disclosure naming the same host the Apply link goes to, calendar entries and
 the drawer's HTTPS official source, calendar JSON/API coverage reconciliation,
 Free/Pro pricing without ₹399, XML sitemap,
 and robots.txt. Detail JSON-LD presence is recorded, not required: the frontend
