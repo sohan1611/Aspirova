@@ -19,7 +19,7 @@ from datetime import datetime, timedelta, timezone
 from functools import cached_property
 
 from sqlalchemy import case, func, or_, select
-from sqlalchemy.orm import Session, aliased, joinedload
+from sqlalchemy.orm import Session, aliased, joinedload, load_only
 
 from api.filters import (
     exclude_closed_competitions,
@@ -42,6 +42,15 @@ from core.alert_identity import (
     role_candidate_filter,
     role_key,
 )
+from core.alert_relevance import (
+    chosen_country,
+    eligibility_for,
+    pick_reason,
+    reader_profile_summary,
+    reader_skills,
+)
+from core.interest_ranking import fts_ranking, rank_profile_query
+from core.taxonomy import build_feed_terms, interest_terms, selected_interests
 from core.config import get_settings
 from core.email_components import (
     MUTED,
@@ -80,6 +89,7 @@ logger = logging.getLogger(__name__)
 
 COMPANY_ALERT_LOOKBACK = timedelta(hours=72)
 DIGEST_GENERIC_SAMPLE_SIZE = 5
+DIGEST_PROFILE_SHORTLIST_SIZE = 60
 DIGEST_GENERIC_COUNTRY = "IN"
 DIGEST_RANKED_COMPANY_RESERVE_SIZE = 2
 DAILY_DIGEST_SUBJECT = "Your Aspirova daily digest"
@@ -261,11 +271,17 @@ def _digest_reason(
     jobs_from_followed: bool,
     since_label: str,
     has_watches: bool = False,
+    has_profile_matches: bool = False,
 ) -> str:
     """Why this reader got this digest, stated as the rule that picked it (N-09)."""
     parts = ["You get this because the daily digest is on."]
     if has_jobs:
-        if jobs_from_followed:
+        if has_profile_matches:
+            parts.append(
+                f"The roles include matches to your interests or skills, ranked by relevance, found {since_label}. "
+                "Followed companies come first; any remaining picks use the student fallback."
+            )
+        elif jobs_from_followed:
             parts.append(f"The roles are new at companies you follow, found {since_label}.")
         else:
             parts.append(
@@ -454,6 +470,154 @@ def _generic_recent_opportunities(
     return collapse_duplicates([*selected, *(o for o in copies if role_key(o) in selected_roles)])
 
 
+def _profile_recent_opportunities(
+    session: Session,
+    user: models.User,
+    since: datetime,
+    now: datetime,
+    exclude_ids: frozenset[int],
+    country: str,
+) -> tuple[list[models.Opportunity], dict[int, dict], set[str]]:
+    """Bounded ranking and batched eligibility, with no per-candidate queries.
+
+    Profile selection adds at most THREE queries per reader: (1) 60 lean ranked
+    rows, (2) their eligible role copies plus descriptions for this shortlist,
+    (3) exact matched-term evidence for only the final profile picks, below.
+    Country only breaks equal relevance scores. No refill scans the full window.
+    """
+    profile = user.field_profile if isinstance(user.field_profile, dict) else {}
+    skills = reader_skills(user)
+    terms = build_feed_terms(profile, skills)
+    if not terms:
+        return [], {}, set()
+    _, rank = fts_ranking(terms)
+    # Leave large text, embedding and search_tsv out of the shortlist transfer.
+    # raiseload guards against accidentally fetching deferred fields per row.
+    columns = (
+        models.Opportunity.id,
+        models.Opportunity.slug,
+        models.Opportunity.company_id,
+        models.Opportunity.title,
+        models.Opportunity.title_normalized,
+        models.Opportunity.category,
+        models.Opportunity.country,
+        models.Opportunity.is_remote,
+        models.Opportunity.location,
+        models.Opportunity.apply_url,
+        models.Opportunity.first_seen_at,
+        models.Opportunity.last_seen_at,
+        models.Opportunity.deadline,
+        models.Opportunity.deadline_confidence,
+        models.Opportunity.meta,
+    )
+    base_filters = [
+        models.Opportunity.status == "active",
+        listing_window(since),
+        exclude_stale_opportunities(now),
+        *_digest_open_filters(now),
+        *_not_in(exclude_ids),
+        models.Opportunity.category.in_(["internship", "job"]),
+        student_rank_expression() < 2,
+    ]
+    query = (
+        select(models.Opportunity, rank.label("profile_rank"))
+        .options(joinedload(models.Opportunity.company), load_only(*columns, raiseload=True))
+        .where(*base_filters)
+    )
+    query = rank_profile_query(
+        query,
+        terms,
+        tie_breakers=[
+            preferred_country_rank(country).asc(),
+            models.Opportunity.last_seen_at.desc(),
+            models.Opportunity.id.desc(),
+        ],
+    )
+    rows = session.execute(query.limit(DIGEST_PROFILE_SHORTLIST_SIZE)).unique().all()
+    if not rows:
+        return [], {}, set()
+    matched_roles = collapse_duplicates(row.Opportunity for row in rows)
+    copies = session.scalars(
+        select(models.Opportunity)
+        .options(
+            joinedload(models.Opportunity.company),
+            load_only(*columns, models.Opportunity.description_raw, raiseload=True),
+        )
+        .where(
+            *base_filters,
+            or_(
+                models.Opportunity.id.in_([row.Opportunity.id for row in rows]),
+                role_candidate_filter(matched_roles),
+            ),
+        )
+    ).all()
+    roles = {role_key(o) for o in matched_roles}
+    pool = [*(row.Opportunity for row in rows), *(o for o in copies if role_key(o) in roles)]
+    # An unknown duplicate must not bypass a restriction stated by another copy.
+    blocked_roles = {role_key(o) for o in pool if eligibility_for(o, user).excluded}
+    candidates = collapse_duplicates(o for o in pool if role_key(o) not in blocked_roles)
+    # A role keeps its best matching source's rank even when its employer copy
+    # lacks those terms. Term queries and reason snapshots wait for final picks.
+    by_role = {}
+    for row in rows:
+        by_role.setdefault(role_key(row.Opportunity), row)
+    evidence = {
+        opportunity.id: {
+            "rank": float(by_role[role_key(opportunity)].profile_rank),
+            "match_source_id": by_role[role_key(opportunity)].Opportunity.id,
+        }
+        for opportunity in candidates
+    }
+    return candidates, evidence, blocked_roles
+
+
+def _profile_pick_reasons(
+    session: Session,
+    user: models.User,
+    opportunities: list[models.Opportunity],
+    evidence: dict[int, dict],
+) -> dict[int, dict]:
+    """Third and last profile query: exact term evidence for final picks only."""
+    if not opportunities:
+        return {}
+    profile = user.field_profile if isinstance(user.field_profile, dict) else {}
+    skills = reader_skills(user)
+    terms = build_feed_terms(profile, skills)
+    term_index = case(
+        *((fts_ranking([term])[0], index) for index, term in enumerate(terms)),
+        else_=None,
+    ).label("matched_term_index")
+    source_ids = {evidence[o.id]["match_source_id"] for o in opportunities}
+    matches = {
+        row.id: row.matched_term_index
+        for row in session.execute(
+            select(models.Opportunity.id, term_index).where(models.Opportunity.id.in_(source_ids))
+        ).all()
+    }
+    labels = {
+        term: interest["label"]
+        for interest in reversed(selected_interests(profile))
+        for term in interest_terms(interest)
+    }
+    reasons = {}
+    for opportunity in opportunities:
+        source = evidence[opportunity.id]
+        index = matches.get(source["match_source_id"])
+        if index is None:
+            continue
+        term = terms[index]
+        if term in labels:
+            code, text = "profile_interest", f"Matches your interest: {labels[term]}"
+        else:
+            name = next((skill for skill in skills if skill.strip().lower() == term), term)
+            code, text = "skill", f"Uses your skill: {name}"
+        reasons[opportunity.id] = {
+            **pick_reason(opportunity, user, code, text, matched_term=term, rank=source["rank"]),
+            "match_source_id": source["match_source_id"],
+        }
+    return reasons
+
+
 def send_email(
     to: str, subject: str, html: str, text: str, headers: dict[str, str] | None = None
 ) -> bool:
@@ -473,6 +637,7 @@ def _render_digest(
     jobs_from_followed: bool = False,
     since_label: str = "since your last digest",
     programme_updates: list[ProgrammeWatchUpdate] | None = None,
+    reasons: dict[str, dict] | None = None,
 ) -> tuple[str, str]:
     current = now or datetime.now(timezone.utc)
     jobs = [o for o in opportunities if o.category not in _HACKATHON_CATEGORIES]
@@ -502,7 +667,11 @@ def _render_digest(
         count = len(programme_updates)
         noun = "programme update" if count == 1 else "programme updates"
         summary += f", plus {count} {noun}"
-    body, cards_text, first_card = grouped_cards(jobs, now=current)
+    reason_lines = {
+        int(identity): reason["text"] + ". " + reason["eligibility"]["text"]
+        for identity, reason in (reasons or {}).items()
+    }
+    body, cards_text, first_card = grouped_cards(jobs, now=current, reasons=reason_lines)
     if events:
         cards = [
             opportunity_card(
@@ -511,6 +680,7 @@ def _render_digest(
                 button_url=o.apply_url,
                 button_label="View & Enter",
                 deadline_policy="any",
+                reason_text=reason_lines.get(o.id),
             )
             for o in events
         ]
@@ -534,6 +704,9 @@ def _render_digest(
         jobs_from_followed=jobs_from_followed,
         since_label=since_label,
         has_watches=bool(programme_updates),
+        has_profile_matches=any(
+            r["code"] in {"profile_interest", "skill"} for r in (reasons or {}).values()
+        ),
     )
     html = email_layout(
         title="Your daily opportunity digest",
@@ -712,6 +885,7 @@ class DigestDraft:
     subject: str | None = None
     html: str | None = None
     text: str | None = None
+    reasons: dict[str, dict] = field(default_factory=dict)
 
     @property
     def empty(self) -> bool:
@@ -758,14 +932,10 @@ def compose_daily_digest(
         else []
     )
     jobs_from_followed = bool(opportunities)
+    followed_roles = {role_key(o) for o in opportunities}
+    profile = user.field_profile if isinstance(user.field_profile, dict) else {}
+    country = chosen_country(profile) or DIGEST_GENERIC_COUNTRY
     if include_recommendations and not opportunities:
-        # Country is stored on the account; abroad/domestic scope is only a
-        # browsing URL parameter, not an account preference.
-        profile = user.field_profile if isinstance(user.field_profile, dict) else {}
-        country = profile.get("country")
-        country = country.strip().upper() if isinstance(country, str) else ""
-        if len(country) != 2 or not country.isascii() or not country.isalpha():
-            country = DIGEST_GENERIC_COUNTRY
         # The generic fallback is a separate, unrelated query (all recent active
         # opportunities, not just dream-company ones) - it must ALSO exclude
         # already-alerted ones, or an opportunity excluded above (because a Pro
@@ -783,6 +953,50 @@ def compose_daily_digest(
         if include_recommendations and wants(user, "hackathon_digest")
         else []
     )
+    # Preserve the old send gate: a profile match cannot create a digest that
+    # the followed/generic/hackathon/watch paths would not have sent today.
+    programme_updates = programme_watch_updates(session, user, now)
+    had_legacy_content = bool(opportunities or hackathons or programme_updates)
+    has_profile = bool(profile.get("interests") or profile.get("divisions") or reader_skills(user))
+    profile_reasons: dict[int, dict] = {}
+    if include_recommendations and has_profile and had_legacy_content:
+        # Strict checks also cover legacy fallback slots for these readers, so
+        # a rejected profile match cannot re-enter through the generic path.
+        opportunities = [o for o in opportunities if not eligibility_for(o, user).excluded]
+        hackathons = [o for o in hackathons if not eligibility_for(o, user).excluded]
+        followed = [o for o in opportunities if role_key(o) in followed_roles]
+        slots = max(0, DIGEST_GENERIC_SAMPLE_SIZE - len(followed))
+        if slots:
+            matched, profile_evidence, blocked_roles = _profile_recent_opportunities(
+                session, user, since, now, history.recent_ids, country
+            )
+            opportunities = [o for o in opportunities if role_key(o) not in blocked_roles]
+            hackathons = [o for o in hackathons if role_key(o) not in blocked_roles]
+            followed = [o for o in followed if role_key(o) not in blocked_roles]
+            slots = max(0, DIGEST_GENERIC_SAMPLE_SIZE - len(followed))
+            followed_keys = {role_key(o) for o in followed}
+            matched = unannounced([o for o in matched if role_key(o) not in followed_keys])[:slots]
+            profile_reasons = _profile_pick_reasons(session, user, matched, profile_evidence)
+            matched = [o for o in matched if o.id in profile_reasons]
+            matched_keys = {role_key(o) for o in matched}
+            fallback = [o for o in opportunities if role_key(o) not in followed_keys | matched_keys]
+            opportunities = [*followed, *matched, *fallback[: slots - len(matched)]]
+    path_reasons = {}
+    for opportunity in [*opportunities, *hackathons]:
+        key = role_key(opportunity)
+        if key in followed_roles:
+            reason = pick_reason(opportunity, user, "company_follow", "Company you follow")
+        elif opportunity.id in profile_reasons:
+            reason = profile_reasons[opportunity.id]
+        elif opportunity in hackathons:
+            reason = pick_reason(
+                opportunity, user, "hackathon", "Still-open hackathon or competition"
+            )
+        else:
+            reason = pick_reason(
+                opportunity, user, "generic", "Recent student pick, spread across companies"
+            )
+        path_reasons.setdefault(key, reason)
     # Collapse across sections as well: a followed competition can also be a
     # shared hackathon pick. Preserve the section occupied by its winning row.
     collapsed = collapse_duplicates([*opportunities, *hackathons])
@@ -793,10 +1007,25 @@ def compose_daily_digest(
         window_start=since,
         opportunities=opportunities,
         hackathons=hackathons,
-        programme_updates=programme_watch_updates(session, user, now),
+        programme_updates=programme_updates,
     )
     if draft.empty:
         return draft
+    for position, opportunity in enumerate([*opportunities, *hackathons], start=1):
+        reason = path_reasons[role_key(opportunity)]
+        # Collapse may have replaced a crawler copy. Snapshot the actual mailed
+        # row and its source evidence, while retaining the reason for the role.
+        draft.reasons[str(opportunity.id)] = {
+            **reason,
+            **{
+                key: value
+                for key, value in pick_reason(
+                    opportunity, user, reason["code"], reason["text"]
+                ).items()
+                if key in {"eligibility", "opportunity"}
+            },
+            "position": position,
+        }
 
     has_jobs = any(o.category not in _HACKATHON_CATEGORIES for o in opportunities)
     has_hackathons = bool(hackathons) or any(
@@ -819,6 +1048,7 @@ def compose_daily_digest(
         jobs_from_followed=jobs_from_followed,
         since_label=_digest_since_label(history, since, now),
         programme_updates=draft.programme_updates,
+        reasons=draft.reasons,
     )
     return draft
 
@@ -904,6 +1134,8 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
                 meta={
                     "opportunity_ids": [o.id for o in draft.opportunities],
                     "hackathon_ids": [o.id for o in draft.hackathons],
+                    "reasons": draft.reasons,
+                    "reader_profile": reader_profile_summary(user),
                     **announcement_meta([*draft.opportunities, *draft.hackathons], "digest"),
                     # Only digests that carried watch updates get the key, so
                     # earlier rows and readers keep their exact shape.

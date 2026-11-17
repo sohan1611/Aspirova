@@ -337,3 +337,108 @@ metrics and recovery when the refresh gate goes red, see the
 [CAL-04 calendar reconciliation audit](../../docs/audits/2026-11-17-cal-04-calendar-reconciliation.md).
 Source rows, active programmes and published programmes are separate counts;
 the refresh commits its import before checking unexplained or pending rows.
+
+## Alert relevance and founder gold set (ALERT-01)
+
+The deterministic daily digest preserves followed-company picks, then ranks
+profile matches before the generic student fallback, within the existing five
+fallback slots. Existing followed selections are not capped down. Hackathon
+selection, plan gates, send caps, digest windows and ALERT-03 identities remain
+in use. The old selection must already have content before profile matching can
+run: a profile cannot create an additional digest. Readers without interests,
+divisions or skills retain the old picks and order.
+
+`frontend/lib/taxonomy.json` is canonical; `backend/data/taxonomy.json` holds a
+byte-identical copy checked in CI. Edit the canonical file and sync the backend
+copy in the same change. Each deploy reads only files inside its own root;
+the frontend import and Turbopack root remain unchanged. Python mirrors frontend expansion,
+including division/interest selection, deduplication, order and the 480-character
+CSV cap. A division with no selected interests contributes no terms, just as
+in the feed. The digest adds saved skill names to these terms. `/for-you` retains
+its existing skill-overlap precedence and response; both paths share the FTS
+primitive (`websearch_to_tsquery` + `ts_rank`). Country/remote preference breaks
+equal relevance scores in profile picks; it is not an eligibility inference.
+
+For profiled readers, explicit graduation-batch mismatches are excluded, including
+from fallback picks. Years come only from source title/description and source
+`meta.eligibility` tags: full-year phrases such as `2026 batch`, `graduating in 2027`,
+`graduation year: 2026`, `batch of 2026`, `class of 2026` and
+`2025/2026 passouts`. Full-year comma/and/or lists are supported; dates, ambiguous
+ranges, abbreviated years and negative/preferred phrases stay unknown. No new
+parsed field or migration is introduced. Summaries are not eligibility evidence.
+Matching years say `Open to 2026 graduates (batch requirement)` and still require
+checking all source requirements. Missing batch/restriction information keeps the
+pick and says `Eligibility not stated — check before applying`.
+
+No current adapter emits a dedicated citizenship/authorization flag. The only
+supported structured evidence is an exact source `meta.eligibility` tag
+(`citizens only`, `residents only`, `work authorization required`, or British
+`work authorisation required`, optionally prefixed with the listing's two-letter
+country) plus a known structured listing country. A different chosen reader
+country excludes that pick; missing reader country does not. Location, remote
+status and authorization prose alone never exclude a listing. A matching chosen
+country never proves citizenship/authorization; the email repeats the source
+restriction and asks the reader to verify. No-profile readers retain their legacy
+picks, with evidence/warnings rather than unsupported positive claims.
+
+Each digest ledger's `meta.reasons` maps opportunity IDs to `code`, `text`,
+`matched_term`, numeric FTS `rank` (null for unranked paths), `position`, eligibility
+evidence and a public listing snapshot. Codes are `company_follow`,
+`profile_interest`, `skill`, `generic`, and `hackathon`. The matching source ID
+is retained when ALERT-03 substitutes an employer copy. A minimal `reader_profile`
+snapshot records stream, interest keys, graduation year and country as sent;
+there is no email or display name in it. Reasons and eligibility labels appear
+in both HTML and plain text.
+
+Query budget: **at most three additional SELECTs per profiled reader**, independent
+of window size: one ranks a **60-row shortlist** without descriptions, summaries
+or embeddings; one batch loads descriptions and eligible copies of those roles,
+preserving employer-link preference even when only an aggregator carries a term;
+one attributes exact search terms only for the final profile picks. There is no
+per-term CASE over the full window and no per-candidate query. Eligibility checks,
+collapse and sent-index lookups run in memory. No-profile readers add no
+queries. Existing history/identity/generic/hackathon/watch queries are unchanged.
+The query-count fixtures cover one versus 21 candidates, and an 80-row window
+with a cleared identity map to prove the 60-row cap and absence of lazy loads.
+If eligibility exclusions or duplicate collapse exhaust the shortlist, remaining
+slots keep the existing generic fallback; no unbounded refill runs.
+
+The founder evaluates actual deliveries locally. In a full checkout with backend
+dependencies installed, set **your own** `DATABASE_URL` in the local shell through
+your normal private credential workflow. Sampling explicitly opens a read-only
+Postgres transaction; it sends nothing and does not update the ledger. Do not
+put this command in Actions, paste credentials into logs, or commit the CSV.
+Keep samples in the git-ignored `_local/` folder. PowerShell, from the repo root:
+
+```powershell
+New-Item -ItemType Directory -Force _local | Out-Null
+Set-Location backend
+uv run python -m scripts.alert_gold_set sample --n 100 --out ../_local/alert01-gold.csv
+# Fill relevant and eligible_claim_correct with y/n in the CSV, then:
+uv run python -m scripts.alert_gold_set score ../_local/alert01-gold.csv
+```
+
+Sampling takes the latest N **picks**, newest delivery first, from successful
+email digests with reason snapshots. Old rows without reasons are skipped;
+fewer than N rows means not enough instrumented picks have been sent yet.
+No user names/emails/IDs are selected or exported; profile and listing snapshots
+describe the send even if an account/listing changes later. Formula-like cells
+are quoted for spreadsheet use. Score is entirely offline: precision is relevant
+`y` divided by relevant `y` + `n`; empty relevance labels do not count. It lists
+every row with `eligible_claim_correct=n` and exits 1 if any exist, 2 on invalid
+labels/input or zero relevance labels, otherwise 0. There is no invented precision
+threshold: agree the target with the founder, label all 100 picks, and record the
+measured result before closing ALERT-01. A clean exit alone is not the precision
+acceptance gate.
+
+Reviewer checks on disposable Postgres (never production):
+
+```text
+uv run pytest tests/test_alert_relevance.py tests/test_alert_relevance_unit.py tests/test_taxonomy.py tests/test_for_you.py tests/test_alert_identity.py tests/test_digest_country.py tests/test_digest_reliability.py tests/test_notifications.py
+uv run ruff check .
+uv run black --check .
+```
+
+Taxonomy parity executes the real TypeScript using Node 24+ built-in type
+stripping; it does not need a frontend dependency install in the backend CI job.
+Frontend validation: `node --test lib/*.test.mjs`, `pnpm lint`, and `pnpm exec tsc --noEmit`.

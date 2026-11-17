@@ -1,0 +1,676 @@
+{
+  "version": 1,
+  "note": "3-level field taxonomy: stream -> division -> interests (multi-select). Authored by the architect as product canon; keys are stable ids (never rename, only add), labels are user-facing. Consumed by onboarding, the profile, and /for-you keyword expansion.",
+  "streams": [
+    {
+      "key": "engineering",
+      "label": "Engineering & Technology",
+      "divisions": [
+        {
+          "key": "cse",
+          "label": "Computer Science & Engineering",
+          "interests": [
+            { "key": "web_dev", "label": "Web Development" },
+            { "key": "mobile_dev", "label": "Mobile / App Development" },
+            { "key": "data_science", "label": "Data Science" },
+            { "key": "machine_learning", "label": "Machine Learning / AI" },
+            { "key": "ai_architecture", "label": "Data & AI Architecture" },
+            { "key": "cloud_devops", "label": "Cloud & DevOps" },
+            { "key": "cybersecurity", "label": "Cybersecurity" },
+            { "key": "blockchain", "label": "Blockchain / Web3" },
+            { "key": "game_dev", "label": "Game Development" },
+            { "key": "ar_vr", "label": "AR / VR / XR" },
+            { "key": "systems", "label": "Systems & Low-level Programming" },
+            { "key": "databases", "label": "Databases & Big Data" },
+            { "key": "networking", "label": "Networking & Distributed Systems" },
+            { "key": "embedded_iot", "label": "Embedded Systems & IoT" },
+            { "key": "hci_ux_eng", "label": "HCI / UX Engineering" },
+            { "key": "quantum", "label": "Quantum Computing" },
+            { "key": "competitive_programming", "label": "Competitive Programming / DSA" },
+            { "key": "robotics_sw", "label": "Robotics (Software)" }
+          ]
+        },
+        {
+          "key": "it",
+          "label": "Information Technology",
+          "interests": [
+            { "key": "web_dev", "label": "Web Development" },
+            { "key": "cloud_devops", "label": "Cloud & DevOps" },
+            { "key": "cybersecurity", "label": "Cybersecurity" },
+            { "key": "data_science", "label": "Data Science" },
+            { "key": "it_infrastructure", "label": "IT Infrastructure & Networking" },
+            { "key": "erp_systems", "label": "ERP & Enterprise Systems" },
+            { "key": "qa_testing", "label": "QA & Test Automation" },
+            { "key": "databases", "label": "Databases & Big Data" }
+          ]
+        },
+        {
+          "key": "ece",
+          "label": "Electronics & Communication",
+          "interests": [
+            { "key": "vlsi", "label": "VLSI & Chip Design" },
+            { "key": "embedded_iot", "label": "Embedded Systems & IoT" },
+            { "key": "signal_processing", "label": "Signal & Image Processing" },
+            { "key": "communication_systems", "label": "Communication Systems / 5G" },
+            { "key": "rf_microwave", "label": "RF & Microwave" },
+            { "key": "control_systems", "label": "Control Systems" },
+            { "key": "robotics_hw", "label": "Robotics (Hardware)" },
+            { "key": "semiconductors", "label": "Semiconductors & Fabrication" }
+          ]
+        },
+        {
+          "key": "ee",
+          "label": "Electrical Engineering",
+          "interests": [
+            { "key": "power_systems", "label": "Power Systems" },
+            { "key": "power_electronics", "label": "Power Electronics & Drives" },
+            { "key": "renewable_energy", "label": "Renewable & Clean Energy" },
+            { "key": "control_systems", "label": "Control Systems" },
+            { "key": "electric_vehicles", "label": "Electric Vehicles" },
+            { "key": "smart_grid", "label": "Smart Grid & Energy Storage" },
+            { "key": "electrical_machines", "label": "Electrical Machines" }
+          ]
+        },
+        {
+          "key": "mechanical",
+          "label": "Mechanical Engineering",
+          "interests": [
+            { "key": "design_cad", "label": "Design & CAD/CAM" },
+            { "key": "thermal", "label": "Thermal & Fluid Systems" },
+            { "key": "manufacturing", "label": "Manufacturing & Production" },
+            { "key": "automotive", "label": "Automotive" },
+            { "key": "robotics_hw", "label": "Robotics & Mechatronics" },
+            { "key": "aerospace_mech", "label": "Aerospace & Propulsion" },
+            { "key": "hvac", "label": "HVAC & Refrigeration" },
+            { "key": "additive_manufacturing", "label": "3D Printing / Additive" }
+          ]
+        },
+        {
+          "key": "civil",
+          "label": "Civil Engineering",
+          "interests": [
+            { "key": "structural", "label": "Structural Engineering" },
+            { "key": "geotechnical", "label": "Geotechnical" },
+            { "key": "transportation", "label": "Transportation & Highways" },
+            { "key": "construction_mgmt", "label": "Construction Management" },
+            { "key": "environmental_civil", "label": "Environmental & Water Resources" },
+            { "key": "surveying_gis", "label": "Surveying & GIS" },
+            { "key": "urban_infra", "label": "Urban Infrastructure" }
+          ]
+        },
+        {
+          "key": "chemical",
+          "label": "Chemical Engineering",
+          "interests": [
+            { "key": "process_engineering", "label": "Process Engineering" },
+            { "key": "petrochemicals", "label": "Petrochemicals & Refining" },
+            { "key": "polymers", "label": "Polymers & Materials" },
+            { "key": "pharma_process", "label": "Pharmaceutical Process" },
+            { "key": "energy_chem", "label": "Energy & Fuels" },
+            { "key": "process_safety", "label": "Process Safety & Control" }
+          ]
+        },
+        {
+          "key": "aerospace",
+          "label": "Aerospace Engineering",
+          "interests": [
+            { "key": "aerodynamics", "label": "Aerodynamics" },
+            { "key": "propulsion", "label": "Propulsion" },
+            { "key": "avionics", "label": "Avionics & Guidance" },
+            { "key": "structures_aero", "label": "Aerospace Structures" },
+            { "key": "space_systems", "label": "Space Systems & Satellites" },
+            { "key": "uav", "label": "UAVs / Drones" }
+          ]
+        },
+        {
+          "key": "biotech_eng",
+          "label": "Biotechnology / Biomedical Engineering",
+          "interests": [
+            { "key": "bioinformatics", "label": "Bioinformatics" },
+            { "key": "medical_devices", "label": "Medical Devices" },
+            { "key": "genetic_engineering", "label": "Genetic Engineering" },
+            { "key": "biomanufacturing", "label": "Bioprocess & Biomanufacturing" },
+            { "key": "tissue_engineering", "label": "Tissue Engineering" }
+          ]
+        },
+        {
+          "key": "aids",
+          "label": "AI & Data Science (Engineering)",
+          "interests": [
+            { "key": "machine_learning", "label": "Machine Learning / AI" },
+            { "key": "deep_learning", "label": "Deep Learning" },
+            { "key": "nlp", "label": "Natural Language Processing" },
+            { "key": "computer_vision", "label": "Computer Vision" },
+            { "key": "data_science", "label": "Data Science" },
+            { "key": "ai_architecture", "label": "Data & AI Architecture" },
+            { "key": "mlops", "label": "MLOps" },
+            { "key": "generative_ai", "label": "Generative AI" }
+          ]
+        },
+        {
+          "key": "other_eng",
+          "label": "Other Engineering",
+          "interests": [
+            { "key": "industrial", "label": "Industrial & Production" },
+            { "key": "metallurgical", "label": "Metallurgical & Materials" },
+            { "key": "mining", "label": "Mining" },
+            { "key": "marine", "label": "Marine & Ocean" },
+            { "key": "petroleum", "label": "Petroleum" },
+            { "key": "instrumentation", "label": "Instrumentation & Control" },
+            { "key": "textile", "label": "Textile" },
+            { "key": "agricultural_eng", "label": "Agricultural Engineering" },
+            { "key": "environmental_eng", "label": "Environmental Engineering" },
+            { "key": "mechatronics", "label": "Mechatronics & Robotics" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "computer_applications",
+      "label": "Computer Applications & IT",
+      "divisions": [
+        {
+          "key": "bca_mca",
+          "label": "BCA / MCA / Computer Applications",
+          "interests": [
+            { "key": "web_dev", "label": "Web Development" },
+            { "key": "mobile_dev", "label": "Mobile / App Development" },
+            { "key": "software_development", "label": "Software Development" },
+            { "key": "data_science", "label": "Data Science" },
+            { "key": "cloud_devops", "label": "Cloud & DevOps" },
+            { "key": "cybersecurity", "label": "Cybersecurity" },
+            { "key": "databases", "label": "Databases" }
+          ]
+        },
+        {
+          "key": "data_analytics",
+          "label": "Data & Business Analytics",
+          "interests": [
+            { "key": "data_analytics", "label": "Data Analytics" },
+            { "key": "business_intelligence", "label": "Business Intelligence" },
+            { "key": "data_visualization", "label": "Data Visualization" },
+            { "key": "data_engineering", "label": "Data Engineering" },
+            { "key": "statistics", "label": "Applied Statistics" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "management",
+      "label": "Management & Business",
+      "divisions": [
+        {
+          "key": "general_management",
+          "label": "General Management",
+          "interests": [
+            { "key": "strategy", "label": "Strategy & Consulting" },
+            { "key": "operations", "label": "Operations & Supply Chain" },
+            { "key": "product_management", "label": "Product Management" },
+            { "key": "project_management", "label": "Project & Program Management" },
+            { "key": "entrepreneurship", "label": "Entrepreneurship / Startups" },
+            { "key": "business_development", "label": "Business Development" }
+          ]
+        },
+        {
+          "key": "marketing",
+          "label": "Marketing",
+          "interests": [
+            { "key": "digital_marketing", "label": "Digital Marketing" },
+            { "key": "brand_management", "label": "Brand Management" },
+            { "key": "growth", "label": "Growth Marketing" },
+            { "key": "market_research", "label": "Market Research" },
+            { "key": "content_marketing", "label": "Content Marketing" },
+            { "key": "social_media", "label": "Social Media" },
+            { "key": "seo_sem", "label": "SEO / SEM" }
+          ]
+        },
+        {
+          "key": "finance_mgmt",
+          "label": "Finance",
+          "interests": [
+            { "key": "investment_banking", "label": "Investment Banking" },
+            { "key": "corporate_finance", "label": "Corporate Finance" },
+            { "key": "equity_research", "label": "Equity Research" },
+            { "key": "fintech", "label": "FinTech" },
+            { "key": "risk_management", "label": "Risk Management" },
+            { "key": "wealth_management", "label": "Wealth & Asset Management" }
+          ]
+        },
+        {
+          "key": "hr",
+          "label": "Human Resources",
+          "interests": [
+            { "key": "talent_acquisition", "label": "Talent Acquisition" },
+            { "key": "people_ops", "label": "People Operations" },
+            { "key": "org_development", "label": "Organizational Development" },
+            { "key": "comp_benefits", "label": "Compensation & Benefits" }
+          ]
+        },
+        {
+          "key": "analytics_mgmt",
+          "label": "Business Analytics",
+          "interests": [
+            { "key": "business_analytics", "label": "Business Analytics" },
+            { "key": "data_analytics", "label": "Data Analytics" },
+            { "key": "operations_research", "label": "Operations Research" },
+            { "key": "consulting_analytics", "label": "Analytics Consulting" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "commerce_finance",
+      "label": "Commerce, Finance & Economics",
+      "divisions": [
+        {
+          "key": "accounting",
+          "label": "Accounting & Auditing",
+          "interests": [
+            { "key": "chartered_accountancy", "label": "Chartered Accountancy (CA)" },
+            { "key": "financial_accounting", "label": "Financial Accounting" },
+            { "key": "auditing", "label": "Auditing & Assurance" },
+            { "key": "taxation", "label": "Taxation" },
+            { "key": "cost_accounting", "label": "Cost & Management Accounting" }
+          ]
+        },
+        {
+          "key": "economics",
+          "label": "Economics",
+          "interests": [
+            { "key": "econometrics", "label": "Econometrics" },
+            { "key": "development_economics", "label": "Development Economics" },
+            { "key": "financial_economics", "label": "Financial Economics" },
+            { "key": "public_policy_econ", "label": "Public Policy & Economics" },
+            { "key": "data_economics", "label": "Data / Quantitative Economics" }
+          ]
+        },
+        {
+          "key": "finance_commerce",
+          "label": "Finance & Banking",
+          "interests": [
+            { "key": "banking", "label": "Banking" },
+            { "key": "financial_analysis", "label": "Financial Analysis" },
+            { "key": "capital_markets", "label": "Capital Markets" },
+            { "key": "fintech", "label": "FinTech" },
+            { "key": "actuarial", "label": "Actuarial Science" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "medicine_health",
+      "label": "Medicine & Health Sciences",
+      "divisions": [
+        {
+          "key": "mbbs",
+          "label": "Medicine (MBBS / MD)",
+          "interests": [
+            { "key": "clinical_research", "label": "Clinical Research" },
+            { "key": "surgery", "label": "Surgery" },
+            { "key": "public_health", "label": "Public Health" },
+            { "key": "internal_medicine", "label": "Internal Medicine" },
+            { "key": "medical_research", "label": "Medical Research" }
+          ]
+        },
+        {
+          "key": "dentistry",
+          "label": "Dentistry",
+          "interests": [
+            { "key": "orthodontics", "label": "Orthodontics" },
+            { "key": "oral_surgery", "label": "Oral Surgery" },
+            { "key": "dental_research", "label": "Dental Research" }
+          ]
+        },
+        {
+          "key": "pharmacy",
+          "label": "Pharmacy",
+          "interests": [
+            { "key": "pharmacology", "label": "Pharmacology" },
+            { "key": "pharmaceutics", "label": "Pharmaceutics" },
+            { "key": "clinical_pharmacy", "label": "Clinical Pharmacy" },
+            { "key": "drug_regulatory", "label": "Drug Regulatory Affairs" }
+          ]
+        },
+        {
+          "key": "nursing_allied",
+          "label": "Nursing & Allied Health",
+          "interests": [
+            { "key": "nursing", "label": "Nursing" },
+            { "key": "physiotherapy", "label": "Physiotherapy" },
+            { "key": "nutrition", "label": "Nutrition & Dietetics" },
+            { "key": "medical_lab", "label": "Medical Lab Technology" },
+            { "key": "radiology_tech", "label": "Radiology & Imaging" }
+          ]
+        },
+        {
+          "key": "public_health_div",
+          "label": "Public Health",
+          "interests": [
+            { "key": "epidemiology", "label": "Epidemiology" },
+            { "key": "health_policy", "label": "Health Policy" },
+            { "key": "biostatistics", "label": "Biostatistics" },
+            { "key": "global_health", "label": "Global Health" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sciences",
+      "label": "Natural & Physical Sciences",
+      "divisions": [
+        {
+          "key": "physics",
+          "label": "Physics",
+          "interests": [
+            { "key": "astrophysics", "label": "Astrophysics" },
+            { "key": "quantum_physics", "label": "Quantum & Condensed Matter" },
+            { "key": "particle_physics", "label": "Particle & High-Energy" },
+            { "key": "applied_physics", "label": "Applied Physics" },
+            { "key": "photonics", "label": "Optics & Photonics" }
+          ]
+        },
+        {
+          "key": "chemistry",
+          "label": "Chemistry",
+          "interests": [
+            { "key": "organic_chem", "label": "Organic Chemistry" },
+            { "key": "inorganic_chem", "label": "Inorganic Chemistry" },
+            { "key": "physical_chem", "label": "Physical Chemistry" },
+            { "key": "analytical_chem", "label": "Analytical Chemistry" },
+            { "key": "materials_chem", "label": "Materials Chemistry" }
+          ]
+        },
+        {
+          "key": "mathematics",
+          "label": "Mathematics & Statistics",
+          "interests": [
+            { "key": "pure_math", "label": "Pure Mathematics" },
+            { "key": "applied_math", "label": "Applied Mathematics" },
+            { "key": "statistics", "label": "Statistics" },
+            { "key": "data_science", "label": "Data Science" },
+            { "key": "operations_research", "label": "Operations Research" },
+            { "key": "actuarial", "label": "Actuarial Science" }
+          ]
+        },
+        {
+          "key": "earth_env_science",
+          "label": "Earth & Environmental Science",
+          "interests": [
+            { "key": "geology", "label": "Geology" },
+            { "key": "climate_science", "label": "Climate & Atmospheric Science" },
+            { "key": "environmental_science", "label": "Environmental Science" },
+            { "key": "oceanography", "label": "Oceanography" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "life_sciences",
+      "label": "Life Sciences & Biotechnology",
+      "divisions": [
+        {
+          "key": "biology",
+          "label": "Biology & Life Sciences",
+          "interests": [
+            { "key": "molecular_biology", "label": "Molecular Biology" },
+            { "key": "genetics", "label": "Genetics & Genomics" },
+            { "key": "microbiology", "label": "Microbiology" },
+            { "key": "biochemistry", "label": "Biochemistry" },
+            { "key": "ecology", "label": "Ecology & Evolution" },
+            { "key": "neuroscience", "label": "Neuroscience" }
+          ]
+        },
+        {
+          "key": "biotechnology",
+          "label": "Biotechnology",
+          "interests": [
+            { "key": "bioinformatics", "label": "Bioinformatics" },
+            { "key": "genetic_engineering", "label": "Genetic Engineering" },
+            { "key": "industrial_biotech", "label": "Industrial Biotech" },
+            { "key": "agri_biotech", "label": "Agricultural Biotech" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "law",
+      "label": "Law & Legal Studies",
+      "divisions": [
+        {
+          "key": "law_general",
+          "label": "Law (LLB / LLM)",
+          "interests": [
+            { "key": "corporate_law", "label": "Corporate Law" },
+            { "key": "criminal_law", "label": "Criminal Law" },
+            { "key": "constitutional_law", "label": "Constitutional Law" },
+            { "key": "ipr", "label": "Intellectual Property" },
+            { "key": "international_law", "label": "International Law" },
+            { "key": "tax_law", "label": "Tax Law" },
+            { "key": "cyber_law", "label": "Cyber & Tech Law" },
+            { "key": "litigation", "label": "Litigation" }
+          ]
+        },
+        {
+          "key": "company_secretary",
+          "label": "Company Secretary / Corporate Governance",
+          "interests": [
+            { "key": "corporate_governance", "label": "Corporate Governance" },
+            { "key": "compliance", "label": "Regulatory Compliance" },
+            { "key": "corporate_law", "label": "Corporate Law" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "design_arts_media",
+      "label": "Design, Arts & Media",
+      "divisions": [
+        {
+          "key": "design",
+          "label": "Design",
+          "interests": [
+            { "key": "ux_ui_design", "label": "UX / UI Design" },
+            { "key": "graphic_design", "label": "Graphic Design" },
+            { "key": "product_design", "label": "Product & Industrial Design" },
+            { "key": "fashion_design", "label": "Fashion Design" },
+            { "key": "interior_design", "label": "Interior Design" },
+            { "key": "animation", "label": "Animation & Motion" },
+            { "key": "game_design", "label": "Game Design" }
+          ]
+        },
+        {
+          "key": "media_communication",
+          "label": "Media & Communication",
+          "interests": [
+            { "key": "journalism", "label": "Journalism" },
+            { "key": "film_production", "label": "Film & Video Production" },
+            { "key": "content_creation", "label": "Content Creation" },
+            { "key": "advertising", "label": "Advertising" },
+            { "key": "public_relations", "label": "Public Relations" },
+            { "key": "photography", "label": "Photography" }
+          ]
+        },
+        {
+          "key": "fine_performing_arts",
+          "label": "Fine & Performing Arts",
+          "interests": [
+            { "key": "fine_arts", "label": "Fine Arts" },
+            { "key": "music", "label": "Music" },
+            { "key": "theatre", "label": "Theatre & Performing Arts" },
+            { "key": "creative_writing", "label": "Creative Writing" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "humanities_social",
+      "label": "Humanities & Social Sciences",
+      "divisions": [
+        {
+          "key": "social_sciences",
+          "label": "Social Sciences",
+          "interests": [
+            { "key": "psychology", "label": "Psychology" },
+            { "key": "sociology", "label": "Sociology" },
+            { "key": "political_science", "label": "Political Science" },
+            { "key": "public_policy", "label": "Public Policy" },
+            { "key": "international_relations", "label": "International Relations" },
+            { "key": "development_studies", "label": "Development Studies" },
+            { "key": "anthropology", "label": "Anthropology" }
+          ]
+        },
+        {
+          "key": "humanities",
+          "label": "Humanities",
+          "interests": [
+            { "key": "history", "label": "History" },
+            { "key": "literature", "label": "Literature & Languages" },
+            { "key": "philosophy", "label": "Philosophy" },
+            { "key": "linguistics", "label": "Linguistics" }
+          ]
+        },
+        {
+          "key": "social_work",
+          "label": "Social Work & Development",
+          "interests": [
+            { "key": "social_work", "label": "Social Work" },
+            { "key": "ngo_nonprofit", "label": "NGO / Non-profit" },
+            { "key": "csr", "label": "CSR & Sustainability" },
+            { "key": "rural_development", "label": "Rural Development" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "architecture_planning",
+      "label": "Architecture & Planning",
+      "divisions": [
+        {
+          "key": "architecture",
+          "label": "Architecture",
+          "interests": [
+            { "key": "architectural_design", "label": "Architectural Design" },
+            { "key": "sustainable_design", "label": "Sustainable / Green Design" },
+            { "key": "landscape_arch", "label": "Landscape Architecture" },
+            { "key": "conservation", "label": "Heritage & Conservation" }
+          ]
+        },
+        {
+          "key": "planning",
+          "label": "Urban & Regional Planning",
+          "interests": [
+            { "key": "urban_planning", "label": "Urban Planning" },
+            { "key": "transport_planning", "label": "Transport Planning" },
+            { "key": "regional_planning", "label": "Regional Planning" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "agriculture",
+      "label": "Agriculture & Allied Sciences",
+      "divisions": [
+        {
+          "key": "agriculture_general",
+          "label": "Agriculture",
+          "interests": [
+            { "key": "agronomy", "label": "Agronomy" },
+            { "key": "horticulture", "label": "Horticulture" },
+            { "key": "soil_science", "label": "Soil Science" },
+            { "key": "agri_economics", "label": "Agricultural Economics" },
+            { "key": "agri_biotech", "label": "Agricultural Biotech" },
+            { "key": "food_technology", "label": "Food Technology" }
+          ]
+        },
+        {
+          "key": "veterinary_fisheries",
+          "label": "Veterinary & Fisheries",
+          "interests": [
+            { "key": "veterinary", "label": "Veterinary Science" },
+            { "key": "animal_husbandry", "label": "Animal Husbandry" },
+            { "key": "fisheries", "label": "Fisheries" },
+            { "key": "dairy_technology", "label": "Dairy Technology" }
+          ]
+        },
+        {
+          "key": "forestry_env",
+          "label": "Forestry & Environment",
+          "interests": [
+            { "key": "forestry", "label": "Forestry" },
+            { "key": "wildlife", "label": "Wildlife & Conservation" },
+            { "key": "environmental_science", "label": "Environmental Science" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "education",
+      "label": "Education & Teaching",
+      "divisions": [
+        {
+          "key": "teaching",
+          "label": "Teaching & Pedagogy",
+          "interests": [
+            { "key": "school_teaching", "label": "School Teaching" },
+            { "key": "higher_education", "label": "Higher Education / Academia" },
+            { "key": "edtech", "label": "EdTech" },
+            { "key": "special_education", "label": "Special Education" },
+            { "key": "curriculum_design", "label": "Curriculum Design" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "hospitality_tourism",
+      "label": "Hospitality, Travel & Tourism",
+      "divisions": [
+        {
+          "key": "hospitality",
+          "label": "Hotel Management & Hospitality",
+          "interests": [
+            { "key": "hotel_management", "label": "Hotel Management" },
+            { "key": "culinary", "label": "Culinary Arts" },
+            { "key": "event_management", "label": "Event Management" },
+            { "key": "tourism", "label": "Travel & Tourism" },
+            { "key": "aviation_hospitality", "label": "Aviation & Cabin Crew" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "vocational",
+      "label": "Vocational & Skilled Trades",
+      "divisions": [
+        {
+          "key": "vocational_general",
+          "label": "Vocational & Technical Skills",
+          "interests": [
+            { "key": "web_dev", "label": "Web Development" },
+            { "key": "digital_marketing", "label": "Digital Marketing" },
+            { "key": "graphic_design", "label": "Graphic Design" },
+            { "key": "data_analytics", "label": "Data Analytics" },
+            { "key": "skilled_trades", "label": "Skilled Trades" },
+            { "key": "entrepreneurship", "label": "Entrepreneurship" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "undecided",
+      "label": "Undecided / Open to anything",
+      "divisions": [
+        {
+          "key": "exploring",
+          "label": "Still exploring",
+          "interests": [
+            { "key": "internships_any", "label": "Internships (any field)" },
+            { "key": "competitions_any", "label": "Competitions & Hackathons" },
+            { "key": "research_any", "label": "Research opportunities" },
+            { "key": "fellowships_any", "label": "Fellowships & Scholarships" },
+            { "key": "remote_any", "label": "Remote opportunities" }
+          ]
+        }
+      ]
+    }
+  ]
+}

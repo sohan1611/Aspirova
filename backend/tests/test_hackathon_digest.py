@@ -22,6 +22,7 @@ import pipeline.notifications as notifications_module
 from core import models
 from core.alert_identity import announcement_meta
 from core.unsubscribe import unsubscribe_url, verify_token
+from tests.test_notifications import _expected_digest_reason
 from pipeline.notifications import (
     COMBINED_DIGEST_SUBJECT,
     DAILY_DIGEST_SUBJECT,
@@ -623,6 +624,18 @@ def test_jobs_and_hackathons_arrive_in_one_email(
     assert rows[0].meta == {
         "opportunity_ids": [job.id],
         "hackathon_ids": [hackathon.id],
+        "reasons": {
+            str(job.id): _expected_digest_reason(job, "company_follow", "Company you follow", 1),
+            str(hackathon.id): _expected_digest_reason(
+                hackathon, "hackathon", "Still-open hackathon or competition", 2
+            ),
+        },
+        "reader_profile": {
+            "stream": None,
+            "interests": [],
+            "graduation_year": None,
+            "country": None,
+        },
         **announcement_meta([job, hackathon], "digest"),
     }
 
@@ -645,6 +658,17 @@ def test_hackathons_only_still_send_the_founder_subject(
     assert _digest_rows(db_session, user)[0].meta == {
         "opportunity_ids": [],
         "hackathon_ids": [hackathon.id],
+        "reasons": {
+            str(hackathon.id): _expected_digest_reason(
+                hackathon, "hackathon", "Still-open hackathon or competition", 1
+            ),
+        },
+        "reader_profile": {
+            "stream": None,
+            "interests": [],
+            "graduation_year": None,
+            "country": None,
+        },
         **announcement_meta([hackathon], "digest"),
     }
 
@@ -671,6 +695,15 @@ def test_jobs_only_keep_the_daily_subject(
     assert _digest_rows(db_session, user)[0].meta == {
         "opportunity_ids": [job.id],
         "hackathon_ids": [],
+        "reasons": {
+            str(job.id): _expected_digest_reason(job, "company_follow", "Company you follow", 1),
+        },
+        "reader_profile": {
+            "stream": None,
+            "interests": [],
+            "graduation_year": None,
+            "country": None,
+        },
         **announcement_meta([job], "digest"),
     }
 
@@ -830,6 +863,17 @@ def test_hackathon_already_in_the_job_list_is_not_appended_again(
     assert _digest_rows(db_session, user)[0].meta == {
         "opportunity_ids": [hackathon.id],
         "hackathon_ids": [],
+        "reasons": {
+            str(hackathon.id): _expected_digest_reason(
+                hackathon, "company_follow", "Company you follow", 1
+            ),
+        },
+        "reader_profile": {
+            "stream": None,
+            "interests": [],
+            "graduation_year": None,
+            "country": None,
+        },
         **announcement_meta([hackathon], "digest"),
     }
 

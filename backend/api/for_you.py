@@ -6,8 +6,7 @@ provide a fast, shared ranking primitive without adding per-user state or AI.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import Text, any_, bindparam, case, cast, func, or_, select
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from api.deps import get_db
@@ -16,12 +15,12 @@ from api.filters import (
     exclude_experienced_only_opportunities,
     exclude_school_only_opportunities,
     exclude_stale_opportunities,
-    listing_closed,
     location_scope_filters,
 )
 from api.opportunity_loading import opportunity_list_load_options
 from api.schemas import FeedResponse, OpportunityListItem
 from core import models
+from core.interest_ranking import rank_profile_query
 
 router = APIRouter()
 
@@ -217,47 +216,7 @@ def get_for_you(
         .where(*base_filters)
     )
 
-    if user_skills:
-        skill_values = cast(
-            bindparam("user_skills", value=user_skills, type_=ARRAY(Text())),
-            ARRAY(Text()),
-        )
-        skill_element = (
-            func.jsonb_array_elements_text(models.Opportunity.skills)
-            .table_valued("skill")
-            .render_derived(name="skill")
-        )
-        overlap_count = (
-            select(func.count())
-            .select_from(skill_element)
-            .where(skill_element.c.skill == any_(skill_values))
-            .correlate(models.Opportunity.__table__)
-            .scalar_subquery()
-        )
-        query = query.where(models.Opportunity.skills.op("?|")(skill_values)).order_by(
-            overlap_count.desc(),
-            models.Opportunity.last_seen_at.desc(),
-            models.Opportunity.id.desc(),
-        )
-    elif keywords:
-        # websearch_to_tsquery is the same resilient parser used by /search:
-        # it safely handles phrases such as "full stack" and never treats a
-        # input as raw tsquery syntax.
-        tsquery = func.websearch_to_tsquery("english", " OR ".join(keywords))
-        matches_fts = models.Opportunity.search_tsv.op("@@")(tsquery)
-        rank = func.ts_rank(models.Opportunity.search_tsv, tsquery)
-        query = query.where(matches_fts).order_by(
-            rank.desc(),
-            models.Opportunity.last_seen_at.desc(),
-            models.Opportunity.id.desc(),
-        )
-    else:
-        is_closed = case((listing_closed(), 1), else_=0)
-        query = query.order_by(
-            is_closed.asc(),
-            models.Opportunity.last_seen_at.desc(),
-            models.Opportunity.id.desc(),
-        )
+    query = rank_profile_query(query, keywords, user_skills)
 
     rows = db.execute(query.offset((page - 1) * limit).limit(limit)).unique().all()
     items = [OpportunityListItem.from_model(row.Opportunity) for row in rows]
