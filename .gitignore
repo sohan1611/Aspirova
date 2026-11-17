@@ -40,3 +40,7 @@ Thumbs.db
 
 # Founder's private files (PDFs, reports, leftovers). Never published.
 _local/
+
+# Local founder-labelled alert evaluations (never commit reader profile samples).
+gold.csv
+alert01-gold*.csv

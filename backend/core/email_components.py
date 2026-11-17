@@ -244,6 +244,7 @@ def opportunity_card(
     button_label: str = "View & Apply",
     deadline_policy: DeadlinePolicy,
     extra_html: str = "",
+    reason_text: str | None = None,
     secondary_link: tuple[str, str] | None = None,
     company: models.Company | None = None,
 ) -> tuple[str, str]:
@@ -275,6 +276,11 @@ def opportunity_card(
             f'text-decoration:underline">{escape(label, quote=True)}</a></p>'
         )
         secondary_text = f"\n{label}: {secondary_url}"
+    if reason_text:
+        extra_html += (
+            f'<p class="em-muted" style="color:{MUTED};font-size:13px;line-height:20px">'
+            f"{escape(reason_text, quote=True)}</p>"
+        )
     html = (
         f'<table {TABLE} width="100%" class="em-card" bgcolor="{CARD_BG}" '
         f'style="background-color:{CARD_BG};border:1px solid {BORDER};border-collapse:separate;'
@@ -298,13 +304,17 @@ def opportunity_card(
     text = (
         f"{title} — {company_name}\n"
         + " · ".join(value for value in details if value)
+        + (f"\n{reason_text}" if reason_text else "")
         + f"\n{button_label}: {url}{secondary_text}"
     )
     return html, text
 
 
 def grouped_cards(
-    opportunities: list[models.Opportunity], *, now: datetime
+    opportunities: list[models.Opportunity],
+    *,
+    now: datetime,
+    reasons: dict[int, str] | None = None,
 ) -> tuple[str, str, str]:
     """Return HTML, text and the first displayed card's inbox-preview description."""
     groups = [
@@ -329,7 +339,13 @@ def grouped_cards(
             company = items[0].company.name if items[0].company else "Unknown"
             first_card = f"{items[0].title} at {company}"
         cards = [
-            opportunity_card(o, now=now, button_url=o.apply_url, deadline_policy="explicit_only")
+            opportunity_card(
+                o,
+                now=now,
+                button_url=o.apply_url,
+                deadline_policy="explicit_only",
+                reason_text=(reasons or {}).get(o.id),
+            )
             for o in items
         ]
         url = get_settings().site_url.rstrip("/") + route if route else None

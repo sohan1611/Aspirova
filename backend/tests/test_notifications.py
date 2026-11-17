@@ -105,6 +105,30 @@ def _make_user(db_session: Session) -> models.User:
     return user
 
 
+def _expected_digest_reason(opportunity, code, text, position):
+    """Exact fixture contract, independent of the worker's reason builder."""
+    return {
+        "code": code,
+        "text": text,
+        "matched_term": None,
+        "rank": None,
+        "eligibility": {
+            "state": "unknown",
+            "text": "Eligibility not stated — check before applying",
+            "years": [],
+            "restricted_country": None,
+            "excluded": False,
+        },
+        "opportunity": {
+            "slug": opportunity.slug,
+            "title": opportunity.title,
+            "company": opportunity.company.name,
+            "category": opportunity.category,
+        },
+        "position": position,
+    }
+
+
 def _make_opportunity(
     db_session: Session,
     company: models.Company,
@@ -233,6 +257,20 @@ def test_dream_company_digest_allows_multiple_roles_from_same_company(
     assert notification.meta == {
         "opportunity_ids": [newer.id, older.id],
         "hackathon_ids": [],
+        "reasons": {
+            str(newer.id): _expected_digest_reason(
+                newer, "company_follow", "Company you follow", 1
+            ),
+            str(older.id): _expected_digest_reason(
+                older, "company_follow", "Company you follow", 2
+            ),
+        },
+        "reader_profile": {
+            "stream": None,
+            "interests": [],
+            "graduation_year": None,
+            "country": None,
+        },
         **announcement_meta([newer, older], "digest"),
     }
 

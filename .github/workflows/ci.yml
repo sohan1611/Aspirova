@@ -82,6 +82,12 @@ jobs:
       - name: Seed test data
         run: uv run python -m scripts.seed_ci
 
+      # ALERT-01 executes the real frontend taxonomy for Python/TS parity.
+      # Built-in type stripping avoids installing frontend deps in this job.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
       - name: Test
         run: uv run pytest -v
 
