@@ -102,7 +102,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title,
     description,
     alternates: { canonical: canonicalUrl },
-    ...(opportunity.is_stale ? { robots: { index: false, follow: false } } : {}),
+    ...((opportunity.is_stale || opportunity.status === "withdrawn" || opportunity.safety) ? { robots: { index: false, follow: false } } : {}),
     // openGraph.title has no automatic template applied (unlike <title>),
     // so the "- Aspirova" suffix is added explicitly here for share
     // previews on Twitter/LinkedIn/etc.
@@ -124,12 +124,14 @@ export default async function OpportunityPage({ params }: PageProps) {
   }
 
   const sourceLabel = getSourceLabel(opportunity.apply_url);
-  const applyHref = safeExternalUrl(opportunity.apply_url);
+  const withdrawn = opportunity.status === "withdrawn" || !!opportunity.safety;
+  const safetySource = safeExternalUrl(opportunity.safety?.source_url);
+  const applyHref = withdrawn ? null : safeExternalUrl(opportunity.apply_url);
   const canonicalUrl = opportunityUrl(slug);
   const expires = hasExpiringDeadline(opportunity.category);
   const closedByDeadline =
     expires && !!opportunity.deadline && isDeadlinePast(opportunity.deadline);
-  const closed = isListingClosed(
+  const closed = withdrawn || isListingClosed(
     opportunity.closed_at,
     opportunity.deadline,
     opportunity.category,
@@ -214,6 +216,16 @@ export default async function OpportunityPage({ params }: PageProps) {
 
       <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
         <Link href="/" className="inline-flex min-h-11 items-center text-sm text-muted-foreground underline-offset-4 hover:text-primary hover:underline">← All opportunities</Link>
+        {withdrawn && (
+          <section aria-labelledby="listing-safety-heading" className="my-4 rounded-lg border-2 border-destructive bg-destructive/10 p-4 text-foreground sm:p-5">
+            <h2 id="listing-safety-heading" className="font-serif text-xl font-bold">
+              {opportunity.safety?.kind === "scam" ? "Warning: reported as a scam" : "This listing was withdrawn"}
+            </h2>
+            {opportunity.safety?.note && <p className="mt-2 break-words">{opportunity.safety.note}</p>}
+            <p className="mt-2 font-medium">Do not pay any fee or share bank or ID documents.</p>
+            {safetySource && <a href={safetySource} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex min-h-11 items-center font-medium underline underline-offset-4">Read the source of this warning</a>}
+          </section>
+        )}
         <div className="grid min-w-0 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div className="min-w-0 [overflow-wrap:anywhere]">
 
@@ -302,7 +314,9 @@ export default async function OpportunityPage({ params }: PageProps) {
                 <TrackerStageNotice slug={opportunity.slug} />
                 <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
                   <div className="flex w-full min-w-0 max-w-full flex-wrap items-center gap-3 sm:contents">
-                    {closed ? (
+                    {withdrawn ? (
+                      <span className="inline-flex min-h-11 items-center font-medium text-destructive">Listing withdrawn</span>
+                    ) : closed ? (
                       <div className="flex flex-wrap items-center gap-3">
                         <span className="inline-flex min-h-11 items-center rounded-md border border-border bg-secondary px-4 py-2 text-sm font-medium text-muted-foreground">{closedStatusLabel}</span>
                         {applyHref && (
@@ -325,7 +339,7 @@ export default async function OpportunityPage({ params }: PageProps) {
                   {opportunity.company?.slug && <div className="min-w-0 max-w-full [&>div]:mt-0 sm:ml-auto"><FollowCompanyButton slug={opportunity.company.slug} companyName={opportunity.company.name} /></div>}
                 </div>
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                  <p className="max-w-lg text-xs leading-5 text-muted-foreground">{closed ? closedCaption : stale ? verification.caption : apply.caption}</p>
+                  <p className="max-w-lg text-xs leading-5 text-muted-foreground">{withdrawn ? "Review the safety warning above before taking any action." : closed ? closedCaption : stale ? verification.caption : apply.caption}</p>
                   <ReportIssueDialog opportunitySlug={opportunity.slug} />
                 </div>
               </section>

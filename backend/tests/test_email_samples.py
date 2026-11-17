@@ -80,3 +80,12 @@ def test_sample_dates_follow_today_so_no_deadline_is_past():
 
     assert "Deadline 10 Nov 2026" in fixed
     assert html != fixed or datetime.now(timezone.utc).date().isoformat() == "2026-11-08"
+
+
+def test_saved_listing_sample_has_all_sections(client):
+    sample = client.get("/email-samples/saved-listings").json()
+    assert sample["subject"] == "Safety warning about a listing you saved"
+    html = sample["html"]
+    assert html.index("Safety warnings") < html.index("Closed early") < html.index("Closing soon")
+    assert "https://example.com/notices/fee-warning" in html
+    assert "Do not pay any fee or share bank or ID documents." in html

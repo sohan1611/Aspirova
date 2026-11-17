@@ -26,8 +26,18 @@ def _notification_copy(
     notification_type: str,
     opportunity_title: str | None,
     company_name: str | None,
+    meta: dict | None = None,
 ) -> tuple[str, str]:
     """Return client-ready copy so notification rendering stays server-side."""
+    if notification_type == "saved_closed":
+        title = opportunity_title or "An opportunity"
+        company = company_name or "Unknown company"
+        return "A saved listing closed", f"‘{title}’ at {company} stopped accepting applications."
+    if notification_type == "saved_safety":
+        title = opportunity_title or "An opportunity"
+        flag = (meta or {}).get("safety") or {}
+        label = "reported as a scam" if flag.get("kind") == "scam" else "withdrawn"
+        return "Safety warning", f"‘{title}’ was {label}. Don't pay fees or share documents."
     if notification_type == "closing_soon":
         title = opportunity_title or "An opportunity"
         return "Closing soon", f"‘{title}’ closes soon — don’t miss it."
@@ -87,8 +97,8 @@ def list_notifications(
     for notification, opportunity, company, notification_created_at in rows:
         opportunity_title = opportunity.title if opportunity else None
         company_name = company.name if company else None
-        title, body = _notification_copy(notification.type, opportunity_title, company_name)
         meta = notification.meta if isinstance(notification.meta, dict) else {}
+        title, body = _notification_copy(notification.type, opportunity_title, company_name, meta)
         if notification.type == "programme_watch":
             title, body = programme_watch_copy(meta)
         items.append(
@@ -253,7 +263,8 @@ def _unsubscribe_detail(preference_key: str) -> str:
         )
     if preference_key == "closing_soon":
         return (
-            "You won't get deadline reminders for your saved opportunities any more. "
+            "You won't get updates about your saved opportunities (deadline reminders, "
+            "closures and safety warnings) by email any more. In-app warnings stay on. "
             "You can turn them back on in your account settings."
         )
     list_name = {

@@ -120,6 +120,7 @@ def _closed_candidate_query() -> Select[tuple[int, str]]:
         )
         .where(
             or_(
+                models.Opportunity.status == "withdrawn",
                 models.Opportunity.closed_at.is_not(None),
                 models.Opportunity.posted_at.is_(None),
                 deadline_passed(),

@@ -503,6 +503,8 @@ def test_missing_signing_key_omits_unsubscribe_links_and_headers(kind, monkeypat
     users.all.return_value = [user]
     send = Mock(return_value=True)
     if kind == "closing_soon":
+        monkeypatch.setattr(notifications, "load_closure_notice_breaker", lambda *a: Mock())
+        monkeypatch.setattr(notifications, "collect_saved_listing_changes", lambda *a, **kw: [])
         opportunities = Mock()
         opportunities.all.return_value = [item]
         session.scalars.side_effect = [users, opportunities]
@@ -535,3 +537,43 @@ def test_missing_signing_key_omits_unsubscribe_links_and_headers(kind, monkeypat
     assert ">Unsubscribe</a>" not in send.call_args.args[2]
     assert 'href=""' not in send.call_args.args[2]
     assert "Unsubscribe from these emails:" not in send.call_args.args[3]
+
+
+@pytest.mark.parametrize("has_source", [True, False])
+def test_saved_warning_cards_never_offer_apply_or_future_deadline(has_source):
+    safety, closed = previews.saved_notice_samples(NOW)
+    unsafe = safety[0]
+    unsafe.deadline = NOW + timedelta(days=2)
+    unsafe.deadline_confidence = "explicit"
+    if not has_source:
+        unsafe.meta = {"safety": {**unsafe.meta["safety"], "source_url": None}}
+    html = _render_closing_soon([], NOW, safety=safety, closed=closed)[1]
+    text = _render_closing_soon_text([], now=NOW, safety=safety, closed=closed)
+    reference = unsafe.meta["safety"]["source_url"]
+    for part in (html, text):
+        assert unsafe.apply_url not in part
+        if has_source:
+            assert reference in part
+            assert "Read the source of this warning" in part
+        else:
+            assert "Read the source of this warning" not in part
+        assert "Do not pay any fee or share bank or ID documents." in part
+        assert "Closes in 2 days" not in part
+        assert "View & Apply" not in part
+    assert closed[0].apply_url in html and closed[0].apply_url in text
+
+
+@pytest.mark.parametrize("sections", ["safety", "closed", "both"])
+@pytest.mark.parametrize("has_closing_soon", [False, True])
+def test_deadline_verification_line_requires_closing_soon_cards(sections, has_closing_soon):
+    safety, closed = previews.saved_notice_samples(NOW)
+    closing = previews.sample_opportunities(1) if has_closing_soon else []
+    kwargs = {
+        "safety": safety if sections in {"safety", "both"} else [],
+        "closed": closed if sections in {"closed", "both"} else [],
+    }
+    html = _render_closing_soon(closing, NOW, **kwargs)[1]
+    text = _render_closing_soon_text(closing, now=NOW, **kwargs)
+    line = "Deadlines can change. Please verify them at the linked source."
+    for part in (html, text):
+        assert (line in part) is has_closing_soon

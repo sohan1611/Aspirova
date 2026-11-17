@@ -58,6 +58,9 @@ const BANNER_PALETTE_COUNT = 5;
 
 export default function OpportunityCard({ item }: { item: OpportunityListItem }) {
   const companyName = item.company?.name ?? "Unknown company";
+  const safetyWarning = item.status === "withdrawn" || item.safety
+    ? item.safety?.kind === "scam" ? "Warning: reported as a scam" : "Warning: listing withdrawn"
+    : null;
   const sourceLabel = item.source
     ? SOURCE_LABEL[item.source] ?? null
     : "apply_url" in item && typeof item.apply_url === "string"
@@ -131,7 +134,7 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
     <div className="relative min-w-0 h-full">
       <HoverPrefetchLink
         href={`/opportunity/${item.slug}`}
-        aria-label={item.title}
+        aria-label={safetyWarning ? `${item.title}. ${safetyWarning}` : item.title}
         className="group flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-soft transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         {isCompetition && (
@@ -178,6 +181,11 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
             </div>
           )}
 
+          {safetyWarning && (
+            <Badge variant="destructive" className="w-fit whitespace-normal">
+              {safetyWarning}
+            </Badge>
+          )}
           <h3 className="line-clamp-2 min-w-0 break-words font-serif text-[1.25rem] font-bold leading-tight text-card-foreground transition-colors group-hover:text-primary group-focus-visible:text-primary lg:text-[1.35rem]">
             {item.title}
           </h3>

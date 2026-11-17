@@ -27,7 +27,7 @@ BODY_FONT = (
 )
 HEADING_FONT = "font-family:Georgia,'Times New Roman',serif;"
 TABLE = 'role="presentation" cellpadding="0" cellspacing="0" border="0"'
-DeadlinePolicy = Literal["explicit_only", "any"]
+DeadlinePolicy = Literal["explicit_only", "any", "none"]
 _PLACEHOLDERS = {"unknown", "none", "not stated", "location", "n/a", "na", "tbd", "tba", "-"}
 _TYPE_COLORS = {
     "internship": (ACCENT_BG, ACCENT_INK),
@@ -170,8 +170,10 @@ def logo_tile(company: models.Company | None) -> str:
 def _deadline_text(
     opportunity: models.Opportunity, now: datetime, *, policy: DeadlinePolicy
 ) -> tuple[str, tuple[str, str]]:
-    if opportunity.deadline is None or (
-        policy == "explicit_only" and opportunity.deadline_confidence != "explicit"
+    if (
+        policy == "none"
+        or opportunity.deadline is None
+        or (policy == "explicit_only" and opportunity.deadline_confidence != "explicit")
     ):
         return "", NEUTRAL
     deadline = _utc(opportunity.deadline)

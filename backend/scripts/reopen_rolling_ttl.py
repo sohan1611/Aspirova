@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from core.db import make_engine
 from core.models import Opportunity
+from core.listing_safety import without_safety_flag
 from pipeline.retirement import ROLLING_WINDOW_TTL_DAYS, meta_without_closed_reason
 
 
@@ -41,7 +42,11 @@ def reopen_rolling_ttl(
         Opportunity.category,
         Opportunity.last_seen_at,
         Opportunity.meta["closed_reason"].astext.label("closed_reason"),
-    ).where(Opportunity.closed_at >= start, Opportunity.closed_at < start + timedelta(days=1))
+    ).where(
+        Opportunity.closed_at >= start,
+        Opportunity.closed_at < start + timedelta(days=1),
+        without_safety_flag(),
+    )
     if apply:
         # Keep the reported candidates stable until the caller's single commit.
         statement = statement.with_for_update()
@@ -70,7 +75,11 @@ def reopen_rolling_ttl(
     if apply and candidate_ids:
         updated = session.execute(
             update(Opportunity)
-            .where(Opportunity.id.in_(candidate_ids))
+            .where(
+                Opportunity.id.in_(candidate_ids),
+                Opportunity.status == "active",
+                without_safety_flag(),
+            )
             .values(
                 closed_at=None,
                 meta=meta_without_closed_reason(),

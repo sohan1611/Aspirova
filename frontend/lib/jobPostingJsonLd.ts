@@ -17,6 +17,8 @@ export function buildJobPostingJsonLd(
   if (
     (opportunity.category !== "job" && opportunity.category !== "internship") ||
     closed ||
+    opportunity.status === "withdrawn" ||
+    !!opportunity.safety ||
     opportunity.is_stale ||
     opportunity.is_hidden ||
     opportunity.is_remote === null

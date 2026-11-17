@@ -1166,6 +1166,8 @@ def test_closing_soon_alert_includes_only_bookmarked_opportunities_in_window(
     assert emails_to_user[0]["subject"] == "'Test Opportunity' closes in 2 days"
     assert closing_soon.deadline.strftime("%d %b %Y") in emails_to_user[0]["html"]
     assert closing_soon.apply_url in emails_to_user[0]["html"]
+    assert "Closing soon" in emails_to_user[0]["html"]
+    assert "Closing soon" in emails_to_user[0]["text"]
     email = emails_to_user[0]
     url = unsubscribe_url(user.id, "closing_soon")
     assert f'href="{url}"' in email["html"] and ">Unsubscribe</a>" in email["html"]
