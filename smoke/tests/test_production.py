@@ -17,6 +17,7 @@ from calendar_coverage import (
     wait_for_deployed_coverage,
 )
 from conftest import Diagnostics
+from provenance import card_label_problems, disclosure_problem
 
 VIEWPORTS = [
     pytest.param({"width": 1280, "height": 800}, id="desktop"),
@@ -123,6 +124,9 @@ class TestPages:
             cards.nth(4), f"{path} must render at least 5 opportunity cards"
         ).to_be_visible()
         assert cards.count() >= 5, f"{path} rendered only {cards.count()} cards"
+        # TRUST-06 / DISC-08: no verification badges; "New" only with a posted date.
+        problems = card_label_problems(cards.all_inner_texts())
+        assert not problems, f"{path} card labels: {problems[:3]}"
 
     def test_first_opportunity_detail(
         self, page: Page, site_url: str, record_property: Callable[[str, object], None]
@@ -162,6 +166,9 @@ class TestPages:
             and not host.endswith(".aspirova.org")
             and host != site_host
         ), f"Apply href must leave Aspirova, got {destination!r}"
+        # TRUST-06: the page says where Apply goes, and that is where it goes.
+        problem = disclosure_problem(page.locator("main").inner_text(), host)
+        assert problem is None, f"{href}: {problem}"
         # Never click Apply: guests are gated and clicks write analytics.
         has_json_ld = page.locator('script[type="application/ld+json"]').count() > 0
         status = (
