@@ -46,13 +46,34 @@ class DeadBoard:
 
 
 def meta_without_closed_reason() -> ColumnElement[Any]:
-    """Remove closure provenance from objects, preserving legacy non-object meta."""
-    return case(
+    """Retain a reopen's alert version before discarding closure provenance.
+
+    A crawl refresh is not a new version. Only callers actually clearing a
+    closure capture its boundary and confirmation time, without a migration.
+    """
+    cleaned = case(
         (
             func.jsonb_typeof(models.Opportunity.meta) == "object",
             models.Opportunity.meta.op("-")(text("'closed_reason'")),
         ),
         else_=models.Opportunity.meta,
+    )
+    return case(
+        (
+            models.Opportunity.closed_at.is_not(None),
+            case(
+                (func.jsonb_typeof(cleaned) == "object", cleaned),
+                else_=text("'{}'::jsonb"),
+            ).op("||")(
+                func.jsonb_build_object(
+                    "alert_reopened_after",
+                    models.Opportunity.closed_at,
+                    "alert_reopened_at",
+                    func.now(),
+                )
+            ),
+        ),
+        else_=cleaned,
     )
 
 
@@ -85,6 +106,11 @@ def reopen_government_extension(
         and opportunity.closed_at >= opportunity.deadline
         and reason is None
     ):
+        opportunity.meta = {
+            **(opportunity.meta or {}),
+            "alert_reopened_after": opportunity.closed_at.isoformat(),
+            "alert_reopened_at": checked_at.isoformat(),
+        }
         opportunity.closed_at = None
         return True
     return False

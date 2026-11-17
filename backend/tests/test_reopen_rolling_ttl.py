@@ -57,7 +57,13 @@ def test_reopen_is_date_source_age_and_reason_scoped(db_session, board, apply):
         assert row.last_seen_at == seen_at and row.status == status
         if apply and index in {0, 7}:
             assert row.closed_at is None
-            assert row.meta == {key: value for key, value in meta.items() if key != "closed_reason"}
+            reopened_meta = dict(row.meta)
+            assert datetime.fromisoformat(reopened_meta.pop("alert_reopened_after")) == closed_at
+            reopened_at = datetime.fromisoformat(reopened_meta.pop("alert_reopened_at"))
+            assert reopened_at.tzinfo is not None and reopened_at >= closed_at
+            assert reopened_meta == {
+                key: value for key, value in meta.items() if key != "closed_reason"
+            }
         else:
             assert row.closed_at == closed_at and row.meta == meta
     if apply:

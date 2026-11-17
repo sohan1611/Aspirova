@@ -73,6 +73,8 @@ def _listing_meta(
         "corrections",
         "deadline_override",
         "company_override",
+        "alert_reopened_after",
+        "alert_reopened_at",
     }
     incoming = {k: v for k, v in _copy_meta(normalized.meta).items() if k not in protected}
     meta = {**_copy_meta(existing), **incoming}

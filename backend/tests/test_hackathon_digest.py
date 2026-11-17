@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 import api.filters as filters_module
 import pipeline.notifications as notifications_module
 from core import models
+from core.alert_identity import announcement_meta
 from core.unsubscribe import unsubscribe_url, verify_token
 from pipeline.notifications import (
     COMBINED_DIGEST_SUBJECT,
@@ -619,7 +620,11 @@ def test_jobs_and_hackathons_arrive_in_one_email(
     assert ">View &amp; Enter</a>" in email["html"]
     rows = _digest_rows(db_session, user)
     assert len(rows) == 1 and rows[0].status == "sent"
-    assert rows[0].meta == {"opportunity_ids": [job.id], "hackathon_ids": [hackathon.id]}
+    assert rows[0].meta == {
+        "opportunity_ids": [job.id],
+        "hackathon_ids": [hackathon.id],
+        **announcement_meta([job, hackathon], "digest"),
+    }
 
 
 def test_hackathons_only_still_send_the_founder_subject(
@@ -640,6 +645,7 @@ def test_hackathons_only_still_send_the_founder_subject(
     assert _digest_rows(db_session, user)[0].meta == {
         "opportunity_ids": [],
         "hackathon_ids": [hackathon.id],
+        **announcement_meta([hackathon], "digest"),
     }
 
 
@@ -665,6 +671,7 @@ def test_jobs_only_keep_the_daily_subject(
     assert _digest_rows(db_session, user)[0].meta == {
         "opportunity_ids": [job.id],
         "hackathon_ids": [],
+        **announcement_meta([job], "digest"),
     }
 
 
@@ -823,6 +830,7 @@ def test_hackathon_already_in_the_job_list_is_not_appended_again(
     assert _digest_rows(db_session, user)[0].meta == {
         "opportunity_ids": [hackathon.id],
         "hackathon_ids": [],
+        **announcement_meta([hackathon], "digest"),
     }
 
 

@@ -14,6 +14,7 @@ import sqlalchemy
 from sqlalchemy import orm
 
 from core import models
+from core.alert_identity import SentAlertIndex
 from core.config import get_settings
 from core.email_components import (
     _facts,
@@ -508,7 +509,7 @@ def test_missing_signing_key_omits_unsubscribe_links_and_headers(kind, monkeypat
         opportunities = Mock()
         opportunities.all.return_value = [item]
         session.scalars.side_effect = [users, opportunities]
-        monkeypatch.setattr(notifications, "_already_alerted", lambda *args, **kwargs: False)
+        monkeypatch.setattr(notifications, "already_notified", lambda *args, **kwargs: set())
         monkeypatch.setattr(notifications, "_record_notification", Mock())
         monkeypatch.setattr(notifications, "send_email", send)
         notifications.send_closing_soon_alerts(session, now=NOW)
@@ -519,6 +520,10 @@ def test_missing_signing_key_omits_unsubscribe_links_and_headers(kind, monkeypat
         session.execute.return_value.all.return_value = [(saved, user)]
         session.get.return_value = saved  # the sender reloads the search before sending
         session.scalars.return_value.unique.return_value.all.return_value = [item]
+        session.scalars.return_value.all.return_value = [item]
+        monkeypatch.setattr(
+            saved_alerts, "load_sent_alert_index", lambda *args, **kwargs: SentAlertIndex()
+        )
         monkeypatch.setattr(saved_alerts, "send_email", send)
         saved_alerts.send_saved_search_alerts(session, now=NOW)
     else:

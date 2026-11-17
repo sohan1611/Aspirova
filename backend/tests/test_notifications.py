@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 import pipeline.notifications as notifications_module
 from core import models
+from core.alert_identity import announcement_meta
 from core.unsubscribe import unsubscribe_url, verify_token
 from pipeline.notifications import (
     send_closing_soon_alerts,
@@ -229,7 +230,11 @@ def test_dream_company_digest_allows_multiple_roles_from_same_company(
             models.Notification.user_id == user.id, models.Notification.type == "digest"
         )
     )
-    assert notification.meta == {"opportunity_ids": [newer.id, older.id], "hackathon_ids": []}
+    assert notification.meta == {
+        "opportunity_ids": [newer.id, older.id],
+        "hackathon_ids": [],
+        **announcement_meta([newer, older], "digest"),
+    }
 
 
 def test_digest_excludes_already_instant_alerted_opportunities(
@@ -965,7 +970,7 @@ def test_free_company_alert_daily_cap_and_next_utc_day(
     send_instant_alerts(db_session, now=now)
     assert not [email for email in sent_emails if email["to"] == user.email]
     send_company_alerts(db_session, now=now)
-    second = _make_opportunity(db_session, company, first_seen_at=now)
+    second = _make_opportunity(db_session, company, first_seen_at=now, title="Another role")
     send_company_alerts(db_session, now=now)
     assert len([email for email in sent_emails if email["to"] == user.email]) == 1
     assert {row.opportunity_id for row in _alert_rows(db_session, user)} == {first.id}
@@ -982,7 +987,7 @@ def test_paid_company_alert_not_daily_capped(db_session, sent_emails, pro_plan, 
     _follow(db_session, user, company, now)
     _make_opportunity(db_session, company, first_seen_at=now - timedelta(hours=1))
     send_instant_alerts(db_session, now=now)
-    _make_opportunity(db_session, company, first_seen_at=now)
+    _make_opportunity(db_session, company, first_seen_at=now, title="Another role")
     send_company_alerts(db_session, now=now)
     assert len([email for email in sent_emails if email["to"] == user.email]) == 2
 

@@ -19,7 +19,7 @@ from datetime import datetime, timedelta, timezone
 from functools import cached_property
 
 from sqlalchemy import case, func, or_, select
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Session, aliased, joinedload
 
 from api.filters import (
     exclude_closed_competitions,
@@ -31,6 +31,17 @@ from api.filters import (
     student_rank_expression,
 )
 from core import models
+from core.alert_identity import (
+    NEW_LISTING_EVENTS,
+    SentAlertIndex,
+    already_notified,
+    announcement_meta,
+    collapse_duplicates,
+    listing_window,
+    load_sent_alert_index,
+    role_candidate_filter,
+    role_key,
+)
 from core.config import get_settings
 from core.email_components import (
     MUTED,
@@ -139,6 +150,7 @@ def _already_sent_today(session: Session, user_id, notification_type: str, now: 
             .where(
                 models.Notification.user_id == user_id,
                 models.Notification.type == notification_type,
+                models.Notification.channel == "email",
                 models.Notification.status == "sent",
                 func.date(models.Notification.sent_at) == now.date(),
             )
@@ -184,7 +196,16 @@ def _digest_open_filters(now: datetime) -> list:
 
 
 def _not_in(ids: frozenset[int]) -> list:
-    return [models.Opportunity.id.not_in(sorted(ids))] if ids else []
+    return (
+        [
+            or_(
+                models.Opportunity.id.not_in(sorted(ids)),
+                models.Opportunity.meta["alert_reopened_at"].astext.is_not(None),
+            )
+        ]
+        if ids
+        else []
+    )
 
 
 @dataclass(frozen=True)
@@ -201,6 +222,7 @@ def _digest_history(session: Session, user_id, now: datetime) -> DigestHistory:
         .where(
             models.Notification.user_id == user_id,
             models.Notification.type == "digest",
+            models.Notification.channel == "email",
             models.Notification.status == "sent",
             models.Notification.sent_at >= now - DIGEST_REPEAT_LOOKBACK,
         )
@@ -274,6 +296,7 @@ def _dream_company_opportunities(
     return list(
         session.scalars(
             select(models.Opportunity)
+            .options(joinedload(models.Opportunity.company))
             .join(
                 models.DreamCompany,
                 models.DreamCompany.company_id == models.Opportunity.company_id,
@@ -282,7 +305,7 @@ def _dream_company_opportunities(
                 models.DreamCompany.user_id == user_id,
                 followed_company_match(),
                 models.Opportunity.status == "active",
-                models.Opportunity.first_seen_at >= since,
+                listing_window(since),
                 exclude_stale_opportunities(now),
                 *_digest_open_filters(now),
                 *_not_in(exclude_ids),
@@ -328,7 +351,7 @@ def _generic_recent_opportunities(
         .outerjoin(models.Company, models.Company.id == models.Opportunity.company_id)
         .where(
             models.Opportunity.status == "active",
-            models.Opportunity.first_seen_at >= since,
+            listing_window(since),
             exclude_stale_opportunities(now),
             *_digest_open_filters(now),
             *_not_in(exclude_ids),
@@ -402,9 +425,10 @@ def _generic_recent_opportunities(
     if not selected_ids:
         return []
 
-    return list(
+    selected = list(
         session.scalars(
             select(opportunity)
+            .options(joinedload(opportunity.company))
             .where(
                 ranked_opportunities.c.company_row_number == 1,
                 ranked_opportunities.c.id.in_(selected_ids),
@@ -419,6 +443,15 @@ def _generic_recent_opportunities(
             .limit(limit)
         ).all()
     )
+    # The per-company ranking chooses roles, not their crawler copy. Revisit
+    # only those roles within the same eligible pool before choosing the link.
+    copies = session.scalars(
+        select(opportunity)
+        .options(joinedload(opportunity.company))
+        .where(role_candidate_filter(selected, opportunity))
+    ).all()
+    selected_roles = {role_key(o) for o in selected}
+    return collapse_duplicates([*selected, *(o for o in copies if role_key(o) in selected_roles)])
 
 
 def send_email(
@@ -696,18 +729,34 @@ def compose_daily_digest(
     """Select and render one reader's digest. Sends nothing and records nothing."""
     history = _digest_history(session, user.id, now)
     since = _digest_window_start(history, now)
+    sent_index: SentAlertIndex | None = None
 
     # Positional arguments on purpose: tests replace these selectors with
     # (session, user_id, *args) stubs.
-    opportunities = [
-        o
-        for o in (
-            _dream_company_opportunities(session, user.id, since, now, history.recent_ids)
-            if include_recommendations
-            else []
-        )
-        if not _already_alerted(session, user.id, o.id)
-    ]
+    def unannounced(candidates: list[models.Opportunity]) -> list[models.Opportunity]:
+        nonlocal sent_index
+        if not candidates:
+            return []
+        # At most two identity queries per reader for the entire composition,
+        # shared by followed-company, generic and hackathon candidate checks.
+        # The digest window history retains its single separate existing query.
+        if sent_index is None:
+            sent_index = load_sent_alert_index(
+                session,
+                user.id,
+                events=NEW_LISTING_EVENTS,
+                since=now - DIGEST_REPEAT_LOOKBACK,
+            )
+        notified = sent_index.already_notified(candidates)
+        return [o for o in candidates if o.id not in notified]
+
+    # Reopened rows may pass the recent-ID guard; identity versions decide
+    # whether this particular reader has already seen the reopening.
+    opportunities = unannounced(
+        _dream_company_opportunities(session, user.id, since, now, history.recent_ids)
+        if include_recommendations
+        else []
+    )
     jobs_from_followed = bool(opportunities)
     if include_recommendations and not opportunities:
         # Country is stored on the account; abroad/domestic scope is only a
@@ -723,19 +772,23 @@ def compose_daily_digest(
         # user's dream company already got it as an instant alert) can leak
         # right back in here, since it's still a perfectly real, recent, active
         # opportunity as far as this second query is concerned.
-        opportunities = [
-            o
-            for o in _generic_recent_opportunities(
+        opportunities = unannounced(
+            _generic_recent_opportunities(
                 session, since, DIGEST_GENERIC_SAMPLE_SIZE, now, history.recent_ids, country
             )
-            if not _already_alerted(session, user.id, o.id)
-        ]
+        )
     job_ids = {o.id for o in opportunities}
     hackathons = (
-        [o for o in picks.for_reader(history.recent_ids) if o.id not in job_ids]
+        unannounced([o for o in picks.for_reader(history.recent_ids) if o.id not in job_ids])
         if include_recommendations and wants(user, "hackathon_digest")
         else []
     )
+    # Collapse across sections as well: a followed competition can also be a
+    # shared hackathon pick. Preserve the section occupied by its winning row.
+    collapsed = collapse_duplicates([*opportunities, *hackathons])
+    hackathon_ids = {o.id for o in hackathons}
+    opportunities = [o for o in collapsed if o.id not in hackathon_ids]
+    hackathons = [o for o in collapsed if o.id in hackathon_ids]
     draft = DigestDraft(
         window_start=since,
         opportunities=opportunities,
@@ -851,6 +904,7 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
                 meta={
                     "opportunity_ids": [o.id for o in draft.opportunities],
                     "hackathon_ids": [o.id for o in draft.hackathons],
+                    **announcement_meta([*draft.opportunities, *draft.hackathons], "digest"),
                     # Only digests that carried watch updates get the key, so
                     # earlier rows and readers keep their exact shape.
                     **(
@@ -924,6 +978,7 @@ def send_company_alerts(
                 follow_query = follow_query.limit(limit)
             rows = session.execute(
                 select(models.DreamCompany, models.Opportunity, models.Company)
+                .options(joinedload(models.Opportunity.company))
                 .select_from(models.DreamCompany)
                 .join(
                     models.Opportunity,
@@ -934,14 +989,15 @@ def send_company_alerts(
                     models.DreamCompany.id.in_(follow_query),
                     models.Opportunity.status == "active",
                     models.Opportunity.is_hidden.is_not(True),
+                    models.Opportunity.closed_at.is_(None),
                     exclude_stale_opportunities(now),
                     exclude_experienced_only_opportunities(),
                     exclude_school_only_opportunities(),
                     exclude_closed_competitions(),
                     or_(models.Opportunity.deadline.is_(None), models.Opportunity.deadline >= now),
-                    models.Opportunity.first_seen_at >= now - COMPANY_ALERT_LOOKBACK,
+                    listing_window(now - COMPANY_ALERT_LOOKBACK),
                     models.Opportunity.first_seen_at <= now,
-                    models.Opportunity.first_seen_at > models.DreamCompany.created_at,
+                    listing_window(models.DreamCompany.created_at, inclusive=False),
                     followed_company_match(),
                 )
                 .order_by(
@@ -952,16 +1008,29 @@ def send_company_alerts(
                 )
             ).all()
             groups: dict[int, CompanyAlertGroup] = {}
-            opportunity_ids = []
-            for follow, opportunity, company in rows:
-                if _already_alerted(session, user_id, opportunity.id, "instant_alert"):
-                    result["skipped_already_alerted"] += 1
-                    continue
+            candidates = [opportunity for _, opportunity, _ in rows]
+            # Company and instant share this sender: at most two identity
+            # queries per reader per run, never a query per listing.
+            sent_index = (
+                load_sent_alert_index(
+                    session,
+                    user_id,
+                    events=NEW_LISTING_EVENTS,
+                    since=now - DIGEST_REPEAT_LOOKBACK,
+                )
+                if candidates
+                else SentAlertIndex()
+            )
+            notified = sent_index.already_notified(candidates)
+            selected = collapse_duplicates([o for o in candidates if o.id not in notified])
+            result["skipped_already_alerted"] += sum(o.id in notified for o in candidates)
+            details = {opportunity.id: (follow, company) for follow, opportunity, company in rows}
+            for opportunity in selected:
+                follow, company = details[opportunity.id]
                 if company.id not in groups:
                     groups[company.id] = CompanyAlertGroup(company, list(follow.roles), [])
                 groups[company.id].opportunities.append(opportunity)
-                opportunity_ids.append(opportunity.id)
-            if not opportunity_ids:
+            if not selected:
                 result["skipped_empty"] += 1
                 continue
             subject, html, text = render_company_alert(
@@ -988,11 +1057,12 @@ def send_company_alerts(
                     models.Notification(
                         user_id=user_id,
                         type="instant_alert",
-                        opportunity_id=opportunity_id,
+                        opportunity_id=opportunity.id,
                         status="sent" if sent else "failed",
                         sent_at=now if sent else None,
+                        meta=announcement_meta([opportunity], "instant_alert"),
                     )
-                    for opportunity_id in opportunity_ids
+                    for opportunity in selected
                 ]
             )
             session.commit()
@@ -1040,6 +1110,7 @@ def send_closing_soon_alerts(
             opportunities = list(
                 session.scalars(
                     select(models.Opportunity)
+                    .options(joinedload(models.Opportunity.company))
                     .join(
                         models.Bookmark,
                         models.Bookmark.opportunity_id == models.Opportunity.id,
@@ -1065,16 +1136,14 @@ def send_closing_soon_alerts(
                     .order_by(models.Opportunity.deadline.asc(), models.Opportunity.id.asc())
                 ).all()
             )
-            opportunities = [
-                opportunity
-                for opportunity in opportunities
-                if not _already_alerted(
-                    session,
-                    user.id,
-                    opportunity.id,
-                    notification_type="closing_soon",
-                )
-            ]
+            notified = already_notified(
+                session,
+                user.id,
+                opportunities,
+                events={"closing_soon"},
+                since=datetime.min.replace(tzinfo=timezone.utc),
+            )
+            opportunities = collapse_duplicates([o for o in opportunities if o.id not in notified])
             safety = [o for row, o in pending if row.type == "saved_safety"]
             closed = [o for row, o in pending if row.type == "saved_closed"]
             if not opportunities and not pending:
@@ -1116,6 +1185,8 @@ def send_closing_soon_alerts(
                     "closing_soon",
                     opportunity_id=opportunity.id,
                     status=status,
+                    meta=announcement_meta([opportunity], "closing_soon"),
+                    now=now,
                     commit=False,
                 )
 
@@ -1292,11 +1363,23 @@ def _hackathon_digest_opportunities(
             return []
         reputed_by_id = {row.id: bool(row.reputed) for row in rows}
         found = session.scalars(
-            select(models.Opportunity).where(
-                models.Opportunity.id.in_(ids), models.Opportunity.status == "active"
-            )
+            select(models.Opportunity)
+            .options(joinedload(models.Opportunity.company))
+            .where(models.Opportunity.id.in_(ids), models.Opportunity.status == "active")
         ).all()
         by_id = {opportunity.id: opportunity for opportunity in found}
+        copies = session.scalars(
+            select(models.Opportunity)
+            .options(joinedload(models.Opportunity.company))
+            .join(ranked, ranked.c.id == models.Opportunity.id)
+            .where(role_candidate_filter(found))
+        ).all()
+        roles = {role_key(o) for o in found}
+        preferred = {
+            role_key(o): o
+            for o in collapse_duplicates([*found, *(o for o in copies if role_key(o) in roles)])
+        }
+        by_id = {identity: preferred[role_key(o)] for identity, o in by_id.items()}
         return [_DigestCandidate(by_id[i], reputed_by_id[i]) for i in ids if i in by_id]
 
     def _deadline_day(opportunity: models.Opportunity) -> int | None:
