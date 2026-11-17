@@ -1,7 +1,7 @@
+import { withBuildFallback } from "@/lib/buildFallback";
 import type { Metadata } from "next";
 import { cache } from "react";
 import { type FeedParams, getFeed } from "@/lib/api";
-import { withBuildFallback } from "@/lib/buildFallback";
 import { ROLE_OPTIONS } from "@/lib/roleSignalQuery";
 
 export type BrowseCategory = "internship" | "job";
@@ -121,10 +121,7 @@ export function browseConfig(
 }
 
 export const loadBrowsePage = cache(async (config: BrowseConfig) =>
-  withBuildFallback(
-    () => getFeed(config.query, BROWSE_REVALIDATE),
-    () => ({ items: [], total: 0, page: 1, limit: BROWSE_LIMIT }),
-  ),
+  (await withBuildFallback(() => getFeed(config.query, BROWSE_REVALIDATE), data => data.items.length)).data,
 );
 
 export async function browseMetadata(config: BrowseConfig): Promise<Metadata> {
@@ -133,6 +130,6 @@ export async function browseMetadata(config: BrowseConfig): Promise<Metadata> {
     title: config.title,
     description: config.description,
     alternates: { canonical: config.path },
-    ...(data.total < 5 ? { robots: { index: false } } : {}),
+    ...(data && data.total < 5 ? { robots: { index: false } } : {}),
   };
 }

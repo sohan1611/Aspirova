@@ -1,4 +1,6 @@
-import { AlertCircle, SearchX } from "lucide-react";
+import { withBuildFallback } from "@/lib/buildFallback";
+import { ProgrammeBuildRecovery } from "@/components/BuildListingRecovery";
+import { ListingEmpty, ListingSnapshotNotice } from "@/components/ListingFeedback";
 import type { Metadata } from "next";
 import Link from "@/components/HoverPrefetchLink";
 import MatchedProgrammes from "@/components/MatchedProgrammes";
@@ -26,7 +28,7 @@ import {
   programmeCountLabel,
   PROGRAMMES_LIMIT,
 } from "@/lib/programmesQuery";
-import type { Facets, ProgrammeListItem } from "@/lib/types";
+import type { Facets } from "@/lib/types";
 
 const DESCRIPTION =
   "Research internships, fellowships, government and open-source programmes - with the windows they usually open in.";
@@ -73,19 +75,11 @@ export default async function ProgrammesPage({ searchParams }: PageProps) {
   );
   const page = request.page;
 
-  let programmes: ProgrammeListItem[] = [];
-  let total = 0;
-  let failed = false;
+  const { data } = await withBuildFallback(() => loadProgrammes(request, PROGRAMMES_LIMIT), result => result.items.length);
+  if (!data) return <main className="mx-auto max-w-6xl px-4 py-10"><h1 className="font-serif text-3xl font-bold">Programmes almanac</h1><ProgrammeBuildRecovery params={{ ...request, limit: PROGRAMMES_LIMIT }} pathname="/programmes" query={new URLSearchParams(Object.entries(query).flatMap(([key, value]) => (Array.isArray(value) ? value : value ? [value] : []).map(v => [key, v]))).toString()} /></main>;
+  const { items: programmes, total } = data;
   let facets: Facets | null = null;
   let facetsStatus: ProgrammesFacetsStatus = "loaded";
-
-  try {
-    const data = await loadProgrammes(request, PROGRAMMES_LIMIT);
-    programmes = data.items;
-    total = data.total;
-  } catch {
-    failed = true;
-  }
 
   try {
     facets = await getFacets({ source: "programmes" });
@@ -152,11 +146,10 @@ export default async function ProgrammesPage({ searchParams }: PageProps) {
         <div className="mb-5 mt-6 flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4 sm:mt-8">
           <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
             <p className="eyebrow">{activeCategoryLabel}</p>
-            {!failed && (
               <p className="tnum text-sm text-muted-foreground">
                 {programmeCountLabel(total)}
               </p>
-            )}
+
           </div>
           <ProgrammesListingControls
             facets={facets}
@@ -172,20 +165,8 @@ export default async function ProgrammesPage({ searchParams }: PageProps) {
 
         <ProgrammesActiveFilterChips facets={facets} path="/programmes" />
 
-        {failed ? (
-          <section className="flex flex-col items-center rounded-xl border border-border bg-card px-5 py-16 text-center shadow-soft sm:py-20">
-            <div className="rounded-lg border border-border bg-secondary/40 p-3 shadow-soft">
-              <AlertCircle className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
-            </div>
-            <p className="eyebrow mt-5">Programmes</p>
-            <h2 className="mt-2 font-serif text-xl font-bold text-foreground">
-              The almanac could not be loaded.
-            </h2>
-            <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-              Check back soon; the official programme pages remain the source of truth.
-            </p>
-          </section>
-        ) : programmes.length > 0 ? (
+        <ListingSnapshotNotice loadedAt={data.loadedAt} expiresAt={data.expiresAt} />
+        {programmes.length > 0 ? (
           <>
             {(Array.isArray(query.view) ? query.view[0] : query.view) !== "browse" && <ProgrammeAlmanac programmes={programmes} />}
             <div className="grid min-w-0 grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -226,19 +207,7 @@ export default async function ProgrammesPage({ searchParams }: PageProps) {
             )}
           </>
         ) : (
-          <section className="flex flex-col items-center rounded-xl border border-border bg-card px-5 py-16 text-center shadow-soft sm:py-20">
-            <div className="rounded-lg border border-border bg-secondary/40 p-3 shadow-soft">
-              <SearchX className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
-            </div>
-            <p className="eyebrow mt-5">Programmes</p>
-            <h2 className="mt-2 font-serif text-xl font-bold text-foreground">
-              No programmes match this view.
-            </h2>
-            <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-              Try another category or clear filters as the registry expands across annual
-              student programmes.
-            </p>
-          </section>
+          <ListingEmpty facets={facets} pathname="/programmes" query={new URLSearchParams(Object.entries(query).flatMap(([key, value]) => (Array.isArray(value) ? value : value ? [value] : []).map(v => [key, v]))).toString()} title="No programmes match this view." />
         )}
       </FeedNavigationProvider>
     </main>

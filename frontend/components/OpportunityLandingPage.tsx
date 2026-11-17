@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ListingSnapshotNotice, ListingUnavailable } from "@/components/ListingFeedback";
 import { Suspense, type ReactNode } from "react";
 import FeedGrid from "@/components/FeedGrid";
 import { FeedNavigationProvider } from "@/components/FeedNavigation";
@@ -6,6 +7,7 @@ import OpportunityLandingResults from "@/components/OpportunityLandingResults";
 import { Button } from "@/components/ui/button";
 import type { FeedParams } from "@/lib/api";
 import { buildPagePath } from "@/lib/pagination";
+import type { FeedResultData } from "@/lib/feedQuery";
 import type { OpportunityListItem } from "@/lib/types";
 import {
   opportunityCountLabel,
@@ -16,9 +18,7 @@ import {
 interface OpportunityLandingPageProps {
   title: string;
   intro: string;
-  items: OpportunityListItem[];
-  total: number;
-  openTotal?: number | null;
+  initialData: FeedResultData | null;
   page: number;
   limit: number;
   basePath: OpportunityListingPath;
@@ -31,12 +31,16 @@ function DefaultOpportunityLanding({
   items,
   total,
   openTotal,
+  loadedAt,
+  expiresAt,
   page,
   limit,
   basePath,
 }: {
   items: OpportunityListItem[];
   total: number;
+  loadedAt?: number;
+  expiresAt?: number;
   openTotal?: number | null;
   page: number;
   limit: number;
@@ -55,6 +59,7 @@ function DefaultOpportunityLanding({
         </div>
       </div>
 
+      {loadedAt && <ListingSnapshotNotice loadedAt={loadedAt} expiresAt={expiresAt} />}
       <FeedGrid
         items={items}
         cols={3}
@@ -105,9 +110,7 @@ function DefaultOpportunityLanding({
 export default function OpportunityLandingPage({
   title,
   intro,
-  items,
-  total,
-  openTotal,
+  initialData,
   page,
   limit,
   basePath,
@@ -116,7 +119,6 @@ export default function OpportunityLandingPage({
   defaultSort = "student",
   children,
 }: OpportunityLandingPageProps) {
-  const initialData = { items, total, open_total: openTotal };
 
   return (
     <main className="mx-auto w-full max-w-[1680px] px-4 py-10 sm:px-6 sm:py-14 lg:px-10 xl:px-12">
@@ -131,14 +133,16 @@ export default function OpportunityLandingPage({
 
       <Suspense
         fallback={
-          <DefaultOpportunityLanding
-            items={items}
-            total={total}
-            openTotal={openTotal}
+          initialData ? <DefaultOpportunityLanding
+            items={initialData.items}
+            total={initialData.total}
+            openTotal={initialData.open_total}
+            loadedAt={initialData.loadedAt}
+            expiresAt={initialData.expiresAt}
             page={page}
             limit={limit}
             basePath={basePath}
-          />
+          /> : <ListingUnavailable />
         }
       >
         <OpportunityLandingResults

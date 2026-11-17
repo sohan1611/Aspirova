@@ -1,11 +1,10 @@
 "use client";
 
-import { SearchX } from "lucide-react";
+import { ListingEmpty } from "@/components/ListingFeedback";
 import OpportunityCard from "@/components/OpportunityCard";
 import OpportunityCardSkeleton from "@/components/OpportunityCardSkeleton";
-import { Button } from "@/components/ui/button";
 import { useFeedNavigation } from "@/components/FeedNavigation";
-import type { OpportunityListItem } from "@/lib/types";
+import type { Facets, OpportunityListItem } from "@/lib/types";
 
 const COLS_LG: Record<number, string> = {
   1: "lg:grid-cols-1",
@@ -19,6 +18,8 @@ interface FeedGridProps {
   cols: number;
   skeletonCount: number;
   competitionSkeleton?: boolean;
+  emptyFacets?: Facets | null;
+  emptyQuery?: string;
   emptyHref?: string;
   emptyActionLabel?: string;
   emptyTitle?: string;
@@ -31,11 +32,12 @@ export default function FeedGrid({
   skeletonCount,
   competitionSkeleton = false,
   emptyHref = "/",
-  emptyActionLabel = "Clear filters",
+  emptyQuery = "",
+  emptyFacets,
   emptyTitle = "Nothing matches — yet.",
   emptyDescription = "Try a broader search or clear your filters — the almanac updates daily.",
 }: FeedGridProps) {
-  const { navigate, isFeedPending } = useFeedNavigation();
+  const { isFeedPending } = useFeedNavigation();
   const gridClassName = `grid grid-cols-1 sm:grid-cols-2 gap-6 ${COLS_LG[cols]}`;
 
   if (isFeedPending) {
@@ -61,18 +63,5 @@ export default function FeedGrid({
     );
   }
 
-  return (
-    <div className="flex flex-col items-center px-4 py-20 text-center sm:py-24">
-      <div className="rounded-lg border border-border bg-secondary/40 p-3">
-        <SearchX className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
-      </div>
-      <h2 className="mt-5 text-xl font-bold text-foreground">{emptyTitle}</h2>
-      <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
-        {emptyDescription}
-      </p>
-      <Button className="mt-5" variant="outline" size="sm" onClick={() => navigate(emptyHref)}>
-        {emptyActionLabel}
-      </Button>
-    </div>
-  );
+  return <ListingEmpty pathname={emptyHref} query={emptyQuery} facets={emptyFacets} title={emptyTitle} description={emptyDescription + " Try dropping the location or search term."} />;
 }

@@ -1,14 +1,16 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useId, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 export interface CountedFilterOption {
   value: string;
   label: string;
-  count: number;
+  count?: number;
 }
 
 export interface ActiveFilterChip {
@@ -16,6 +18,15 @@ export interface ActiveFilterChip {
   label: ReactNode;
   humanLabel: string;
   onRemove: () => void;
+}
+
+function UncountedFilterInput({ label, onApply, disabled }: { label: string; onApply: (value: string) => void; disabled: boolean }) {
+  const [value, setValue] = useState("");
+  const id = useId();
+  return <form className="space-y-2" onSubmit={event => { event.preventDefault(); if (value.trim()) onApply(value.trim()); }}>
+    <label htmlFor={id} className="text-sm text-muted-foreground">Counts unavailable. Enter {label.toLowerCase()} directly.</label>
+    <div className="flex gap-2"><Input id={id} value={value} onChange={event => setValue(event.target.value)} disabled={disabled} className="min-h-11" /><Button type="submit" variant="outline" className="min-h-11" disabled={disabled || !value.trim()}>Apply</Button></div>
+  </form>;
 }
 
 export function FilterPanelSection({
@@ -53,6 +64,7 @@ export function CountedMultiSelectGroup({
   emptyLabel?: string;
 }) {
   if (options.length === 0) {
+    if (emptyLabel === "Counts unavailable") return <UncountedFilterInput label={label} onApply={onToggle} disabled={disabled} />;
     return <p className="text-sm text-muted-foreground">{emptyLabel}</p>;
   }
 
@@ -60,7 +72,7 @@ export function CountedMultiSelectGroup({
     <div className="grid gap-2" role="group" aria-label={label}>
       {options.map((option) => {
         const isActive = values.includes(option.value);
-        const isDisabled = disabled || option.count <= 0;
+        const isDisabled = disabled || (option.count !== undefined && option.count <= 0);
 
         return (
           <label
@@ -80,9 +92,9 @@ export function CountedMultiSelectGroup({
               className="mt-0.5 h-4 w-4 shrink-0 rounded border-border bg-background accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed"
             />
             <span className="min-w-0 flex-1 break-words" title={option.label}>{option.label}</span>
-            <span className="tnum shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+            {option.count !== undefined && <span className="tnum shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
               {option.count}
-            </span>
+            </span>}
           </label>
         );
       })}
@@ -106,6 +118,7 @@ export function CountedSingleSelectGroup({
   emptyLabel?: string;
 }) {
   if (options.length === 0) {
+    if (emptyLabel === "Counts unavailable") return <UncountedFilterInput label={label} onApply={onSelect} disabled={disabled} />;
     return <p className="text-sm text-muted-foreground">{emptyLabel}</p>;
   }
 
@@ -113,7 +126,7 @@ export function CountedSingleSelectGroup({
     <div className="grid gap-2" role="group" aria-label={label}>
       {options.map((option) => {
         const isActive = option.value === value;
-        const isDisabled = disabled || option.count <= 0;
+        const isDisabled = disabled || (option.count !== undefined && option.count <= 0);
 
         return (
           <button
@@ -130,9 +143,9 @@ export function CountedSingleSelectGroup({
             )}
           >
             <span className="min-w-0 flex-1 break-words" title={option.label}>{option.label}</span>
-            <span className="tnum shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+            {option.count !== undefined && <span className="tnum shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
               {option.count}
-            </span>
+            </span>}
           </button>
         );
       })}

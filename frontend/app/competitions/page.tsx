@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { ListingSnapshotNotice, ListingUnavailable } from "@/components/ListingFeedback";
 import CompetitionsResults from "@/components/CompetitionsResults";
 import FeedGrid from "@/components/FeedGrid";
 import { FeedNavigationProvider } from "@/components/FeedNavigation";
-import { withBuildFallback } from "@/lib/buildFallback";
 import {
   COMPETITIONS_LIMIT,
   defaultCompetitionsRequest,
   loadCompetitions,
   opportunityCountLabel,
 } from "@/lib/competitionsQuery";
+import { withBuildFallback } from "@/lib/buildFallback";
 import type { FeedResultData } from "@/lib/feedQuery";
 
 const DESCRIPTION =
@@ -38,7 +39,8 @@ export const metadata: Metadata = {
 // the HTML crawlers see. Neither FeedGrid nor the navigation provider calls
 // useSearchParams, so this renders on the server. CompetitionsFilterBar does, so
 // it is deliberately absent here and arrives on hydration.
-function DefaultCompetitions({ data }: { data: FeedResultData }) {
+function DefaultCompetitions({ data }: { data: FeedResultData | null }) {
+  if (!data) return <ListingUnavailable />;
   return (
     <FeedNavigationProvider>
       <div className="mb-5 mt-6 flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4 sm:mt-8">
@@ -50,6 +52,7 @@ function DefaultCompetitions({ data }: { data: FeedResultData }) {
         </div>
       </div>
 
+      {data.loadedAt && <ListingSnapshotNotice loadedAt={data.loadedAt} expiresAt={data.expiresAt} />}
       <FeedGrid
         items={data.items}
         cols={3}
@@ -66,10 +69,7 @@ function DefaultCompetitions({ data }: { data: FeedResultData }) {
 
 export default async function CompetitionsPage() {
   const request = defaultCompetitionsRequest();
-  const data = await withBuildFallback(
-    () => loadCompetitions(request, PAGE_REVALIDATE),
-    () => ({ items: [], total: 0 }),
-  );
+  const { data } = await withBuildFallback(() => loadCompetitions(request, PAGE_REVALIDATE), result => result.items.length);
 
   return (
     <main className="mx-auto w-full max-w-[1680px] px-4 py-6 sm:px-6 sm:py-10 lg:px-10 xl:px-12">

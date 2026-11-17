@@ -153,11 +153,11 @@ export function useOpportunityListingFacets(
             locationOptions: defaultOpportunityListingLocationOptions(baseQuery),
             sourceOptions: SOURCE_FILTER_OPTIONS.map((option) => ({
               ...option,
-              count: 0,
+              count: undefined,
             })),
             experienceOptions: OPPORTUNITY_EXPERIENCE_OPTIONS.map((option) => ({
               ...option,
-              count: 0,
+              count: undefined,
             })),
           });
           setFacetsStatus("error");
@@ -174,12 +174,12 @@ export function useOpportunityListingFacets(
 
 function sourceOptions(data: OpportunityListingFacetsData | null) {
   if (data?.sourceOptions.length) return data.sourceOptions;
-  return SOURCE_FILTER_OPTIONS.map((option) => ({ ...option, count: 0 }));
+  return SOURCE_FILTER_OPTIONS.map((option) => ({ ...option, count: undefined }));
 }
 
 function experienceOptions(data: OpportunityListingFacetsData | null) {
   if (data?.experienceOptions.length) return data.experienceOptions;
-  return OPPORTUNITY_EXPERIENCE_OPTIONS.map((option) => ({ ...option, count: 0 }));
+  return OPPORTUNITY_EXPERIENCE_OPTIONS.map((option) => ({ ...option, count: undefined }));
 }
 
 function companyOptions(data: OpportunityListingFacetsData | null) {
@@ -187,7 +187,7 @@ function companyOptions(data: OpportunityListingFacetsData | null) {
   return (data?.facets.companies ?? []).map((company) => ({
     value: company,
     label: company,
-    count: 0,
+    count: undefined,
   }));
 }
 
@@ -300,7 +300,7 @@ function OpportunityListingAdvancedPanel({
             type="search"
             placeholder="Search companies"
             value={companySearch}
-            disabled={isPending || facetsStatus !== "loaded"}
+            disabled={isPending}
             onChange={(event) => setCompanySearch(event.target.value)}
           />
           <CountedMultiSelectGroup
@@ -308,7 +308,7 @@ function OpportunityListingAdvancedPanel({
             options={visibleCompanies}
             values={activeValues(searchParams, "company")}
             onToggle={toggleCompany}
-            disabled={isPending || facetsStatus !== "loaded"}
+            disabled={isPending}
             emptyLabel={companyNeedle ? "No company matches" : emptyLabel}
           />
         </div>
@@ -320,7 +320,7 @@ function OpportunityListingAdvancedPanel({
           options={sourceOptions(data)}
           value={activeSingleValue(searchParams, "source")}
           onSelect={(value) => setSingleParam("source", value)}
-          disabled={isPending || facetsStatus !== "loaded"}
+          disabled={isPending}
           emptyLabel={emptyLabel}
         />
       </FilterPanelSection>
@@ -331,7 +331,7 @@ function OpportunityListingAdvancedPanel({
           options={experienceOptions(data)}
           value={activeSingleValue(searchParams, "experience")}
           onSelect={(value) => setSingleParam("experience", value)}
-          disabled={isPending || facetsStatus !== "loaded"}
+          disabled={isPending}
           emptyLabel={emptyLabel}
         />
       </FilterPanelSection>

@@ -1,13 +1,14 @@
 // Run with node --test lib/hiringCalendar.test.mjs (Node 23.6+).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import {
+import { testModuleLoader } from "../scripts/test-module.mjs";
+const {
   addDays, calendarDays, calendarParams, currentCycleYear, monthRange,
   openingInMonth, parseCalendarParams, presetRange, programmeSummaryName, rangeError, shiftMonth, todayIST, validDay, windowText,
   categoryLabel, clampRange, collapseRecurrences, daysUntilDeadline, eventsOnDay, fetchCalendar,
   filterCalendarItems, howToApply, isClosingSoon, keyDatesText, monthPrecisionItems, monthsInRange,
   officialDeadline, periodRange, registrationEvents, registrationMonths, selectOpenNow, stepPeriod, timelineWindow,
-} from "./hiringCalendar.ts";
+} = testModuleLoader()("lib/hiringCalendar.ts");
 
 const today = "2026-11-13";
 

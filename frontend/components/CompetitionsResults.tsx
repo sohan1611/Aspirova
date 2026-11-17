@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ListingFailure, ListingSnapshotNotice } from "@/components/ListingFeedback";
 import { useSearchParams } from "next/navigation";
 import {
   CompetitionsActiveFilterChips,
@@ -26,7 +27,7 @@ import { useListingResults } from "@/lib/listingResults";
 interface CompetitionsResultsProps {
   // The statically prerendered default view, reused whenever the visitor's query
   // string describes that same view - which is the point of this component.
-  initialData: FeedResultData;
+  initialData: FeedResultData | null;
 }
 
 function pageHref(searchParams: URLSearchParams, page: number): string {
@@ -56,9 +57,10 @@ export default function CompetitionsResults({ initialData }: CompetitionsResults
     initialData,
   );
 
-  const isLoading = !request.canReusePrerendered && (!settled || settled.status === "loading");
+  const isLoading = !settled ? !request.canReusePrerendered : settled.status === "loading";
   const data = settled?.data ?? initialData;
 
+  if (!data) return <ListingFailure retry={retry} pending={settled?.status === "loading"} />;
   const totalPages = competitionsTotalPages(data.total);
 
   return (
@@ -67,7 +69,7 @@ export default function CompetitionsResults({ initialData }: CompetitionsResults
         <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
           <p className="eyebrow">Open arena</p>
           <p className="tnum text-sm text-muted-foreground">
-            {opportunityCountLabel(data.total, data.open_total)}
+            {!isLoading && !settled?.error ? (opportunityCountLabel(data.total, data.open_total)) : (data.items.length ? "Previously loaded opportunities" : settled?.status === "failed" ? "Results unavailable" : "Loading opportunities")}
           </p>
         </div>
 
@@ -79,7 +81,9 @@ export default function CompetitionsResults({ initialData }: CompetitionsResults
 
       <CompetitionsActiveFilterChips facets={facets} />
 
+      {data.loadedAt && !settled?.error && <ListingSnapshotNotice loadedAt={data.loadedAt} expiresAt={data.expiresAt} />}
       <ListingResultsState
+        loadedAt={settled?.loadedAt ?? data.loadedAt}
         loading={isLoading}
         error={settled?.error ?? null}
         retry={retry}
@@ -90,6 +94,8 @@ export default function CompetitionsResults({ initialData }: CompetitionsResults
         competition
       >
         <FeedGrid
+          emptyQuery={query.toString()}
+          emptyFacets={facets}
           items={data.items}
           cols={3}
           competitionSkeleton

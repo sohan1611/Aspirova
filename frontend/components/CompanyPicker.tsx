@@ -2,8 +2,9 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import CompanyFavicon from "@/components/CompanyFavicon";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { loadedList, failedList, type ListState } from "@/lib/listState";
+import { ListingFailure } from "@/components/ListingFeedback";
 import { searchCompanies } from "@/lib/api";
 import type { CompanyListItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -24,15 +25,13 @@ export default function CompanyPicker({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const [retry, setRetry] = useState(0);
-  const [result, setResult] = useState<{
-    query: string; retry: number; items: CompanyListItem[]; error: boolean;
-  } | null>(null);
+  const [result, setResult] = useState<(ListState<CompanyListItem[]> & { query: string; retry: number }) | null>(null);
   const trimmed = query.trim();
   const capacity = Math.min(20, maxSelectable ?? 20);
   const atLimit = value.length >= capacity;
   const current = result?.query === trimmed && result.retry === retry ? result : null;
   const loading = trimmed.length >= 2 && !current;
-  const items = current?.items ?? [];
+  const items = current?.data ?? result?.data ?? [];
   const expanded = open && !disabled && trimmed.length >= 2;
 
   useEffect(() => {
@@ -43,11 +42,11 @@ export default function CompanyPicker({
     const timer = setTimeout(() => {
       searchCompanies(searchQuery, controller.signal).then((companies) => {
         if (!controller.signal.aborted) {
-          setResult({ query: searchQuery, retry, items: companies, error: false });
+          setResult({ query: searchQuery, retry, ...loadedList(companies, companies.length) });
         }
       }).catch(() => {
         if (!controller.signal.aborted) {
-          setResult({ query: searchQuery, retry, items: [], error: true });
+          setResult(previous => ({ query: searchQuery, retry, ...failedList(previous) }));
         }
       });
     }, 250);
@@ -99,7 +98,7 @@ export default function CompanyPicker({
         placeholder="Search companies" value={query} disabled={disabled} className="min-h-10"
         onChange={(event) => {
           controllerRef.current?.abort();
-          setQuery(event.target.value); setResult(null); setOpen(true); setActive(-1);
+          setQuery(event.target.value); setOpen(true); setActive(-1);
         }}
         onFocus={() => setOpen(true)}
         onKeyDown={(event) => {
@@ -119,13 +118,8 @@ export default function CompanyPicker({
       {expanded && (
         <div className="min-w-0 rounded-md border border-border bg-background p-1">
           {loading && <p role="status" className="p-3 text-sm text-muted-foreground">Searching companies…</p>}
-          {current?.error && (
-            <div role="alert" className="flex flex-wrap items-center gap-2 p-3 text-sm text-destructive">
-              Couldn&apos;t search companies.
-              <Button type="button" size="sm" variant="outline" onClick={() => { setRetry((count) => count + 1); setActive(-1); }}>Retry</Button>
-            </div>
-          )}
-          {current && !current.error && items.length === 0 && <p role="status" className="p-3 text-sm text-muted-foreground">No companies found</p>}
+          {current?.status === "failed" && <ListingFailure retry={() => setRetry(count => count + 1)} loadedAt={items.length ? current.loadedAt : null} />}
+          {current?.status === "empty" && <p role="status" className="p-3 text-sm text-muted-foreground">No companies found</p>}
           <ul id={`${id}-results`} role="listbox" aria-label="Company results" aria-busy={loading} className="max-h-72 overflow-y-auto">
             {items.map((company, index) => {
               const following = followingSlugs.includes(company.slug);

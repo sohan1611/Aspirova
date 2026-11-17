@@ -37,7 +37,7 @@ export default async function ScholarshipsPaginatedPage({ params }: PageProps) {
   }
 
   const data = await loadLandingPage(SCHOLARSHIPS_LANDING, page);
-  if (page > totalPagesFor(data.total)) {
+  if (data && page > totalPagesFor(data.total)) {
     notFound();
   }
 
@@ -45,9 +45,7 @@ export default async function ScholarshipsPaginatedPage({ params }: PageProps) {
     <OpportunityLandingPage
       title={SCHOLARSHIPS_LANDING.title}
       intro={SCHOLARSHIPS_LANDING.intro}
-      items={data.items}
-      total={data.total}
-      openTotal={data.open_total}
+      initialData={data}
       page={page}
       limit={LANDING_LIMIT}
       basePath={SCHOLARSHIPS_LANDING.basePath}

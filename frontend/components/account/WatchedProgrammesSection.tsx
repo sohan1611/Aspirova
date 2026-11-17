@@ -1,5 +1,6 @@
 "use client";
 
+import { ListingFailure } from "@/components/ListingFeedback";
 import { BellRing } from "lucide-react";
 import Link from "next/link";
 import { EmptyState, SectionHeader, SettingsCard } from "@/components/account/primitives";
@@ -9,18 +10,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { WATCH_UPDATES_COPY } from "@/lib/programmeWatches";
 
 export default function WatchedProgrammesSection() {
-  const { ready, items, error, pending, reload, toggle } = useProgrammeWatches();
+  const { ready, items, error, loadedAt, pending, reload, toggle } = useProgrammeWatches();
 
   return (
     <section aria-labelledby="account-watched-programmes-heading" className="grid gap-6">
       <SectionHeader id="account-watched-programmes-heading" eyebrow="Alerts" title="Watched programmes" description={WATCH_UPDATES_COPY} />
       <SettingsCard icon={BellRing} title="Your programme watches">
-        {error ? (
-          <div role="alert" className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-destructive-text">{error}</p>
-            <Button type="button" variant="outline" className="min-h-11" onClick={reload}>Try again</Button>
-          </div>
-        ) : !ready ? (
+        {error && <ListingFailure retry={reload} loadedAt={items.length ? loadedAt : null} />}
+        {error && items.length === 0 ? null : !ready ? (
           <div role="status" aria-label="Loading watched programmes" className="space-y-3">
             <Skeleton className="h-14 w-full" />
             <Skeleton className="h-14 w-full" />

@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import OpportunityCardSkeleton from "@/components/OpportunityCardSkeleton";
-import { Button } from "@/components/ui/button";
+import { ListingFailure } from "@/components/ListingFeedback";
 import { getCountry } from "@/lib/countries";
 import { parseRoleSignalParams, roleFilterLabel } from "@/lib/roleSignalQuery";
 import { getSavedSearchParams, savedSearchSummary } from "@/lib/savedSearchParams";
@@ -53,6 +53,7 @@ interface ListingResultsStateProps {
   retry: () => void;
   retrying?: boolean;
   hasItems: boolean;
+  loadedAt?: number | null;
   skeletonCount: number;
   cols: number;
   competition?: boolean;
@@ -72,12 +73,13 @@ export default function ListingResultsState({
   retry,
   retrying = false,
   hasItems,
+  loadedAt,
   skeletonCount,
   cols,
   competition = false,
   children,
 }: ListingResultsStateProps) {
-  if ((loading || retrying) && (!retrying || !hasItems)) {
+  if ((loading || retrying) && !hasItems) {
     return (
       <div aria-busy="true">
         <p className="sr-only" role="status" aria-live="polite">
@@ -94,30 +96,7 @@ export default function ListingResultsState({
 
   return (
     <>
-      {(error || retrying) && (
-        <div
-          className="mb-4 rounded-lg border border-border bg-secondary/40 p-4"
-          role="status"
-          aria-live="polite"
-        >
-          <p className="text-sm text-foreground">{retrying ? "Retrying listings…" : error}</p>
-          {hasItems && (
-            <p className="mt-1 text-sm text-muted-foreground">
-              Showing previously loaded listings. They may not match your current filters.
-            </p>
-          )}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="mt-3"
-            onClick={retry}
-            disabled={retrying}
-          >
-            {retrying ? "Retrying…" : "Retry"}
-          </Button>
-        </div>
-      )}
+      {(error || retrying) && <ListingFailure retry={retry} loadedAt={hasItems ? loadedAt : null} pending={retrying} />}
       {(!error || hasItems) && (
         <div role={!hasItems ? "status" : undefined} aria-live={!hasItems ? "polite" : undefined}>
           {children}

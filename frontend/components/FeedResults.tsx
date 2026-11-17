@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ListingFailure, ListingSnapshotNotice } from "@/components/ListingFeedback";
 import { useSearchParams } from "next/navigation";
 import FeedCountryPreference from "@/components/FeedCountryPreference";
 import FeedGrid from "@/components/FeedGrid";
@@ -25,7 +26,7 @@ interface FeedResultsProps {
   // The statically prerendered clean default feed. Reused as-is whenever the
   // visitor's query string describes that same view, which is the overwhelming
   // majority of traffic - that reuse is the entire point of this component.
-  initialData: FeedResultData;
+  initialData: FeedResultData | null;
   trendingItems: OpportunityListItem[];
 }
 
@@ -66,11 +67,12 @@ export default function FeedResults({ initialData, trendingItems }: FeedResultsP
   );
 
   // A preference-only fetch keeps the prerendered list visible while it settles.
-  const isLoading = !request.canReusePrerenderedFeed && (!settled || settled.status === "loading");
+  const isLoading = !settled ? !request.canReusePrerenderedFeed : settled.status === "loading";
   const data = settled?.data ?? initialData;
 
   const sourceCompany = request.q ? findExternalCompany(request.q) : undefined;
   const showResearch = request.q ? matchesResearchIntent(request.q) : false;
+  if (!data) return <ListingFailure retry={retry} pending={settled?.status === "loading"} />;
   const totalPages = Math.max(1, Math.ceil(data.total / request.limit));
 
   return (
@@ -88,9 +90,9 @@ export default function FeedResults({ initialData, trendingItems }: FeedResultsP
 
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-muted-foreground">
-            {!request.q && !request.isForYou && typeof data.open_total === "number"
+            {!isLoading && !settled?.error ? (!request.q && !request.isForYou && typeof data.open_total === "number"
               ? `${data.open_total.toLocaleString("en-IN")} ${request.kind === "roles" ? "open jobs and internships" : "open opportunities"}`
-              : `${data.total.toLocaleString("en-IN")} opportunities`}
+              : `${data.total.toLocaleString("en-IN")} opportunities`) : (data.items.length ? "Previously loaded opportunities" : settled?.status === "failed" ? "Results unavailable" : "Loading opportunities")}
             {preferenceApplies && (
               <FeedCountryPreference countryCode={countryCode} preferredCountry={preference} />
             )}
@@ -122,7 +124,9 @@ export default function FeedResults({ initialData, trendingItems }: FeedResultsP
 
         <TopCompanies />
 
+        {data.loadedAt && !settled?.error && <ListingSnapshotNotice loadedAt={data.loadedAt} expiresAt={data.expiresAt} />}
         <ListingResultsState
+          loadedAt={settled?.loadedAt ?? data.loadedAt}
           loading={isLoading}
           error={settled?.error ?? null}
           retry={retry}
@@ -132,6 +136,7 @@ export default function FeedResults({ initialData, trendingItems }: FeedResultsP
           cols={request.cols}
         >
           <FeedGrid
+            emptyQuery={query.toString()}
             items={data.items}
             cols={request.cols}
             skeletonCount={data.items.length || Math.min(request.limit, 9)}

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { ListingSnapshotNotice, ListingUnavailable } from "@/components/ListingFeedback";
 import FeedGrid from "@/components/FeedGrid";
 import { FeedNavigationProvider } from "@/components/FeedNavigation";
 import FeedResults from "@/components/FeedResults";
@@ -8,8 +9,8 @@ import SignedInWelcome from "@/components/SignedInWelcome";
 import SignedOutHero from "@/components/SignedOutHero";
 import StatsBar from "@/components/StatsBar";
 import TopCompanies from "@/components/TopCompanies";
-import { getStats, getTrending } from "@/lib/api";
 import { withBuildFallback } from "@/lib/buildFallback";
+import { getStats, getTrending } from "@/lib/api";
 import { type FeedResultData, defaultFeedRequest, loadFeedData } from "@/lib/feedQuery";
 import type { OpportunityListItem, StatsResponse } from "@/lib/types";
 
@@ -43,10 +44,11 @@ function DefaultFeed({
   trendingItems,
   cols,
 }: {
-  data: FeedResultData;
+  data: FeedResultData | null;
   trendingItems: OpportunityListItem[];
   cols: number;
 }) {
+  if (!data) return <ListingUnavailable />;
   return (
     <>
       <MostViewed items={trendingItems} />
@@ -59,6 +61,7 @@ function DefaultFeed({
           </p>
         </div>
         <TopCompanies />
+        {data.loadedAt && <ListingSnapshotNotice loadedAt={data.loadedAt} expiresAt={data.expiresAt} />}
         <FeedGrid
           items={data.items}
           cols={cols}
@@ -74,11 +77,8 @@ export default async function HomePage() {
 
   const [stats, trending, data] = await Promise.all([
     loadStats(),
-    getTrending(undefined, PAGE_REVALIDATE, true),
-    withBuildFallback(
-      () => loadFeedData(request, PAGE_REVALIDATE),
-      () => ({ items: [], total: 0 }),
-    ),
+    getTrending(undefined, PAGE_REVALIDATE, true).catch(() => null),
+    withBuildFallback(() => loadFeedData(request, PAGE_REVALIDATE), data => data.items.length).then(state => state.data),
   ]);
 
   return (
@@ -90,10 +90,10 @@ export default async function HomePage() {
 
       <Suspense
         fallback={
-          <DefaultFeed data={data} trendingItems={trending.items} cols={request.cols} />
+          <DefaultFeed data={data} trendingItems={trending?.items ?? []} cols={request.cols} />
         }
       >
-        <FeedResults initialData={data} trendingItems={trending.items} />
+        <FeedResults initialData={data} trendingItems={trending?.items ?? []} />
       </Suspense>
     </main>
   );

@@ -1,5 +1,4 @@
 import { getProgrammes } from "@/lib/api";
-import type { ProgrammeListResponse } from "@/lib/types";
 
 export const PROGRAMMES_LIMIT = 50;
 export const PROGRAMME_FILTER_PARAM_KEYS = [
@@ -81,7 +80,7 @@ export function parseProgrammesRequest(
 export function loadProgrammes(
   request: ProgrammesRequest,
   limit = PROGRAMMES_LIMIT,
-): Promise<ProgrammeListResponse> {
+): ReturnType<typeof getProgrammes> {
   return getProgrammes({
     category: request.category,
     field: request.field,

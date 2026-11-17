@@ -234,7 +234,7 @@ function CompetitionFiltersPanel({
           options={compTypeOptions}
           values={activeValues(searchParams, "comp_type")}
           onToggle={(value) => toggleMultiParam("comp_type", value)}
-          disabled={isPending || facetsStatus !== "loaded"}
+          disabled={isPending}
           emptyLabel={emptyLabel}
         />
       </FilterPanelSection>
@@ -245,7 +245,7 @@ function CompetitionFiltersPanel({
           options={registrationOptions}
           value={activeSingleValue(searchParams, "registration")}
           onSelect={(value) => setSingleParam("registration", value)}
-          disabled={isPending || facetsStatus !== "loaded"}
+          disabled={isPending}
           emptyLabel={emptyLabel}
         />
       </FilterPanelSection>
@@ -276,7 +276,7 @@ function CompetitionFiltersPanel({
           options={deadlineOptions}
           value={activeSingleValue(searchParams, "deadline_within")}
           onSelect={(value) => setSingleParam("deadline_within", value)}
-          disabled={isPending || facetsStatus !== "loaded"}
+          disabled={isPending}
           emptyLabel={emptyLabel}
         />
       </FilterPanelSection>
@@ -287,7 +287,7 @@ function CompetitionFiltersPanel({
           options={organiserTypeOptions}
           values={activeValues(searchParams, "organiser_type")}
           onToggle={(value) => toggleMultiParam("organiser_type", value)}
-          disabled={isPending || facetsStatus !== "loaded"}
+          disabled={isPending}
           emptyLabel={emptyLabel}
         />
       </FilterPanelSection>
@@ -298,7 +298,7 @@ function CompetitionFiltersPanel({
           options={modeOptions}
           values={activeValues(searchParams, "mode")}
           onToggle={(value) => toggleMultiParam("mode", value)}
-          disabled={isPending || facetsStatus !== "loaded"}
+          disabled={isPending}
           emptyLabel={emptyLabel}
         />
       </FilterPanelSection>

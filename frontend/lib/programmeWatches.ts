@@ -17,7 +17,7 @@ async function watchRequest(path: string, accessToken: string, method = "GET", s
     method,
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: "no-store",
-    signal,
+    signal: signal?.aborted ? signal : signal ? AbortSignal.any([signal, AbortSignal.timeout(20_000)]) : AbortSignal.timeout(20_000),
   });
   if (response.status === 401 || response.status === 403) {
     throw new Error("Your session has expired. Sign in again to manage programme watches.");
@@ -29,7 +29,9 @@ async function watchRequest(path: string, accessToken: string, method = "GET", s
 }
 
 export async function getProgrammeWatches(accessToken: string, signal?: AbortSignal): Promise<ProgrammeWatch[]> {
-  return (await watchRequest("watches", accessToken, "GET", signal)).json();
+  const items: ProgrammeWatch[] = await (await watchRequest("watches", accessToken, "GET", signal)).json();
+  if (!Array.isArray(items)) throw new Error("Invalid programme watches response");
+  return items;
 }
 
 export async function addProgrammeWatch(slug: string, accessToken: string): Promise<ProgrammeWatch> {

@@ -1,4 +1,5 @@
-import { ExternalLink, SearchX } from "lucide-react";
+import { ListingEmpty, ListingSnapshotNotice } from "@/components/ListingFeedback";
+import { ExternalLink } from "lucide-react";
 import HoverPrefetchLink from "@/components/HoverPrefetchLink";
 import FollowCompanyButton from "@/components/FollowCompanyButton";
 import CompanyFavicon from "@/components/CompanyFavicon";
@@ -11,7 +12,7 @@ const INTRO =
   "Aspirova links out to the original source.";
 
 interface CompanyOpportunitiesProps {
-  data: CompanyPageData;
+  data: CompanyPageData & { loadedAt?: number; expiresAt?: number };
   page: number;
   slug: string;
 }
@@ -90,6 +91,7 @@ export default function CompanyOpportunities({
           </p>
         </div>
 
+        {data.loadedAt && <ListingSnapshotNotice loadedAt={data.loadedAt} expiresAt={data.expiresAt} />}
         {data.items.length > 0 ? (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {data.items.map((item) => (
@@ -97,19 +99,7 @@ export default function CompanyOpportunities({
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center rounded-lg border border-border bg-card px-5 py-16 text-center shadow-soft sm:py-20">
-            <div className="rounded-lg border border-border bg-secondary/40 p-3 shadow-soft">
-              <SearchX className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
-            </div>
-            <p className="eyebrow mt-5">Open opportunities</p>
-            <h2 className="mt-2 font-serif text-xl font-bold text-foreground">
-              Nothing on the ledger today.
-            </h2>
-            <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-              Check back soon as Aspirova discovers new roles from this company&apos;s public
-              career pages.
-            </p>
-          </div>
+          <ListingEmpty pathname="/companies" title="No openings at this company yet." />
         )}
 
         {totalPages > 1 && (

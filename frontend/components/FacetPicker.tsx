@@ -359,6 +359,11 @@ export default function FacetPicker({
               />
               Loading {labelText} list...
             </div>
+          ) : error ? (
+            <div className="py-6 text-sm text-muted-foreground" role="status" aria-live="polite">
+              <p>The live list is unavailable. You can still enter a filter above.</p>
+              {trimmedQuery && <Button type="button" variant="outline" className="mt-3 min-h-11" onClick={() => toggleOption(trimmedQuery)}>Use {trimmedQuery}</Button>}
+            </div>
           ) : filteredOptions.length === 0 ? (
             <p className="py-10 text-center text-sm text-muted-foreground">
               {trimmedQuery

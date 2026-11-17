@@ -1,9 +1,10 @@
+import { withBuildFallback } from "@/lib/buildFallback";
+import { ProgrammeBuildRecovery } from "@/components/BuildListingRecovery";
 import type { Metadata } from "next";
 import Link from "next/link";
 import OpportunityLandingPage from "@/components/OpportunityLandingPage";
 import ProgrammeCard from "@/components/ProgrammeCard";
 import { getProgrammes } from "@/lib/api";
-import { withBuildFallback } from "@/lib/buildFallback";
 import {
   SCHOLARSHIPS_LANDING,
   LANDING_LIMIT,
@@ -20,24 +21,23 @@ export const metadata: Metadata = landingMetadata(SCHOLARSHIPS_LANDING, 1);
 
 export default async function ScholarshipsPage() {
   const data = await loadLandingPage(SCHOLARSHIPS_LANDING, 1);
-  const programmes = await withBuildFallback(
+  const { data: programmes } = await withBuildFallback(
     () => getProgrammes({ category: ["scholarship", "fellowship"], limit: 100 }, revalidate),
-    () => ({ items: [], total: 0, page: 1, limit: 100 }),
+    result => result.items.length,
   );
 
   return (
     <OpportunityLandingPage
       title={SCHOLARSHIPS_LANDING.title}
       intro={SCHOLARSHIPS_LANDING.intro}
-      items={data.items}
-      total={data.total}
-      openTotal={data.open_total}
+      initialData={data}
       page={1}
       limit={LANDING_LIMIT}
       basePath={SCHOLARSHIPS_LANDING.basePath}
       query={SCHOLARSHIPS_LANDING.query}
     >
-      {programmes.items.length > 0 && (
+      {!programmes && <ProgrammeBuildRecovery params={{ category: ["scholarship", "fellowship"], limit: 100 }} pathname="/scholarships" />}
+      {programmes && programmes.items.length > 0 && (
         <section className="mt-14" aria-labelledby="scholarship-programmes-heading">
           <h2 id="scholarship-programmes-heading" className="font-serif text-3xl font-bold tracking-tight">
             Scholarship and fellowship programmes

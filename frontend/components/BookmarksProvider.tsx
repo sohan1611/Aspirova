@@ -18,7 +18,7 @@ interface BookmarksContextValue {
   ready: boolean;
   signedIn: boolean;
   statusesReady: boolean;
-  savedCount: number;
+  savedCount: number | null;
   isSaved: (slug: string) => boolean;
   toggle: (slug: string) => Promise<void>;
   status: (slug: string) => BookmarkStage | undefined;
@@ -236,7 +236,7 @@ export function BookmarksProvider({ children }: { children: React.ReactNode }) {
       ready,
       signedIn,
       statusesReady: ready && bookmarkState.statusesLoaded,
-      savedCount: ready ? savedSlugs.size : 0,
+      savedCount: ready && bookmarkState.statusesLoaded ? savedSlugs.size : null,
       isSaved,
       toggle,
       status,

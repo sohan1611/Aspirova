@@ -50,7 +50,7 @@ export function activeSingleValue(
 export function countedOptions(
   options: CountedFilterOption[] | undefined,
 ): CountedFilterOption[] {
-  return (options ?? []).filter((option) => option.count > 0);
+  return (options ?? []).filter((option) => option.count === undefined || option.count > 0);
 }
 
 export function humanizeValue(value: string): string {

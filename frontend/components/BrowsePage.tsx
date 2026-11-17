@@ -1,4 +1,6 @@
 import Link from "next/link";
+import OpportunityLandingPage from "@/components/OpportunityLandingPage";
+import { ListingSnapshotNotice } from "@/components/ListingFeedback";
 import EmailMatchesButton from "@/components/EmailMatchesButton";
 import { savedSearchParamsFromQuery } from "@/lib/savedSearchParams";
 import FeedGrid from "@/components/FeedGrid";
@@ -34,6 +36,7 @@ export function BrowseLinks({ category }: { category: BrowseCategory }) {
 
 export default async function BrowsePage({ config }: { config: BrowseConfig }) {
   const data = await loadBrowsePage(config);
+  if (!data) return <OpportunityLandingPage initialData={null} title={config.title} intro={config.description} basePath={config.category === "internship" ? "/internships" : "/jobs"} query={config.query} page={1} limit={BROWSE_LIMIT} />;
   return (
     <main className="mx-auto w-full max-w-[1680px] px-4 py-10 sm:px-6 sm:py-14 lg:px-10 xl:px-12">
       <header className="max-w-3xl">
@@ -50,11 +53,13 @@ export default async function BrowsePage({ config }: { config: BrowseConfig }) {
           <p className="tnum text-sm text-muted-foreground">{data.total.toLocaleString("en-IN")} open</p>
           <EmailMatchesButton params={savedSearchParamsFromQuery(config.query)} />
         </div>
+        <ListingSnapshotNotice loadedAt={data.loadedAt} expiresAt={data.expiresAt} />
         <FeedGrid
           items={data.items}
           cols={3}
           skeletonCount={data.items.length}
-          emptyHref={config.seeAll}
+          emptyHref={config.category === "internship" ? "/internships" : "/jobs"}
+          emptyQuery={config.seeAll.split("?")[1] ?? ""}
           emptyActionLabel="See all"
           emptyTitle="No open listings here yet."
           emptyDescription="Check the original sources or browse other listings."

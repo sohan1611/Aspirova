@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { loadedList, failedList, type ListState } from "@/lib/listState";
 import ProgrammeCard from "@/components/ProgrammeCard";
 import { getProgrammes } from "@/lib/api";
 import { useFieldProfile } from "@/lib/fieldProfile";
@@ -9,10 +10,7 @@ import type { ProgrammeListItem } from "@/lib/types";
 export default function MatchedProgrammes() {
   const { profile, hasStoredProfile, hydrated } = useFieldProfile();
   const divisionKey = profile.divisions.join(",");
-  const [result, setResult] = useState<{
-    divisionKey: string;
-    matches: ProgrammeListItem[];
-  }>({ divisionKey: "", matches: [] });
+  const [result, setResult] = useState<(ListState<ProgrammeListItem[]> & { divisionKey: string }) | null>(null);
 
   useEffect(() => {
     if (!hydrated || !hasStoredProfile || !divisionKey) {
@@ -25,15 +23,11 @@ export default function MatchedProgrammes() {
     getProgrammes({ divisions: selectedDivisions, limit: 9 })
       .then((data) => {
         if (cancelled) return;
-        setResult({
-          divisionKey,
-          matches: data.items
-            .filter((programme) => programme.match_count > 0)
-            .slice(0, 6),
-        });
+        const matches = data.items.filter(programme => programme.match_count > 0).slice(0, 6);
+        setResult({ divisionKey, ...loadedList(matches, matches.length, data.loadedAt) });
       })
       .catch(() => {
-        if (!cancelled) setResult({ divisionKey, matches: [] });
+        if (!cancelled) setResult(previous => ({ divisionKey, ...failedList(previous) }));
       });
 
     return () => {
@@ -41,7 +35,7 @@ export default function MatchedProgrammes() {
     };
   }, [divisionKey, hasStoredProfile, hydrated]);
 
-  const matches = result.divisionKey === divisionKey ? result.matches : [];
+  const matches = result?.divisionKey === divisionKey && result.status !== "failed" ? result.data ?? [] : [];
 
   if (!hydrated || !hasStoredProfile || !divisionKey || matches.length === 0) {
     return null;
