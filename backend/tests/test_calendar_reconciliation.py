@@ -2,7 +2,9 @@
 
 from dataclasses import FrozenInstanceError
 from datetime import date, datetime
+from hashlib import sha256
 import json
+from unittest.mock import Mock
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -16,6 +18,7 @@ from core import calendar_public, hiring_calendar as source
 from core.calendar_reconciliation import (
     metadata_gaps,
     reconcile_calendar,
+    source_digest,
 )
 from core.config import get_settings
 from core.models import Programme, ProgrammeEdition
@@ -23,6 +26,48 @@ from core.programme_labels import PROGRAMME_CATEGORY_LABELS
 from scripts import import_calendar as importer, refresh_calendar as refresh
 
 TODAY = date(2026, 11, 17)
+
+
+def test_source_digest_matches_canonical_loaded_objects():
+    def canonical(value):
+        return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode(
+            "utf-8"
+        )
+
+    expected = sha256(canonical(source.SOURCE) + b"\n" + canonical(source.METADATA)).hexdigest()[
+        :16
+    ]
+    assert source_digest(source.SOURCE, source.METADATA) == expected
+    reformatted = [
+        json.loads(json.dumps(value, indent=2).replace("\n", "\r\n"))
+        for value in (source.SOURCE, source.METADATA)
+    ]
+    assert source_digest(*reformatted) == expected
+
+
+def test_source_digest_pinned_sample():
+    # Keep this pair and digest identical to smoke's independent implementation.
+    source_data = {"b": 2, "a": "é"}
+    metadata = {"z": [1, True], "a": None}
+    assert source_digest(source_data, metadata) == "4e770686f9d61150"
+    assert source_digest({"a": "é", "b": 2}, {"a": None, "z": [1, True]}) == ("4e770686f9d61150")
+    assert source_digest(source_data, {**metadata, "changed": True}) != ("4e770686f9d61150")
+
+
+def test_coverage_response_source_digest_without_database():
+    session = Mock(spec=Session)
+    session.scalars.return_value = []
+    session.scalar.return_value = None
+    app = FastAPI()
+    app.include_router(calendar_api.router)
+    app.dependency_overrides[get_db] = lambda: session
+    with TestClient(app) as client:
+        response = client.get("/calendar/coverage")
+    assert response.status_code == 200
+    assert response.json()["source_digest"] == source_digest(source.SOURCE, source.METADATA)
+    assert reconcile_calendar(session, today=TODAY).to_dict()["source_digest"] == (
+        source_digest(source.SOURCE, source.METADATA)
+    )
 
 
 @pytest.fixture
@@ -298,6 +343,7 @@ def test_coverage_api_matches_unique_source_programmes_and_public_cache(seeded, 
         first = client.get("/calendar/coverage")
         assert first.status_code == 200
         coverage = first.json()
+        assert coverage["source_digest"] == source_digest(source.SOURCE, source.METADATA)
         assert coverage == reconcile_calendar(seeded, today=TODAY).to_dict()
         assert set(coverage["unexplained"][0]) == {"row_id", "slug"}
         assert set(coverage["skipped"][0]) == {"row_id", "slug", "reason"}

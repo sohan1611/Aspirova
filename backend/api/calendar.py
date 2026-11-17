@@ -25,6 +25,7 @@ class CoverageWindow(BaseModel):
 
 
 class CalendarCoverage(BaseModel):
+    source_digest: str
     source_rows: int
     metadata_programmes: int
     rows_without_metadata: int

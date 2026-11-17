@@ -11,7 +11,11 @@ from xml.etree import ElementTree
 import pytest
 from playwright.sync_api import Error, Page, expect
 
-from calendar_coverage import assert_calendar_coverage
+from calendar_coverage import (
+    assert_calendar_coverage,
+    source_digest,
+    wait_for_deployed_coverage,
+)
 from conftest import Diagnostics
 
 VIEWPORTS = [
@@ -24,16 +28,28 @@ CARD_SELECTOR = 'main a[href^="/opportunity/"][aria-label]'
 def test_calendar_coverage(
     page: Page, api_url: str, record_property: Callable[[str, object], None]
 ) -> None:
-    source_path = (
-        Path(__file__).resolve().parents[2] / "backend/data/hiring_calendar_2027.json"
+    data_dir = Path(__file__).resolve().parents[2] / "backend/data"
+    source = json.loads(
+        (data_dir / "hiring_calendar_2027.json").read_text(encoding="utf-8")
     )
-    source_rows = len(
-        json.loads(source_path.read_text(encoding="utf-8"))["opportunities"]
+    metadata = json.loads(
+        (data_dir / "hiring_calendar_metadata.json").read_text(encoding="utf-8")
     )
+    source_rows = len(source["opportunities"])
     url = f"{api_url}/calendar/coverage"
-    response = page.request.get(url, timeout=60_000)
-    assert response.status == 200, f"GET {url} returned {response.status}"
-    coverage = response.json()
+
+    def fetch() -> tuple[int, dict | None]:
+        response = page.request.get(url, timeout=60_000)
+        try:
+            try:
+                body = response.json()
+            except ValueError:
+                body = None
+            return response.status, body
+        finally:
+            response.dispose()
+
+    coverage = wait_for_deployed_coverage(fetch, source_digest(source, metadata))
     record_property(
         "calendar_pending_import", json.dumps(coverage.get("pending_import"))
     )

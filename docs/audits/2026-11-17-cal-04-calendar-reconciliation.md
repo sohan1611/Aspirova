@@ -51,7 +51,7 @@ not repeated occurrences, all registry programmes, or open applications.
 
 The daily refresh keeps its existing import summary (`imported`, `skipped`) and
 logs exactly one `Calendar reconciliation {json}` line after committing import
-and liveness updates. The payload contains only counts, the window (`from`, `to`,
+and liveness updates. The payload contains the source digest, counts, the window (`from`, `to`,
 `as_of`), metadata-gap IDs and public row IDs/slugs/reasons. No user fields, URLs,
 SQL parameters or credentials are added to that line.
 
@@ -68,6 +68,29 @@ fixture. Deployment events check out the deployment SHA. It requires metadata
 parity, an exact eight-bucket sum, no unexplained rows and a positive published
 total. Pending imports are allowed just after a deploy and recorded in diagnostics;
 the daily refresh is their gate. Smoke has no database connection.
+
+### Deploy-order wait (PR #209 follow-up)
+
+On 17 November 2026, Vercel completed at about 08:29:20 UTC, while Render went
+live at 08:29:54. The deployment canary checked out the new SHA but hit the old
+API, receiving 404 for coverage. Later data-only changes can instead return old
+counts. A health response alone cannot identify which calendar data is loaded.
+
+`source_digest` now identifies both loaded source JSON objects. Canonicalise each
+with `json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)`
+and encode as UTF-8; hash canonical source + `b"\n"` + canonical metadata with
+SHA-256 and take the first 16 hex characters. Formatting, key order and line
+endings do not change the digest. Reconciliation's `to_dict()` includes it in
+both the coverage API response and the refresh log line.
+
+Before checking coverage, smoke computes the same digest independently from the
+checked-out files. It polls read-only coverage every 20 seconds for up to 360
+seconds until HTTP 200 and the matching digest arrive. Old digests, missing
+digests, 404s and transient fetch exceptions are failed polls. A wait prints
+elapsed seconds and poll count. A timeout names the expected digest, last status
+and last digest and directs the operator to check the Render deploy. Once the
+digest matches, all existing coverage assertions run immediately; the wait does
+not excuse incorrect buckets or unexplained rows.
 
 The weekly career report is a user-facing email, so it deliberately carries no
 internal calendar metrics. The founder's view of these numbers is the daily
