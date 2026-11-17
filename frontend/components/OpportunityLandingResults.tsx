@@ -8,6 +8,7 @@ import FeedCountryPreference from "@/components/FeedCountryPreference";
 import EmailMatchesButton from "@/components/EmailMatchesButton";
 import { hasSavedSearchParams, savedSearchParamsFromQuery } from "@/lib/savedSearchParams";
 import FeedGrid from "@/components/FeedGrid";
+import SearchBestMatches from "@/components/SearchBestMatches";
 import ListingResultsState, { listingEmptyDescription } from "@/components/ListingResultsState";
 import { FeedNavigationProvider } from "@/components/FeedNavigation";
 import {
@@ -80,6 +81,7 @@ export default function OpportunityLandingResults({
     !request.canReusePrerendered || preference !== null,
     () => loadOpportunityListingData({ ...request, prefer_country: preference ?? undefined }),
     initialData,
+    request.q,
   );
 
   // A preference-only fetch keeps the prerendered list visible while it settles.
@@ -121,6 +123,8 @@ export default function OpportunityLandingResults({
       />
 
       <OpportunityListingRoleChips basePath={basePath} />
+
+      {request.q?.trim() && <SearchBestMatches scope={basePath} queryKey={queryKey} q={request.q} loading={isLoading || Boolean(settled?.error)} />}
 
       {data.loadedAt && !settled?.error && <ListingSnapshotNotice loadedAt={data.loadedAt} expiresAt={data.expiresAt} />}
       <ListingResultsState

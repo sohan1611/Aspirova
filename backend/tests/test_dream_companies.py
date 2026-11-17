@@ -362,6 +362,7 @@ def test_company_search_substring_prefix_empty_company_and_query_cache(client, d
     db_session.flush()
     response = client.get("/companies/search", params={"q": f"  {token.upper()}  "})
     assert response.status_code == 200
+    # Substring matches stay in the follow-company search, ranked after prefixes.
     assert [item["slug"] for item in response.json()] == [prefix.slug, substring.slug]
     assert [item["active_count"] for item in response.json()] == [0, 1]
     assert "public" in response.headers["Cache-Control"]
@@ -379,14 +380,16 @@ def test_company_search_substring_prefix_empty_company_and_query_cache(client, d
 
 
 @pytest.mark.parametrize("special", ["%", "_", "\\"])
-def test_company_search_escapes_wildcards(client, db_session, special):
+def test_company_search_normalizes_wildcards_as_punctuation(client, db_session, special):
     token = uuid.uuid4().hex[:12]
     literal = models.Company(slug=f"search-literal-{token}", name=f"{token}{special} Company")
     wildcard = models.Company(slug=f"search-wildcard-{token}", name=f"{token}x Company")
     db_session.add_all([literal, wildcard])
     db_session.flush()
     items = client.get("/companies/search", params={"q": token + special}).json()
-    assert [item["slug"] for item in items] == [literal.slug]
+    # Punctuation becomes whitespace, so both names share the normalized
+    # prefix. These characters must never act as SQL wildcards.
+    assert {item["slug"] for item in items} == {literal.slug, wildcard.slug}
 
 
 @pytest.mark.parametrize(

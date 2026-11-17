@@ -12,7 +12,7 @@ materialise every match before returning the requested page, and it directly
 distinguishes true zero-match queries from out-of-range pages.
 """
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
@@ -92,6 +92,94 @@ def _search_ordering(sort: str, relevance, student_first: bool = False) -> list:
     return ordering
 
 
+def search_base_filters(
+    *,
+    category: str | None = None,
+    remote: bool | None = None,
+    company: list[str] | None = None,
+    location: list[str] | None = None,
+    top: int | None = None,
+    experience: str | None = None,
+    paid: bool | None = None,
+    min_stipend: int | None = None,
+    part_time: bool | None = None,
+    max_duration: int | None = None,
+    job_offer: bool | None = None,
+    posted_within: int | None = None,
+    role: str | None = None,
+    scope: str | None = None,
+    country: str | None = None,
+    remote_abroad: bool = False,
+    comp_type: list[str] | None = None,
+    registration: str | None = None,
+    deadline_within: int | None = None,
+    organiser_type: list[str] | None = None,
+    mode: list[str] | None = None,
+    prize_min: int | None = None,
+    status: str | None = None,
+    kind: str | None = None,
+    source: str | None = None,
+) -> list:
+    extra_filters = opportunity_filters(category, remote, company, location, top)
+    base_filters = [
+        models.Opportunity.status == "active",
+        exclude_stale_opportunities(),
+        exclude_experienced_only_opportunities(),
+        exclude_school_only_opportunities(),
+        exclude_closed_competitions() if status == "closed" else exclude_closed_now(),
+        *extra_filters,
+        *experience_filters(experience),
+        *role_signal_filters(
+            paid, min_stipend, part_time, max_duration, job_offer, posted_within, role
+        ),
+        *location_scope_filters(scope, country, remote_abroad),
+        *competition_filters(
+            comp_type, registration, deadline_within, organiser_type, mode, prize_min, status
+        ),
+    ]
+    if kind == "competitions":
+        base_filters.append(models.Opportunity.category.in_(["hackathon", "competition"]))
+    elif kind == "roles":
+        base_filters.append(
+            or_(
+                models.Opportunity.category.in_(["internship", "job"]),
+                models.Opportunity.meta["offers_ppi"].as_boolean().is_(True),
+                models.Opportunity.meta["offers_ppo"].as_boolean().is_(True),
+            )
+        )
+    if source is not None:
+        base_filters.append(models.Opportunity.primary_source.in_(SOURCE_GROUPS[source]))
+    return base_filters
+
+
+def search_expressions(q: str) -> tuple:
+    """Shared FTS/trigram expressions; callers choose their counting strategy."""
+    tsquery = func.websearch_to_tsquery("english", q)
+    matches_fts = models.Opportunity.search_tsv.op("@@")(tsquery)
+    similarity = func.similarity(models.Opportunity.title_normalized, q.lower())
+    return (
+        matches_fts,
+        func.ts_rank(models.Opportunity.search_tsv, tsquery),
+        similarity >= TRIGRAM_FALLBACK_THRESHOLD,
+        similarity,
+    )
+
+
+def search_predicate(db: Session, q: str, base_filters: list) -> tuple:
+    matches_fts, rank, matches_trigram, similarity = search_expressions(q)
+    fts_total = _count_matches(db, base_filters, matches_fts)
+    if fts_total:
+        return matches_fts, rank, fts_total
+    return matches_trigram, similarity, None
+
+
+def trimmed_search_query(q: str) -> str:
+    q = q.strip()
+    if not 1 <= len(q) <= 200:
+        raise HTTPException(422, "q must be 1 to 200 characters after trimming")
+    return q
+
+
 @router.get("/search", response_model=SearchResponse)
 def search_opportunities(
     q: str = Query(..., min_length=1, max_length=200),
@@ -129,74 +217,54 @@ def search_opportunities(
     db: Session = Depends(get_db),
 ) -> SearchResponse:
     student_first = students if students is not None else sort == "student"
-    extra_filters = opportunity_filters(category, remote, company, location, top)
-    base_filters = [
-        models.Opportunity.status == "active",
-        exclude_stale_opportunities(),
-        exclude_experienced_only_opportunities(),
-        exclude_school_only_opportunities(),
-        exclude_closed_competitions() if status == "closed" else exclude_closed_now(),
-        *extra_filters,
-        *experience_filters(experience),
-        *role_signal_filters(
-            paid, min_stipend, part_time, max_duration, job_offer, posted_within, role
-        ),
-        *location_scope_filters(scope, country, remote_abroad),
-        *competition_filters(
-            comp_type, registration, deadline_within, organiser_type, mode, prize_min, status
-        ),
-    ]
-    if kind == "competitions":
-        base_filters.append(models.Opportunity.category.in_(["hackathon", "competition"]))
-    elif kind == "roles":
-        base_filters.append(
-            or_(
-                models.Opportunity.category.in_(["internship", "job"]),
-                models.Opportunity.meta["offers_ppi"].as_boolean().is_(True),
-                models.Opportunity.meta["offers_ppo"].as_boolean().is_(True),
-            )
-        )
-    if source is not None:
-        base_filters.append(models.Opportunity.primary_source.in_(SOURCE_GROUPS[source]))
-    tsquery = func.websearch_to_tsquery("english", q)
-    matches_fts = models.Opportunity.search_tsv.op("@@")(tsquery)
-    rank = func.ts_rank(models.Opportunity.search_tsv, tsquery)
+    q = q.strip()
+    if not q:
+        return SearchResponse(items=[], total=0, query=q)
+    base_filters = search_base_filters(
+        category=category,
+        remote=remote,
+        company=company,
+        location=location,
+        top=top,
+        experience=experience,
+        paid=paid,
+        min_stipend=min_stipend,
+        part_time=part_time,
+        max_duration=max_duration,
+        job_offer=job_offer,
+        posted_within=posted_within,
+        role=role,
+        scope=scope,
+        country=country,
+        remote_abroad=remote_abroad,
+        comp_type=comp_type,
+        registration=registration,
+        deadline_within=deadline_within,
+        organiser_type=organiser_type,
+        mode=mode,
+        prize_min=prize_min,
+        status=status,
+        kind=kind,
+        source=source,
+    )
+    predicate, relevance, total = search_predicate(db, q, base_filters)
+    if total is None:
+        total = _count_matches(db, base_filters, predicate)
     offset = (page - 1) * limit
-
+    if total == 0 or offset >= total:
+        return SearchResponse(items=[], total=total, query=q)
     # id tie-breaker: rank/similarity ties are common (many non-matches tie
     # at rank 0, or share an identical trigram score) and Postgres gives no
     # ordering guarantee among tied rows across separate paginated queries
     # (same class of bug as api/feed.py's pagination - verified there).
-    fts_total = _count_matches(db, base_filters, matches_fts)
-    if fts_total > 0:
-        if offset >= fts_total:
-            return SearchResponse(items=[], total=fts_total, query=q)
-
-        fts_query = (
-            select(models.Opportunity)
-            .options(*opportunity_list_load_options())
-            .where(*base_filters)
-            .where(matches_fts)
-            .order_by(*_search_ordering(sort, rank, student_first))
-        )
-        opportunities = db.execute(fts_query.offset(offset).limit(limit)).unique().scalars().all()
-        items = [OpportunityListItem.from_model(opportunity) for opportunity in opportunities]
-        return SearchResponse(items=items, total=fts_total, query=q)
-
-    similarity = func.similarity(models.Opportunity.title_normalized, q.lower())
-    matches_trigram = similarity >= TRIGRAM_FALLBACK_THRESHOLD
-    fallback_total = _count_matches(db, base_filters, matches_trigram)
-    if fallback_total == 0 or offset >= fallback_total:
-        return SearchResponse(items=[], total=fallback_total, query=q)
-
-    fallback_query = (
+    query = (
         select(models.Opportunity)
         .options(*opportunity_list_load_options())
-        .where(*base_filters)
-        .where(matches_trigram)
-        .order_by(*_search_ordering(sort, similarity, student_first))
+        .where(*base_filters, predicate)
+        .order_by(*_search_ordering(sort, relevance, student_first))
+        .offset(offset)
+        .limit(limit)
     )
-    opportunities = db.execute(fallback_query.offset(offset).limit(limit)).unique().scalars().all()
-
+    opportunities = db.execute(query).unique().scalars().all()
     items = [OpportunityListItem.from_model(opportunity) for opportunity in opportunities]
-    return SearchResponse(items=items, total=fallback_total, query=q)
+    return SearchResponse(items=items, total=total, query=q)

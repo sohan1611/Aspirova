@@ -295,7 +295,7 @@ export function programmeSummaryName(programme: Pick<CalendarItem["programme"], 
   return includesOrganiser ? name : `${organiser} · ${name}`;
 }
 
-export function windowText(item: CalendarItem): string {
+export function windowText(item: Pick<CalendarItem, "edition"> & { metadata?: Pick<CalendarItem["metadata"], "deadline_rolling"> }): string {
   const edition = item.edition;
   function boundary(value: string | null, other: string | null, precision: "day" | "month" | null): string | null {
     if (!value || !precision) return null;

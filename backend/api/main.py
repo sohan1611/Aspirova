@@ -25,6 +25,7 @@ from api import (
     resume,
     saved_searches,
     search,
+    search_related,
     sitemap,
     stats,
     trending,
@@ -61,6 +62,7 @@ app.include_router(for_you.router)
 app.include_router(home.router)
 app.include_router(account.router)
 app.include_router(search.router)
+app.include_router(search_related.router)
 app.include_router(opportunity.router)
 app.include_router(company.router)
 app.include_router(bookmarks.router)
