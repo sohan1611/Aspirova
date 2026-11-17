@@ -1,9 +1,9 @@
 """Offline authored-registry coverage gate. Run with python -m scripts.calendar_coverage."""
 
-import calendar
-from datetime import date, timedelta
+from datetime import date
 import json
 
+from core.calendar_public import build_calendar, default_calendar_window
 from core.hiring_calendar import (
     CALENDAR_META,
     DATA_DIR,
@@ -16,13 +16,6 @@ from core.hiring_calendar import (
 )
 
 FROZEN_DATES = (date(2026, 11, 13), date(2027, 3, 1), date(2027, 7, 1), date(2027, 10, 15))
-
-
-def next_year(today: date) -> date:
-    return today.replace(
-        year=today.year + 1,
-        day=min(today.day, calendar.monthrange(today.year + 1, today.month)[1]),
-    )
 
 
 def authored_programmes(*, today: date) -> list:
@@ -68,8 +61,6 @@ def authored_programmes(*, today: date) -> list:
 
 def uncovered_next_12_months(programmes: list | None = None, *, today: date) -> list[str]:
     """Check actual API visibility over the half-open next-12-month interval."""
-    from api.calendar import build_calendar
-
     if programmes is None:
         programmes = authored_programmes(today=today)
         registry = json.loads((DATA_DIR / "programmes.json").read_text(encoding="utf-8"))
@@ -83,8 +74,7 @@ def uncovered_next_12_months(programmes: list | None = None, *, today: date) -> 
     active = [item for item in programmes if item.is_active]
     response = build_calendar(
         active,
-        today,
-        next_year(today) - timedelta(days=1),
+        *default_calendar_window(today),
         categories=[],
         statuses=[],
         q="",

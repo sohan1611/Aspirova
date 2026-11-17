@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, aliased, joinedload, selectinload
 from api.deps import get_db
 from api.schemas import ProgrammeDetail, ProgrammeListItem, ProgrammeListResponse
 from core import models
+from core.programme_labels import PROGRAMME_CATEGORY_LABELS
 from core.organisers import ORGANISER_TYPE_LABELS, classify_organiser
 
 router = APIRouter()
@@ -20,19 +21,6 @@ PROGRAMME_TAG_MAP: dict[str, list[str]] = json.loads(
     PROGRAMME_TAG_MAP_PATH.read_text(encoding="utf-8")
 )["divisions"]
 
-PROGRAMME_CATEGORY_LABELS = {
-    "government_exam": "Government exams & recruitment",
-    "early_career": "Early-career hiring",
-    "research_internship": "Research internship",
-    "fellowship": "Fellowship",
-    "government_internship": "Government internship",
-    "open_source": "Open source",
-    "international_research": "International research",
-    "corporate_research": "Corporate research",
-    "recurring_competition": "Recurring competition",
-    "scholarship": "Scholarship",
-    "conference": "Conference",
-}
 PROGRAMME_STATUS_LABELS = {
     "expected": "Expected",
     "announced": "Announced",
