@@ -491,6 +491,8 @@ def test_missing_signing_key_omits_unsubscribe_links_and_headers(kind, monkeypat
     import pipeline.weekly_report as weekly_report
 
     monkeypatch.setattr("core.unsubscribe._signing_key", lambda: b"")
+    # The Mock session has no ledger: start each sender's email budget from zero.
+    monkeypatch.setattr("core.email_budget.sent_today", lambda session, now: 0)
     user = models.User(
         id=UUID("00000000-0000-0000-0000-000000000123"),
         display_name="Priya Sharma",

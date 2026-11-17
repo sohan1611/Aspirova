@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from api.filters import saved_search_base_filters
 from core import models
+from core.email_budget import EmailBudget
 from core.alert_identity import (
     NEW_LISTING_EVENTS,
     SentAlertIndex,
@@ -141,6 +142,7 @@ def send_saved_search_alerts(
     """Send each enabled saved search a one-time list of newly seen matches."""
 
     now = now or datetime.now(timezone.utc)
+    budget = EmailBudget.for_step(session, now)
     result = {"searches": 0, "emailed": 0, "skipped_empty": 0}
     saved_searches = session.execute(
         select(models.SavedSearch, models.User)
@@ -213,6 +215,9 @@ def send_saved_search_alerts(
                 continue
 
             preference_key = f"saved_search:{saved_search.id}"
+            if not budget.can_send("saved_search_alert"):
+                budget.deferred += 1
+                continue
             html, text = _render_saved_search_alert(
                 saved_search,
                 opportunities,
@@ -231,6 +236,8 @@ def send_saved_search_alerts(
                 text,
                 headers=list_unsubscribe_headers(user.id, preference_key),
             )
+            if sent:
+                budget.record_sent()
             saved_search.last_alerted_at = now
             meta = {
                 "saved_search_id": saved_search.id,
@@ -256,4 +263,5 @@ def send_saved_search_alerts(
         finally:
             session.commit()
 
+    budget.log()
     return result

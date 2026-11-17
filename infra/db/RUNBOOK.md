@@ -442,3 +442,67 @@ uv run black --check .
 Taxonomy parity executes the real TypeScript using Node 24+ built-in type
 stripping; it does not need a frontend dependency install in the backend CI job.
 Frontend validation: `node --test lib/*.test.mjs`, `pnpm lint`, and `pnpm exec tsc --noEmit`.
+
+## Worker email daily budget (founder ruling, 2026-11-17)
+
+Stay on Resend Free: **100 emails per UTC day** (the day ends at
+23:59:59.999 UTC) and **3,000 emails per month**. Supabase Auth confirmation
+and password-reset SMTP, plus API account/payment/report/waitlist mail,
+use the same Resend allowance but are outside the worker notification ledger.
+
+Workers default to **85 per day**, leaving **15** for Auth/API mail. The
+daily digest stops with **10** worker slots remaining (at most **75** digest
+emails if earlier steps used none); closing-soon, combined saved-listing
+notices, saved searches and weekly reports may use that reserve. Company /
+instant alerts also respect the full worker cap. Monthly planning arithmetic:
+**85 x 30 = 2,550 worker emails**, leaving **450** for Auth/API mail under
+3,000 (31 days gives 2,635 and leaves 365). This is a daily worker cap, not
+a monthly meter or a cap on Auth/API traffic; monitor Resend's shared usage.
+
+Set `EMAIL_DAILY_BUDGET` (default `85`) and `EMAIL_DIGEST_RESERVE` (default
+`10`) in the worker environment to change the numbers; both must be
+nonnegative. No migration is needed. Reserve at or above the budget disables
+digest sends while allowing other senders up to the full budget. Each step
+takes one count of `notifications` with `channel='email'`, `status='sent'`,
+and `sent_at >= UTC midnight`, then checks its allowance in memory. Legacy
+grouped company/deadline emails have one row per listing, so that starting
+count can conservatively overestimate mail sent. A notice-only saved-listing
+email gets one accounting email row; its existing in-app cards stay unchanged.
+Snapshots do not atomically reserve slots across independently running workflows.
+
+**Deferred** means no send attempt and no successful-delivery marker or
+advanced email cursor. Next scheduled runs retry eligible content. Digests
+record `type='digest'`, `channel='email'`, `status='deferred'`, null `sent_at`,
+and metadata `reason='budget'` plus UTC `deferred_at` (there is no creation-time
+column on the ledger). These rows do not count toward the budget, daily cap,
+ALERT-03 identities, successful digest history or `/account/me` digest status.
+Company/instant and weekly mail write no delivery row when deferred; closing
+reminders write none and saved-listing in-app notices retain `email_pending`;
+saved searches retain `last_alerted_at`. Programme-watch in-app collection
+continues, retaining its pending email marker until a digest actually sends.
+Existing selection/expiry and digest lookback limits still apply: a retry
+uses the last successful digest's window, with the existing 72-hour maximum.
+
+Digest reader order is deterministic: unresolved **prior-day** budget deferrals
+first (no successful digest ledger row since), then **most recent activity**,
+then **activity count**, then **oldest successful digest** (never sent first),
+then **user UUID**. Activity is the union of bookmark creation (all tracker
+statuses), saved-search creation, programme-watch creation and company-follow
+creation. These are the available user-linked actions: view/apply counters
+have no user identity and accounts have no update timestamp. Worker-maintained
+search/watch cursors and Auth `last_sign_in_at` are not activity. Empty digests
+use no allowance and create no deferral. Selection/content, preferences and
+unsubscribe handling are unchanged.
+
+Each step emits one counts-only public log line:
+`email budget: sent_today=X budget=85 remaining=Y deferred=N`.
+`sent_today` is the starting ledger count; `remaining` subtracts successful
+sends in this step. The digest result additionally reports `skipped_budget`.
+
+Reviewer validation on disposable Postgres (never production):
+
+```text
+uv run pytest tests/test_email_budget.py tests/test_email_budget_unit.py tests/test_notifications.py tests/test_saved_listing_notifications.py tests/test_saved_search_alerts.py tests/test_weekly_report.py tests/test_digest_reliability.py tests/test_digest_api.py tests/test_programme_watch_digest.py tests/test_alert_identity.py tests/test_alert_relevance.py
+uv run ruff check .
+uv run black --check .
+```

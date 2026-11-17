@@ -1,6 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -136,6 +137,9 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     resend_from_email: str = ""
     resend_from_name: str = "Aspirova"
+    # Free-plan worker cap; leave headroom for Auth SMTP and API emails.
+    email_daily_budget: int = Field(default=85, ge=0)
+    email_digest_reserve: int = Field(default=10, ge=0)
 
     # Pricing-page waitlist (Doc handoffs/PHASE-2.5-HANDOFF.md sec 3.7) -
     # the honest Razorpay dummy: no checkout, just a founder notification

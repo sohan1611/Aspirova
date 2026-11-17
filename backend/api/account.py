@@ -86,7 +86,13 @@ def _digest_status(db: Session, user: models.User) -> DigestStatus | None:
     """The newest digest attempt and the last one that actually went out."""
     newest = db.scalar(
         select(models.Notification.status)
-        .where(models.Notification.user_id == user.id, models.Notification.type == "digest")
+        .where(
+            models.Notification.user_id == user.id,
+            models.Notification.type == "digest",
+            models.Notification.channel == "email",
+            # Budget deferrals are not delivery attempts and cannot hide a failure.
+            models.Notification.status.in_(["sent", "failed"]),
+        )
         .order_by(models.Notification.id.desc())
         .limit(1)
     )
@@ -97,6 +103,7 @@ def _digest_status(db: Session, user: models.User) -> DigestStatus | None:
         .where(
             models.Notification.user_id == user.id,
             models.Notification.type == "digest",
+            models.Notification.channel == "email",
             models.Notification.status == "sent",
         )
         .order_by(models.Notification.sent_at.desc().nullslast())

@@ -13,6 +13,7 @@ Usage:
 """
 
 import argparse
+import logging
 
 from sqlalchemy.orm import Session
 
@@ -28,6 +29,11 @@ from pipeline.weekly_report import send_weekly_reports
 
 
 def main() -> None:
+    # Only the budget summary logger: counts are safe in public Actions logs.
+    budget_logger = logging.getLogger("core.email_budget")
+    budget_logger.setLevel(logging.INFO)
+    budget_logger.addHandler(logging.StreamHandler())
+    budget_logger.propagate = False
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument(
