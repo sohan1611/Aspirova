@@ -755,8 +755,9 @@ def test_both_empty_skip_without_a_notification(db_session, monkeypatch, digest_
 
     result = send_daily_digests(db_session, now=NOW)
 
-    assert set(result) == {"sent", "failed", "skipped_capped", "skipped_empty"}
+    assert set(result) == {"sent", "failed", "skipped_capped", "skipped_empty", "skipped_budget"}
     assert result["skipped_empty"] >= 1
+    assert result["skipped_budget"] == 0
     assert not [email for email in digest_deliveries if email["to"] == user.email]
     assert _digest_rows(db_session, user) == []
 

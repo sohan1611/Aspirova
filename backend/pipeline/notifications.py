@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from functools import cached_property
 
-from sqlalchemy import case, func, or_, select
+from sqlalchemy import case, func, or_, select, union_all
 from sqlalchemy.orm import Session, aliased, joinedload, load_only
 
 from api.filters import (
@@ -52,6 +52,7 @@ from core.alert_relevance import (
 from core.interest_ranking import fts_ranking, rank_profile_query
 from core.taxonomy import build_feed_terms, interest_terms, selected_interests
 from core.config import get_settings
+from core.email_budget import EmailBudget, utc_midnight
 from core.email_components import (
     MUTED,
     _utc,
@@ -1071,13 +1072,94 @@ def preview_daily_digest(
     )
 
 
+def _digest_readers(session: Session, now: datetime) -> list[models.User]:
+    """Budget fairness, independent of digest selection (one batched query).
+
+    Rank unresolved prior-day budget deferrals first, then most recent explicit
+    activity, then total activity count, then oldest successful digest, then id.
+    Activity is creation of bookmarks (all statuses), searches, programme
+    watches and company follows. View/action counters have no user identity;
+    User has no updated_at, and Auth sign-in timestamps miss token refreshes.
+    Worker-updated watch/search cursors are deliberately not activity signals.
+    """
+    activity = union_all(
+        *[
+            select(model.user_id, model.created_at.label("at"))
+            for model in (
+                models.Bookmark,
+                models.SavedSearch,
+                models.ProgrammeWatch,
+                models.DreamCompany,
+            )
+        ]
+    ).subquery()
+    scores = (
+        select(
+            activity.c.user_id,
+            func.max(activity.c.at).label("recent"),
+            func.count().label("count"),
+        )
+        .group_by(activity.c.user_id)
+        .subquery()
+    )
+    ledger = (
+        select(
+            models.Notification.user_id,
+            func.max(case((models.Notification.status == "sent", models.Notification.id))).label(
+                "sent_id"
+            ),
+            func.max(
+                case((models.Notification.status == "sent", models.Notification.sent_at))
+            ).label("last_sent"),
+            func.max(
+                case(
+                    (
+                        (models.Notification.status == "deferred")
+                        & (models.Notification.meta["reason"].astext == "budget")
+                        & (
+                            models.Notification.meta["deferred_at"].astext
+                            < utc_midnight(now).isoformat()
+                        ),
+                        models.Notification.id,
+                    )
+                )
+            ).label("deferred_id"),
+        )
+        .where(
+            models.Notification.type == "digest",
+            models.Notification.channel == "email",
+            models.Notification.status.in_(["sent", "deferred"]),
+        )
+        .group_by(models.Notification.user_id)
+        .subquery()
+    )
+    return list(
+        session.scalars(
+            select(models.User)
+            .outerjoin(scores, scores.c.user_id == models.User.id)
+            .outerjoin(ledger, ledger.c.user_id == models.User.id)
+            .where(*recipient_filters())
+            .order_by(
+                func.coalesce(
+                    ledger.c.deferred_id > func.coalesce(ledger.c.sent_id, 0), False
+                ).desc(),
+                scores.c.recent.desc().nullslast(),
+                scores.c.count.desc().nullslast(),
+                ledger.c.last_sent.asc().nullsfirst(),
+                models.User.id.asc(),
+            )
+        ).all()
+    )
+
+
 def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict:
     now = _utc(now or datetime.now(timezone.utc))
+    budget = EmailBudget.for_step(session, now)
 
-    result = {"sent": 0, "failed": 0, "skipped_capped": 0, "skipped_empty": 0}
+    result = {"sent": 0, "failed": 0, "skipped_capped": 0, "skipped_empty": 0, "skipped_budget": 0}
     picks = _HackathonPicks(session, now)
 
-    for user in session.scalars(select(models.User).where(*recipient_filters())).all():
+    for user in _digest_readers(session, now):
         try:
             # The same user lock protects collection, the UTC-day cap and the
             # outbound send across overlapping scheduler runs. Contenders skip
@@ -1112,6 +1194,21 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
                 session.commit()
                 continue
 
+            if not budget.can_send("digest"):
+                budget.deferred += 1
+                result["skipped_budget"] += 1
+                _record_notification(
+                    session,
+                    user.id,
+                    "digest",
+                    opportunity_id=None,
+                    status="deferred",
+                    # No sent_at: this never advances history or ALERT-03.
+                    meta={"reason": "budget", "deferred_at": now.isoformat()},
+                    now=now,
+                )
+                continue
+
             try:
                 sent = send_email(
                     user.email,
@@ -1124,6 +1221,7 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
                 logger.exception("daily digest delivery failed for user %s", user.id)
                 sent = False
             if sent:
+                budget.record_sent()
                 mark_programme_watch_updates_emailed(session, draft.programme_updates, now)
             _record_notification(
                 session,
@@ -1160,6 +1258,7 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
         finally:
             session.commit()
 
+    budget.log()
     return result
 
 
@@ -1168,6 +1267,7 @@ def send_company_alerts(
 ) -> dict:
     now = now or datetime.now(timezone.utc)
     now = now.replace(tzinfo=timezone.utc) if now.tzinfo is None else now.astimezone(timezone.utc)
+    budget = EmailBudget.for_step(session, now)
     result = {
         "sent": 0,
         "failed": 0,
@@ -1265,6 +1365,9 @@ def send_company_alerts(
             if not selected:
                 result["skipped_empty"] += 1
                 continue
+            if not budget.can_send("instant_alert"):
+                budget.deferred += 1
+                continue
             subject, html, text = render_company_alert(
                 display_name=user.display_name,
                 user_skills=user.skills,
@@ -1283,6 +1386,8 @@ def send_company_alerts(
             except Exception:
                 logger.exception("company alert delivery failed for user %s", user_id)
                 sent = False
+            if sent:
+                budget.record_sent()
             # Commit the complete group together, including cards covered by the more link.
             session.add_all(
                 [
@@ -1305,6 +1410,7 @@ def send_company_alerts(
             result["failed"] += 1
         finally:
             session.commit()
+    budget.log()
     return result
 
 
@@ -1316,6 +1422,7 @@ def send_closing_soon_alerts(
     session: Session, *, now: datetime | None = None, within_days: int = 3
 ) -> dict:
     now = now or datetime.now(timezone.utc)
+    budget = EmailBudget.for_step(session, now)
     cutoff = now + timedelta(days=within_days)
     result = {"users_notified": 0, "opportunities": 0, "failed": 0}
     breaker = load_closure_notice_breaker(session, now)
@@ -1380,6 +1487,9 @@ def send_closing_soon_alerts(
             closed = [o for row, o in pending if row.type == "saved_closed"]
             if not opportunities and not pending:
                 continue
+            if not budget.can_send("closing_soon"):
+                budget.deferred += 1
+                continue
 
             unsub_url = unsubscribe_url(user.id, "closing_soon")
             subject, html = _render_closing_soon(
@@ -1423,6 +1533,20 @@ def send_closing_soon_alerts(
                 )
 
             if sent:
+                budget.record_sent()
+                if not opportunities:
+                    # A notice-only email used to have only in-app rows. Give
+                    # its delivery one email row so later steps count it too.
+                    _record_notification(
+                        session,
+                        user.id,
+                        "saved_listing_notice",
+                        opportunity_id=None,
+                        status="sent",
+                        meta={"notification_ids": [row.id for row, _ in pending]},
+                        now=now,
+                        commit=False,
+                    )
                 for row, _ in pending:
                     row.meta = {**row.meta, "email_pending": False, "emailed_at": now.isoformat()}
                 result["users_notified"] += 1
@@ -1438,6 +1562,7 @@ def send_closing_soon_alerts(
             session.commit()
 
     breaker.log_held()
+    budget.log()
     return result
 
 

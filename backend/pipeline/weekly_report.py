@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session, joinedload
 from api.filters import exclude_stale_opportunities, followed_company_match
 from core import ai_budget, ai_client, models
 from core.config import get_settings
+from core.email_budget import EmailBudget
 from core.email_components import MUTED, TABLE, greeting, opportunity_card, section, status_panel
 from core.email_templates import email_layout, text_footer
 from core.gating import can
@@ -289,6 +290,7 @@ def _record_delivery(
 def send_weekly_reports(session: Session, *, now: datetime | None = None) -> dict[str, int]:
     """Build and send at most one report per eligible user per ISO week."""
     current = _as_utc(now or datetime.now(timezone.utc))
+    budget = EmailBudget.for_step(session, current)
     result = {
         "sent": 0,
         "failed": 0,
@@ -310,6 +312,7 @@ def send_weekly_reports(session: Session, *, now: datetime | None = None) -> dic
         recipients.append(user)
 
     if not recipients:
+        budget.log()
         return result
 
     since = current - REPORT_LOOKBACK
@@ -321,6 +324,9 @@ def send_weekly_reports(session: Session, *, now: datetime | None = None) -> dic
         try:
             user = lock_recipient(session, user.id)
             if user is None:
+                continue
+            if not budget.can_send("weekly_report"):
+                budget.deferred += 1
                 continue
             data = WeeklyReportData(
                 dream_company_matches=_recent_dream_company_matches(
@@ -345,6 +351,8 @@ def send_weekly_reports(session: Session, *, now: datetime | None = None) -> dic
                 text,
                 headers=list_unsubscribe_headers(user.id, "weekly_report"),
             )
+            if sent:
+                budget.record_sent()
             _record_delivery(session, user, data, now=current, sent=sent)
             result["sent" if sent else "failed"] += 1
         except Exception:
@@ -355,4 +363,5 @@ def send_weekly_reports(session: Session, *, now: datetime | None = None) -> dic
         finally:
             session.commit()
 
+    budget.log()
     return result

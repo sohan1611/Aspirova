@@ -61,9 +61,10 @@ def _notification_copy(
 
 
 def _delivered_notification_filter():
-    return or_(
-        models.Notification.status == "sent",
-        models.Notification.sent_at.is_not(None),
+    # Accounting-only row for notice-only mail; the existing saved_* in-app
+    # notices already represent its content, so never add a duplicate card.
+    return (models.Notification.type != "saved_listing_notice") & or_(
+        models.Notification.status == "sent", models.Notification.sent_at.is_not(None)
     )
 
 
