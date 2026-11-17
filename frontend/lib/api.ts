@@ -1,3 +1,4 @@
+import type { HomeDesk } from "./home";
 import { fetchListing, type ListingSnapshot } from "./listingFetch";
 import { appendRoleSignalParams, type RoleSignalParams } from "./roleSignalQuery";
 import type {
@@ -135,6 +136,7 @@ function throwResumeApiError(res: Response, action: string): never {
 }
 
 export interface FeedParams extends RoleSignalParams {
+  deadline_confidence?: "explicit";
   category?: "internship" | "job" | "hackathon" | "competition" | "scholarship";
   kind?: "roles" | "competitions";
   source?: "direct" | "unstop" | "remoteok" | "devpost";
@@ -244,6 +246,7 @@ export async function getFeed(
 ): Promise<ListingSnapshot<FeedResponse>> {
   const search = new URLSearchParams();
   if (params.category) search.set("category", params.category);
+  if (params.deadline_confidence) search.set("deadline_confidence", params.deadline_confidence);
   if (params.kind) search.set("kind", params.kind);
   if (params.source) search.set("source", params.source);
   if (params.experience) search.set("experience", params.experience);
@@ -861,4 +864,17 @@ export async function exportAccountData(accessToken: string): Promise<Record<str
   });
   if (!res.ok) throw new Error("We couldn't download your data. Please try again.");
   return res.json();
+}
+
+export async function getHomeDesk(accessToken: string, signal?: AbortSignal): Promise<HomeDesk> {
+  const timeout = AbortSignal.timeout(20_000);
+  const response = await fetch(`${API_URL}/home/desk`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: "no-store",
+    signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+  });
+  if (!response.ok) throw new Error("Couldn't load your action desk");
+  const data = await response.json();
+  if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("Invalid action desk response");
+  return data;
 }

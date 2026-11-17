@@ -65,6 +65,7 @@ def get_feed(
     mode: list[str] | None = Query(None),
     prize_min: int | None = Query(None, ge=0),
     status: str | None = Query(None, pattern="^(open|closed)$"),
+    deadline_confidence: str | None = Query(None, pattern="^explicit$"),
     paid: bool | None = Query(None),
     min_stipend: int | None = Query(None, ge=0),
     part_time: bool | None = Query(None),
@@ -104,6 +105,15 @@ def get_feed(
         ),
     ]
     base_filters.extend(kind_filters(kind))
+    if deadline_confidence is not None:
+        base_filters.extend(
+            [
+                models.Opportunity.deadline_confidence == deadline_confidence,
+                models.Opportunity.deadline.is_not(None),
+                models.Opportunity.is_hidden.is_not(True),
+                models.Opportunity.meta["safety"].astext.is_(None),
+            ]
+        )
     if source is not None:
         base_filters.append(models.Opportunity.primary_source.in_(SOURCE_GROUPS[source]))
 
@@ -160,6 +170,7 @@ def get_feed(
                 mode,
                 prize_min,
                 status,
+                deadline_confidence,
                 paid,
                 min_stipend,
                 part_time,

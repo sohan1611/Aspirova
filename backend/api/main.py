@@ -13,6 +13,7 @@ from api import (
     facets,
     feed,
     for_you,
+    home,
     notifications,
     opportunity,
     payments,
@@ -57,6 +58,7 @@ app.add_middleware(
 
 app.include_router(feed.router)
 app.include_router(for_you.router)
+app.include_router(home.router)
 app.include_router(account.router)
 app.include_router(search.router)
 app.include_router(opportunity.router)

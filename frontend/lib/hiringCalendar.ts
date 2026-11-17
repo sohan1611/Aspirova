@@ -493,9 +493,9 @@ export function eventsOnDay(items: CalendarItem[], day: string): RegistrationEve
   return items.flatMap(registrationEvents).filter((event) => event.precision === "day" && event.from === day);
 }
 
-export async function fetchCalendar(query: CalendarQuery, options?: RequestInit): Promise<CalendarResponse> {
+export async function fetchCalendar(query: CalendarQuery, options?: RequestInit, revalidateSeconds = 3600): Promise<CalendarResponse> {
   const base = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
   // Fetch the complete period so search, facets and quick filters are immediate and local.
   const bounded = { ...query, ...clampRange(query.from, query.to), category: [], status: "", q: "" };
-  return fetchListing<CalendarResponse>(`${base}/calendar?${calendarParams(bounded, true)}`, 3600, "calendar", options?.signal ?? undefined);
+  return fetchListing<CalendarResponse>(`${base}/calendar?${calendarParams(bounded, true)}`, revalidateSeconds, "calendar", options?.signal ?? undefined);
 }

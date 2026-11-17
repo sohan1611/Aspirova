@@ -15,7 +15,7 @@ export default function Loading() {
 
       <BrandLoading />
 
-      <SignedOutHero />
+      <SignedOutHero asOf={0} />
 
       <div className="mb-6 scroll-mt-20 pt-10" aria-hidden="true">
         <div className="flex flex-col gap-3">
