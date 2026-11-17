@@ -2,6 +2,8 @@
 
 from dataclasses import asdict, dataclass
 from datetime import date
+from hashlib import sha256
+import json
 import re
 
 from sqlalchemy import select, text
@@ -10,6 +12,17 @@ from sqlalchemy.orm import Session, selectinload
 from core import hiring_calendar as source
 from core.calendar_public import STATUS_LABELS, build_calendar, default_calendar_window
 from core.models import Programme
+
+
+def source_digest(source_data: dict, metadata: dict) -> str:
+    """Identify both loaded source objects, independent of JSON formatting."""
+
+    def canonical(value: dict) -> bytes:
+        return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode(
+            "utf-8"
+        )
+
+    return sha256(canonical(source_data) + b"\n" + canonical(metadata)).hexdigest()[:16]
 
 
 @dataclass(frozen=True)
@@ -33,6 +46,7 @@ class CalendarWindow:
 
 @dataclass(frozen=True)
 class CalendarReconciliation:
+    source_digest: str
     source_rows: int
     metadata_programmes: int
     rows_without_metadata: int
@@ -174,6 +188,7 @@ def reconcile_calendar(session: Session, *, today: date) -> CalendarReconciliati
             unexplained.append(reference)
     missing_meta, missing_rows = metadata_gaps()
     return CalendarReconciliation(
+        source_digest=source_digest(source.SOURCE, source.METADATA),
         source_rows=len(source.SOURCE["opportunities"]),
         metadata_programmes=len(source.CALENDAR_META),
         rows_without_metadata=len(missing_meta),

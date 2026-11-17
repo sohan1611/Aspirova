@@ -12,7 +12,8 @@ and robots.txt. Detail JSON-LD presence is recorded, not required: the frontend
 intentionally omits it for listings without complete eligible JobPosting metadata.
 
 Every page check runs at desktop **1280×800** and mobile **390×844**. A normal run
-makes **14 page visits** plus four HTTP checks (one extra health request on retry).
+makes **14 page visits** plus four HTTP checks (one extra health request on retry,
+plus calendar coverage polls while waiting for the backend deploy).
 It does not traverse sitemap entries, paginate, or run optional search queries.
 
 Install once, then run (this contacts production by default):
@@ -53,6 +54,21 @@ published. Pending imports are recorded in test output and failure context but
 are allowed immediately after deploy; the daily refresh gates those after import.
 Source rows track programmes, not a count of open opportunities. See the
 [CAL-04 audit](../docs/audits/2026-11-17-cal-04-calendar-reconciliation.md).
+
+Before comparing counts, the canary waits up to **360 seconds**, polling every
+**20 seconds**, for a 200 coverage response whose `source_digest` matches both
+checked-out calendar JSON files. Vercel and Render deploy independently: the
+frontend can finish while the API still serves the preceding source data or
+returns 404 for a newly added endpoint. Connection failures are failed polls too.
+A wait logs elapsed seconds and poll count; a timeout reports the expected digest,
+last HTTP status and last digest, and points to the Render deploy. A matching
+response is checked immediately, so genuine coverage failures still fail.
+
+The digest is the first 16 hex characters of SHA-256 over canonical source JSON,
+a single newline byte, then canonical metadata JSON. Each object is encoded with
+`json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)`
+and UTF-8, so formatting and line endings do not affect deployment identity.
+This remains anonymous and read-only; it never triggers a deploy or import.
 
 The pure comparison cases in `tests/test_calendar_coverage.py` run without network
 or browser fixtures: `uv run pytest tests/test_calendar_coverage.py`.
