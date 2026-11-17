@@ -9,7 +9,15 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from core.db import make_engine
-from core.hiring_calendar import CALENDAR_META, IST, METADATA, ROWS, month_date, source_window
+from core.hiring_calendar import (
+    CALENDAR_META,
+    IST,
+    METADATA,
+    ROWS,
+    category_for,
+    month_date,
+    source_window,
+)
 from core.models import Programme, ProgrammeEdition
 
 logger = logging.getLogger(__name__)
@@ -86,32 +94,6 @@ def _restore_opening_windows(session: Session, programme_id: int, meta: dict, wi
             edition.closes_at = month_date(opening.year, opening.month, end=True)
         if "calendar_deadline_rolling" not in notes:
             edition.notes = f"{notes}\ncalendar_deadline_rolling".strip()
-
-
-def category_for(row: dict) -> str:
-    if row["category"] in {
-        "open_source",
-        "early_career",
-        "government_exam",
-        "research_internship",
-        "government_internship",
-        "international_research",
-        "corporate_research",
-        "recurring_competition",
-        "scholarship",
-        "fellowship",
-        "conference",
-    }:
-        return row["category"]
-    if row["category"] == "Govt":
-        return "government_internship"
-    if row["category"] == "Competition":
-        return "recurring_competition"
-    if row["category"] == "Tech":
-        return "early_career"
-    return (
-        "research_internship" if row["geography"].startswith("India") else "international_research"
-    )
 
 
 def _import_row(session: Session, slug: str, meta: dict) -> None:

@@ -17,6 +17,7 @@ ROWS = {row["id"]: row for row in SOURCE["opportunities"]}
 META_BY_NAME = {
     (ROWS[meta["row_id"]]["opportunity"].casefold(), meta["organiser"].casefold()): meta
     for meta in CALENDAR_META.values()
+    if meta["row_id"] in ROWS
 }
 META_BY_NAME.update(
     {
@@ -45,7 +46,8 @@ ROLLING_KINDS = {
 
 
 def calendar_metadata(slug: str, name: str, organiser: str) -> dict:
-    return CALENDAR_META.get(slug, META_BY_NAME.get((name.casefold(), organiser.casefold()), {}))
+    meta = CALENDAR_META.get(slug, META_BY_NAME.get((name.casefold(), organiser.casefold()), {}))
+    return meta if meta.get("row_id") in ROWS else {}
 
 
 def recurrence_is_official(meta: dict) -> bool:
@@ -222,4 +224,30 @@ def shift_year(value: datetime | None) -> datetime | None:
         return None
     return value.replace(
         year=value.year + 1, day=min(value.day, calendar.monthrange(value.year + 1, value.month)[1])
+    )
+
+
+def category_for(row: dict) -> str:
+    if row["category"] in {
+        "open_source",
+        "early_career",
+        "government_exam",
+        "research_internship",
+        "government_internship",
+        "international_research",
+        "corporate_research",
+        "recurring_competition",
+        "scholarship",
+        "fellowship",
+        "conference",
+    }:
+        return row["category"]
+    if row["category"] == "Govt":
+        return "government_internship"
+    if row["category"] == "Competition":
+        return "recurring_competition"
+    if row["category"] == "Tech":
+        return "early_career"
+    return (
+        "research_internship" if row["geography"].startswith("India") else "international_research"
     )

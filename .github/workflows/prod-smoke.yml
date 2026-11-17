@@ -29,6 +29,9 @@ jobs:
       SMOKE_API_URL: https://aspirova-api.onrender.com
     steps:
       - uses: actions/checkout@v4
+        with:
+          # A deployment event can arrive after the branch has advanced.
+          ref: ${{ github.event.deployment.sha || github.sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"

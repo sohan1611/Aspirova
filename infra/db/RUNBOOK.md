@@ -318,3 +318,11 @@ Manual closures also survive cleanup, preventing a later crawl from recreating t
 Withdrawals reuse `scripts.flag_listing.flag_listing`; clearing a safety flag cannot reopen a
 manual report closure. Account deletion still purges owned reports and notifications.
 Reporting is never attributed publicly and never changes the reporter's account or plan.
+
+## Calendar reconciliation
+
+For the daily refresh's `Calendar reconciliation` line, public `/calendar/coverage`
+metrics and recovery when the refresh gate goes red, see the
+[CAL-04 calendar reconciliation audit](../../docs/audits/2026-11-17-cal-04-calendar-reconciliation.md).
+Source rows, active programmes and published programmes are separate counts;
+the refresh commits its import before checking unexplained or pending rows.

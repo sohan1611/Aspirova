@@ -1,14 +1,17 @@
 """Small production canaries: no login, form submissions, or outbound clicks."""
 
+import json
 import re
 import time
 from collections.abc import Callable
+from pathlib import Path
 from urllib.parse import urlsplit
 from xml.etree import ElementTree
 
 import pytest
 from playwright.sync_api import Error, Page, expect
 
+from calendar_coverage import assert_calendar_coverage
 from conftest import Diagnostics
 
 VIEWPORTS = [
@@ -16,6 +19,26 @@ VIEWPORTS = [
     pytest.param({"width": 390, "height": 844}, id="mobile"),
 ]
 CARD_SELECTOR = 'main a[href^="/opportunity/"][aria-label]'
+
+
+def test_calendar_coverage(
+    page: Page, api_url: str, record_property: Callable[[str, object], None]
+) -> None:
+    source_path = (
+        Path(__file__).resolve().parents[2] / "backend/data/hiring_calendar_2027.json"
+    )
+    source_rows = len(
+        json.loads(source_path.read_text(encoding="utf-8"))["opportunities"]
+    )
+    url = f"{api_url}/calendar/coverage"
+    response = page.request.get(url, timeout=60_000)
+    assert response.status == 200, f"GET {url} returned {response.status}"
+    coverage = response.json()
+    record_property(
+        "calendar_pending_import", json.dumps(coverage.get("pending_import"))
+    )
+    print(f"Calendar pending import (allowed): {coverage.get('pending_import')}")
+    assert_calendar_coverage(coverage, source_rows)
 
 
 def visit(page: Page, site_url: str, path: str) -> None:

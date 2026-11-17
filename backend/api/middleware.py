@@ -122,9 +122,8 @@ def _match_rate_limit(path: str) -> tuple[str, str] | None:
 
 
 def _is_cacheable(path: str) -> bool:
-    # Calendar subroutes carry a user's private watch state. Only the public
-    # calendar itself belongs in the shared read cache.
-    if path.startswith("/calendar/"):
+    # Watch subroutes are private; coverage is public and uses /calendar's TTL.
+    if path.startswith("/calendar/") and path != "/calendar/coverage":
         return False
     return any(path == prefix or path.startswith(prefix) for prefix in _CACHEABLE_PREFIXES)
 

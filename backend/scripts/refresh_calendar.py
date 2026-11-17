@@ -1,6 +1,7 @@
 """Daily conservative calendar refresh. Usage: uv run python -m scripts.refresh_calendar."""
 
 from datetime import datetime
+import json
 import logging
 
 import httpx
@@ -9,6 +10,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, selectinload
 
 from core.db import make_engine
+from core.calendar_reconciliation import reconcile_calendar
 from core.hiring_calendar import (
     IST,
     calendar_metadata,
@@ -180,7 +182,16 @@ def main() -> None:
     with httpx.Client() as client, Session(make_engine()) as session:
         summary = refresh_calendar(session, CalendarPageFetcher(client))
         session.commit()
+        # Re-read after commit (including raw INSERT roll-forwards). A failed gate
+        # must leave the completed import/liveness work committed for inspection.
+        reconciliation = reconcile_calendar(session, today=datetime.now(IST).date())
+        logger.info(
+            "Calendar reconciliation %s", json.dumps(reconciliation.to_dict(), sort_keys=True)
+        )
+        failed = bool(reconciliation.pending_import or reconciliation.unexplained)
     logger.info("Calendar summary %s", summary)
+    if failed:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
