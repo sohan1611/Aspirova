@@ -52,7 +52,7 @@ export type BookmarkStage =
   | "offer"
   | "archived";
 
-export type BugReportCategory = "dead_link" | "wrong_info" | "bug" | "other" | "scam";
+export type BugReportCategory = "dead_link" | "wrong_deadline" | "wrong_company" | "duplicate" | "wrong_info" | "bug" | "other" | "scam";
 
 export interface BugReportRequest {
   category: BugReportCategory;
@@ -64,6 +64,20 @@ export interface BugReportRequest {
 
 export interface BugReportResponse {
   ok: boolean;
+  reference: string;
+}
+
+export interface ReportStatus {
+  reference: string;
+  category: BugReportCategory;
+  status: "open" | "triaged" | "resolved";
+  created_at: string;
+  triaged_at: string | null;
+  resolved_at: string | null;
+  resolution: string | null;
+  resolution_note: string | null;
+  listing_slug: string | null;
+  listing_title: string | null;
 }
 
 export type SavedOpportunityItem = OpportunityListItem & {
@@ -126,7 +140,14 @@ export interface ApplyDestination {
   label: string | null;
 }
 
+export interface ListingCorrection {
+  at: string;
+  field: string;
+  summary: string;
+}
+
 export interface OpportunityDetail extends OpportunityListItem {
+  corrections?: ListingCorrection[];
   destination?: ApplyDestination;
   description_raw: string;
   apply_url: string;

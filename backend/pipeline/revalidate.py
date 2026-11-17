@@ -2,15 +2,25 @@
 
 import logging
 import os
+import re
 from collections.abc import Iterable
 
 import httpx
+
+from core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
 REVALIDATION_BATCH_SIZE = 500
 MAX_CHANGED_SLUGS = 5_000
 REQUEST_TIMEOUT_SECONDS = 10.0
+API_REFRESH_TIMEOUT_SECONDS = 5.0
+MAX_SLUG_LENGTH = 120
+SLUG_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]*")
+LOCAL_REVALIDATION_WARNING = (
+    "Frontend revalidation is not configured locally (REVALIDATE_URL / "
+    "REVALIDATE_SECRET missing from backend/.env). The listing page may stay stale for up to 7 days."
+)
 
 # Every ISR-cached list page. Kept in sync with REVALIDATABLE_LIST_PATHS in
 # frontend/lib/landing.ts, which is also what the frontend validates against -
@@ -38,7 +48,7 @@ def _notify_landing_paths(url: str, secret: str) -> int:
     return len(LANDING_PATHS)
 
 
-def notify_changed(slugs: Iterable[str]) -> dict[str, int | str]:
+def notify_changed(slugs: Iterable[str], *, landing: bool = True) -> dict[str, int | str]:
     """Notify the frontend of changed slugs without ever failing a crawl."""
     result: dict[str, int | str] = {
         "status": "unconfigured",
@@ -50,8 +60,9 @@ def notify_changed(slugs: Iterable[str]) -> dict[str, int | str]:
     }
 
     try:
-        url = os.getenv("REVALIDATE_URL", "").strip()
-        secret = os.getenv("REVALIDATE_SECRET", "").strip()
+        settings = get_settings()
+        url = os.getenv("REVALIDATE_URL", settings.revalidate_url).strip()
+        secret = os.getenv("REVALIDATE_SECRET", settings.revalidate_secret).strip()
     except Exception as exc:
         logger.warning(
             "Could not read revalidation configuration; notification skipped (error=%s)",
@@ -67,7 +78,8 @@ def notify_changed(slugs: Iterable[str]) -> dict[str, int | str]:
     # of it: a crawl changes what the list pages show (new rows, expiries,
     # counts) even when no individual opportunity's own detail page changed, so
     # gating this on a non-empty slug set would leave the lists stale.
-    result["paths_notified"] = _notify_landing_paths(url, secret)
+    if landing:
+        result["paths_notified"] = _notify_landing_paths(url, secret)
 
     unique_slugs: list[str] = []
     seen: set[str] = set()
@@ -124,4 +136,70 @@ def notify_changed(slugs: Iterable[str]) -> dict[str, int | str]:
         result["status"] = "failed"
     else:
         result["status"] = "partial"
+    return result
+
+
+def refresh_api_details(slugs: Iterable[str]) -> dict[str, int | str]:
+    """Replace API detail entries before founder-triggered ISR revalidation.
+
+    Best-effort and bounded like notify_changed. Match the frontend revalidation
+    endpoint's slug allowlist before interpolating any path into an HTTP URL.
+    """
+    result: dict[str, int | str] = {
+        "status": "empty",
+        "changed": 0,
+        "refreshed": 0,
+        "failed": 0,
+        "invalid": 0,
+    }
+    unique_slugs: list[str] = []
+    seen: set[str] = set()
+    try:
+        for slug in slugs:
+            if (
+                not isinstance(slug, str)
+                or len(slug) > MAX_SLUG_LENGTH
+                or not SLUG_PATTERN.fullmatch(slug)
+            ):
+                result["invalid"] += 1
+                continue
+            if slug in seen:
+                continue
+            seen.add(slug)
+            unique_slugs.append(slug)
+            if len(unique_slugs) > MAX_CHANGED_SLUGS:
+                result["status"] = "skipped_limit"
+                result["changed"] = len(unique_slugs)
+                return result
+    except Exception as exc:
+        logger.warning("Could not collect API refresh slugs (error=%s)", type(exc).__name__)
+        result["status"] = "collection_error"
+        return result
+    result["changed"] = len(unique_slugs)
+    if not unique_slugs:
+        return result
+    try:
+        base_url = get_settings().api_base_url.strip().rstrip("/")
+    except Exception as exc:
+        logger.warning("Could not read API refresh configuration (error=%s)", type(exc).__name__)
+        result["status"] = "configuration_error"
+        return result
+    if not base_url:
+        result["status"] = "unconfigured"
+        return result
+    for slug in unique_slugs:
+        try:
+            response = httpx.get(
+                f"{base_url}/opportunity/{slug}",
+                headers={"X-Aspirova-Refresh": "1"},
+                timeout=API_REFRESH_TIMEOUT_SECONDS,
+            )
+            response.raise_for_status()
+            result["refreshed"] += 1
+        except Exception as exc:
+            result["failed"] += 1
+            logger.warning("API detail refresh failed (error=%s)", type(exc).__name__)
+    result["status"] = (
+        "ok" if result["failed"] == 0 else "partial" if result["refreshed"] else "failed"
+    )
     return result

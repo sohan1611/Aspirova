@@ -258,7 +258,15 @@ class ReadCacheMiddleware(BaseHTTPMiddleware):
         # from an L2 hit with the same TTL the route would have written.
         ttl_seconds = _cache_ttl_seconds(request.url.path)
 
-        cached = await cache_get(redis, key, l1_ttl_seconds=ttl_seconds)
+        # Founder corrections must replace the cached detail before ISR fetches
+        # it. Other routes keep their normal TTL even if this header is present.
+        refresh_detail = (
+            request.headers.get("X-Aspirova-Refresh") == "1"
+            and request.url.path.startswith("/opportunity/")
+            and len(request.url.path.split("/")) == 3
+            and bool(request.url.path.rsplit("/", 1)[1])
+        )
+        cached = None if refresh_detail else await cache_get(redis, key, l1_ttl_seconds=ttl_seconds)
         if cached is not None:
             return Response(
                 content=cached,

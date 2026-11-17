@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     # Where the API itself is reachable. Needed for one-click unsubscribe, whose
     # URL Gmail POSTs to directly - that endpoint is on the API, not the site.
     api_base_url: str = "https://aspirova-api.onrender.com"
+    # Founder scripts load these from backend/.env; Actions supplies the same
+    # values through its existing environment secrets.
+    revalidate_url: str = ""
+    revalidate_secret: str = ""
     # Signs unsubscribe tokens. GitHub Actions and Render must use the same
     # value; DATABASE_URL is only a warned compatibility fallback because URL
     # differences and database migrations invalidate every outstanding link.

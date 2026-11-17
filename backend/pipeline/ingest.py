@@ -49,7 +49,7 @@ from sqlalchemy.orm import Session
 from core import models
 from core.adapters import NormalizedListing, RawListing
 from core.destination import DIRECT_SOURCE_SLUGS, classify_destination
-from core.listing_safety import safety_flag
+from core.listing_safety import has_manual_closure, safety_flag
 from core.summarise import summarise_description
 from core.textclean import fix_multiline_text, fix_text
 from pipeline.competition_signals import merge_competition_signals
@@ -66,9 +66,21 @@ ROLE_DISPLAY_KEYS = ("compensation", "duration_months", "part_time", "job_offer"
 def _listing_meta(
     normalized: NormalizedListing, country: str | None, existing: dict | None = None
 ) -> dict | None:
+    protected = {
+        "safety",
+        "closed_reason",
+        "duplicate_of",
+        "corrections",
+        "deadline_override",
+        "company_override",
+    }
+    incoming = {k: v for k, v in _copy_meta(normalized.meta).items() if k not in protected}
+    meta = {**_copy_meta(existing), **incoming}
     if normalized.category not in {"internship", "job"}:
-        return merge_competition_signals(normalized.meta, normalized.category) or None
-    meta = {**_copy_meta(existing), **_copy_meta(normalized.meta)}
+        # Refresh source-owned competition signals as before; retain only the
+        # founder-owned keys from prior metadata.
+        meta = {**incoming, **{k: v for k, v in _copy_meta(existing).items() if k in protected}}
+        return merge_competition_signals(meta, normalized.category) or None
     old_pay = (existing or {}).get("compensation")
     incoming_pay = meta.get("compensation")
     incoming_unstop = isinstance(incoming_pay, dict) and incoming_pay.get("source") == "unstop"
@@ -160,6 +172,8 @@ class BoardState:
     """Everything ingest_one() needs, pre-fetched once per board instead
     of re-queried per listing."""
 
+    locked_transaction: object | None = field(default=None, init=False, repr=False)
+    locked_ids: set[int] = field(default_factory=set, init=False, repr=False)
     raw_by_external_id: dict[str, models.RawListing] = field(default_factory=dict)
     opportunities_by_id: dict[int, models.Opportunity] = field(default_factory=dict)
     opportunities_by_slug: dict[str, models.Opportunity] = field(default_factory=dict)
@@ -219,6 +233,42 @@ def load_board_state(
     return BoardState(
         raw_by_external_id, opportunities_by_id, opportunities_by_slug, provenance_by_key
     )
+
+
+def _lock_existing_opportunity(
+    session: Session,
+    board_state: BoardState,
+    opportunity_id: int,
+) -> models.Opportunity:
+    """Refresh and lock in bulk once per board/transaction, preserving Lever-1.
+
+    A founder may correct rows after board prefetch or between batch commits.
+    Reload under the lock before any canonical write; otherwise stale ORM meta
+    could erase the correction. A company override outside this board's cache
+    uses the rare single-ID fallback.
+    """
+    transaction = session.get_transaction()
+    if board_state.locked_transaction is not transaction:
+        board_state.locked_ids.clear()
+    if opportunity_id not in board_state.locked_ids:
+        ids = set(board_state.opportunities_by_id) - board_state.locked_ids
+        ids.add(opportunity_id)
+        rows = session.scalars(
+            select(models.Opportunity)
+            .where(models.Opportunity.id.in_(ids))
+            .order_by(models.Opportunity.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        ).all()
+        for row in rows:
+            board_state.opportunities_by_id[row.id] = row
+            board_state.opportunities_by_slug[row.slug] = row
+        board_state.locked_ids.update(row.id for row in rows)
+        board_state.locked_transaction = session.get_transaction()
+    opportunity = board_state.opportunities_by_id.get(opportunity_id)
+    if opportunity is None:
+        raise ValueError(f"Linked opportunity no longer exists: {opportunity_id}")
+    return opportunity
 
 
 def _ensure_provenance(
@@ -327,13 +377,12 @@ def ingest_one(
         # opportunity at the SAME deterministic slug (the hash suffix is
         # derived from external_id|source_url, neither of which changed),
         # raising opportunities_slug_key.
-        opportunity = board_state.opportunities_by_id.get(raw_row.opportunity_id)
-        if opportunity is None:
-            # Defensive fallback only - the bulk pre-fetch loads every
-            # opportunity for this company, so this should not happen in
-            # practice; a direct lookup keeps correctness if it ever does.
-            opportunity = session.get(models.Opportunity, raw_row.opportunity_id)
-        if safety_flag(opportunity) is not None or opportunity.status == "withdrawn":
+        opportunity = _lock_existing_opportunity(session, board_state, raw_row.opportunity_id)
+        if (
+            safety_flag(opportunity) is not None
+            or opportunity.status == "withdrawn"
+            or has_manual_closure(opportunity)
+        ):
             raw_row.processed = True
             _ensure_provenance(
                 session, board_state, opportunity, source_id, raw, raw_row, is_primary=False
@@ -372,8 +421,9 @@ def ingest_one(
                 opportunity.apply_url = normalized.apply_url
                 opportunity.category = normalized.category
                 opportunity.posted_at = normalized.posted_at
-                opportunity.deadline = normalized.deadline
-                opportunity.deadline_confidence = normalized.deadline_confidence
+                if "deadline_override" not in (opportunity.meta or {}):
+                    opportunity.deadline = normalized.deadline
+                    opportunity.deadline_confidence = normalized.deadline_confidence
                 opportunity.skills = extract_opportunity_skills(
                     normalized.title,
                     opportunity.description_raw or "",
@@ -460,7 +510,12 @@ def ingest_one(
     )
 
     if match is not None:
-        if safety_flag(match) is not None or match.status == "withdrawn":
+        match = _lock_existing_opportunity(session, board_state, match.id)
+        if (
+            safety_flag(match) is not None
+            or match.status == "withdrawn"
+            or has_manual_closure(match)
+        ):
             raw_row.opportunity_id = match.id
             raw_row.processed = True
             _ensure_provenance(
@@ -482,6 +537,16 @@ def ingest_one(
         slug = _make_opportunity_slug(normalized.company_name, normalized.title, raw)
         existing_by_slug = board_state.opportunities_by_slug.get(slug)
         if existing_by_slug is not None:
+            existing_by_slug = _lock_existing_opportunity(session, board_state, existing_by_slug.id)
+        else:
+            # Company corrections can move a row out of this board's company cache.
+            existing_by_slug = session.scalar(
+                select(models.Opportunity)
+                .where(models.Opportunity.slug == slug)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        if existing_by_slug is not None:
             # Safety net for the variant where raw_listings was pruned
             # (Doc 03 sec 8 retention policy) but the opportunity it
             # originally created still exists: there's no raw_row to
@@ -489,7 +554,11 @@ def ingest_one(
             # still a reliable merge key. Soft-merge instead of a hard
             # INSERT failure.
             opportunity = existing_by_slug
-            if safety_flag(opportunity) is not None or opportunity.status == "withdrawn":
+            if (
+                safety_flag(opportunity) is not None
+                or opportunity.status == "withdrawn"
+                or has_manual_closure(opportunity)
+            ):
                 raw_row.opportunity_id = opportunity.id
                 raw_row.processed = True
                 _ensure_provenance(

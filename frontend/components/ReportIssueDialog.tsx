@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -27,8 +28,11 @@ import type { BugReportCategory } from "@/lib/types";
 
 const REPORT_CATEGORIES: Array<{ value: BugReportCategory; label: string }> = [
   { value: "scam", label: "Looks like a scam or asks for a fee" },
-  { value: "dead_link", label: "Dead link" },
-  { value: "wrong_info", label: "Wrong info" },
+  { value: "dead_link", label: "Dead link or already closed" },
+  { value: "wrong_deadline", label: "Wrong deadline" },
+  { value: "wrong_company", label: "Wrong company" },
+  { value: "duplicate", label: "Duplicate of another listing" },
+  { value: "wrong_info", label: "Other wrong information" },
   { value: "bug", label: "Something's broken" },
   { value: "other", label: "Other" },
 ];
@@ -39,11 +43,11 @@ interface ReportIssueFormProps {
 
 export function ReportIssueForm({ opportunitySlug }: ReportIssueFormProps) {
   const session = useSession();
-  const [category, setCategory] = useState<BugReportCategory>("dead_link");
+  const [category, setCategory] = useState<BugReportCategory>(opportunitySlug ? "dead_link" : "bug");
   const [message, setMessage] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [reference, setReference] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -59,7 +63,7 @@ export function ReportIssueForm({ opportunitySlug }: ReportIssueFormProps) {
     setSubmitting(true);
 
     try {
-      await submitBugReport(
+      const receipt = await submitBugReport(
         {
           category,
           message: trimmedMessage,
@@ -69,7 +73,7 @@ export function ReportIssueForm({ opportunitySlug }: ReportIssueFormProps) {
         },
         session?.access_token,
       );
-      setSubmitted(true);
+      setReference(receipt.reference);
     } catch {
       setError("We couldn't send your report. Please try again.");
     } finally {
@@ -77,16 +81,16 @@ export function ReportIssueForm({ opportunitySlug }: ReportIssueFormProps) {
     }
   }
 
-  if (submitted) {
+  if (reference) {
     return (
       <div
         className="rounded-lg border border-primary/20 bg-primary/5 p-4"
         role="status"
         aria-live="polite"
       >
-        <p className="font-medium text-foreground">Thanks — we&apos;ll look into it.</p>
+        <p className="font-medium text-foreground">Thanks — report {reference} received. We review reports within 2 days.</p>
         <p className="mt-1 text-sm leading-6 text-muted-foreground">
-          Your report has been sent straight to the founder.
+          <Link href={`/report/status?ref=${encodeURIComponent(reference)}`} className="text-primary underline underline-offset-4">Check report status</Link>
         </p>
       </div>
     );
@@ -104,7 +108,7 @@ export function ReportIssueForm({ opportunitySlug }: ReportIssueFormProps) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {REPORT_CATEGORIES.map((reportCategory) => (
+            {REPORT_CATEGORIES.filter(({ value }) => opportunitySlug || ["wrong_info", "bug", "other"].includes(value)).map((reportCategory) => (
               <SelectItem key={reportCategory.value} value={reportCategory.value}>
                 {reportCategory.label}
               </SelectItem>

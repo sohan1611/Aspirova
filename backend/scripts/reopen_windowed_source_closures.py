@@ -41,7 +41,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
 from core import models
-from core.listing_safety import without_safety_flag
+from core.listing_safety import without_manual_override, without_safety_flag
 from core.db import make_engine
 
 # Sources whose crawl enumerates the complete open inventory, so absence really
@@ -62,6 +62,7 @@ def _matching_filters(*, since: date) -> tuple[ColumnElement[bool], ...]:
         models.Opportunity.company_id == models.Company.id,
         models.Opportunity.status == "active",
         without_safety_flag(),
+        without_manual_override(),
         models.Opportunity.closed_at.is_not(None),
         func.date(models.Opportunity.closed_at) >= since,
         models.Opportunity.primary_source.not_in(FULL_INVENTORY_SOURCES),
@@ -143,6 +144,7 @@ def reopen(session: Session, *, since: date) -> int:
                 models.Opportunity.id.in_(chunk),
                 models.Opportunity.status == "active",
                 without_safety_flag(),
+                without_manual_override(),
             )
             .values(closed_at=None)
             .execution_options(synchronize_session=False)

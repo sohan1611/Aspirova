@@ -117,3 +117,14 @@ jobs:
           RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
           PYTHONUNBUFFERED: "1"
         run: uv run python -m scripts.notification_worker --saved-search-alerts
+
+      - name: Remind founder about overdue reports
+        if: always() && !cancelled()
+        continue-on-error: true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
+          WAITLIST_NOTIFY_EMAIL: ${{ secrets.WAITLIST_NOTIFY_EMAIL }}
+          PYTHONUNBUFFERED: "1"
+        run: uv run python -m scripts.reports remind

@@ -6,6 +6,7 @@ import type {
   BookmarkStage,
   BugReportRequest,
   BugReportResponse,
+  ReportStatus,
   CompanyListItem,
   CompanyPage,
   CompanySummary,
@@ -732,6 +733,18 @@ export async function joinWaitlist(email: string): Promise<void> {
     body: JSON.stringify({ email }),
   });
   if (!res.ok) throw new Error(`Failed to join waitlist: ${res.status}`);
+}
+
+export async function getReportStatus(reference: string): Promise<ReportStatus> {
+  const response = await fetch(
+    `${API_URL}/reports/status/${encodeURIComponent(reference.trim().toUpperCase())}`,
+    { cache: "no-store" },
+  );
+  if (!response.ok) throw new Error(response.status === 404
+    ? "Report not found. Check your receipt code."
+    : response.status === 429 ? "Too many lookups. Please try again in a minute."
+    : "We couldn't check your report. Please try again.");
+  return response.json();
 }
 
 export async function submitBugReport(

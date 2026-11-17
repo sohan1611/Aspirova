@@ -39,6 +39,7 @@ function load(filename) {
         default: ({ children, href }) => React.createElement("a", { href, "data-apply": true }, children),
       };
       if (name === "@/components/HoverPrefetchLink") return { default: anchor };
+      if (name === "@/components/ListingCorrections") return load(path.join(frontend, "components/ListingCorrections.tsx"));
       if (name.startsWith("@/components/")) return { default: () => null };
       if (name.startsWith("@/lib/")) return load(path.join(frontend, name.slice(2) + ".ts"));
       if (name.startsWith(".")) return load(path.resolve(path.dirname(filename), name + ".ts"));
@@ -113,4 +114,15 @@ test("cleared listing offers Apply and eligible JobPosting markup again", async 
   assert.match(html, /application\/ld\+json/);
   assert.doesNotMatch(html, /listing-safety-heading/);
   assert.equal((await page.generateMetadata(props)).robots, undefined);
+});
+
+
+test("reader corrections show dates and a safe link to the original", async () => {
+  current = { ...base, corrections: [{ at: "2026-11-17T10:00:00Z", field: "deadline",
+    summary: "deadline changed after a reader report." }], meta: { duplicate_of: "original-role" } };
+  const html = renderToStaticMarkup(await page.default({ params: Promise.resolve({ slug: current.slug }) }));
+  assert.match(html, /Corrections/);
+  assert.match(html, /17 Nov 2026/);
+  assert.match(html, /deadline changed after a reader report/);
+  assert.ok(html.includes('href="/opportunity/original-role"'));
 });

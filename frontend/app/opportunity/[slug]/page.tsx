@@ -9,6 +9,7 @@ import CompanyFavicon from "@/components/CompanyFavicon";
 import DeadlineBox from "@/components/DeadlineBox";
 import RecordOpportunityView from "@/components/RecordOpportunityView";
 import ReportIssueDialog from "@/components/ReportIssueDialog";
+import ListingCorrections from "@/components/ListingCorrections";
 import ShareButton from "@/components/ShareButton";
 import TrackerStageNotice from "@/components/TrackerStageNotice";
 import { Badge } from "@/components/ui/badge";
@@ -371,6 +372,7 @@ export default async function OpportunityPage({ params }: PageProps) {
               )}
 
             </div>
+            <ListingCorrections corrections={opportunity.corrections} duplicateOf={opportunity.meta?.duplicate_of} />
             {(showSummary || opportunity.reopen_estimate) && (
               <aside className="mt-6 rounded-lg border border-border bg-card p-4 sm:p-5">
                 {showSummary && (

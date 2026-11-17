@@ -25,6 +25,7 @@ def _matching_filters(cutoff: datetime) -> tuple[ColumnElement[bool], ...]:
     return (
         models.Opportunity.category.in_(GARBAGE_DEADLINE_CATEGORIES),
         models.Opportunity.deadline.is_not(None),
+        models.Opportunity.meta["deadline_override"].is_(None),
         models.Opportunity.deadline > cutoff,
     )
 

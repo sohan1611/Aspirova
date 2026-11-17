@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from core.db import make_engine
 from core.models import Opportunity
-from core.listing_safety import without_safety_flag
+from core.listing_safety import without_manual_override, without_safety_flag
 from pipeline.retirement import ROLLING_WINDOW_TTL_DAYS, meta_without_closed_reason
 
 
@@ -46,6 +46,7 @@ def reopen_rolling_ttl(
         Opportunity.closed_at >= start,
         Opportunity.closed_at < start + timedelta(days=1),
         without_safety_flag(),
+        without_manual_override(),
     )
     if apply:
         # Keep the reported candidates stable until the caller's single commit.
@@ -79,6 +80,7 @@ def reopen_rolling_ttl(
                 Opportunity.id.in_(candidate_ids),
                 Opportunity.status == "active",
                 without_safety_flag(),
+                without_manual_override(),
             )
             .values(
                 closed_at=None,

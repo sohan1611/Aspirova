@@ -50,7 +50,8 @@ def test_valid_report_is_stored_and_returns_ok(client, db_session, monkeypatch) 
     )
 
     assert response.status_code == 200
-    assert response.json() == {"ok": True}
+    assert response.json()["ok"] is True
+    assert response.json()["reference"].startswith("R-")
     report = _report_for_message(db_session, message)
     assert report is not None
     assert report.category == "dead_link"

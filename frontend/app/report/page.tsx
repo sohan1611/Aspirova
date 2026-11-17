@@ -19,6 +19,11 @@ export default function ReportPage() {
           Found a dead link, incorrect information, or something that isn&apos;t working? Reports
           go straight to the founder so we can fix them quickly.
         </p>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          Reports are never shown with your name, and reporting never affects your account or plan.
+          {" "}We review reports within 2 days. You can check progress with your report receipt.
+        </p>
+        <a href="/report/status" className="mt-3 inline-flex min-h-11 items-center text-sm text-primary underline underline-offset-4">Check report status</a>
       </header>
 
       <section

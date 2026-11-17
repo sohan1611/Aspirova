@@ -12,6 +12,7 @@ from api.filters import ROLE_TERMS
 from core import models
 from core.destination import DestinationKind, classify_destination
 from core.listing_safety import safety_flag
+from core.listing_corrections import public_corrections, public_listing_meta
 
 
 class CompanySummary(BaseModel):
@@ -103,7 +104,7 @@ class OpportunityListItem(BaseModel):
             last_seen_at=o.last_seen_at,
             is_hidden=o.is_hidden,
             summary=o.summary,
-            meta=o.meta,
+            meta=public_listing_meta(o.meta),
             safety=safety_flag(o),
             status=o.status or "active",
         )
@@ -348,7 +349,14 @@ class ApplyDestinationSchema(BaseModel):
     label: str | None
 
 
+class ListingCorrection(BaseModel):
+    at: datetime
+    field: str
+    summary: str
+
+
 class OpportunityDetail(OpportunityListItem):
+    corrections: list[ListingCorrection] = []
     destination: ApplyDestinationSchema
     description_raw: str
     apply_url: str
@@ -382,7 +390,7 @@ class OpportunityDetail(OpportunityListItem):
             posted_at=o.posted_at,
             last_seen_at=o.last_seen_at,
             is_hidden=o.is_hidden,
-            meta=o.meta,
+            meta=public_listing_meta(o.meta),
             safety=safety_flag(o),
             status=o.status or "active",
             description_raw=o.description_raw or "",
@@ -395,6 +403,7 @@ class OpportunityDetail(OpportunityListItem):
             reopen_estimate=reopen_estimate,
             is_stale=is_stale,
             first_seen_at=o.first_seen_at,
+            corrections=public_corrections(o.meta),
         )
 
 
@@ -709,3 +718,17 @@ class BugReportRequest(BaseModel):
 
 class BugReportResponse(BaseModel):
     ok: bool = True
+    reference: str
+
+
+class ReportStatusResponse(BaseModel):
+    reference: str
+    category: str
+    status: str
+    created_at: datetime
+    triaged_at: datetime | None
+    resolved_at: datetime | None
+    resolution: str | None
+    resolution_note: str | None
+    listing_slug: str | None
+    listing_title: str | None
