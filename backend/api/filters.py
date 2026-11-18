@@ -1,6 +1,7 @@
 """Shared optional filters for opportunity query endpoints."""
 
 import re
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from sys import float_info
@@ -9,9 +10,15 @@ from fastapi import HTTPException
 from sqlalchemy import Float, and_, case, cast, false, func, literal, not_, or_, text
 from sqlalchemy.dialects.postgresql import JSONB
 
-from core import models
+from core import models, role_level
 from core.eligibility import ELIGIBLE_EXPERIENCED_ONLY_META_KEY
 from core.organisers import ORGANISER_TYPE_LABELS, organiser_type_expression
+from core.role_level import (
+    CLEARLY_SENIOR_TITLE_PATTERN,
+    EXPLICIT_TITLE_RULES,
+    NOT_SENIOR_TITLE_PATTERN,
+    RoleLevelOverride,
+)
 from core.pay_format import (
     INR_PER_UNIT,
     MAX_PLAUSIBLE_HOURLY_INR,
@@ -82,22 +89,12 @@ def is_early_career_title(title: str) -> bool:
     )
 
 
-CLEARLY_SENIOR_TITLE_PATTERN = (
-    r"(^|[^a-z])(senior|sr|staff|principal|director|vp|vice president|president|"
-    r"chief|cto|ceo|coo|cfo|cxo|head of|distinguished)([^a-z]|$)"
-)
-# A title matching this is kept even when it also matches the senior pattern. Checked against
+# NOT_SENIOR_TITLE_PATTERN is shared with core.role_level. A matching title is kept even when
+# it also matches the senior pattern. Checked against
 # 1,216 live titles: "Member of Technical Staff - New Grad" and "Senior Engineer ... (Master's
 # New Graduate | 0-2 Years Experience)" are real entry-level roles. Staff Accountant and
 # Staff Writer are entry-level titles too. A wrongly kept role costs one noisy card; a wrongly
 # dropped one is an alert the student never gets, so this errs towards keeping.
-NOT_SENIOR_TITLE_PATTERN = (
-    r"(^|[^a-z])(intern|interns|internship|internships|trainee|trainees|apprentice|"
-    r"apprentices|apprenticeship|new grad|new grads|new graduate|new graduates|graduate|"
-    r"graduates|campus|fresher|freshers|entry level|entry-level|co-op|coop|working student|"
-    r"werkstudent|technical staff|staff accountant|staff auditor|staff writer|staff nurse)"
-    r"([^a-z]|$)"
-)
 
 # False (default) -> exclude only rows whose eligibility is School Students and nothing
 #                    else. A competition open to school students AND undergraduates is
@@ -121,20 +118,70 @@ def preferred_country_rank(country: str):
     )
 
 
-def student_rank_expression():
+_EXPLICIT_STUDENT_TITLE_PATTERN = "|".join(f"(?:{pattern})" for pattern, _ in EXPLICIT_TITLE_RULES)
+_INTERN_OR_APPRENTICE_TITLE_PATTERN = "|".join(
+    f"(?:{pattern})"
+    for pattern, level in EXPLICIT_TITLE_RULES
+    if level in {"internship", "apprenticeship"}
+)
+_ROLE_LEVEL_RANKS = {"internship": 0, "apprenticeship": 0, "experienced": 2}
+
+
+def role_rank_fallback_expression(opportunity=models.Opportunity):
+    """Round-one rank-only CASE, without query-time overrides.
+
+    CASE guards keep the intern/apprentice regex behind an early-title hit and
+    the exception replacement behind a senior-title hit. Graduate and unknown
+    both rank one, so no junior/associate classification is needed here.
+    """
+    title = func.coalesce(opportunity.title, "")
     return case(
-        (models.Opportunity.category == "internship", 0),
-        (
-            and_(
-                models.Opportunity.category == "job",
-                func.coalesce(models.Opportunity.title_normalized, "").op("~*")(
-                    SENIOR_TITLE_PATTERN
+        *[
+            (
+                title.op("~*")(_EXPLICIT_STUDENT_TITLE_PATTERN),
+                case((title.op("~*")(_INTERN_OR_APPRENTICE_TITLE_PATTERN), 0), else_=1),
+            ),
+            (opportunity.category == "internship", 0),
+            (
+                opportunity.meta[ELIGIBLE_EXPERIENCED_ONLY_META_KEY]
+                == cast(literal("true"), JSONB),
+                2,
+            ),
+            (
+                title.op("~*")(CLEARLY_SENIOR_TITLE_PATTERN),
+                case(
+                    (
+                        func.regexp_replace(title, NOT_SENIOR_TITLE_PATTERN, " ", "gi").op("~*")(
+                            CLEARLY_SENIOR_TITLE_PATTERN
+                        ),
+                        2,
+                    ),
+                    else_=1,
                 ),
             ),
-            2,
-        ),
+        ],
         else_=1,
     )
+
+
+def student_rank_expression(
+    opportunity=models.Opportunity,
+    *,
+    overrides: Mapping[str, RoleLevelOverride] | None = None,
+):
+    """Overrides first, then the stored rank; regexes only for legacy NULL rows."""
+    overrides = role_level.ROLE_LEVEL_OVERRIDES if overrides is None else overrides
+    rank = func.coalesce(opportunity.role_rank, role_rank_fallback_expression(opportunity))
+    clauses = []
+    for value in (0, 1, 2):
+        slugs = [
+            slug
+            for slug, row in overrides.items()
+            if _ROLE_LEVEL_RANKS.get(row["level"], 1) == value
+        ]
+        if slugs:
+            clauses.append((opportunity.slug.in_(slugs), value))
+    return case(*clauses, else_=rank) if clauses else rank
 
 
 def effective_posted_at():

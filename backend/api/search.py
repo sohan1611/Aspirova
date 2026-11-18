@@ -58,6 +58,13 @@ def _count_matches(db: Session, base_filters: list, search_predicate) -> int:
 
 
 def _search_ordering(sort: str, relevance, student_first: bool = False) -> list:
+    if sort == "student" and student_first:
+        return [
+            case((listing_closed(), 1), else_=0).asc(),
+            student_rank_expression().asc(),
+            relevance.desc(),
+            models.Opportunity.id.desc(),
+        ]
     ordering = []
     if sort in {"recent", "deadline", "prize", "pay"}:
         is_closed = case((listing_closed(), 1), else_=0)

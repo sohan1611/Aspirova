@@ -40,6 +40,7 @@ function load(filename) {
       };
       if (name === "@/components/HoverPrefetchLink") return { default: anchor };
       if (name === "@/components/ListingCorrections") return load(path.join(frontend, "components/ListingCorrections.tsx"));
+      if (name === "@/components/RoleLevelLabel") return load(path.join(frontend, "components/RoleLevelLabel.tsx"));
       if (name.startsWith("@/components/")) return { default: () => null };
       if (name.startsWith("@/lib/")) return load(path.join(frontend, name.slice(2) + ".ts"));
       if (name.startsWith(".")) return load(path.resolve(path.dirname(filename), name + ".ts"));
@@ -64,6 +65,42 @@ const base = {
   skills: [], summary: null, reopen_estimate: null,
 };
 const props = { params: Promise.resolve({ slug: base.slug }) };
+
+for (const level of ["internship", "apprenticeship", "graduate", "experienced", "unknown", null]) {
+  test(`card and opportunity page: neutral role label only for ${level}`, async () => {
+    current = { ...base, role_level: level ? { level, evidence: "Senior", source: "title" } : undefined };
+    const rendered = [
+      renderToStaticMarkup(await page.default(props)),
+      renderToStaticMarkup(React.createElement(card, { item: current })),
+    ];
+    for (const html of rendered) {
+      if (level === "experienced") {
+        assert.match(html, />Experienced role<span class="sr-only">\. Title says &quot;Senior&quot;<\/span>/);
+        assert.match(html, /title="Title says &quot;Senior&quot;"/);
+      } else {
+        assert.doesNotMatch(html, /Experienced role|Title says/);
+      }
+    }
+  });
+}
+
+for (const [source, evidence, tooltip] of [
+  ["eligibility", "Experienced Professionals", "Eligibility says &quot;Experienced Professionals&quot;"],
+  ["eligibility", true, "Employer eligibility is experienced-only"],
+  ["override", "Employer confirmed senior scope", "Reviewed: Employer confirmed senior scope"],
+]) {
+  test(`card and opportunity page preserve ${source} evidence`, async () => {
+    current = { ...base, role_level: { level: "experienced", evidence, source } };
+    for (const html of [
+      renderToStaticMarkup(await page.default(props)),
+      renderToStaticMarkup(React.createElement(card, { item: current })),
+    ]) {
+      assert.ok(html.includes(`title="${tooltip}"`));
+      assert.ok(html.includes(`<span class="sr-only">. ${tooltip}</span>`));
+      assert.ok(html.includes("Experienced role"));
+    }
+  });
+}
 
 for (const [kind, heading] of [
   ["scam", "Warning: reported as a scam"],

@@ -14,6 +14,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     Float,
+    FetchedValue,
     ForeignKey,
     Index,
     Integer,
@@ -145,6 +146,10 @@ class Opportunity(Base):
     deadline: Mapped[datetime | None] = mapped_column()
     closed_at: Mapped[datetime | None] = mapped_column()
     meta: Mapped[dict | None] = mapped_column(JSONB)
+    # Maintained by the role-rank trigger; omitted from ORM INSERT/UPDATE values.
+    role_rank: Mapped[int | None] = mapped_column(
+        SmallInteger, nullable=True, server_default=FetchedValue(), server_onupdate=FetchedValue()
+    )
     deadline_confidence: Mapped[str] = mapped_column(Text, server_default="unknown")
     is_hidden: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     status: Mapped[str] = mapped_column(Text, server_default="active")

@@ -255,6 +255,9 @@ def get_feed(
         ordering.extend(
             [
                 student_rank.asc(),
+                # Preserve the legacy internship-category preference when a job
+                # also has explicit intern text and therefore shares rank zero.
+                case((models.Opportunity.category == "internship", 0), else_=1).asc(),
                 source_rank.asc(),
                 models.Opportunity.last_seen_at.desc(),
                 models.Opportunity.id.desc(),

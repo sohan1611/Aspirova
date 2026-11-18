@@ -23,7 +23,14 @@ export interface ListingSafety {
   flagged_at: string;
 }
 
+export interface RoleLevel {
+  level: "internship" | "apprenticeship" | "graduate" | "experienced" | "unknown";
+  evidence: string | boolean | null;
+  source: "title" | "category" | "eligibility" | "override";
+}
+
 export interface OpportunityListItem {
+  role_level?: RoleLevel;
   status?: string;
   safety?: ListingSafety | null;
   slug: string;

@@ -13,6 +13,7 @@ from core import models
 from core.destination import DestinationKind, classify_destination
 from core.listing_safety import safety_flag
 from core.listing_corrections import public_corrections, public_listing_meta
+from core.role_level import RoleLevel, RoleLevelSource, classify_role_level
 
 
 class CompanySummary(BaseModel):
@@ -48,6 +49,12 @@ class ListingSafety(BaseModel):
     flagged_at: datetime
 
 
+class RoleLevelSchema(BaseModel):
+    level: RoleLevel
+    evidence: str | bool | None
+    source: RoleLevelSource
+
+
 class OpportunityListItem(BaseModel):
     slug: str
     title: str
@@ -67,6 +74,7 @@ class OpportunityListItem(BaseModel):
     meta: dict | None = None
     safety: ListingSafety | None = None
     status: str = "active"
+    role_level: RoleLevelSchema
 
     @field_validator("location")
     @classmethod
@@ -107,6 +115,9 @@ class OpportunityListItem(BaseModel):
             meta=public_listing_meta(o.meta),
             safety=safety_flag(o),
             status=o.status or "active",
+            role_level=RoleLevelSchema.model_validate(
+                classify_role_level(o.title, o.category, o.meta, o.slug)
+            ),
         )
 
 
@@ -446,6 +457,9 @@ class OpportunityDetail(OpportunityListItem):
             meta=public_listing_meta(o.meta),
             safety=safety_flag(o),
             status=o.status or "active",
+            role_level=RoleLevelSchema.model_validate(
+                classify_role_level(o.title, o.category, o.meta, o.slug)
+            ),
             description_raw=o.description_raw or "",
             summary=o.summary,
             apply_url=o.apply_url,
