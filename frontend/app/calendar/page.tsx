@@ -4,7 +4,7 @@ import HiringCalendar from "@/components/HiringCalendar";
 import CalendarHeader from "@/components/calendar/Header";
 import { fetchCalendar, parseCalendarParams, todayIST } from "@/lib/hiringCalendar";
 
-export const revalidate = 3600;
+export const revalidate = 21600;
 export const dynamic = "force-static";
 export function generateStaticParams() { return []; }
 
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 export default async function CalendarPage() {
   const query = parseCalendarParams(new URLSearchParams(), todayIST());
   const { data } = await withBuildFallback(
-    () => fetchCalendar(query, { next: { revalidate: 3600 } } as RequestInit),
+    () => fetchCalendar(query, undefined, 21600),
     result => result.items.length + result.rolling.length,
   );
   return (

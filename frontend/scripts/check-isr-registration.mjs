@@ -46,10 +46,11 @@ try {
 // in dynamicRoutes and the check above cannot see them. They regress a different
 // way: re-introducing `searchParams` makes them per-request again and silently
 // drops the cache entirely, which is exactly how they were found broken. Assert
-// the ISR window instead. The value must match `export const revalidate` in each
-// page and LANDING_REVALIDATE in lib/landing.ts.
+// the ISR window instead. Each value must match its page and fetch cache windows.
 const REQUIRED_STATIC_ISR_ROUTES = {
   "/": 21600,
+  "/calendar": 21600,
+  "/companies": 86400,
   "/competitions": 21600,
   "/internships": 21600,
   "/jobs": 21600,
