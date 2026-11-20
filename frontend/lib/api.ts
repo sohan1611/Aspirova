@@ -445,7 +445,7 @@ export async function getCompanyPage(
 }
 
 export async function getCompanies(): Promise<ListingSnapshot<CompanyListItem[]>> {
-  return fetchListing<CompanyListItem[]>(`${API_URL}/companies`, 3600, "array");
+  return fetchListing<CompanyListItem[]>(`${API_URL}/companies`, 86400, "array");
 }
 export async function getTopCompanies(limit = 12, preferLogos = false): Promise<ListingSnapshot<CompanyListItem[]>> {
   const search = new URLSearchParams({ limit: String(limit) });
