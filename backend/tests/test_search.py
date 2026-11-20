@@ -227,6 +227,161 @@ def test_search_zero_match_query_returns_total_zero(client: TestClient) -> None:
     assert body["items"] == []
 
 
+@pytest.fixture
+def role_level_rows(db_session):
+    suffix = uuid.uuid4().hex
+    term = f"rolelevel{suffix}"
+    company = models.Company(slug=f"role-level-{suffix}", name="Role Level Fixture")
+    student_titles = [
+        "Associate Product Manager",
+        "Management Trainee",
+        "Graduate Engineer – Lead Generation",
+        "Account Executive (New Grad)",
+        "Lead Generation Intern",
+    ]
+    senior_titles = [
+        "Senior Software Engineer",
+        "Staff Software Engineer",
+        "Principal Software Engineer",
+        "Director of Engineering",
+        "Chief Technology Officer",
+    ]
+    rows = []
+    for index, title in enumerate(student_titles * 5 + senior_titles):
+        # Experienced matches have higher text relevance and newer IDs. Student
+        # ordering must take priority over both of those tie-breakers.
+        full_title = f"{title} {' '.join([term] * (6 if index >= 25 else 1))}"
+        rows.append(
+            models.Opportunity(
+                slug=f"role-level-{index}-{suffix}",
+                title=full_title,
+                title_normalized=full_title.lower(),
+                company=company,
+                category="job",
+                apply_url=f"https://example.com/{suffix}/{index}",
+                status="active",
+            )
+        )
+    db_session.add_all([company, *rows])
+    db_session.flush()
+    return term, company, rows
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {},
+        {"sort": "student", "students": "true"},
+        {"sort": "recent", "students": "true"},
+        {"sort": "deadline", "students": "true"},
+        {"sort": "pay", "students": "true"},
+    ],
+)
+def test_student_search_top20_has_no_experienced_rows(client, role_level_rows, params):
+    term, company, rows = role_level_rows
+    response = client.get("/search", params={"q": term, "company": company.slug, **params})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 30
+    assert len(body["items"]) == 20
+    assert all(item["role_level"]["level"] != "experienced" for item in body["items"])
+    assert {item["slug"] for item in body["items"]} <= {row.slug for row in rows[:25]}
+
+
+def test_student_search_opt_out_preserves_relevance_ordering(client, role_level_rows):
+    term, company, rows = role_level_rows
+    response = client.get(
+        "/search",
+        params={"q": term, "company": company.slug, "sort": "student", "students": "false"},
+    )
+    assert response.status_code == 200
+    items = response.json()["items"]
+    # The five senior fixtures repeat the query six times and have newer IDs.
+    # Opting out restores relevance ordering, including those higher-ranked hits.
+    assert {item["slug"] for item in items[:5]} == {row.slug for row in rows[25:]}
+
+
+def test_student_search_keeps_experienced_only_matches(
+    client, db_session, role_level_rows, monkeypatch
+):
+    import csv
+    from io import StringIO
+
+    from scripts import role_level_review
+
+    term, company, rows = role_level_rows
+    for row in rows[:25]:
+        row.status = "closed"
+    db_session.flush()
+    response = client.get("/search", params={"q": term, "company": company.slug})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 5
+    assert {item["slug"] for item in body["items"]} == {row.slug for row in rows[25:]}
+    assert all(item["role_level"]["level"] == "experienced" for item in body["items"])
+    monkeypatch.setattr(role_level_review, "STUDENT_QUERIES", (term,))
+    output = StringIO()
+    assert role_level_review.write_benchmark(db_session, output) == [
+        {"query": term, "top20": 5, "experienced": 5}
+    ]
+    output.seek(0)
+    report = list(csv.DictReader(output))
+    assert {row["slug"] for row in report} == {row.slug for row in rows[25:]}
+    assert all(row["evidence"] and row["company"] == company.name for row in report)
+
+
+def test_review_csv_contains_ambiguous_and_conflicting_rows(db_session, role_level_rows, capsys):
+    import csv
+    from io import StringIO
+
+    from scripts.role_level_review import write_review
+
+    _, _, rows = role_level_rows
+    rows[0].title = "Product Manager"
+    rows[1].title = "Lead Generation Intern"
+    rows[1].meta = {"eligible_experienced_only": True}
+    db_session.flush()
+    output = StringIO()
+    counts = write_review(db_session, output)
+    assert counts["scanned"] >= 30
+    assert counts["review"] >= 2
+    output.seek(0)
+    report = {row["slug"]: row for row in csv.DictReader(output)}
+    assert report[rows[0].slug]["level"] == "unknown"
+    assert report[rows[0].slug]["evidence"] == "Manager"
+    assert report[rows[1].slug]["level"] == "internship"
+    assert report[rows[1].slug]["evidence"] == "Intern"
+    assert not capsys.readouterr().out
+
+
+def test_feed_and_digest_share_role_level_ranking(client, db_session, role_level_rows):
+    from sqlalchemy import select
+
+    from api.filters import student_rank_expression
+
+    _, company, rows = role_level_rows
+    response = client.get("/feed", params={"company": company.slug, "sort": "student"})
+    assert response.status_code == 200
+    assert len(response.json()["items"]) == 20
+    assert all(item["role_level"]["level"] != "experienced" for item in response.json()["items"])
+    # The digest's rank < 2 predicate retains every student fixture, including
+    # ambiguous entry roles formerly demoted by the broad senior regex.
+    digest_ids = set(
+        db_session.scalars(
+            select(models.Opportunity.id).where(
+                models.Opportunity.company_id == company.id, student_rank_expression() < 2
+            )
+        )
+    )
+    assert digest_ids == {row.id for row in rows[:25]}
+    for row in (rows[0], rows[-1]):
+        detail = client.get(f"/opportunity/{row.slug}")
+        assert detail.status_code == 200
+        assert detail.json()["role_level"]["level"] == (
+            "graduate" if row is rows[0] else "experienced"
+        )
+
+
 def test_search_trigram_fallback_total_matches_fallback_rows(
     client: TestClient,
     trigram_search_rows,

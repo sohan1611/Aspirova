@@ -12,6 +12,7 @@ import ReportIssueDialog from "@/components/ReportIssueDialog";
 import ListingCorrections from "@/components/ListingCorrections";
 import ShareButton from "@/components/ShareButton";
 import TrackerStageNotice from "@/components/TrackerStageNotice";
+import RoleLevelLabel from "@/components/RoleLevelLabel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import FollowCompanyButton from "@/components/FollowCompanyButton";
@@ -263,6 +264,7 @@ export default async function OpportunityPage({ params }: PageProps) {
                 </span>}
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-2 sm:mt-4">
+                <RoleLevelLabel roleLevel={opportunity.role_level} />
                 {opportunity.category && (
                   <Badge variant="secondary" className="rounded-full text-xs px-2.5 py-1">
                     {CATEGORY_LABEL[opportunity.category] ?? opportunity.category}

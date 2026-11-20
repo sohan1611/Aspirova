@@ -4,6 +4,7 @@ import CompanyFavicon from "@/components/CompanyFavicon";
 import ListingFreshness from "@/components/ListingFreshness";
 import RelativeDeadline from "@/components/RelativeDeadline";
 import SaveButton from "@/components/SaveButton";
+import RoleLevelLabel from "@/components/RoleLevelLabel";
 import {
   competitionMode,
   formatPrizePool,
@@ -107,6 +108,7 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
   );
   const secondaryBadges = (
     <>
+      <RoleLevelLabel roleLevel={item.role_level} />
       {isRole && (item.meta?.part_time === true || item.meta?.timing === "part_time") && (
         <Badge variant="outline">Part-time</Badge>
       )}
