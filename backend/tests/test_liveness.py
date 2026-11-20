@@ -1,5 +1,6 @@
 """Unit and integration coverage for undated listing liveness checks."""
 
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -270,3 +271,61 @@ def test_liveness_stamps_json_null_meta(db_session):
     )
     db_session.expire_all()
     assert row.meta == {"liveness_checked_at": now.isoformat()}
+
+
+def test_liveness_holds_no_transaction_across_slow_checks(engine, monkeypatch) -> None:
+    """A slow batch must not trip Postgres's idle-in-transaction timeout.
+
+    Crawls 44569209726 and 44703841666 failed here: the candidate SELECT left a
+    transaction open, the first batch of URL checks outlasted the server's idle
+    limit, and the stamp UPDATE after it died with IdleInTransactionSessionTimeout.
+    """
+    from sqlalchemy import create_engine, delete, text
+    from sqlalchemy.pool import NullPool
+
+    from pipeline import liveness
+
+    now = datetime.now(timezone.utc)
+    suffix = uuid.uuid4().hex
+    with Session(engine) as setup:
+        rows = [
+            _opportunity(
+                setup, suffix=suffix, name=f"slow-{index}", last_seen_at=now - timedelta(days=9)
+            )
+            for index in range(2)
+        ]
+        setup.commit()
+        ids = {row.id for row in rows}
+
+    original = liveness._select_candidates
+    monkeypatch.setattr(
+        liveness,
+        "_select_candidates",
+        lambda session, *, limit: [c for c in original(session, limit=100_000) if c.id in ids],
+    )
+
+    def slow_checker(_url: str):
+        time.sleep(1.5)
+        return "alive"
+
+    # A private, unpooled engine so the 1s limit never leaks into other tests.
+    strict = create_engine(engine.url, poolclass=NullPool)
+    try:
+        with Session(strict) as session:
+            session.execute(text("SET idle_in_transaction_session_timeout = '1s'"))
+            result = check_listing_liveness(
+                session, apply=True, batch_size=1, now=now, checker=slow_checker
+            )
+        assert result.scanned == result.alive == 2
+        with Session(engine) as check:
+            stamped = check.scalars(
+                select(models.Opportunity.meta["liveness_checked_at"].astext).where(
+                    models.Opportunity.id.in_(ids)
+                )
+            ).all()
+        assert stamped == [now.isoformat()] * 2
+    finally:
+        strict.dispose()
+        with Session(engine) as cleanup:
+            cleanup.execute(delete(models.Opportunity).where(models.Opportunity.id.in_(ids)))
+            cleanup.commit()

@@ -310,6 +310,18 @@ def check_listing_liveness(
             result.timed_out = True
             break
 
+        # Nothing may hold a database transaction open across the network
+        # checks. Selecting candidates (and the script's SET) starts a
+        # transaction, and a batch of slow or dripping URLs can run past the
+        # 120s idle_in_transaction_session_timeout from core/db.py. Postgres
+        # then kills the connection and the stamp UPDATE after the batch dies
+        # with IdleInTransactionSessionTimeout (crawls 44569209726 and
+        # 44703841666). Later batches start clean because each batch commits;
+        # this covers the first one. crawlers/runner.py does the same before
+        # its fetch. A dry run never writes after the checks, so it is left be.
+        if apply and commit_each_batch:
+            session.commit()
+
         if checker is None:
             with httpx.Client(
                 headers={"User-Agent": USER_AGENT},
