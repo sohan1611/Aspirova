@@ -1,4 +1,10 @@
-"""Canonical programme/company matches alongside the existing listing search."""
+"""Canonical programme/company matches alongside the existing listing search.
+
+Listing totals are NOT counted here: GET /search already counts the same
+query, and a second count over the same predicate doubled database time per
+search (measured on production 2026-11-18: 0.9 s vs 1.2 s for "data analyst",
+5.3 s vs 5.6 s for "engineer"). The listing filters already offer Source.
+"""
 
 from datetime import datetime
 from typing import Literal
@@ -6,14 +12,13 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import case, func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from api.company import company_search_matches
 from api.deps import get_db
-from api.filters import SOURCE_GROUPS
 from api.schemas import CompanyListItem
-from api.search import search_base_filters, search_expressions, trimmed_search_query
+from api.search import trimmed_search_query
 from core import models
 from core.calendar_public import CalendarEdition, current_calendar_item
 from core.entity_search import (
@@ -27,15 +32,6 @@ from core.hiring_calendar import IST
 from core.programme_labels import PROGRAMME_CATEGORY_LABELS
 
 router = APIRouter()
-
-# Match the existing frontend source-filter labels.
-SOURCE_LABELS = {
-    "direct": "Direct from company",
-    "unstop": "Unstop",
-    "remoteok": "RemoteOK",
-    "devpost": "Devpost",
-    "other": "Other sources",
-}
 
 
 class RelatedProgramme(BaseModel):
@@ -71,22 +67,10 @@ class RelatedCompanies(BaseModel):
     items: list[RelatedCompany]
 
 
-class SourceCount(BaseModel):
-    value: str
-    label: str
-    count: int
-
-
-class RelatedListings(BaseModel):
-    total: int
-    by_source: list[SourceCount]
-
-
 class SearchRelatedResponse(BaseModel):
     q: str
     programmes: RelatedProgrammes
     companies: RelatedCompanies
-    listings: RelatedListings
 
 
 def related_programmes(db: Session, q: str) -> RelatedProgrammes:
@@ -185,44 +169,15 @@ def search_related(
     db: Session = Depends(get_db),
 ) -> SearchRelatedResponse:
     q = trimmed_search_query(q)
-    base_filters = search_base_filters()
-    matches_fts, _rank, matches_trigram, _similarity = search_expressions(q)
-    source_group = case(
-        *(
-            (models.Opportunity.primary_source.in_(sources), key)
-            for key, sources in SOURCE_GROUPS.items()
-        ),
-        else_="other",
-    )
-
-    def grouped_counts(predicate) -> dict[str, int]:
-        return dict(
-            db.execute(
-                select(source_group, func.count())
-                .select_from(models.Opportunity)
-                .where(*base_filters, predicate)
-                .group_by(source_group)
-            ).all()
+    if len(normalize(q)) < 2:
+        # One character matches too many names to be a canonical entity.
+        return SearchRelatedResponse(
+            q=q,
+            programmes=RelatedProgrammes(total=0, items=[]),
+            companies=RelatedCompanies(total=0, items=[]),
         )
-
-    counts = grouped_counts(matches_fts)
-    if not counts:
-        counts = grouped_counts(matches_trigram)
-    include_entities = len(normalize(q)) >= 2
     return SearchRelatedResponse(
         q=q,
-        programmes=(
-            related_programmes(db, q) if include_entities else RelatedProgrammes(total=0, items=[])
-        ),
-        companies=(
-            related_companies(db, q) if include_entities else RelatedCompanies(total=0, items=[])
-        ),
-        listings=RelatedListings(
-            total=sum(counts.values()),
-            by_source=[
-                SourceCount(value=key, label=label, count=counts[key])
-                for key, label in SOURCE_LABELS.items()
-                if counts.get(key)
-            ],
-        ),
+        programmes=related_programmes(db, q),
+        companies=related_companies(db, q),
     )

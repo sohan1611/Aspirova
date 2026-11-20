@@ -126,7 +126,7 @@ export default function FeedResults({ initialData, trendingItems }: FeedResultsP
 
         <TopCompanies />
 
-        {request.q?.trim() && <SearchBestMatches scope="/" queryKey={queryKey} q={request.q} loading={isLoading || Boolean(settled?.error)} searchQuery={query.toString()} excludeCompanyNames={sourceCompany ? [sourceCompany.name] : undefined} />}
+        {request.q?.trim() && <SearchBestMatches scope="/" queryKey={queryKey} q={request.q} loading={isLoading || Boolean(settled?.error)} excludeCompanyNames={sourceCompany ? [sourceCompany.name] : undefined} />}
 
         {data.loadedAt && !settled?.error && <ListingSnapshotNotice loadedAt={data.loadedAt} expiresAt={data.expiresAt} />}
         <ListingResultsState

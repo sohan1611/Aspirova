@@ -14,11 +14,8 @@ from api.deps import get_db
 from api.main import app
 from api.company import company_search_matches
 from api.search_related import (
-    RelatedCompanies,
-    RelatedProgrammes,
     related_companies,
     related_programmes,
-    search_related,
 )
 from api.schemas import CompanyListItem
 from core import models
@@ -231,24 +228,10 @@ def test_related_shape_editions_counts_sources_and_inactive_companies(client, db
     assert body["companies"]["items"][0]["active_count"] == 6
     assert body["companies"]["items"][0]["entity_type"] == "company"
     assert body["companies"]["items"][0]["path"] == f"/companies/{token}"
-    assert (
-        body["listings"]["total"] == client.get("/search", params={"q": token}).json()["total"] == 6
-    )
-    assert sum(source["count"] for source in body["listings"]["by_source"]) == 6
-    assert {row["value"]: row["count"] for row in body["listings"]["by_source"]} == {
-        "direct": 1,
-        "unstop": 1,
-        "remoteok": 1,
-        "devpost": 1,
-        "other": 2,
-    }
+    # Listing totals come from GET /search alone; related never re-counts them.
+    assert "listings" not in body
     exact_empty = client.get("/search/related", params={"q": empty_prefix.name}).json()
     assert exact_empty["companies"]["items"][0]["active_count"] == 0
-    # No FTS hit for the typo: both endpoints must take the same trigram fallback.
-    typo = token + "x"
-    fallback = client.get("/search/related", params={"q": typo}).json()["listings"]
-    assert fallback["total"] == client.get("/search", params={"q": typo}).json()["total"] == 6
-    assert sum(row["count"] for row in fallback["by_source"]) == fallback["total"]
 
 
 def test_company_domain_dedupe_keeps_best_and_null_domains(monkeypatch):
@@ -332,38 +315,22 @@ def test_company_search_counts_only_python_matched_ids_unit():
     assert counts.params["company_id_1"] == [11]
 
 
-@pytest.mark.parametrize(
-    "fts_rows,expected_queries,expected_total", [([("direct", 7)], 1, 7), ([], 2, 2)]
-)
-def test_related_grouped_counts_try_fts_then_only_fallback_when_empty(
-    monkeypatch, fts_rows, expected_queries, expected_total
-):
-    monkeypatch.setattr(
-        "api.search_related.related_programmes", lambda *_: RelatedProgrammes(total=0, items=[])
-    )
-    monkeypatch.setattr(
-        "api.search_related.related_companies", lambda *_: RelatedCompanies(total=0, items=[])
-    )
+def test_related_never_runs_a_listing_search(client, db_session):
+    # A second FTS/trigram count doubled database time per search in production.
+    connection = db_session.connection()
+    statements = []
 
-    class FakeDB:
-        def __init__(self):
-            self.statements = []
+    def track(_conn, _cursor, statement, *_args):
+        statements.append(statement)
 
-        def execute(self, statement):
-            self.statements.append(statement)
-            return SimpleNamespace(
-                all=lambda: fts_rows if len(self.statements) == 1 else [("other", 2)]
-            )
-
-    db = FakeDB()
-    result = search_related(q="engineer", db=db)
-    assert result.listings.total == expected_total
-    assert len(db.statements) == expected_queries
-    first = str(db.statements[0].compile(dialect=postgresql.dialect()))
-    assert "@@" in first and "GROUP BY" in first
-    if expected_queries == 2:
-        second = str(db.statements[1].compile(dialect=postgresql.dialect()))
-        assert "similarity(" in second and "GROUP BY" in second
+    reset_l1_cache()
+    event.listen(connection, "before_cursor_execute", track)
+    try:
+        assert client.get("/search/related", params={"q": "engineer"}).status_code == 200
+    finally:
+        event.remove(connection, "before_cursor_execute", track)
+    assert statements
+    assert not any("@@" in sql or "similarity(" in sql for sql in statements)
 
 
 def test_company_search_two_queries_count_only_matched_candidate_ids(client, db_session):
@@ -503,9 +470,10 @@ def test_related_constant_queries_one_vs_many(client, db_session):
             )
         db_session.flush()
         db_session.expire_all()
-        assert count_request(token) == 4
-        assert count_request(token + "x") == 5
-        assert count_request("missing" + uuid.uuid4().hex) == 5
+        # Programmes, company candidates, open-role counts for matched ids.
+        assert count_request(token) == 3
+        assert count_request(token + "x") == 3
+        assert count_request("missing" + uuid.uuid4().hex) == 3
 
 
 def test_related_limits_and_order_and_zero_active_acronym(client, db_session):
@@ -603,7 +571,4 @@ def test_related_short_normalized_query_omits_entities(empty_listing_client, mon
     assert response.status_code == 200
     body = response.json()
     assert body["programmes"] == body["companies"] == {"total": 0, "items": []}
-    assert (
-        body["listings"]["total"]
-        == empty_listing_client.get("/search", params={"q": q}).json()["total"]
-    )
+    assert "listings" not in body

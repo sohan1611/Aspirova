@@ -445,7 +445,7 @@ export async function getCompanyPage(
 }
 
 export async function getCompanies(): Promise<ListingSnapshot<CompanyListItem[]>> {
-  return fetchListing<CompanyListItem[]>(`${API_URL}/companies`, 3600, "array");
+  return fetchListing<CompanyListItem[]>(`${API_URL}/companies`, 86400, "array");
 }
 export async function getTopCompanies(limit = 12, preferLogos = false): Promise<ListingSnapshot<CompanyListItem[]>> {
   const search = new URLSearchParams({ limit: String(limit) });
@@ -889,7 +889,7 @@ export async function getSearchRelated(q: string, signal?: AbortSignal): Promise
   );
   if (!response.ok) throw new Error(`Couldn't load related search: ${response.status}`);
   const data: SearchRelatedResponse = await response.json();
-  if (!data || !Array.isArray(data.programmes?.items) || !Array.isArray(data.companies?.items) || !Array.isArray(data.listings?.by_source)) {
+  if (!data || !Array.isArray(data.programmes?.items) || !Array.isArray(data.companies?.items)) {
     throw new Error("Invalid related search response");
   }
   return data;

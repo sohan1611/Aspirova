@@ -414,5 +414,4 @@ export interface SearchRelatedResponse {
   q: string;
   programmes: { total: number; items: SearchRelatedProgramme[] };
   companies: { total: number; items: SearchRelatedCompany[] };
-  listings: { total: number; by_source: { value: string; label: string; count: number }[] };
 }

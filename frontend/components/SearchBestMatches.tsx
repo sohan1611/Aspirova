@@ -13,17 +13,14 @@ interface Props {
   queryKey: string;
   q: string;
   loading: boolean;
-  // Present only on surfaces supporting source filters.
-  searchQuery?: string;
   // Companies the page already shows (the "Straight to source" card), so one employer never appears twice.
   excludeCompanyNames?: string[];
 }
 
 /** Pure view exported for node rendering tests; fetching belongs to the result lifecycle. */
-export function SearchBestMatchesView({ data, q, searchQuery, excludeCompanyNames }: {
+export function SearchBestMatchesView({ data, q, excludeCompanyNames }: {
   data: SearchRelatedResponse | null;
   q: string;
-  searchQuery?: string;
   excludeCompanyNames?: string[];
 }) {
   const id = useId();
@@ -61,28 +58,12 @@ export function SearchBestMatchesView({ data, q, searchQuery, excludeCompanyName
         ))}
       </div>
       {data.programmes.total > data.programmes.items.length && <Link href={`/programmes?${new URLSearchParams({ q })}`} className={`${linkClass} text-sm`}>See all {data.programmes.total} programmes</Link>}
-      <div className="mt-2 text-sm">
-        <p className="font-medium">Listings ({data.listings.total.toLocaleString("en-IN")})</p>
-        <div className="flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground">
-          {data.listings.by_source.map(source => {
-            const text = `${source.label} ${source.count.toLocaleString("en-IN")}`;
-            // "other" has no public source-filter value.
-            if (searchQuery !== undefined && source.value !== "other") {
-              const params = new URLSearchParams(searchQuery);
-              params.set("q", q);
-              params.set("source", source.value);
-              params.delete("page");
-              return <Link key={source.value} href={`/?${params}#feed-search`} className={linkClass}>{text}</Link>;
-            }
-            return <span key={source.value} className="inline-flex min-h-11 items-center">{text}</span>;
-          })}
-        </div>
-      </div>
     </section>
   );
 }
 
-export default function SearchBestMatches({ scope, queryKey, q, loading, searchQuery, excludeCompanyNames }: Props) {
+// Listing totals and the Source filter already live in the results header and Filter panel.
+export default function SearchBestMatches({ scope, queryKey, q, loading, excludeCompanyNames }: Props) {
   const data = useSearchRelatedResults(scope, queryKey);
-  return loading ? null : <SearchBestMatchesView data={data} q={q} searchQuery={searchQuery} excludeCompanyNames={excludeCompanyNames} />;
+  return loading ? null : <SearchBestMatchesView data={data} q={q} excludeCompanyNames={excludeCompanyNames} />;
 }

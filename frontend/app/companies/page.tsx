@@ -13,7 +13,8 @@ const DESCRIPTION =
 const INTRO =
   "Companies with active opportunities, auto-discovered from public company career pages; " +
   "Aspirova links out to the original source.";
-export const revalidate = 3600;
+// Each regeneration writes ~2.6 MB, so cache for a day to stay within the ISR-write budget; getCompanies must match because fetch revalidation caps the route window.
+export const revalidate = 86400;
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
