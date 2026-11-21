@@ -359,16 +359,21 @@ class WorkdayAdapter:
                 "externalPath": path,
                 "postedOn": info.get("postedOn") or posting.get("postedOn"),
             }
+            req_or_path = str(info.get("jobReqId") or path)
             listings.append(
                 RawListing(
                     source_slug=self.source_slug,
-                    external_id=str(info.get("jobReqId") or path),
+                    external_id=f"{self.tenant}|{self.site.lower()}|{req_or_path}",
                     source_url=url,
                     content_hash=content_hash(data),
                     raw_payload=data,
                 )
             )
         return listings
+
+    def legacy_external_id(self, raw: RawListing) -> str | None:
+        value = raw.raw_payload.get("jobReqId") or raw.raw_payload.get("externalPath")
+        return str(value) if value else None
 
     def parse(self, raw: RawListing) -> NormalizedListing:
         info = raw.raw_payload

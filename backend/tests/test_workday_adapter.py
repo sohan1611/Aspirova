@@ -8,6 +8,7 @@ from pathlib import Path
 import httpx
 import pytest
 
+from core.adapters import RawListing
 from crawlers import workday
 from crawlers import runner
 from crawlers.runner import ATS_ADAPTERS, _coverage_from_adapter
@@ -162,7 +163,7 @@ def test_recorded_detail_fallbacks_and_additional_locations(monkeypatch, capture
     assert len(listings) == 1
     raw = listings[0]
     parsed = adapter.parse(raw)
-    assert raw.external_id == posting["externalPath"]
+    assert raw.external_id == f"nvidia|nvidiaexternalcareersite|{posting['externalPath']}"
     assert (
         parsed.apply_url == adapter.base_url + "/NVIDIAExternalCareerSite" + posting["externalPath"]
     )
@@ -172,6 +173,60 @@ def test_recorded_detail_fallbacks_and_additional_locations(monkeypatch, capture
         < parsed.posted_at
         < datetime.now(UTC) - timedelta(days=29)
     )
+
+
+@pytest.mark.parametrize("token", ["NVIDIA|wd1|External", "nvidia|WD5|eXternal"])
+def test_scoped_id_lowercases_tenant_and_site_and_omits_cluster(monkeypatch, captures, token):
+    search, detail = captures
+    posting = search["jobPostings"][0]
+    info = detail["jobPostingInfo"] | {"jobReqId": "R0001"}
+    adapter = workday.WorkdayAdapter(token, "NVIDIA")
+    adapter._client.close()
+    monkeypatch.setattr(adapter, "_json", lambda *_args: {"jobPostingInfo": info})
+
+    raw = adapter._details({posting["externalPath"]: posting})[0]
+
+    assert raw.external_id == "nvidia|external|R0001"
+    assert adapter.parse(raw).meta["job_req_id"] == "R0001"
+
+
+@pytest.mark.parametrize("shape", ["detail", "detail_fallback", "without_job_req_id"])
+def test_legacy_external_id_reproduces_details_identity(monkeypatch, captures, shape):
+    search, detail = captures
+    posting = search["jobPostings"][0] | {"bulletFields": ["FALLBACK-123"]}
+    info = detail["jobPostingInfo"] | {"jobReqId": "DETAIL-123"}
+    expected = "DETAIL-123"
+    if shape == "without_job_req_id":
+        info.pop("jobReqId")
+        expected = posting["externalPath"]
+    adapter = workday.WorkdayAdapter("nvidia|wd5|External", "NVIDIA")
+    adapter._client.close()
+    monkeypatch.setattr(adapter, "_json", lambda *_args: {"jobPostingInfo": info})
+    if shape == "detail_fallback":
+        adapter._requests = workday.REQUEST_BUDGET
+        expected = posting["bulletFields"][0]
+
+    raw = adapter._details({posting["externalPath"]: posting})[0]
+
+    assert raw.external_id == f"nvidia|external|{expected}"
+    assert adapter.legacy_external_id(raw) == expected
+    assert raw.raw_payload["externalPath"] == posting["externalPath"]
+    assert adapter.parse(raw).meta["job_req_id"] == raw.raw_payload.get("jobReqId")
+    assert bool(raw.raw_payload.get("detail_fallback")) == (shape == "detail_fallback")
+
+
+@pytest.mark.parametrize("payload", [{}, {"jobReqId": None, "externalPath": None}])
+def test_legacy_external_id_without_stored_identity(payload):
+    raw = RawListing(
+        source_slug="workday",
+        external_id="nvidia|external|R0001",
+        source_url="https://nvidia.wd5.myworkdayjobs.com/External/job/Intern",
+        content_hash="unused",
+        raw_payload=payload,
+    )
+    adapter = workday.WorkdayAdapter("nvidia|wd5|External", "NVIDIA")
+    adapter._client.close()
+    assert adapter.legacy_external_id(raw) is None
 
 
 @pytest.mark.parametrize(
@@ -380,7 +435,7 @@ def test_detail_budget_keeps_all_search_postings_with_stable_ids(monkeypatch, ca
         for item in fallback
     )
     assert all(
-        item.apply_url.endswith(item.external_id) and item.posted_at is not None
+        item.apply_url.endswith(item.external_id.split("|", 2)[2]) and item.posted_at is not None
         for item in fallback
     )
     assert adapter.health() == "ok" and adapter.coverage()["status"] == "partial"

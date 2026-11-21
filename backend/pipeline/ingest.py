@@ -203,6 +203,36 @@ def load_source_raw_listings(
     return raw_by_external_id
 
 
+def claim_legacy_raw_listings(
+    session: Session,
+    source_id: int,
+    board_state: BoardState,
+    legacy_by_new_id: dict[str, str],
+) -> int:
+    """Rename only legacy rows linked to this board's company, in listing order."""
+    candidates = {
+        new_id: legacy_id
+        for new_id, legacy_id in legacy_by_new_id.items()
+        if new_id not in board_state.raw_by_external_id and "|" not in legacy_id
+    }
+    legacy_rows = load_source_raw_listings(session, source_id, candidates.values())
+    claimed = 0
+    for new_id, legacy_id in candidates.items():
+        row = legacy_rows.get(legacy_id)
+        if (
+            row is None
+            or row.opportunity_id is None
+            or row.opportunity_id not in board_state.opportunities_by_id
+        ):
+            continue
+        row.external_id = new_id
+        board_state.raw_by_external_id[new_id] = row
+        # Two listings may report the same old identity. The first owns it.
+        del legacy_rows[legacy_id]
+        claimed += 1
+    return claimed
+
+
 def load_board_state(
     session: Session,
     source_id: int,
