@@ -242,30 +242,33 @@ def _lock_existing_opportunity(
     board_state: BoardState,
     opportunity_id: int,
 ) -> models.Opportunity:
-    """Refresh and lock in bulk once per board/transaction, preserving Lever-1.
+    """Lock and refresh ONE opportunity right before a canonical write.
 
-    A founder may correct rows after board prefetch or between batch commits.
-    Reload under the lock before any canonical write; otherwise stale ORM meta
-    could erase the correction. A company override outside this board's cache
-    uses the rare single-ID fallback.
+    A founder may correct a row after the board was loaded or between batch
+    commits (TRUST-05). Re-reading the row under FOR UPDATE in the writing
+    transaction means stale ORM state can never erase that correction.
+
+    Only the row about to be written is locked. Locking every board row once
+    per transaction re-read the whole board after every 25-listing batch
+    commit: O(N^2 / 25) full rows (description, embedding), about 36 x 900
+    for databricks, which took 652 s in crawl 44703841666 (2026-11-20) and
+    pushed the ATS step past its budget. Callers skip the lock entirely when
+    an unchanged listing writes nothing canonical.
     """
     transaction = session.get_transaction()
     if board_state.locked_transaction is not transaction:
         board_state.locked_ids.clear()
     if opportunity_id not in board_state.locked_ids:
-        ids = set(board_state.opportunities_by_id) - board_state.locked_ids
-        ids.add(opportunity_id)
-        rows = session.scalars(
+        row = session.scalar(
             select(models.Opportunity)
-            .where(models.Opportunity.id.in_(ids))
-            .order_by(models.Opportunity.id)
+            .where(models.Opportunity.id == opportunity_id)
             .with_for_update()
             .execution_options(populate_existing=True)
-        ).all()
-        for row in rows:
+        )
+        if row is not None:
             board_state.opportunities_by_id[row.id] = row
             board_state.opportunities_by_slug[row.slug] = row
-        board_state.locked_ids.update(row.id for row in rows)
+            board_state.locked_ids.add(row.id)
         board_state.locked_transaction = session.get_transaction()
     opportunity = board_state.opportunities_by_id.get(opportunity_id)
     if opportunity is None:
@@ -313,16 +316,112 @@ def _ensure_provenance(
         existing_link.raw_listing_id = raw_row.id
 
 
+def _would_upgrade_direct_apply_url(opportunity: models.Opportunity, raw: RawListing) -> bool:
+    return (
+        raw.source_slug in DIRECT_SOURCE_SLUGS
+        and classify_destination(opportunity.apply_url, None).kind == "job_board"
+    )
+
+
+def _blocks_canonical_writes(opportunity: models.Opportunity) -> bool:
+    return (
+        safety_flag(opportunity) is not None
+        or opportunity.status == "withdrawn"
+        or has_manual_closure(opportunity)
+    )
+
+
+def _content_change_diff(
+    opportunity: models.Opportunity,
+    normalized: NormalizedListing,
+    country: str | None,
+    raw: RawListing,
+) -> set[str]:
+    """Canonical fields a changed raw payload would actually change, without writing.
+
+    MUST mirror the `if content_changed:` block in ingest_one's identity branch.
+    test_content_change_diff_mirrors_the_write_path pins the two together.
+
+    A raw payload can change while nothing a student sees does. On 2026-11-19
+    Greenhouse re-stamped `updated_at` on whole boards (databricks 862 jobs in
+    one hour), every listing's hash changed, and each one paid the full write:
+    lock, tag delete, re-extraction, embedding reset. That pushed the ATS step
+    past its budget (crawl 44703841666).
+    """
+    description = opportunity.description_raw
+    if len(normalized.description_raw or "") > len(opportunity.description_raw or ""):
+        description = normalized.description_raw
+    values: dict[str, object] = {}
+    if opportunity.primary_source is None or opportunity.primary_source == raw.source_slug:
+        title = normalized.title
+        values.update(
+            title=title,
+            title_normalized=normalize_title(title),
+            location=normalized.location,
+            country=country,
+            is_remote=normalized.is_remote,
+            apply_url=normalized.apply_url,
+            category=normalized.category,
+            posted_at=normalized.posted_at,
+            description_raw=description,
+            skills=extract_opportunity_skills(
+                title, description or "", company_name=normalized.company_name
+            ),
+        )
+        if "deadline_override" not in (opportunity.meta or {}):
+            values.update(
+                deadline=normalized.deadline,
+                deadline_confidence=normalized.deadline_confidence,
+            )
+        meta = _listing_meta(normalized, country, opportunity.meta)
+    elif description != opportunity.description_raw:
+        title = opportunity.title
+        values.update(
+            description_raw=description,
+            skills=extract_opportunity_skills(
+                title, description or "", company_name=normalized.company_name
+            ),
+        )
+        meta = opportunity.meta
+    else:
+        return set()
+    # Exactly what _refresh_extracted_summary would store.
+    if _summary_source(opportunity.meta) == "ai":
+        values["meta"] = _meta_with_summary_source(meta, "ai")
+    else:
+        values["summary"], values["meta"] = _extracted_summary_and_meta(
+            description=description, title=title, meta=meta
+        )
+
+    def differs(field: str, current: object, value: object) -> bool:
+        if field == "skills":  # extraction order is not a change (changed_slugs agrees)
+            return sorted(current or []) != sorted(value or [])
+        return current != value
+
+    return {
+        field
+        for field, value in values.items()
+        if differs(field, getattr(opportunity, field), value)
+    }
+
+
+def _fills_posted_at(
+    opportunity: models.Opportunity, raw: RawListing, normalized: NormalizedListing
+) -> bool:
+    return (
+        opportunity.posted_at is None
+        and normalized.posted_at is not None
+        and opportunity.primary_source in (None, raw.source_slug)
+    )
+
+
 def _upgrade_direct_apply_url(
     opportunity: models.Opportunity,
     raw: RawListing,
     normalized: NormalizedListing,
     changed_slugs: set[str] | None,
 ) -> None:
-    if (
-        raw.source_slug in DIRECT_SOURCE_SLUGS
-        and classify_destination(opportunity.apply_url, None).kind == "job_board"
-    ):
+    if _would_upgrade_direct_apply_url(opportunity, raw):
         opportunity.apply_url = normalized.apply_url
         opportunity.primary_source = raw.source_slug
         if changed_slugs is not None:
@@ -379,12 +478,43 @@ def ingest_one(
         # opportunity at the SAME deterministic slug (the hash suffix is
         # derived from external_id|source_url, neither of which changed),
         # raising opportunities_slug_key.
+        cached = board_state.opportunities_by_id.get(raw_row.opportunity_id)
+        if cached is None:
+            # Rare: the linked row is outside this board's company cache.
+            cached = _lock_existing_opportunity(session, board_state, raw_row.opportunity_id)
+        if _blocks_canonical_writes(cached):
+            # Blocked rows (safety, withdrawn, manual closure) are left alone
+            # and not marked seen, exactly as in the locked re-check below.
+            if not raw_row.processed:
+                raw_row.processed = True
+            _ensure_provenance(
+                session, board_state, cached, source_id, raw, raw_row, is_primary=False
+            )
+            return cached, False
+        payload_changed = raw_row.content_hash != raw.content_hash
+        diff = _content_change_diff(cached, normalized, country, raw) if payload_changed else set()
+        if diff <= {"posted_at"} and not _would_upgrade_direct_apply_url(cached, raw):
+            # Nothing a student sees changes, so no lock and no per-listing
+            # SELECT: last_seen_at is stamped in bulk through seen ids, and the
+            # raw row plus a moved or missing posted_at flush as narrow UPDATEs
+            # of only those columns (batched at the next commit), which cannot
+            # overwrite a founder correction to any other field.
+            if payload_changed:
+                raw_row.content_hash = raw.content_hash
+                raw_row.raw_payload = raw.raw_payload
+            if "posted_at" in diff or _fills_posted_at(cached, raw, normalized):
+                cached.posted_at = normalized.posted_at
+            mark_seen(cached)
+            if not raw_row.processed:
+                raw_row.processed = True
+            _ensure_provenance(
+                session, board_state, cached, source_id, raw, raw_row, is_primary=False
+            )
+            return cached, False
+        # A canonical write follows: re-read this one row under lock and
+        # re-check, so a correction made since the board loaded is kept.
         opportunity = _lock_existing_opportunity(session, board_state, raw_row.opportunity_id)
-        if (
-            safety_flag(opportunity) is not None
-            or opportunity.status == "withdrawn"
-            or has_manual_closure(opportunity)
-        ):
+        if _blocks_canonical_writes(opportunity):
             raw_row.processed = True
             _ensure_provenance(
                 session, board_state, opportunity, source_id, raw, raw_row, is_primary=False
