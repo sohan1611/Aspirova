@@ -2,19 +2,18 @@ import { withBuildFallback } from "@/lib/buildFallback";
 import { CompanyBuildRecovery } from "@/components/BuildListingRecovery";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
+import { addCacheTag } from "@vercel/functions";
+import { cache } from "react";
 import CompanyOpportunities from "@/components/CompanyOpportunities";
 import { getCompanyPage } from "@/lib/api";
 
 const LIMIT = 20;
 
-// Sized so each path renders about four times a month; every regeneration is a full render and costs both Fluid CPU and an ISR write.
-export const revalidate = 604800;
+// Rendered per request, cached by Vercel's CDN via Vercel-CDN-Cache-Control in next.config.ts to preserve the free-plan ISR write budget.
+// Responses use the company-<slug> cache tag for CDN purges.
+export const dynamic = "force-dynamic";
 
-// Registers the route for on-demand ISR without prerendering any page at build
-// time; without this Next leaves a dynamic segment fully per-request.
-export async function generateStaticParams(): Promise<{ slug: string; n: string }[]> {
-  return [];
-}
+const loadCompanyPage = cache((slug: string, page: number) => getCompanyPage(slug, page, LIMIT, 0));
 
 interface PageProps {
   params: Promise<{ slug: string; n: string }>;
@@ -41,7 +40,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug, n } = await params;
   const page = parsePage(n);
   // Same URL as the page body, so one render makes one API call, not two.
-  const result = await withBuildFallback(() => getCompanyPage(slug, page, LIMIT), data => data?.items.length ?? 0);
+  const result = await withBuildFallback(() => loadCompanyPage(slug, page), data => data?.items.length ?? 0);
   if (result.status === "failed") return { title: "Company opportunities" };
   const data = result.data;
   if (!data) {
@@ -79,12 +78,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function CompanyPaginatedPage({ params }: PageProps) {
   const { slug, n } = await params;
+  if (slug.length <= 120 && /^[a-z0-9][a-z0-9-]*$/.test(slug)) {
+    await addCacheTag(`company-${slug}`);
+  }
   const page = parsePage(n);
   if (page <= 1) {
     redirect(companyPath(slug));
   }
 
-  const result = await withBuildFallback(() => getCompanyPage(slug, page, LIMIT), data => data?.items.length ?? 0);
+  const result = await withBuildFallback(() => loadCompanyPage(slug, page), data => data?.items.length ?? 0);
   if (result.status === "failed") return <CompanyBuildRecovery slug={slug} page={page} limit={LIMIT} />;
   const data = result.data;
   if (!data) {

@@ -388,9 +388,9 @@ export async function getOpportunity(
   slug: string,
   revalidateSeconds = 604800,
 ): Promise<OpportunityDetail | null> {
-  const res = await fetch(`${API_URL}/opportunity/${encodeURIComponent(slug)}`, {
-    next: { revalidate: revalidateSeconds },
-  });
+  const res = await fetch(`${API_URL}/opportunity/${encodeURIComponent(slug)}`,
+    revalidateSeconds === 0 ? { cache: "no-store" } : { next: { revalidate: revalidateSeconds } },
+  );
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Failed to load opportunity: ${res.status}`);
   return res.json();
@@ -429,9 +429,10 @@ export async function getProgramme(slug: string): Promise<ProgrammeDetail | null
 export async function getSimilarOpportunities(
   slug: string,
   limit = 6,
+  revalidateSeconds = 604800,
 ): Promise<OpportunityListItem[]> {
   const search = new URLSearchParams({ limit: String(limit) });
-  return fetchListing<OpportunityListItem[]>(`${API_URL}/opportunity/${encodeURIComponent(slug)}/similar?${search}`, 604800, "array");
+  return fetchListing<OpportunityListItem[]>(`${API_URL}/opportunity/${encodeURIComponent(slug)}/similar?${search}`, revalidateSeconds, "array");
 }
 
 // This fetch revalidate caps its route's ISR window; lowering it silently shortens page cache lifetime.
@@ -439,9 +440,15 @@ export async function getCompanyPage(
   slug: string,
   page = 1,
   limit = 20,
+  revalidateSeconds = 604800,
 ): Promise<ListingSnapshot<CompanyPage> | null> {
   const search = new URLSearchParams({ page: String(page), limit: String(limit) });
-  return fetchListing<CompanyPage | null>(`${API_URL}/company/${encodeURIComponent(slug)}?${search}`, 604800, "company");
+  const data = await fetchListing<CompanyPage | null>(`${API_URL}/company/${encodeURIComponent(slug)}?${search}`, revalidateSeconds, "company");
+  if (data && revalidateSeconds === 0) {
+    // Preserve the visible snapshot freshness window when bypassing Next storage.
+    data.expiresAt = data.loadedAt + 604800 * 1000;
+  }
+  return data;
 }
 
 export async function getCompanies(): Promise<ListingSnapshot<CompanyListItem[]>> {

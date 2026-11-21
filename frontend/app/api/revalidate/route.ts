@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 
 import { revalidatePath } from "next/cache";
+import { dangerouslyDeleteByTag } from "@vercel/functions";
 
 import { PAGINATED_LANDING_PATHS, REVALIDATABLE_LIST_PATHS } from "@/lib/landing";
 
@@ -90,6 +91,17 @@ export async function POST(request: Request) {
     revalidatePath(`/opportunity/${slug}`);
   }
 
+  const tags = [...uniqueSlugs].map(slug => `opportunity-${slug}`);
+  let purged = 0;
+  if (tags.length > 0) {
+    try {
+      await dangerouslyDeleteByTag(tags);
+      purged = tags.length;
+    } catch (error) {
+      console.error("Failed to purge opportunity CDN cache", error);
+    }
+  }
+
   for (const path of uniquePaths) {
     revalidatePath(path);
 
@@ -106,5 +118,6 @@ export async function POST(request: Request) {
   return Response.json({
     revalidated: uniqueSlugs.size,
     paths: uniquePaths.size,
+    purged,
   });
 }
