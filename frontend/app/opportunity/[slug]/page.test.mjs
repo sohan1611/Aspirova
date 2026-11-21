@@ -5,7 +5,7 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
-import { test } from "node:test";
+import { beforeEach, test } from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import ts from "typescript";
@@ -15,6 +15,17 @@ const frontend = fileURLToPath(new URL("../../../", import.meta.url));
 const anchor = ({ children, href, "aria-label": ariaLabel }) => React.createElement("a", { href, "aria-label": ariaLabel }, children);
 const label = ({ children }) => React.createElement("span", {}, children);
 let current;
+const requestCaches = [];
+const cacheTags = [];
+const opportunityCalls = [];
+const similarCalls = [];
+const events = [];
+
+beforeEach(() => {
+  current = base;
+  for (const entries of requestCaches) entries.clear();
+  for (const calls of [cacheTags, opportunityCalls, similarCalls, events]) calls.length = 0;
+});
 
 function load(filename) {
   const source = ts.transpileModule(fs.readFileSync(filename, "utf8"), {
@@ -26,12 +37,29 @@ function load(filename) {
     module: loaded,
     exports: loaded.exports,
     require: (name) => {
+      if (name === "react") return { ...React, cache: fn => {
+        const entries = new Map();
+        requestCaches.push(entries);
+        return (...args) => {
+          const key = JSON.stringify(args);
+          if (!entries.has(key)) entries.set(key, fn(...args));
+          return entries.get(key);
+        };
+      } };
+      if (name === "@vercel/functions") return { addCacheTag: async tag => {
+        cacheTags.push(tag);
+        events.push("tag");
+      } };
       if (name === "next/link") return { default: anchor };
       if (name === "next/navigation") return { notFound() { throw Error("not found"); } };
       if (name === "lucide-react") return new Proxy({}, { get: () => () => null });
       if (name === "@/lib/api") return {
-        getOpportunity: async () => current,
-        getSimilarOpportunities: async () => [],
+        getOpportunity: async (...args) => {
+          opportunityCalls.push(args);
+          events.push("opportunity");
+          return current;
+        },
+        getSimilarOpportunities: async (...args) => { similarCalls.push(args); return []; },
       };
       if (name === "@/components/ui/badge") return { Badge: label };
       if (name === "@/components/ui/button") return { Button: label };
@@ -65,6 +93,41 @@ const base = {
   skills: [], summary: null, reopen_estimate: null,
 };
 const props = { params: Promise.resolve({ slug: base.slug }) };
+
+test("opportunity responses use dynamic CDN caching without ISR exports", () => {
+  assert.equal(page.dynamic, "force-dynamic");
+  assert.equal(Object.hasOwn(page, "revalidate"), false);
+  assert.equal(Object.hasOwn(page, "generateStaticParams"), false);
+});
+
+test("metadata and the page share one uncached opportunity read per request", async () => {
+  await page.generateMetadata(props);
+  await page.default(props);
+  assert.deepEqual(opportunityCalls, [[base.slug, 0]]);
+  assert.deepEqual(similarCalls, [[base.slug, 6, 0]]);
+});
+
+for (const slug of [base.slug, "1-role", "a".repeat(120)]) {
+  test("valid opportunity slug receives a CDN tag: " + slug, async () => {
+    await page.default({ params: Promise.resolve({ slug }) });
+    assert.deepEqual(cacheTags, [`opportunity-${slug}`]);
+    assert.deepEqual(events.slice(0, 2), ["tag", "opportunity"]);
+  });
+}
+
+for (const slug of ["test,intern", "Test-intern", "a".repeat(121), "-intern", ""]) {
+  test("invalid opportunity slug receives no CDN tag: " + slug, async () => {
+    await page.default({ params: Promise.resolve({ slug }) });
+    assert.deepEqual(cacheTags, []);
+  });
+}
+
+test("missing opportunities are tagged before the 404 read", async () => {
+  current = null;
+  await assert.rejects(page.default(props), /not found/);
+  assert.deepEqual(cacheTags, [`opportunity-${base.slug}`]);
+  assert.deepEqual(events, ["tag", "opportunity"]);
+});
 
 for (const level of ["internship", "apprenticeship", "graduate", "experienced", "unknown", null]) {
   test(`card and opportunity page: neutral role label only for ${level}`, async () => {

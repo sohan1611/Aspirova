@@ -2,6 +2,8 @@ import { ArrowUpRight, Building2, CalendarClock, Clock, ExternalLink, Graduation
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { addCacheTag } from "@vercel/functions";
+import { cache } from "react";
 import ApplyLink from "@/components/ApplyLink";
 import AddToCalendar from "@/components/AddToCalendar";
 import BookmarkButton from "@/components/BookmarkButton";
@@ -49,14 +51,11 @@ import { safeExternalUrl } from "@/lib/safeUrl";
 import { getSourceLabel } from "@/lib/sourceLabel";
 import type { OpportunityListItem } from "@/lib/types";
 
-// Sized so each path renders about four times a month; every regeneration is a full render and costs both Fluid CPU and an ISR write.
-export const revalidate = 604800;
+// Rendered per request, cached by Vercel's CDN via Vercel-CDN-Cache-Control in next.config.ts; this route's ISR writes used most of the free-plan budget.
+// The crawler purges the response by its opportunity-<slug> cache tag.
+export const dynamic = "force-dynamic";
 
-// Registers the route for on-demand ISR without prerendering any page at build
-// time; without this Next leaves a dynamic segment fully per-request.
-export async function generateStaticParams(): Promise<{ slug: string }[]> {
-  return [];
-}
+const loadOpportunity = cache((slug: string) => getOpportunity(slug, 0));
 
 const CATEGORY_LABEL: Record<string, string> = {
   internship: "Internship",
@@ -88,7 +87,7 @@ function serializeJsonLd(value: Record<string, unknown>): string {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const opportunity = await getOpportunity(slug);
+  const opportunity = await loadOpportunity(slug);
   if (!opportunity) {
     return { title: "Opportunity not found" };
   }
@@ -120,7 +119,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function OpportunityPage({ params }: PageProps) {
   const { slug } = await params;
-  const opportunity = await getOpportunity(slug);
+  if (slug.length <= 120 && /^[a-z0-9][a-z0-9-]*$/.test(slug)) {
+    await addCacheTag(`opportunity-${slug}`);
+  }
+  const opportunity = await loadOpportunity(slug);
   if (!opportunity) {
     notFound();
   }
@@ -194,7 +196,7 @@ export default async function OpportunityPage({ params }: PageProps) {
   let similarOpportunities: OpportunityListItem[] = [];
 
   try {
-    similarOpportunities = await getSimilarOpportunities(slug);
+    similarOpportunities = await getSimilarOpportunities(slug, 6, 0);
   } catch {
     // Related opportunities are non-essential to the detail page.
   }

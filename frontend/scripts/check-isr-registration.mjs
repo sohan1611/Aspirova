@@ -4,19 +4,19 @@ import { fileURLToPath } from "node:url";
 
 // Keep this list in sync with every dynamic route intentionally registered for ISR.
 const REQUIRED_ISR_ROUTES = [
-  "/companies/[slug]",
-  "/companies/[slug]/page/[n]",
   "/internships/page/[n]",
   "/internships/in/[place]",
   "/internships/role/[role]",
   "/jobs/page/[n]",
   "/jobs/in/[place]",
   "/jobs/role/[role]",
-  "/opportunity/[slug]",
   "/programme/[slug]",
   "/remote/page/[n]",
   "/scholarships/page/[n]",
 ];
+
+// These routes use CDN caching in next.config.ts and must never write to ISR.
+const CDN_ROUTES = ["/opportunity/[slug]", "/companies/[slug]", "/companies/[slug]/page/[n]"];
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const frontendDirectory = path.resolve(scriptDirectory, "..");
@@ -90,6 +90,18 @@ if (staticProblems.length > 0) {
 }
 
 const dynamicRoutes = manifest.dynamicRoutes ?? {};
+const unexpectedIsrRoutes = CDN_ROUTES.filter(
+  (route) => Object.prototype.hasOwnProperty.call(dynamicRoutes, route),
+);
+
+if (unexpectedIsrRoutes.length > 0) {
+  console.error("ISR registration check failed: CDN routes must not be ISR-registered:");
+  for (const route of unexpectedIsrRoutes) {
+    console.error(route);
+  }
+  process.exit(1);
+}
+
 const missingRoutes = REQUIRED_ISR_ROUTES.filter(
   (route) => !Object.prototype.hasOwnProperty.call(dynamicRoutes, route),
 );

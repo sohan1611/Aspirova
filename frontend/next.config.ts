@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.join(__dirname),
   },
+  // Dynamic pages otherwise stream metadata into <body> for some user agents,
+  // and the CDN serves the first cached variant to everyone. Keep title,
+  // canonical and Open Graph tags in <head> for every user agent.
+  htmlLimitedBots: /.*/,
   // Page 1 of a paginated segment is the base path, and these rules are what
   // actually enforce that. The `redirect()` call in each page/[n] component does
   // NOT fire for these routes once they are ISR-prerendered - verified in
@@ -36,6 +40,20 @@ const nextConfig: NextConfig = {
             value: "camera=(), microphone=(), geolocation=(), browsing-topics=()",
           },
         ],
+      },
+      // Vercel's CDN honours this for function responses; Next.js still sends
+      // its own private Cache-Control to browsers, which is fine.
+      {
+        source: "/opportunity/:slug",
+        headers: [{ key: "Vercel-CDN-Cache-Control", value: "max-age=604800" }],
+      },
+      {
+        source: "/companies/:slug",
+        headers: [{ key: "Vercel-CDN-Cache-Control", value: "max-age=604800" }],
+      },
+      {
+        source: "/companies/:slug/page/:n",
+        headers: [{ key: "Vercel-CDN-Cache-Control", value: "max-age=604800" }],
       },
     ];
   },
