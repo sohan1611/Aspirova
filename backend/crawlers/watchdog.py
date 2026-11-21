@@ -142,7 +142,8 @@ class CrawlWatchdog:
                 )
 
         if message is not None:
-            print(message, file=self._output, flush=True)
+            self._output.write(message + "\n")
+            self._output.flush()
 
         if soft_hang:
             self._on_soft_hang()
