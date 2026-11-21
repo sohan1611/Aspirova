@@ -812,68 +812,157 @@ def test_empty_sla_and_reminder_unit(monkeypatch):
     assert not cli.remind(EmptySession())
 
 
-def test_ingest_refreshes_prefetched_manual_edits_in_one_bulk_lock(db_session, company, now):
-    from sqlalchemy import event
-
+def _linked_board(db_session, company, now, count):
+    """A source whose raw listings and provenance already link `count` rows."""
     source = models.Source(slug=f"triage-bulk-{uuid.uuid4().hex}", name="Test", type="ats")
     db_session.add(source)
     db_session.flush()
-    opportunities = [listing(db_session, company, now, primary_source="test") for _ in range(2)]
-    for index, opportunity in enumerate(opportunities):
-        db_session.add(
-            models.RawListing(
-                source_id=source.id,
-                external_id=str(index),
-                source_url=f"https://example.com/{index}",
-                content_hash="unchanged",
-                raw_payload={},
-                opportunity_id=opportunity.id,
-            )
+    opportunities = [listing(db_session, company, now, primary_source="test") for _ in range(count)]
+    raws = [
+        models.RawListing(
+            source_id=source.id,
+            external_id=str(index),
+            source_url=f"https://example.com/{index}",
+            content_hash="unchanged",
+            raw_payload={},
+            opportunity_id=opportunity.id,
+            processed=True,
         )
+        for index, opportunity in enumerate(opportunities)
+    ]
+    db_session.add_all(raws)
     db_session.flush()
-    state = load_board_state(db_session, source.id, company.id)
-    # Simulate a founder's write after prefetch without refreshing the ORM cache.
+    db_session.add_all(
+        models.OpportunitySource(
+            opportunity_id=opportunity.id,
+            source_id=source.id,
+            source_url=raw.source_url,
+            raw_listing_id=raw.id,
+            is_primary=True,
+        )
+        for opportunity, raw in zip(opportunities, raws)
+    )
+    db_session.flush()
+    return source, opportunities
+
+
+def _ingest_board_listing(db_session, state, source, company, opportunity, index, content_hash):
+    raw = RawListing(
+        source_slug="test",
+        external_id=str(index),
+        source_url=f"https://example.com/{index}",
+        content_hash=content_hash,
+        raw_payload={},
+    )
+    normalized = NormalizedListing(
+        source_slug="test",
+        external_id=str(index),
+        source_url=raw.source_url,
+        title=f"Changed {opportunity.title}" if content_hash != "unchanged" else opportunity.title,
+        company_name=company.name,
+        apply_url=raw.source_url,
+        description_raw="",
+    )
+    seen = set()
+    ingest_one(db_session, state, source.id, company.id, raw, normalized, seen_opportunity_ids=seen)
+    return seen
+
+
+def _record_statements(db_session):
+    from sqlalchemy import event
+
+    statements = []
+
+    def record(connection, cursor, statement, parameters, context, executemany):
+        statements.append(statement)
+
+    event.listen(db_session.bind, "before_cursor_execute", record)
+    return statements, lambda: event.remove(db_session.bind, "before_cursor_execute", record)
+
+
+def _founder_closes_after_load(db_session, opportunity, now):
+    """A founder's write after the board loaded, invisible to the ORM cache."""
     from sqlalchemy import update
 
     db_session.execute(
         update(models.Opportunity)
-        .where(models.Opportunity.id == opportunities[0].id)
+        .where(models.Opportunity.id == opportunity.id)
         .values(closed_at=now, meta={"closed_reason": "user_report"})
         .execution_options(synchronize_session=False)
     )
-    locks = []
 
-    def record_query(connection, cursor, statement, parameters, context, executemany):
-        if "FROM opportunities" in statement and "FOR UPDATE" in statement:
-            locks.append(statement)
 
-    event.listen(db_session.bind, "before_cursor_execute", record_query)
+def test_unchanged_listings_take_no_lock_and_keep_manual_edits(db_session, company, now):
+    source, opportunities = _linked_board(db_session, company, now, 2)
+    state = load_board_state(db_session, source.id, company.id)
+    _founder_closes_after_load(db_session, opportunities[0], now)
+    statements, stop = _record_statements(db_session)
     try:
         for index, opportunity in enumerate(opportunities):
-            raw = RawListing(
-                source_slug="test",
-                external_id=str(index),
-                source_url=f"https://example.com/{index}",
-                content_hash="unchanged",
-                raw_payload={},
+            _ingest_board_listing(
+                db_session, state, source, company, opportunity, index, "unchanged"
             )
-            normalized = NormalizedListing(
-                source_slug="test",
-                external_id=str(index),
-                source_url=raw.source_url,
-                title=opportunity.title,
-                company_name=company.name,
-                apply_url=raw.source_url,
-                description_raw="",
-            )
-            ingest_one(db_session, state, source.id, company.id, raw, normalized)
+        db_session.flush()
     finally:
-        event.remove(db_session.bind, "before_cursor_execute", record_query)
-    assert len(locks) == 1
-    assert (
-        opportunities[0].closed_at == now
-        and opportunities[0].meta["closed_reason"] == "user_report"
-    )
+        stop()
+    # An unchanged listing writes nothing canonical: no lock, no per-listing SQL.
+    assert statements == []
+    db_session.refresh(opportunities[0])
+    assert opportunities[0].closed_at == now
+    assert opportunities[0].meta["closed_reason"] == "user_report"
+
+
+def test_changed_listing_locks_one_row_and_keeps_manual_edit(db_session, company, now):
+    source, opportunities = _linked_board(db_session, company, now, 2)
+    original_title = opportunities[0].title
+    state = load_board_state(db_session, source.id, company.id)
+    _founder_closes_after_load(db_session, opportunities[0], now)
+    statements, stop = _record_statements(db_session)
+    try:
+        for index, opportunity in enumerate(opportunities):
+            _ingest_board_listing(db_session, state, source, company, opportunity, index, "changed")
+        db_session.flush()
+    finally:
+        stop()
+    locks = [s for s in statements if "FROM opportunities" in s and "FOR UPDATE" in s]
+    assert len(locks) == 2
+    assert all(" IN " not in lock for lock in locks)
+    db_session.refresh(opportunities[0])
+    # Re-checked under the lock: the founder's closure and the title survive.
+    assert opportunities[0].closed_at == now
+    assert opportunities[0].meta["closed_reason"] == "user_report"
+    assert opportunities[0].title == original_title
+    db_session.refresh(opportunities[1])
+    assert opportunities[1].title.startswith("Changed ")
+
+
+def test_multi_batch_board_locks_only_changed_rows(db_session, company, now):
+    db_session.expire_on_commit = False  # as crawl_company_board's sessions
+    source, opportunities = _linked_board(db_session, company, now, 60)
+    state = load_board_state(db_session, source.id, company.id)
+    changed = {7, 41}
+    seen = set()
+    statements, stop = _record_statements(db_session)
+    try:
+        for index, opportunity in enumerate(opportunities):
+            content_hash = "changed" if index in changed else "unchanged"
+            seen |= _ingest_board_listing(
+                db_session, state, source, company, opportunity, index, content_hash
+            )
+            if (index + 1) % 25 == 0:
+                # crawl_company_board commits every 25 listings; each commit used
+                # to re-lock and re-read every row of the board.
+                db_session.commit()
+        db_session.flush()
+    finally:
+        stop()
+    locks = [s for s in statements if "FROM opportunities" in s and "FOR UPDATE" in s]
+    assert len(locks) == len(changed)
+    assert all(" IN " not in lock for lock in locks)
+    assert seen == {opportunity.id for opportunity in opportunities}
+    for index in changed:
+        db_session.refresh(opportunities[index])
+        assert opportunities[index].title.startswith("Changed ")
 
 
 def test_public_correction_sanitization_unit():

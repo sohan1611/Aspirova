@@ -380,7 +380,9 @@ def test_changed_slugs_always_tracks_new_opportunity(db_session, seeded):
 def test_changed_slugs_ignores_reordered_skills(db_session, seeded, monkeypatch):
     source_a, _source_b, company = seeded
     source_url = "https://acme.example/jobs/reordered-skills"
-    skill_orders = iter((["Python", "SQL"], ["SQL", "Python"]))
+    # A payload change whose only effect is a reordered skill list is not a
+    # canonical change: it takes the cheap path and keeps the stored list.
+    skill_orders = iter((["Python", "SQL"], ["SQL", "Python"], ["SQL", "Python"]))
     monkeypatch.setattr(
         "pipeline.ingest.extract_opportunity_skills",
         lambda *_args, **_kwargs: next(skill_orders),
@@ -415,7 +417,7 @@ def test_changed_slugs_ignores_reordered_skills(db_session, seeded, monkeypatch)
     db_session.flush()
 
     assert is_new_update is False
-    assert updated.skills == ["SQL", "Python"]
+    assert sorted(updated.skills) == ["Python", "SQL"]
     assert changed_slugs == set()
 
 
@@ -1343,3 +1345,136 @@ def test_identity_path_fills_a_missing_posting_date_but_never_restamps(
         undated.model_copy(update={"posted_at": posted + timedelta(days=5)}),
     )
     assert opportunity.posted_at == posted
+
+
+def _statements(db_session: Session):
+    from sqlalchemy import event
+
+    seen: list[str] = []
+
+    def record(connection, cursor, statement, parameters, context, executemany):
+        seen.append(statement)
+
+    event.listen(db_session.bind, "before_cursor_execute", record)
+    return seen, lambda: event.remove(db_session.bind, "before_cursor_execute", record)
+
+
+def _tagged(db_session: Session, opportunity: models.Opportunity) -> None:
+    tag = models.Tag(slug=f"cheap-path-{opportunity.id}", label="Cheap path")
+    db_session.add(tag)
+    db_session.flush()
+    db_session.add(models.OpportunityTag(opportunity_id=opportunity.id, tag_id=tag.id))
+    db_session.flush()
+
+
+def test_payload_only_change_skips_lock_and_rewrite(db_session: Session, seeded) -> None:
+    """A re-stamped payload (Greenhouse bulk updated_at, 2026-11-19) writes no canonical row."""
+    source, _other, company = seeded
+    posted = datetime(2026, 1, 5, tzinfo=UTC)
+    raw = _raw("restamp", "https://acme.example/jobs/restamp", "v1")
+    normalized = _normalized("Data Intern", raw.source_url, "Analyse data. " * 40).model_copy(
+        update={"posted_at": posted}
+    )
+    opportunity, _ = _ingest(db_session, source.id, company.id, raw, normalized)
+    _tagged(db_session, opportunity)
+    before = {
+        field: getattr(opportunity, field)
+        for field in ("title", "summary", "meta", "skills", "description_raw", "posted_at")
+    }
+    restamped = raw.model_copy(
+        update={"content_hash": "v2", "raw_payload": {"id": "restamp", "x": 1}}
+    )
+    moved = normalized.model_copy(update={"posted_at": posted + timedelta(days=300)})
+    for payload, listing, expected_posted in (
+        (restamped, normalized, posted),
+        (
+            restamped.model_copy(update={"content_hash": "v3"}),
+            moved,
+            moved.posted_at,
+        ),
+    ):
+        state = load_board_state(db_session, source.id, company.id)
+        statements, stop = _statements(db_session)
+        changed: set[str] = set()
+        try:
+            ingest_one(
+                db_session,
+                state,
+                source.id,
+                company.id,
+                payload,
+                listing,
+                seen_opportunity_ids=set(),
+                changed_slugs=changed,
+            )
+            db_session.flush()
+        finally:
+            stop()
+        assert not [s for s in statements if "FOR UPDATE" in s]
+        assert not [s for s in statements if s.lstrip().startswith("DELETE")]
+        assert not changed
+        db_session.expire_all()
+        refreshed = db_session.get(models.Opportunity, opportunity.id)
+        assert refreshed.posted_at == expected_posted
+        assert {k: getattr(refreshed, k) for k in before if k != "posted_at"} == {
+            k: v for k, v in before.items() if k != "posted_at"
+        }
+        raw_row = db_session.scalar(
+            select(models.RawListing).where(
+                models.RawListing.source_id == source.id,
+                models.RawListing.external_id == "restamp",
+            )
+        )
+        assert raw_row.content_hash == payload.content_hash
+        assert raw_row.raw_payload == payload.raw_payload
+        assert (
+            db_session.scalar(
+                select(func.count())
+                .select_from(models.OpportunityTag)
+                .where(models.OpportunityTag.opportunity_id == opportunity.id)
+            )
+            == 1
+        )
+
+
+@pytest.mark.parametrize(
+    "update_fields",
+    [
+        {"title": "Senior Data Intern"},
+        {"location": "Bengaluru, India"},
+        {"is_remote": True},
+        {"apply_url": "https://acme.example/apply/other"},
+        {"category": "job"},
+        {"description_raw": ("Analyse data. " * 80).strip()},
+        {"deadline": datetime(2027, 3, 1, tzinfo=UTC), "deadline_confidence": "exact"},
+    ],
+)
+def test_content_change_diff_mirrors_the_write_path(
+    db_session: Session, seeded, update_fields: dict
+) -> None:
+    """Any canonical change still takes the locked full write and lands."""
+    source, _other, company = seeded
+    raw = _raw("mirror", "https://acme.example/jobs/mirror", "v1")
+    normalized = _normalized("Data Intern", raw.source_url, "Analyse data. " * 40)
+    opportunity, _ = _ingest(db_session, source.id, company.id, raw, normalized)
+    changed_listing = normalized.model_copy(update=update_fields)
+    state = load_board_state(db_session, source.id, company.id)
+    statements, stop = _statements(db_session)
+    try:
+        ingest_one(
+            db_session,
+            state,
+            source.id,
+            company.id,
+            raw.model_copy(update={"content_hash": "v2"}),
+            changed_listing,
+            seen_opportunity_ids=set(),
+        )
+        db_session.flush()
+    finally:
+        stop()
+    assert len([s for s in statements if "FOR UPDATE" in s]) == 1
+    db_session.expire_all()
+    refreshed = db_session.get(models.Opportunity, opportunity.id)
+    for field, value in update_fields.items():
+        assert getattr(refreshed, field) == value
