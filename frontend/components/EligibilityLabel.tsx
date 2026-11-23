@@ -11,7 +11,7 @@ function Label({ facts, filters = {} }: { facts?: EligibilityFacts | null; filte
   const evidence = text === "Eligibility not stated"
     ? "The listing does not state the selected eligibility dimension. Check the listing before applying."
     : eligibilityEvidenceText(facts);
-  return <span className="block min-w-0 max-w-full truncate text-xs text-muted-foreground" title={evidence}>
+  return <span className="relative block min-w-0 max-w-full truncate text-xs text-muted-foreground" title={evidence}>
     {text}<span className="sr-only">. {evidence}</span>
   </span>;
 }

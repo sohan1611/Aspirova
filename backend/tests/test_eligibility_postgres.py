@@ -267,8 +267,10 @@ def test_backfill_batches_dry_run_versions_and_scope(
     connection.exec_driver_sql(
         "UPDATE opportunities SET eligibility_facts = '{\"v\":0}'::jsonb WHERE id=2"
     )
+    # Row 3 is already parsed by the current parser version, so it is not due.
     connection.exec_driver_sql(
-        "UPDATE opportunities SET eligibility_facts = '{\"v\":1}'::jsonb WHERE id=3"
+        "UPDATE opportunities SET eligibility_facts = jsonb_build_object('v', %(v)s) WHERE id=3",
+        {"v": backfill.ELIGIBILITY_FACTS_VERSION},
     )
     statements = []
 
@@ -300,10 +302,11 @@ def test_backfill_batches_dry_run_versions_and_scope(
             "remaining": 0,
         }
         # A future parser version must pick up already-parsed rows too.
-        monkeypatch.setattr(backfill, "ELIGIBILITY_FACTS_VERSION", 2)
+        future = backfill.ELIGIBILITY_FACTS_VERSION + 1
+        monkeypatch.setattr(backfill, "ELIGIBILITY_FACTS_VERSION", future)
         real = extract_eligibility_facts
         monkeypatch.setattr(
-            backfill, "extract_eligibility_facts", lambda *args: {**real(*args), "v": 2}
+            backfill, "extract_eligibility_facts", lambda *args: {**real(*args), "v": future}
         )
         assert backfill.backfill_eligibility_facts(connection, batch=batch) == {
             "updated": 3,

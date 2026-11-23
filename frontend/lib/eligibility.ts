@@ -69,7 +69,7 @@ export function eligibilityLabelText(facts?: EligibilityFacts | null, filters: E
 /** Validate evidence objects before a successful response enters the read cache. */
 export function assertEligibilityFacts(value: unknown): void {
   if (value == null) return; // Older cached payloads can omit the field.
-  if (typeof value !== "object" || Array.isArray(value) || (value as EligibilityFacts).v !== 1) throw new Error("Invalid eligibility facts");
+  if (typeof value !== "object" || Array.isArray(value) || !Number.isInteger((value as EligibilityFacts).v) || (value as EligibilityFacts).v < 1) throw new Error("Invalid eligibility facts");
   const facts = value as Record<string, unknown>;
   for (const [key] of ELIGIBILITY_DIMENSIONS) {
     const fact = facts[key] as EligibilityFact<unknown> | undefined;

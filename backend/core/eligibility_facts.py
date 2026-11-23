@@ -10,7 +10,7 @@ import re
 from html import unescape
 from typing import Literal
 
-ELIGIBILITY_FACTS_VERSION = 1
+ELIGIBILITY_FACTS_VERSION = 2  # 2: open-ended graduation dates are not fixed years
 Stage = Literal["school", "undergraduate", "postgraduate", "doctoral", "recent_graduate"]
 STAGES = frozenset({"school", "undergraduate", "postgraduate", "doctoral", "recent_graduate"})
 SCAN_LIMIT = 60_000
@@ -409,15 +409,35 @@ def _stage_rules(clause: str) -> set[str]:
     return stages
 
 
+_OPEN_ENDED_AFTER = re.compile(
+    r"\s*,?\s*(?:(?:or|and)\s+(?:later|after|earlier|before|beyond|above|prior)\b|onwards?\b|\+|and\s+beyond\b)",
+    re.I,
+)
+_OPEN_ENDED_BEFORE = re.compile(
+    r"\b(?:before|after|by|until|till|no\s+later\s+than|no\s+earlier\s+than|prior\s+to|since|from)\s*$",
+    re.I,
+)
+
+
+def _open_ended(clause: str, match: re.Match) -> bool:
+    """ "December 2026 or later" is an open range, not a 2026-only rule."""
+    return bool(
+        _OPEN_ENDED_AFTER.match(clause, match.end())
+        or _OPEN_ENDED_BEFORE.search(clause[max(0, match.start() - 30) : match.start()])
+    )
+
+
 def _grad_years(clause: str) -> set[int]:
     years: set[int] = set(graduation_batches(clause))
     for pattern in (_GRAD_RANGE, _YEAR_RANGE_BATCH):
         for match in pattern.finditer(clause):
             lo, hi = int(match.group(1)), int(match.group(2))
-            if 2015 <= lo <= hi <= 2035 and hi - lo <= 4:
+            if 2015 <= lo <= hi <= 2035 and hi - lo <= 4 and not _open_ended(clause, match):
                 years.update(range(lo, hi + 1))
     for pattern in _GRAD_SINGLE:
-        years.update(int(m.group(1)) for m in pattern.finditer(clause))
+        years.update(
+            int(m.group(1)) for m in pattern.finditer(clause) if not _open_ended(clause, m)
+        )
     return {y for y in years if 2015 <= y <= 2035}
 
 

@@ -20,7 +20,7 @@ def _purge_isolation_test_residue():
 @pytest.mark.parametrize("row", CASES, ids=[row["id"] for row in CASES])
 def test_eligibility_fixture(row):
     facts = extract_eligibility_facts(row["title"], row["description_raw"], row["meta"])
-    assert facts["v"] == ELIGIBILITY_FACTS_VERSION == 1
+    assert facts["v"] == ELIGIBILITY_FACTS_VERSION == 2
     assert {key: value["value"] for key, value in facts.items() if key != "v"} == row["expected"]
     sources = {
         "title": _plain(row["title"]),
@@ -36,8 +36,10 @@ def test_eligibility_fixture(row):
 
 def test_fixture_count_and_scan_cap():
     assert len(CASES) >= 70
-    assert extract_eligibility_facts("Role", "x" * 60_001 + " 2026 batch", {}) == {"v": 1}
-    assert extract_eligibility_facts(None, None, None) == {"v": 1}
+    assert extract_eligibility_facts("Role", "x" * 60_001 + " 2026 batch", {}) == {
+        "v": ELIGIBILITY_FACTS_VERSION
+    }
+    assert extract_eligibility_facts(None, None, None) == {"v": ELIGIBILITY_FACTS_VERSION}
 
 
 def test_evaluation_counts_errors_and_draws():

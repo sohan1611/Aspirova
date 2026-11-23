@@ -67,8 +67,8 @@ test("compact text describes requirements, and relevant unknown dimensions remai
 });
 
 test("malformed eligibility payloads are rejected", () => {
-  for (const value of [null, undefined, { v: 1 }, { v: 1, citizenship: fact([]) }, { v: 1, grad_years: fact([2026]) }]) assert.doesNotThrow(() => assertEligibilityFacts(value));
-  for (const value of [{ v: 2 }, { v: 1, stages: fact(["unknown"]) }, { v: 1, grad_years: fact([]) }, { v: 1, final_year_only: fact(false) }, { v: 1, stages: { ...fact(["school"]), evidence: "x".repeat(161) } }]) assert.throws(() => assertEligibilityFacts(value));
+  for (const value of [null, undefined, { v: 1 }, { v: 2 }, { v: 1, citizenship: fact([]) }, { v: 1, grad_years: fact([2026]) }]) assert.doesNotThrow(() => assertEligibilityFacts(value));
+  for (const value of [{ v: 0 }, { v: "1" }, { v: 1.5 }, { v: 1, stages: fact(["unknown"]) }, { v: 1, grad_years: fact([]) }, { v: 1, final_year_only: fact(false) }, { v: 1, stages: { ...fact(["school"]), evidence: "x".repeat(161) } }]) assert.throws(() => assertEligibilityFacts(value));
 });
 
 test("API feed and search requests serialize the new params", async () => {
