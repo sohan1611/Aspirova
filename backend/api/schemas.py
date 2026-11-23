@@ -316,6 +316,7 @@ class SavedSearchParams(BaseModel):
         | None
     ) = None
     eligibility_stated: bool | None = None
+    visa: Literal["needs"] | None = None
     location: list[Annotated[str, Field(max_length=80)]] | None = Field(default=None, max_length=5)
     role: str | None = None
     paid: bool | None = None

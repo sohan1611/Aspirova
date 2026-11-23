@@ -1,16 +1,15 @@
 """Evidence-only eligibility facts. A missing dimension means not stated.
 
-Only the listing's title, description and source eligibility tags are read.
-Company, category, location, country, AI and network signals never take part:
-an internship is not assumed to want undergraduates, and a US location is not
-read as a citizenship rule.
+Only listing text, source tags and remote-board location restrictions are read.
+Location never supplies citizenship; it resolves authorization only when the
+listing explicitly refers to that location. No company, AI or network signals take part.
 """
 
 import re
 from html import unescape
 from typing import Literal
 
-ELIGIBILITY_FACTS_VERSION = 2  # 2: open-ended graduation dates are not fixed years
+ELIGIBILITY_FACTS_VERSION = 3  # DISC-06: remote restrictions and work authorization
 Stage = Literal["school", "undergraduate", "postgraduate", "doctoral", "recent_graduate"]
 STAGES = frozenset({"school", "undergraduate", "postgraduate", "doctoral", "recent_graduate"})
 SCAN_LIMIT = 60_000
@@ -294,14 +293,19 @@ _HEADING = re.compile(
 
 
 def _preference_sections(text: str) -> list[tuple[int, int]]:
-    ranges, start = [], None
+    ranges, start, bullets = [], None, False
     for line in re.finditer(r"[^\n]+", text):
+        is_bullet = bool(re.match(r"\s*(?:[-*•·▪◦‣]|\d+[.)])\s", line.group()))
         if _PREF_HEADING.match(line.group()):
             if start is None:
-                start = line.start()
-        elif start is not None and _HEADING.match(line.group()):
+                start, bullets = line.start(), False
+        elif start is not None and (
+            _HEADING.match(line.group()) or (bullets and not is_bullet and line.group().strip())
+        ):
             ranges.append((start, line.start()))
             start = None
+        elif start is not None and is_bullet:
+            bullets = True
     if start is not None:
         ranges.append((start, len(text)))
     return ranges
@@ -311,7 +315,7 @@ def _plain(text: str | None) -> str:
     raw = (text or "")[:SCAN_LIMIT]
     raw = re.sub(r"<(script|style)\b[^>]*>.*?</\1\s*>", " ", raw, flags=re.I | re.S)
     raw = re.sub(r"</?(?:p|div|li|br|h[1-6]|tr|ul|ol)\b[^>]*>", "\n", raw, flags=re.I)
-    return unescape(re.sub(r"<[^>]*>", " ", raw))[:SCAN_LIMIT]
+    return re.sub(r"[^\S\r\n]", " ", unescape(re.sub(r"<[^>]*>", " ", raw)))[:SCAN_LIMIT]
 
 
 def _clauses(text: str):
@@ -452,7 +456,12 @@ def _experience_welcome(text: str) -> bool:
 
 
 def extract_eligibility_facts(
-    title: str | None, description_raw: str | None, meta: dict | None
+    title: str | None,
+    description_raw: str | None,
+    meta: dict | None,
+    *,
+    location: str | None = None,
+    is_remote: bool | None = None,
 ) -> dict:
     """Listing requirements with an exact quote; a missing key means not stated."""
     tags = meta.get("eligibility") if isinstance(meta, dict) else None
@@ -603,4 +612,521 @@ def extract_eligibility_facts(
         else:
             merged = sorted({item for _, (items, _, _) in rows for item in items})
         result[key] = {"value": merged, "evidence": sources[source][start:end], "source": source}
+    result.update(_remote_facts(sources, meta, location, is_remote))
+    return result
+
+
+# DISC-06 is a separate pass: the DISC-04 rules above deliberately keep their
+# original clause/negation semantics. In particular, "not remote" and "no visa
+# sponsorship" are positive evidence of restrictions, not missing information.
+# Explicit geographic coverage, not inferred from a listing's company or city.
+# EMEA includes Europe, the Middle East and Africa; APAC includes geographic
+# Asia and Oceania. Unlisted codes still match themselves and WORLDWIDE.
+_REGION_COUNTRIES = {
+    "EUROPE": "AL AD AT BY BE BA BG HR CY CZ DK EE FI FR DE GR HU IS IE IT XK LV LI LT LU MT MD MC ME NL MK NO PL PT RO RU SM RS SK SI ES SE CH UA GB VA",
+    "ASIA": "AF AM AZ BH BD BT BN KH CN CY GE IN ID IR IQ IL JP JO KZ KW KG LA LB MY MV MN MM NP KP OM PK PS PH QA SA SG KR LK SY TW TJ TH TL TR TM AE UZ VN YE HK MO",
+    "APAC": "AF AM AZ BD BT BN KH CN GE IN ID JP KZ KG LA MY MV MN MM NP KP PK PH SG KR LK TW TJ TH TL TM UZ VN HK MO AU NZ FJ PG SB VU WS TO FM KI MH PW NR TV",
+    "NORTH_AMERICA": "US CA MX",
+    "LATAM": "AR BO BR CL CO CR CU DO EC SV GT HT HN MX NI PA PY PE PR UY VE BZ GF GY SR",
+    "MIDDLE_EAST": "BH IR IQ IL JO KW LB OM PS QA SA SY TR AE YE",
+    "AFRICA": "DZ AO BJ BW BF BI CV CM CF TD KM CG CD CI DJ EG GQ ER SZ ET GA GM GH GN GW KE LS LR LY MG MW ML MR MU MA MZ NA NE NG RW ST SN SC SL SO ZA SS SD TZ TG TN UG ZM ZW",
+}
+
+
+def regions_for_country(country: str) -> list[str]:
+    tokens = {country.upper(), "WORLDWIDE"}
+    for region, codes in _REGION_COUNTRIES.items():
+        if country.upper() in codes.split():
+            tokens.add(region)
+    if tokens & {"EUROPE", "MIDDLE_EAST", "AFRICA"}:
+        tokens.add("EMEA")
+    return sorted(tokens)
+
+
+REGION_TOKENS = frozenset(
+    {
+        "WORLDWIDE",
+        "EUROPE",
+        "EMEA",
+        "APAC",
+        "ASIA",
+        "LATAM",
+        "NORTH_AMERICA",
+        "MIDDLE_EAST",
+        "AFRICA",
+    }
+)
+_REGION_NAMES = {
+    "worldwide": "WORLDWIDE",
+    "anywhere in the world": "WORLDWIDE",
+    "work from anywhere": "WORLDWIDE",
+    "europe": "EUROPE",
+    "emea": "EMEA",
+    "apac": "APAC",
+    "asia": "ASIA",
+    "latam": "LATAM",
+    "latin america": "LATAM",
+    "north america": "NORTH_AMERICA",
+    "middle east": "MIDDLE_EAST",
+    "africa": "AFRICA",
+}
+# Names only, plus unambiguous short aliases; never city-to-country inference.
+# Keep this independent of _COUNTRIES so DISC-04 citizenship stays unchanged.
+_REMOTE_COUNTRIES = {
+    **{name: code for code, names in _COUNTRIES.items() for name in names},
+    "us": "US",
+    "usa": "US",
+    "u.s": "US",
+    "u.s.a": "US",
+    "gb": "GB",
+    "great britain": "GB",
+    "england": "GB",
+    "mexico": "MX",
+    "brazil": "BR",
+    "argentina": "AR",
+    "chile": "CL",
+    "colombia": "CO",
+    "peru": "PE",
+    "spain": "ES",
+    "italy": "IT",
+    "portugal": "PT",
+    "poland": "PL",
+    "sweden": "SE",
+    "norway": "NO",
+    "denmark": "DK",
+    "finland": "FI",
+    "switzerland": "CH",
+    "austria": "AT",
+    "belgium": "BE",
+    "greece": "GR",
+    "czechia": "CZ",
+    "czech republic": "CZ",
+    "romania": "RO",
+    "ukraine": "UA",
+    "saudi arabia": "SA",
+    "israel": "IL",
+    "turkey": "TR",
+    "egypt": "EG",
+    "nigeria": "NG",
+    "kenya": "KE",
+    "ghana": "GH",
+    "morocco": "MA",
+    "indonesia": "ID",
+    "malaysia": "MY",
+    "thailand": "TH",
+    "vietnam": "VN",
+    "south korea": "KR",
+    "taiwan": "TW",
+    "hong kong": "HK",
+    "sri lanka": "LK",
+    "nepal": "NP",
+    "pakistan": "PK",
+    "bangladesh": "BD",
+}
+_GEO_NAMES = {**_REMOTE_COUNTRIES, **_REGION_NAMES}
+_GEO_PATTERN = "|".join(re.escape(name) for name in sorted(_GEO_NAMES, key=len, reverse=True))
+_GEO_ITEM = re.compile(rf"(?<![\w])(?:the\s+)?(?P<name>{_GEO_PATTERN})(?![\w])", re.I)
+_GEO_SEPARATOR = re.compile(r"\s*(?:,\s*(?:and\s+|or\s+)?|/|&|\band\b|\bor\b)\s*", re.I)
+_REMOTE_PREFIX = re.compile(
+    r"\bremote\s*(?:\(\s*|[-–:]\s*|(?:only\s+)?(?:within|in|from|across)\s+)"
+    r"|\b(?:must\s+be\s+)?(?:based|reside|located)\s+in\s+"
+    r"|\bopen\s+to\s+candidates\s+(?:in|based\s+in)\s+"
+    r"|\blocals?\s+only\s+(?:in|from)\s+",
+    re.I,
+)
+_AUTHORIZATION = re.compile(
+    r"\b(?:must\s+(?:already\s+)?be\s+|already\s+)?(?:legally\s+)?"
+    r"(?:authori[sz]ed|eligible)\s+to\s+work\b|\bright\s+to\s+work\b|"
+    r"\b(?:must\s+(?:already\s+)?have|require[sd]?)\s+(?:valid\s+)?work\s+authori[sz]ation\b|"
+    r"\bwork\s+authori[sz]ation\s+(?:is\s+)?required\b",
+    re.I,
+)
+_LEGAL_BOILERPLATE = re.compile(
+    # No trailing boundary after "verify": stripped HTML glues words ("E-VerifyFor ...").
+    r"^\W*for\s+(?:positions?|roles?|jobs?)\s+(?:located|based)\s+in\b|\be-?verify|"
+    r"\bright\s+to\s+work\s+notice\b|\binformation\s+about\s+(?:the\s+)?right\s+to\s+work\b|"
+    r"\bability\s+to\s+(?:secure|obtain)\b|\bcontingent\s+upon\b",
+    re.I,
+)
+_EXPORT_US = re.compile(
+    r"\bu\.?s\.?\s+persons?\b|\b(?:u\.?s\.?|united states)\s+citizen(?:ship)?[^;\n]{0,140}"
+    r"\b(?:permanent\s+residen(?:ts?|cy)|protected\s+individual|asylee|refugee)\b",
+    re.I,
+)
+_VISA_NO = re.compile(
+    r"\bno\s+(?:visa\s+)?sponsorship\b|"
+    r"\b(?:visa\s+)?sponsorship\s+(?:is\s+)?not\s+(?:available|offered|provided)\b|"
+    r"\b(?:unable\s+to|will\s+not|cannot|can't|do\s+not|does\s+not)\s+"
+    r"(?:offer\s+|provide\s+)?(?:visa\s+)?sponsor(?:ship)?\b|"
+    r"\bnot\s+eligible\s+for\s+(?:visa\s+)?sponsorship\b|"
+    r"\bwithout\s+requiring\s+(?:visa\s+)?sponsorship\s+now\s+or\s+in\s+the\s+future\b|"
+    r"\bineligible\s+for\s+(?:visa\s+)?sponsorship\b|"
+    r"\b(?:unable|not\s+able)\s+to\s+offer\s+(?:any\s+(?:type|kind)\s+of\s+)?(?:employment-based\s+)?"
+    r"(?:immigration\s+|visa\s+)?sponsorship\b|"
+    r"\b(?:and\s+)?not\s+require\s+(?:visa\s+)?sponsorship\b|"
+    r"\bdoes\s+not\s+qualify\s+for\s+(?:skilled\s+worker\s+|visa\s+)?sponsorship\b|"
+    r"\bwithout\s+(?:the\s+need\s+for|requiring)\s+(?:visa\s+)?sponsorship\b",
+    re.I,
+)
+_VISA_YES = re.compile(
+    r"\bvisa\s+sponsorship\s+(?:is\s+)?available\b|\bwe\s+sponsor\s+visas\b|"
+    r"\brelocation\s+and\s+visa\s+support\b",
+    re.I,
+)
+_ZONE_OFFSETS = {
+    "EST": -5,
+    "EDT": -5,
+    "CST": -6,
+    "CDT": -6,
+    "MST": -7,
+    "PST": -8,
+    "PDT": -8,
+    "GMT": 0,
+    "UTC": 0,
+    "WET": 0,
+    "CET": 1,
+    "CEST": 1,
+    "EET": 2,
+    "IST": 5.5,
+    "SGT": 8,
+    "JST": 9,
+    "AEST": 10,
+}
+_ZONE = re.compile(
+    r"\b(?:UTC|GMT)\s*[+−-]\s*\d{1,2}(?::[0-5]\d|\.\d+)?(?![\d:])|"
+    r"\b(?:US\s+)?Eastern\s+time\b|\b(?:" + "|".join(_ZONE_OFFSETS) + r")\b",
+    re.I,
+)
+
+
+def _geography(phrase: str, *, countries_only: bool = False) -> list[str]:
+    """Read a country/region list at the start of a restriction's own phrase."""
+    result = set()
+    position = 0
+    while match := _GEO_ITEM.match(phrase, position):
+        name = match["name"].casefold()
+        code = _GEO_NAMES[name]
+        if not countries_only or code not in REGION_TOKENS:
+            result.add(code)
+        separator = _GEO_SEPARATOR.match(phrase, match.end())
+        if not separator:
+            break
+        position = separator.end()
+    return sorted(result)
+
+
+def _timezone_rule(clause: str) -> dict | None:
+    matches = list(_ZONE.finditer(clause))
+    if not matches:
+        return None
+    # Abbreviations in unrelated prose do not imply a working-hours rule.
+    if not re.search(
+        r"working\s+hours|business\s+hours|work\s+hours|overlap|shift|time\s*zone|within|must\s+work|work\s+(?:in|on|during)",
+        clause,
+        re.I,
+    ):
+        if not any(re.match(r"(?:UTC|GMT)\s*[+−-]", m.group(), re.I) for m in matches):
+            return None
+    values = []
+    for match in matches:
+        token = match.group().upper()
+        if token in {"UTC", "GMT"} and re.match(r"\s*[+−-]", clause[match.end() :]):
+            return None
+        numeric = re.fullmatch(r"(?:UTC|GMT)\s*([+−-])\s*(\d{1,2})(?::([0-5]\d)|(\.\d+))?", token)
+        if numeric:
+            amount = float(numeric[2]) + (
+                int(numeric[3]) / 60 if numeric[3] else float(numeric[4] or 0)
+            )
+            offset = amount if numeric[1] == "+" else -amount
+        else:
+            offset = -5 if "EASTERN" in token else _ZONE_OFFSETS[token]
+        window = re.search(
+            r"(?:±|\+/-)\s*(\d+(?:\.\d+)?)\s+hours?\s+(?:of|from)\s*$",
+            clause[: match.start()],
+            re.I,
+        )
+        radius = float(window[1]) if window else 0
+        lo, hi = offset - radius, offset + radius
+        if not -12 <= lo <= hi <= 14:
+            return None
+        values.extend((lo, hi))
+    return {"min": min(values), "max": max(values)}
+
+
+_LOCATION_GEO_NAMES = {
+    **_GEO_NAMES,
+    **{code.casefold(): code for code in _REMOTE_COUNTRIES.values()},
+    **{token.casefold(): token for token in REGION_TOKENS},
+}
+_LOCATION_SEPARATOR = re.compile(r"\s*(?:[,;/|]|\band\b)\s*", re.I)
+_MODE_TOKEN = r"remote|hybrid|on[ -]?site|in[- ]office|not\s+remote"
+_WORK_MODE_STATEMENTS = (
+    re.compile(
+        rf"\b(?:(?:this|the)\s+)?(?:role|position|job|internship)\s+is\s+"
+        rf"(?:(?:an?|fully|100%)\s+)?(?P<mode>{_MODE_TOKEN})(?![-\w])",
+        re.I,
+    ),
+    re.compile(
+        rf"\bthis\s+is\s+an?\s+(?P<mode>{_MODE_TOKEN})\s+(?:role|position|job|internship)\b",
+        re.I,
+    ),
+    re.compile(
+        rf"\bwork\s+(?:mode|arrangement|type|location)\s*:\s*(?P<mode>{_MODE_TOKEN})(?![-\w])",
+        re.I,
+    ),
+    re.compile(r"#LI-(?P<mode>Remote|Hybrid|Onsite)\b", re.I),
+)
+_INCIDENTAL_MODE_CONTEXT = (
+    r"interviews?|events?|rounds?|screening|teams?|culture|compan(?:y|ies)"
+    # Generic policy prose ("fully remote roles include socials and off-sites") is not this role.
+    r"|roles|positions|employees|socials|off-?sites"
+)
+_OFFICE_DAYS = re.compile(
+    r"\b(?:[1-7]|one|two|three|four|five|six|seven)\s+days?\s+"
+    r"(?:(?:a|per)\s+week\s+in\s+(?:the\s+)?office|in\s+(?:the\s+)?office\s+each\s+week)\b",
+    re.I,
+)
+_REMOTE_REGION_LABEL = re.compile(
+    r"^\W*remote\s*(?:\(|[-–:]\s*|(?:only\s+)?(?:within|in|from|across)\s+)",
+    re.I,
+)
+
+
+def _location_regions(text: str) -> list[str]:
+    """Every whole location item must map; a partial list is unsafe for filters."""
+    result = set()
+    for item in _LOCATION_SEPARATOR.split(text):
+        item = re.sub(r"\bremote\b", " ", item, flags=re.I)
+        item = item.strip(" ()\t:-–")
+        if not item:
+            continue  # A Remote wrapper is not a country restriction.
+        code = _LOCATION_GEO_NAMES.get(item.casefold())
+        if code is None:
+            return []
+        result.add(code)
+    return sorted(result)
+
+
+def _incidental_mode(clause: str, start: int, end: int) -> bool:
+    """A work-mode word cannot describe an interview, event or company instead."""
+    return bool(
+        re.match(rf"\s+(?:{_INCIDENTAL_MODE_CONTEXT})\b", clause[end:], re.I)
+        or re.search(
+            rf"\b(?:{_INCIDENTAL_MODE_CONTEXT})\s+"
+            r"(?:(?:is|are|will|be|an?|our|the|remain|can|has|been)\s+){0,5}$",
+            clause[:start],
+            re.I,
+        )
+    )
+
+
+def _work_modes(clause: str, source: str) -> set[str]:
+    """Count only explicit arrangements, never isolated words inside prose."""
+    modes = set()
+    if source == "location":
+        exact = clause.strip().casefold()
+        return {exact} if exact in {"remote", "hybrid"} else set()
+    standalone = clause.strip(" \t#*•>:-.!()").casefold()
+    if re.fullmatch(_MODE_TOKEN, standalone, re.I):
+        modes.add(standalone)
+    for pattern in _WORK_MODE_STATEMENTS:
+        for match in pattern.finditer(clause):
+            if not _incidental_mode(clause, match.start("mode"), match.end("mode")):
+                modes.add(match["mode"].casefold())
+    for match in re.finditer(
+        r"\bfully\s+remote\b|\b100%\s+remote\b|\bwork\s+from\s+home\b|\bin-person\s+internship\b",
+        clause,
+        re.I,
+    ):
+        if re.search(rf"\b(?:{_INCIDENTAL_MODE_CONTEXT})\b", clause, re.I) and not re.match(
+            r"\s+(?:role|position|job|internship)\b",
+            clause[match.end() :],
+            re.I,
+        ):
+            continue
+        if not _incidental_mode(clause, match.start(), match.end()):
+            modes.add("onsite" if re.match(r"in-person", match.group(), re.I) else "remote")
+    if _OFFICE_DAYS.search(clause) and not re.search(
+        rf"\b(?:{_INCIDENTAL_MODE_CONTEXT})\b", clause, re.I
+    ):
+        modes.add("hybrid")
+    return {
+        "onsite" if re.sub(r"[ -]", "", mode) in {"onsite", "inoffice", "notremote"} else mode
+        for mode in modes
+    }
+
+
+def _referenced_location_country(text: str) -> list[str]:
+    """Only explicit authorization references may use the physical location."""
+    from pipeline.location_country import derive_country
+
+    if _LOCATION_GEO_NAMES.get(text.strip().casefold()) in REGION_TOKENS:
+        return []
+    country = derive_country(text)
+    countries = {derive_country(part) for part in _LOCATION_SEPARATOR.split(text)} - {None}
+    return [country] if country and len(countries) == 1 else []
+
+
+def _compact_regions(regions: list[str]) -> list[str]:
+    # "Remote - Japan" plus "work from anywhere" elsewhere must stay Japan-only:
+    # WORLDWIDE never absorbs a stated country or region.
+    if "WORLDWIDE" in regions and len(set(regions)) > 1:
+        regions = [item for item in regions if item != "WORLDWIDE"]
+    tokens = set(regions) & REGION_TOKENS
+    return [
+        item
+        for item in regions
+        if item in REGION_TOKENS or not (tokens & set(regions_for_country(item)))
+    ]
+
+
+def _remote_facts(
+    sources: dict, meta: dict | None, location: str | None, is_remote: bool | None
+) -> dict:
+    sources = {**sources, "location": _plain(location)}
+    result: dict = {}
+    mode_evidence: dict[str, dict] = {}
+    remote_statement = False
+
+    def add(key: str, value, raw: str, source: str) -> None:
+        evidence = raw.strip()[:160]
+        if not evidence:
+            return
+        if key not in result:
+            result[key] = {"value": value, "evidence": evidence, "source": source}
+        elif isinstance(value, list):
+            result[key]["value"] = sorted(set(result[key]["value"]) | set(value))
+        elif key == "timezones":
+            old = result[key]["value"]
+            result[key]["value"] = {
+                "min": min(old["min"], value["min"]),
+                "max": max(old["max"], value["max"]),
+            }
+        elif key == "visa_sponsorship":
+            # A direct restriction wins a contradictory offer, with its own quote.
+            if value is False and result[key]["value"] is True:
+                result[key] = {"value": False, "evidence": evidence, "source": source}
+
+    for source in ("description", "title", "tags"):
+        text = sources[source]
+        preferences = _preference_sections(text)
+        for offset, raw in _clauses(text):
+            clause = _PAREN_PREFERENCE.sub(lambda m: " " * len(m.group()), raw)
+            if any(lo <= offset < hi for lo, hi in preferences) or _PREFERENCE.search(clause):
+                continue
+            if re.search(r"\b(?:may|might|could|possibly)\b", clause, re.I):
+                continue
+            # Recognise explicit negative restrictions, then apply the ordinary
+            # negation guard to whatever remains ("not required", etc.).
+            no_visa = bool(_VISA_NO.search(clause))
+            guard = _VISA_NO.sub(" ", clause)
+            guard = re.sub(r"\bnot\s+remote\b", " ", guard, flags=re.I)
+            if _NEGATION.search(guard) or re.search(
+                r"\b(?:no|never|without|unable)\b", guard, re.I
+            ):
+                continue
+            for mode in _work_modes(clause, source):
+                mode_evidence.setdefault(
+                    mode, {"value": mode, "evidence": raw.strip()[:160], "source": source}
+                )
+            if not re.search(
+                rf"\b(?:not\s+remote|{_INCIDENTAL_MODE_CONTEXT})\b", clause, re.I
+            ) and (
+                _REMOTE_REGION_LABEL.search(clause)
+                or re.search(
+                    r"^\W*(?:you\s+(?:can|will)\s+)?work\s+(?:from\s+anywhere|anywhere\s+in\s+the\s+world)\b",
+                    clause,
+                    re.I,
+                )
+            ):
+                remote_statement = True
+
+            # Conditional or contingent legal boilerplate ("For positions located in the
+            # United States ... E-Verify", "Right to Work Notice", "contingent upon the
+            # ability to secure the legal right to work") states no region or existing
+            # authorization for this role.
+            boilerplate = bool(_LEGAL_BOILERPLATE.search(clause))
+            regions = set()
+            for match in ([] if boilerplate else _REMOTE_PREFIX.finditer(clause)):
+                regions.update(_geography(clause[match.end() :]))
+            for match in _GEO_ITEM.finditer(clause):
+                after = clause[match.end() :]
+                if re.match(r"\s+residents?\s+only\b|\s+locals?\s+only\b", after, re.I):
+                    regions.update(_geography(match.group()))
+                if re.search(r"\bsituated\s+anywhere\s+in\s+the\s+country\b", clause, re.I):
+                    regions.update(_geography(match.group(), countries_only=True))
+            culture = re.search(r"\b(?:culture|remote-first|values|perks?|benefits?)\b", clause, re.I)
+            if (not culture and re.search(r"\b(?:anywhere in the world|work from anywhere)\b", clause, re.I)) or (
+                re.fullmatch(r"\W*worldwide\W*", clause, re.I)
+                or re.search(
+                    r"\b(?:remote|candidates|applicants)\s*(?:[-–:(]|from)?\s*worldwide\b",
+                    clause,
+                    re.I,
+                )
+            ):
+                regions.add("WORLDWIDE")
+            if regions and not re.search(r"\bnot\s+remote\b", clause, re.I):
+                add("remote_regions", sorted(regions), raw, source)
+
+            if no_visa:
+                add("visa_sponsorship", False, raw, source)
+            elif _VISA_YES.search(clause):
+                add("visa_sponsorship", True, raw, source)
+            if _EXPORT_US.search(clause):
+                add("work_authorization", ["US"], raw, source)
+            elif not boilerplate:
+                for match in _AUTHORIZATION.finditer(clause):
+                    tail = re.sub(r"^\s+(?:in|for)\s+", "", clause[match.end() :], flags=re.I)
+                    countries = _geography(tail, countries_only=True)
+                    if not countries:
+                        for country_match in _GEO_ITEM.finditer(clause[: match.start()]):
+                            if not clause[country_match.end() : match.start()].strip():
+                                countries = _geography(country_match.group(), countries_only=True)
+                    if not countries and re.match(
+                        r"^(?:that|this)\s+(?:location|country)\b", tail, re.I
+                    ):
+                        countries = _referenced_location_country(sources["location"])
+                    add("work_authorization", countries, raw, source)
+            timezone = _timezone_rule(clause)
+            if timezone:
+                add("timezones", timezone, raw, source)
+
+    sponsorship = meta.get("sponsorship") if isinstance(meta, dict) else None
+    if isinstance(sponsorship, str) and sponsorship in {
+        "Offers Sponsorship",
+        "Does Not Offer Sponsorship",
+        "U.S. Citizenship is Required",
+    }:
+        add("visa_sponsorship", sponsorship == "Offers Sponsorship", sponsorship, "tags")
+        if sponsorship == "U.S. Citizenship is Required":
+            add("work_authorization", ["US"], sponsorship, "tags")
+    for mode in _work_modes(sources["location"], "location"):
+        mode_evidence.setdefault(
+            mode,
+            {"value": mode, "evidence": sources["location"].strip()[:160], "source": "location"},
+        )
+    location_regions = _location_regions(sources["location"])
+    remote_statement = remote_statement or (
+        bool(location_regions) and bool(re.search(r"\bremote\b", sources["location"], re.I))
+    )
+    modes = set(mode_evidence)
+    if "hybrid" in modes:
+        result["remote_mode"] = mode_evidence["hybrid"]
+    elif len(modes) == 1:
+        result["remote_mode"] = mode_evidence[next(iter(modes))]
+    # A remote/onsite conflict is unknown. Do not use its restrictions to
+    # admit a cross-country role until the source has a consistent arrangement.
+    remote_role = (
+        is_remote is True or remote_statement or bool(modes & {"remote", "hybrid"})
+    ) and not ("onsite" in modes and "hybrid" not in modes)
+    if remote_role:
+        if location_regions:
+            first_clause = next(
+                (raw for _, raw in _clauses(sources["location"])), sources["location"]
+            )
+            add("remote_regions", location_regions, first_clause, "location")
+        if "remote_regions" in result:
+            result["remote_regions"]["value"] = _compact_regions(result["remote_regions"]["value"])
+    else:
+        result.pop("remote_regions", None)
     return result

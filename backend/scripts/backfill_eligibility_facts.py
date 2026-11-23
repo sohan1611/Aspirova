@@ -55,6 +55,8 @@ def backfill_eligibility_facts(
                         opportunity.title,
                         opportunity.description_raw,
                         opportunity.meta,
+                        opportunity.location,
+                        opportunity.is_remote,
                     )
                     .where(*scope)
                     .order_by(opportunity.id)
@@ -69,7 +71,13 @@ def backfill_eligibility_facts(
                     [
                         (
                             row.id,
-                            extract_eligibility_facts(row.title, row.description_raw, row.meta),
+                            extract_eligibility_facts(
+                                row.title,
+                                row.description_raw,
+                                row.meta,
+                                location=row.location,
+                                is_remote=row.is_remote,
+                            ),
                         )
                         for row in rows
                     ]

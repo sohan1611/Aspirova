@@ -657,12 +657,18 @@ export function OpportunityListingActiveFilterChips({
     filters.push({ id: key, label, humanLabel: label, onRemove: () => removeSingleParam(key) });
   }
 
+  const visa = activeSingleValue(searchParams, "visa");
+  if (visa === "needs") {
+    filters.push({ id: "visa", label: "I need visa sponsorship", humanLabel: "I need visa sponsorship", onRemove: () => removeSingleParam("visa") });
+  }
+
   const clearableFilterCount =
     (uiSort !== "newest" ? 1 : 0) +
     (hasLocationFilter ? 1 : 0) +
     activeValues(searchParams, "company").length +
     (source ? 1 : 0) +
     (experience ? 1 : 0) +
+    (visa === "needs" ? 1 : 0) +
     ROLE_FILTER_KEYS.filter((key) => activeSingleValue(searchParams, key)).length;
 
   return (
