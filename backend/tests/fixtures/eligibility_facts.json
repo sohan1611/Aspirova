@@ -1191,5 +1191,58 @@
         "doctoral"
       ]
     }
+  },
+  {
+    "id": "open-ended-or-later",
+    "title": "",
+    "description_raw": "Open to students graduating December 2026 or later.",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "open-ended-onwards",
+    "title": "",
+    "description_raw": "Students graduating in 2027 onwards may apply.",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "open-ended-or-earlier",
+    "title": "",
+    "description_raw": "Expected graduation: Spring 2027 or earlier",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "open-ended-range-or-later",
+    "title": "",
+    "description_raw": "You will graduate between fall 2027 and summer 2028 or later.",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "bounded-range-kept",
+    "title": "",
+    "description_raw": "Students with expected graduation between May 2026 and December 2029.",
+    "meta": {},
+    "expected": {
+      "grad_years": [
+        2026,
+        2027,
+        2028,
+        2029
+      ]
+    }
+  },
+  {
+    "id": "bounded-single-kept",
+    "title": "",
+    "description_raw": "Graduating in June 2027.",
+    "meta": {},
+    "expected": {
+      "grad_years": [
+        2027
+      ]
+    }
   }
 ]
