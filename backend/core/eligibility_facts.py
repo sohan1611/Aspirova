@@ -1055,8 +1055,13 @@ def _remote_facts(
                     regions.update(_geography(match.group()))
                 if re.search(r"\bsituated\s+anywhere\s+in\s+the\s+country\b", clause, re.I):
                     regions.update(_geography(match.group(), countries_only=True))
-            culture = re.search(r"\b(?:culture|remote-first|values|perks?|benefits?)\b", clause, re.I)
-            if (not culture and re.search(r"\b(?:anywhere in the world|work from anywhere)\b", clause, re.I)) or (
+            culture = re.search(
+                r"\b(?:culture|remote-first|values|perks?|benefits?)\b", clause, re.I
+            )
+            if (
+                not culture
+                and re.search(r"\b(?:anywhere in the world|work from anywhere)\b", clause, re.I)
+            ) or (
                 re.fullmatch(r"\W*worldwide\W*", clause, re.I)
                 or re.search(
                     r"\b(?:remote|candidates|applicants)\s*(?:[-–:(]|from)?\s*worldwide\b",
