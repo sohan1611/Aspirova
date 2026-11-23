@@ -1,3 +1,4 @@
+import { assertEligibilityFacts } from "./eligibility";
 import { unstable_cache } from "next/cache";
 import { listJson } from "./listState";
 
@@ -17,6 +18,10 @@ export async function fetchListing<T>(url: string, seconds = 300, shape: Shape =
       if (!Array.isArray(page.items)) throw new Error("Invalid listing items");
       if (shape !== "calendar" && (typeof page.total !== "number" || !Number.isSafeInteger(page.total) || page.total < 0)) throw new Error("Invalid listing total");
       if (shape === "calendar" && !Array.isArray(page.rolling)) throw new Error("Invalid calendar response");
+    }
+    const items = Array.isArray(data) ? data : (data as { items?: unknown[] }).items;
+    for (const item of items ?? []) {
+      if (item && typeof item === "object" && "eligibility" in item) assertEligibilityFacts(item.eligibility);
     }
     return { data, loadedAt: Date.now() };
   };

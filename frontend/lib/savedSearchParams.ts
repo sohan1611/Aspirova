@@ -1,3 +1,4 @@
+import { parseEligibilityParams } from "./eligibility";
 import { getCountry } from "./countries";
 import { parseRoleSignalParams } from "./roleSignalQuery";
 import type { SavedSearchParams } from "./types";
@@ -14,7 +15,8 @@ export interface SearchParamReader {
 export function getSavedSearchParams(search: SearchParamReader): SavedSearchParams {
   const roleParams = parseRoleSignalParams(search);
   delete roleParams.posted_within;
-  const params: SavedSearchParams = { ...roleParams };
+  const eligibility = Object.fromEntries(Object.entries(parseEligibilityParams(search)).filter(([, value]) => value !== undefined));
+  const params: SavedSearchParams = { ...roleParams, ...eligibility };
   for (const key of STRING_KEYS) {
     const value = search.get(key)?.trim();
     if (value) Object.assign(params, { [key]: value });
@@ -49,6 +51,9 @@ export function hasSavedSearchParams(search: SearchParamReader): boolean {
 
 export function savedSearchSummary(params: SavedSearchParams): string {
   const parts: string[] = [];
+  if (params.grad_year) parts.push(`${params.grad_year} batch`);
+  if (params.stage?.length) parts.push(...params.stage.map((value) => value.replaceAll("_", " ")));
+  if (params.eligibility_stated) parts.push("eligibility stated");
   if (params.q) parts.push(`“${params.q}”`);
   if (params.category) parts.push(params.category);
   else if (params.kind) parts.push(params.kind);

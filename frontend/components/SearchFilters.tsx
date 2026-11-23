@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
+import EligibilityFilters from "@/components/EligibilityFilters";
+import { ELIGIBILITY_FILTER_KEYS } from "@/lib/eligibility";
 import RoleSignalFilters from "@/components/RoleSignalFilters";
 import { ROLE_FILTER_KEYS, roleFilterLabel } from "@/lib/roleSignalQuery";
 import FacetPicker from "@/components/FacetPicker";
@@ -80,6 +82,7 @@ const TOP_OPTIONS = [
 
 const FILTER_KEYS = [
   ...ROLE_FILTER_KEYS,
+  ...ELIGIBILITY_FILTER_KEYS,
   "q",
   "category",
   "source",
@@ -395,6 +398,10 @@ export default function SearchFilters() {
               )}
             >
               <div className="space-y-5">
+                <EligibilityFilters searchParams={searchParams} disabled={isPending} idPrefix="home-eligibility" onChange={(params) => {
+                  params.delete("page");
+                  navigate("/?" + params.toString());
+                }} />
                 <div className="space-y-2">
                   <p className="eyebrow">Category</p>
                   <SegmentedGroup

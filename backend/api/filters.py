@@ -776,6 +776,37 @@ def location_scope_filters(
     ]
 
 
+def eligibility_filters(
+    grad_year: int | None = None,
+    stage: list[str] | None = None,
+    eligibility_stated: bool = False,
+) -> list:
+    """Missing facts are retained unless the reader explicitly requires evidence."""
+    from core.eligibility_facts import STAGES
+
+    if grad_year is not None and not 2015 <= grad_year <= 2035:
+        raise HTTPException(422, "grad_year must be between 2015 and 2035")
+    # Accept repeated query parameters and comma-separated stage values.
+    stages = sorted(
+        {part.strip() for value in (stage or []) for part in value.split(",") if part.strip()}
+    )
+    if any(value not in STAGES for value in stages):
+        raise HTTPException(422, "Invalid stage")
+    facts = models.Opportunity.eligibility_facts
+    filters = []
+    for key, requested in (
+        ("grad_years", [grad_year] if grad_year is not None else []),
+        ("stages", stages),
+    ):
+        if not requested:
+            continue
+        value = facts[key]["value"]
+        stated = (func.jsonb_typeof(value) == "array").is_(True)
+        matches = or_(*[value.contains([item]) for item in requested]).is_(True)
+        filters.append(and_(stated, matches) if eligibility_stated else or_(not_(stated), matches))
+    return filters
+
+
 def saved_search_base_filters(params: dict) -> list:
     """Build the feed/search filters represented by stored saved-search params.
 
@@ -799,6 +830,9 @@ def saved_search_base_filters(params: dict) -> list:
         exclude_closed_competitions() if params.get("status") == "closed" else exclude_closed_now(),
         *opportunity_filters(category, remote, None, params.get("location"), None),
         *experience_filters(experience),
+        *eligibility_filters(
+            params.get("grad_year"), params.get("stage"), params.get("eligibility_stated", False)
+        ),
         *location_scope_filters(scope, country, False),
     ]
     base_filters.extend(

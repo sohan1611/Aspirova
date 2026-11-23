@@ -1,3 +1,4 @@
+import EligibilityLabel from "@/components/EligibilityLabel";
 import HoverPrefetchLink from "@/components/HoverPrefetchLink";
 import { Badge } from "@/components/ui/badge";
 import CompanyFavicon from "@/components/CompanyFavicon";
@@ -184,6 +185,7 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
           <h3 className="line-clamp-2 min-w-0 break-words font-serif text-[1.25rem] font-bold leading-tight text-card-foreground transition-colors group-hover:text-primary group-focus-visible:text-primary lg:text-[1.35rem]">
             {item.title}
           </h3>
+          <EligibilityLabel facts={item.eligibility} />
           {item.summary && (
             <p className="line-clamp-2 break-words text-sm leading-5 text-muted-foreground">
               {item.summary}

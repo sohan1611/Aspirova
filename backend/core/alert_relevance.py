@@ -2,52 +2,11 @@
 
 import re
 from dataclasses import asdict, dataclass
-from html import unescape
 
 from core import models
+from core.eligibility_facts import graduation_batches as graduation_batches
 
-_YEARS = r"20\d{2}(?:\s*(?:/|,|&|\band\b|\bor\b)\s*20\d{2})*"
-_BATCH_PATTERNS = (
-    re.compile(rf"\b(?P<years>{_YEARS})\s+(?:batches|batch|pass[ -]?outs?|graduates?)\b", re.I),
-    re.compile(
-        rf"\b(?:graduating\s+in|graduation\s+years?\s*:?|batch(?:es)?\s+of|class\s+of)"
-        rf"\s+(?P<years>{_YEARS})\b",
-        re.I,
-    ),
-)
-_QUALIFIER = re.compile(
-    r"\b(?:not|except|excluding|other than|ineligible|preferred|preferably|before|after|since)\b",
-    re.I,
-)
 UNKNOWN_ELIGIBILITY = "Eligibility not stated — check before applying"
-
-
-def graduation_batches(text: str) -> list[int]:
-    """Only explicit full-year batch/graduate phrases; never event dates or ranges.
-
-    Unsupported ranges and qualified/negative phrases stay unknown rather than
-    silently becoming an exhaustive set or a positive eligibility claim.
-    """
-    text = unescape(re.sub(r"<[^>]*>", " ", text))
-    years: set[int] = set()
-    for pattern in _BATCH_PATTERNS:
-        for match in pattern.finditer(text):
-            before = text[max(0, match.start() - 45) : match.start()]
-            after = text[match.end() : match.end() + 35]
-            if (
-                _QUALIFIER.search(before)
-                or re.match(
-                    r"\s*(?:are\s+)?(?:not|ineligible|excluded|preferred|onwards?|onward|or later|"
-                    r"or earlier|and later|and earlier)\b",
-                    after,
-                    re.I,
-                )
-                or re.search(r"20\d{2}\s*[-–/]\s*$", before)
-                or re.match(r"\s*[-–/]\s*\d", after)
-            ):
-                continue
-            years.update(int(year) for year in re.findall(r"20\d{2}", match["years"]))
-    return sorted(years)
 
 
 def chosen_country(profile: dict) -> str | None:
