@@ -221,6 +221,9 @@ export default function SearchFilters() {
       if ((ROLE_FILTER_KEYS as readonly string[]).includes(key)) {
         humanLabel = roleFilterLabel(key as typeof ROLE_FILTER_KEYS[number], value);
         label = humanLabel;
+      } else if (key === "visa") {
+        humanLabel = "I need visa sponsorship";
+        label = humanLabel;
       } else if (key === "q") {
         humanLabel = `Search: "${value}"`;
         label = humanLabel;

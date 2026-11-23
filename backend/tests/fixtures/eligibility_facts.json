@@ -1244,5 +1244,2014 @@
         2027
       ]
     }
+  },
+  {
+    "id": "disc06-fully-remote",
+    "title": "",
+    "description_raw": "Fully remote role",
+    "meta": {},
+    "expected": {
+      "remote_mode": "remote"
+    }
+  },
+  {
+    "id": "disc06-100-percent",
+    "title": "",
+    "description_raw": "100% remote",
+    "meta": {},
+    "expected": {
+      "remote_mode": "remote"
+    }
+  },
+  {
+    "id": "disc06-wfh",
+    "title": "",
+    "description_raw": "Work from home",
+    "meta": {},
+    "expected": {
+      "remote_mode": "remote"
+    }
+  },
+  {
+    "id": "disc06-hybrid",
+    "title": "",
+    "description_raw": "This role is hybrid",
+    "meta": {},
+    "expected": {
+      "remote_mode": "hybrid"
+    }
+  },
+  {
+    "id": "disc06-office-days",
+    "title": "",
+    "description_raw": "3 days in office each week",
+    "meta": {},
+    "expected": {
+      "remote_mode": "hybrid"
+    }
+  },
+  {
+    "id": "disc06-in-office-days",
+    "title": "",
+    "description_raw": "Two days in-office",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-onsite",
+    "title": "",
+    "description_raw": "This is an onsite role",
+    "meta": {},
+    "expected": {
+      "remote_mode": "onsite"
+    }
+  },
+  {
+    "id": "disc06-in-office",
+    "title": "",
+    "description_raw": "This is an in-office role",
+    "meta": {},
+    "expected": {
+      "remote_mode": "onsite"
+    }
+  },
+  {
+    "id": "disc06-not-remote",
+    "title": "",
+    "description_raw": "This role is not remote",
+    "meta": {},
+    "expected": {
+      "remote_mode": "onsite"
+    }
+  },
+  {
+    "id": "disc06-bare-remote",
+    "title": "",
+    "description_raw": "Remote",
+    "meta": {},
+    "expected": {
+      "remote_mode": "remote"
+    }
+  },
+  {
+    "id": "disc06-boolean-only",
+    "title": "",
+    "description_raw": "Build useful things",
+    "meta": {},
+    "is_remote": true,
+    "expected": {}
+  },
+  {
+    "id": "disc06-remote-us-only",
+    "title": "",
+    "description_raw": "Remote (US only)",
+    "meta": {},
+    "expected": {
+      "remote_regions": [
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "disc06-remote-india",
+    "title": "",
+    "description_raw": "Remote within India",
+    "meta": {},
+    "expected": {
+      "remote_regions": [
+        "IN"
+      ]
+    }
+  },
+  {
+    "id": "disc06-remote-uk",
+    "title": "",
+    "description_raw": "Remote in the UK",
+    "meta": {},
+    "expected": {
+      "remote_regions": [
+        "GB"
+      ]
+    }
+  },
+  {
+    "id": "disc06-based-india",
+    "title": "",
+    "description_raw": "Must be based in India",
+    "meta": {},
+    "expected": {
+      "remote_regions": [
+        "IN"
+      ]
+    },
+    "is_remote": true
+  },
+  {
+    "id": "disc06-reside-canada",
+    "title": "",
+    "description_raw": "Must reside in Canada",
+    "meta": {},
+    "expected": {
+      "remote_regions": [
+        "CA"
+      ]
+    },
+    "is_remote": true
+  },
+  {
+    "id": "disc06-located-australia",
+    "title": "",
+    "description_raw": "Must be located in Australia",
+    "meta": {},
+    "expected": {
+      "remote_regions": [
+        "AU"
+      ]
+    },
+    "is_remote": true
+  },
+  {
+    "id": "disc06-candidates-india",
+    "title": "",
+    "description_raw": "Open to candidates in India",
+    "meta": {},
+    "expected": {
+      "remote_regions": [
+        "IN"
+      ]
+    },
+    "is_remote": true
+  },
+  {
+    "id": "disc06-candidates-ph",
+    "title": "",
+    "description_raw": "Open to candidates based in the Philippines",
+    "meta": {},
+    "expected": {
+      "remote_regions": [
+        "PH"
+      ]
+    },
+    "is_remote": true
+  },
+  {
+    "id": "disc06-residents",
+    "title": "",
+    "description_raw": "Canada residents only",
+    "meta": {},
+    "expected": {
+      "remote_regions": [
+        "CA"
+      ]
+    },
+    "is_remote": true
+  },
+  {
+    "id": "disc06-locals",
+    "title": "",
+    "description_raw": "India locals only",
+    "meta": {},
+    "expected": {
+      "remote_regions": [
+        "IN"
+      ]
+    },
+    "is_remote": true
+  },
+  {
+    "id": "disc06-world",
+    "title": "",
+    "description_raw": "Work anywhere in the world",
+    "meta": {},
+    "expected": {
+      "remote_regions": [
+        "WORLDWIDE"
+      ]
+    }
+  },
+  {
+    "id": "disc06-worldwide",
+    "title": "",
+    "description_raw": "Worldwide",
+    "meta": {},
+    "expected": {
+      "remote_regions": [
+        "WORLDWIDE"
+      ]
+    },
+    "is_remote": true
+  },
+  {
+    "id": "disc06-anywhere",
+    "title": "",
+    "description_raw": "Work from anywhere",
+    "meta": {},
+    "expected": {
+      "remote_regions": [
+        "WORLDWIDE"
+      ]
+    }
+  },
+  {
+    "id": "disc06-emea",
+    "title": "",
+    "description_raw": "Remote - EMEA",
+    "meta": {},
+    "expected": {
+      "remote_regions": [
+        "EMEA"
+      ]
+    }
+  },
+  {
+    "id": "disc06-europe",
+    "title": "",
+    "description_raw": "Remote within Europe",
+    "meta": {},
+    "expected": {
+      "remote_regions": [
+        "EUROPE"
+      ]
+    }
+  },
+  {
+    "id": "disc06-asia",
+    "title": "",
+    "description_raw": "Remote in Asia",
+    "meta": {},
+    "expected": {
+      "remote_regions": [
+        "ASIA"
+      ]
+    }
+  },
+  {
+    "id": "disc06-apac",
+    "title": "",
+    "description_raw": "Remote - APAC",
+    "meta": {},
+    "expected": {
+      "remote_regions": [
+        "APAC"
+      ]
+    }
+  },
+  {
+    "id": "disc06-latam",
+    "title": "",
+    "description_raw": "Remote - LATAM",
+    "meta": {},
+    "expected": {
+      "remote_regions": [
+        "LATAM"
+      ]
+    }
+  },
+  {
+    "id": "disc06-na",
+    "title": "",
+    "description_raw": "Remote in North America",
+    "meta": {},
+    "expected": {
+      "remote_regions": [
+        "NORTH_AMERICA"
+      ]
+    }
+  },
+  {
+    "id": "disc06-me",
+    "title": "",
+    "description_raw": "Remote within Middle East",
+    "meta": {},
+    "expected": {
+      "remote_regions": [
+        "MIDDLE_EAST"
+      ]
+    }
+  },
+  {
+    "id": "disc06-africa",
+    "title": "",
+    "description_raw": "Remote in Africa",
+    "meta": {},
+    "expected": {
+      "remote_regions": [
+        "AFRICA"
+      ]
+    }
+  },
+  {
+    "id": "disc06-himalayas",
+    "title": "",
+    "description_raw": "",
+    "meta": {},
+    "location": "United States, Canada",
+    "is_remote": true,
+    "expected": {
+      "remote_regions": [
+        "CA",
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "disc06-remoteok",
+    "title": "",
+    "description_raw": "",
+    "meta": {},
+    "location": "Worldwide",
+    "is_remote": true,
+    "expected": {
+      "remote_regions": [
+        "WORLDWIDE"
+      ]
+    }
+  },
+  {
+    "id": "disc06-onsite-city",
+    "title": "",
+    "description_raw": "",
+    "meta": {},
+    "location": "Bengaluru",
+    "is_remote": false,
+    "expected": {}
+  },
+  {
+    "id": "disc06-onsite-country",
+    "title": "",
+    "description_raw": "",
+    "meta": {},
+    "location": "India",
+    "is_remote": false,
+    "expected": {}
+  },
+  {
+    "id": "disc06-city-remote",
+    "title": "",
+    "description_raw": "",
+    "meta": {},
+    "location": "Bengaluru",
+    "is_remote": true,
+    "expected": {}
+  },
+  {
+    "id": "disc06-no-flag-country",
+    "title": "",
+    "description_raw": "",
+    "meta": {},
+    "location": "United States, Canada",
+    "expected": {}
+  },
+  {
+    "id": "disc06-situated-named",
+    "title": "",
+    "description_raw": "In India you can be situated anywhere in the country",
+    "meta": {},
+    "expected": {
+      "remote_regions": [
+        "IN"
+      ]
+    },
+    "is_remote": true
+  },
+  {
+    "id": "disc06-situated-unknown",
+    "title": "",
+    "description_raw": "You can be situated anywhere in the country",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-auth-us",
+    "title": "",
+    "description_raw": "Must be authorized to work in the U.S.",
+    "meta": {},
+    "expected": {
+      "work_authorization": [
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "disc06-eligible-us",
+    "title": "",
+    "description_raw": "Legally eligible to work in the US",
+    "meta": {},
+    "expected": {
+      "work_authorization": [
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "disc06-right-uk",
+    "title": "",
+    "description_raw": "You must have the right to work in the UK",
+    "meta": {},
+    "expected": {
+      "work_authorization": [
+        "GB"
+      ]
+    }
+  },
+  {
+    "id": "disc06-auth-unspecified",
+    "title": "",
+    "description_raw": "Must have work authorization",
+    "meta": {},
+    "expected": {
+      "work_authorization": []
+    }
+  },
+  {
+    "id": "disc06-export-person",
+    "title": "",
+    "description_raw": "Applicants must be a U.S. person under export control",
+    "meta": {},
+    "expected": {
+      "work_authorization": [
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "disc06-export-alternatives",
+    "title": "",
+    "description_raw": "Must be a U.S. citizen, permanent resident or protected individual",
+    "meta": {},
+    "expected": {
+      "work_authorization": [
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "disc06-visa-no",
+    "title": "",
+    "description_raw": "No visa sponsorship",
+    "meta": {},
+    "expected": {
+      "visa_sponsorship": false
+    }
+  },
+  {
+    "id": "disc06-visa-unavailable",
+    "title": "",
+    "description_raw": "Visa sponsorship is not available",
+    "meta": {},
+    "expected": {
+      "visa_sponsorship": false
+    }
+  },
+  {
+    "id": "disc06-visa-unable",
+    "title": "",
+    "description_raw": "We are unable to sponsor visas",
+    "meta": {},
+    "expected": {
+      "visa_sponsorship": false
+    }
+  },
+  {
+    "id": "disc06-visa-will-not",
+    "title": "",
+    "description_raw": "We will not sponsor visas",
+    "meta": {},
+    "expected": {
+      "visa_sponsorship": false
+    }
+  },
+  {
+    "id": "disc06-visa-cannot",
+    "title": "",
+    "description_raw": "We cannot sponsor visas",
+    "meta": {},
+    "expected": {
+      "visa_sponsorship": false
+    }
+  },
+  {
+    "id": "disc06-visa-ineligible",
+    "title": "",
+    "description_raw": "This role is not eligible for visa sponsorship",
+    "meta": {},
+    "expected": {
+      "visa_sponsorship": false
+    }
+  },
+  {
+    "id": "disc06-visa-future",
+    "title": "",
+    "description_raw": "Must work without requiring sponsorship now or in the future",
+    "meta": {},
+    "expected": {
+      "visa_sponsorship": false
+    }
+  },
+  {
+    "id": "disc06-visa-available",
+    "title": "",
+    "description_raw": "Visa sponsorship available",
+    "meta": {},
+    "expected": {
+      "visa_sponsorship": true
+    }
+  },
+  {
+    "id": "disc06-visa-sponsor",
+    "title": "",
+    "description_raw": "We sponsor visas",
+    "meta": {},
+    "expected": {
+      "visa_sponsorship": true
+    }
+  },
+  {
+    "id": "disc06-visa-relocation",
+    "title": "",
+    "description_raw": "Relocation and visa support",
+    "meta": {},
+    "expected": {
+      "visa_sponsorship": true
+    }
+  },
+  {
+    "id": "disc06-meta-yes",
+    "title": "",
+    "description_raw": "",
+    "meta": {
+      "sponsorship": "Offers Sponsorship"
+    },
+    "expected": {
+      "visa_sponsorship": true
+    }
+  },
+  {
+    "id": "disc06-meta-no",
+    "title": "",
+    "description_raw": "",
+    "meta": {
+      "sponsorship": "Does Not Offer Sponsorship"
+    },
+    "expected": {
+      "visa_sponsorship": false
+    }
+  },
+  {
+    "id": "disc06-meta-citizen",
+    "title": "",
+    "description_raw": "",
+    "meta": {
+      "sponsorship": "U.S. Citizenship is Required"
+    },
+    "expected": {
+      "work_authorization": [
+        "US"
+      ],
+      "visa_sponsorship": false
+    }
+  },
+  {
+    "id": "disc06-meta-other",
+    "title": "",
+    "description_raw": "",
+    "meta": {
+      "sponsorship": "Other"
+    },
+    "expected": {}
+  },
+  {
+    "id": "disc06-visa-may",
+    "title": "",
+    "description_raw": "Visa sponsorship may be available",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-visa-preferred",
+    "title": "",
+    "description_raw": "Visa sponsorship available preferred",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-auth-preference",
+    "title": "",
+    "description_raw": "Work authorization preferred",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-auth-not-required",
+    "title": "",
+    "description_raw": "You are not required to have work authorization",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-regions-preferred",
+    "title": "",
+    "description_raw": "Must be based in India preferably",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-remote-negated",
+    "title": "",
+    "description_raw": "We do not offer remote within India",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-preference-section",
+    "title": "",
+    "description_raw": "Preferred qualifications:\nMust be based in India\nRequirements:\nVisa sponsorship available",
+    "meta": {},
+    "expected": {
+      "visa_sponsorship": true
+    }
+  },
+  {
+    "id": "disc06-utc-range",
+    "title": "",
+    "description_raw": "Working hours UTC-5 to UTC+1",
+    "meta": {},
+    "expected": {
+      "timezones": {
+        "min": -5,
+        "max": 1
+      }
+    }
+  },
+  {
+    "id": "disc06-gmt-half",
+    "title": "",
+    "description_raw": "GMT+5:30 working hours",
+    "meta": {},
+    "expected": {
+      "timezones": {
+        "min": 5.5,
+        "max": 5.5
+      }
+    }
+  },
+  {
+    "id": "disc06-est",
+    "title": "",
+    "description_raw": "EST working hours",
+    "meta": {},
+    "expected": {
+      "timezones": {
+        "min": -5,
+        "max": -5
+      }
+    }
+  },
+  {
+    "id": "disc06-pst",
+    "title": "",
+    "description_raw": "PST working hours",
+    "meta": {},
+    "expected": {
+      "timezones": {
+        "min": -8,
+        "max": -8
+      }
+    }
+  },
+  {
+    "id": "disc06-cet",
+    "title": "",
+    "description_raw": "CET working hours",
+    "meta": {},
+    "expected": {
+      "timezones": {
+        "min": 1,
+        "max": 1
+      }
+    }
+  },
+  {
+    "id": "disc06-ist",
+    "title": "",
+    "description_raw": "IST working hours",
+    "meta": {},
+    "expected": {
+      "timezones": {
+        "min": 5.5,
+        "max": 5.5
+      }
+    }
+  },
+  {
+    "id": "disc06-gmt",
+    "title": "",
+    "description_raw": "GMT working hours",
+    "meta": {},
+    "expected": {
+      "timezones": {
+        "min": 0,
+        "max": 0
+      }
+    }
+  },
+  {
+    "id": "disc06-eastern",
+    "title": "",
+    "description_raw": "Must overlap with US Eastern time",
+    "meta": {},
+    "expected": {
+      "timezones": {
+        "min": -5,
+        "max": -5
+      }
+    }
+  },
+  {
+    "id": "disc06-window",
+    "title": "",
+    "description_raw": "Must work within ±2 hours of CET",
+    "meta": {},
+    "expected": {
+      "timezones": {
+        "min": -1,
+        "max": 3
+      }
+    }
+  },
+  {
+    "id": "disc06-shift",
+    "title": "",
+    "description_raw": "7 AM - 5 PM CST shift",
+    "meta": {},
+    "expected": {
+      "timezones": {
+        "min": -6,
+        "max": -6
+      }
+    }
+  },
+  {
+    "id": "disc06-night",
+    "title": "",
+    "description_raw": "Night shift",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-zones-slash",
+    "title": "",
+    "description_raw": "EST/PST/CET/IST/GMT working hours",
+    "meta": {},
+    "expected": {
+      "timezones": {
+        "min": -8,
+        "max": 5.5
+      }
+    }
+  },
+  {
+    "id": "disc06-zone-mention",
+    "title": "",
+    "description_raw": "Our CET team builds tools",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-zone-preferred",
+    "title": "",
+    "description_raw": "CET working hours preferred",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-daylight",
+    "title": "",
+    "description_raw": "EDT/CDT/PDT/CEST working hours",
+    "meta": {},
+    "expected": {
+      "timezones": {
+        "min": -8,
+        "max": 1
+      }
+    }
+  },
+  {
+    "id": "disc06-asia-pacific-hours",
+    "title": "",
+    "description_raw": "EET/SGT/JST/AEST working hours",
+    "meta": {},
+    "expected": {
+      "timezones": {
+        "min": 2,
+        "max": 10
+      }
+    }
+  },
+  {
+    "id": "disc06-mst-wet",
+    "title": "",
+    "description_raw": "MST/WET working hours",
+    "meta": {},
+    "expected": {
+      "timezones": {
+        "min": -7,
+        "max": 0
+      }
+    }
+  },
+  {
+    "id": "disc06-zone-invalid",
+    "title": "",
+    "description_raw": "Working hours UTC+15",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-region-union",
+    "title": "",
+    "description_raw": "Remote within India; Remote in the Philippines",
+    "meta": {},
+    "expected": {
+      "remote_regions": [
+        "IN",
+        "PH"
+      ]
+    }
+  },
+  {
+    "id": "disc06-auth-union",
+    "title": "",
+    "description_raw": "Must be authorized to work in the US; Must have work authorization in Canada",
+    "meta": {},
+    "expected": {
+      "work_authorization": [
+        "CA",
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "disc06-timezone-union",
+    "title": "",
+    "description_raw": "Must overlap with EST working hours; Must overlap with CET working hours",
+    "meta": {},
+    "expected": {
+      "timezones": {
+        "min": -5,
+        "max": 1
+      }
+    }
+  },
+  {
+    "id": "disc06-region-list",
+    "title": "",
+    "description_raw": "Open to candidates in India and the Philippines",
+    "meta": {},
+    "expected": {
+      "remote_regions": [
+        "IN",
+        "PH"
+      ]
+    },
+    "is_remote": true
+  },
+  {
+    "id": "disc06-locals-in",
+    "title": "",
+    "description_raw": "Locals only in India",
+    "meta": {},
+    "expected": {
+      "remote_regions": [
+        "IN"
+      ]
+    },
+    "is_remote": true
+  },
+  {
+    "id": "disc06-city-country",
+    "title": "",
+    "description_raw": "",
+    "meta": {},
+    "is_remote": true,
+    "location": "Bengaluru, India",
+    "expected": {}
+  },
+  {
+    "id": "disc06-word-boundary",
+    "title": "",
+    "description_raw": "Plus residents only",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-worldwide-marketing",
+    "title": "",
+    "description_raw": "We serve customers worldwide",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-worldwide-brand",
+    "title": "",
+    "description_raw": "We are Worldwide Technologies",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-remote-worldwide",
+    "title": "",
+    "description_raw": "Fully remote worldwide",
+    "meta": {},
+    "expected": {
+      "remote_mode": "remote",
+      "remote_regions": [
+        "WORLDWIDE"
+      ]
+    }
+  },
+  {
+    "id": "disc06-candidates-worldwide",
+    "title": "",
+    "description_raw": "Open to candidates worldwide",
+    "meta": {},
+    "expected": {
+      "remote_regions": [
+        "WORLDWIDE"
+      ]
+    },
+    "is_remote": true
+  },
+  {
+    "id": "disc06-cannot-provide-visa",
+    "title": "",
+    "description_raw": "We cannot provide visa sponsorship",
+    "meta": {},
+    "expected": {
+      "visa_sponsorship": false
+    }
+  },
+  {
+    "id": "disc06-auth-country-prefix",
+    "title": "",
+    "description_raw": "US work authorization required",
+    "meta": {},
+    "expected": {
+      "work_authorization": [
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "disc06-office-days-week",
+    "title": "",
+    "description_raw": "2 days per week in the office",
+    "meta": {},
+    "expected": {
+      "remote_mode": "hybrid"
+    }
+  },
+  {
+    "id": "disc06-malformed-zone",
+    "title": "",
+    "description_raw": "GMT+5:99 working hours",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-remote-control",
+    "title": "",
+    "description_raw": "Build remote-control tools",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-not-remote-region",
+    "title": "",
+    "description_raw": "This role is not remote within India",
+    "meta": {},
+    "expected": {
+      "remote_mode": "onsite"
+    }
+  },
+  {
+    "id": "disc06-not-remote-worldwide",
+    "title": "",
+    "description_raw": "This role is not remote worldwide",
+    "meta": {},
+    "expected": {
+      "remote_mode": "onsite"
+    }
+  },
+  {
+    "id": "disc06-r1-onsite-residence",
+    "title": "",
+    "description_raw": "This role is on-site. Applicants must reside in the US",
+    "meta": {},
+    "location": "Austin, TX",
+    "is_remote": false,
+    "expected": {
+      "remote_mode": "onsite"
+    }
+  },
+  {
+    "id": "disc06-r1-unknown-mode-residence",
+    "title": "",
+    "description_raw": "Applicants must reside in the US",
+    "meta": {},
+    "location": "Austin, TX",
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-onsite-overrides-flag",
+    "title": "",
+    "description_raw": "This position is on-site. Must reside in the US",
+    "meta": {},
+    "location": "United States",
+    "is_remote": true,
+    "expected": {
+      "remote_mode": "onsite"
+    }
+  },
+  {
+    "id": "disc06-r1-onsite-export-control",
+    "title": "",
+    "description_raw": "This job is on-site. Must be a U.S. citizen, permanent resident or protected individual",
+    "meta": {},
+    "location": "Austin, TX",
+    "is_remote": false,
+    "expected": {
+      "remote_mode": "onsite",
+      "work_authorization": [
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "disc06-r1-hybrid-residence",
+    "title": "",
+    "description_raw": "This role is hybrid. Must reside in India",
+    "meta": {},
+    "expected": {
+      "remote_mode": "hybrid",
+      "remote_regions": [
+        "IN"
+      ]
+    }
+  },
+  {
+    "id": "disc06-r1-explicit-remote-residence",
+    "title": "",
+    "description_raw": "This position is remote. Must reside in Canada",
+    "meta": {},
+    "expected": {
+      "remote_mode": "remote",
+      "remote_regions": [
+        "CA"
+      ]
+    }
+  },
+  {
+    "id": "disc06-r1-remote-culture-residence",
+    "title": "",
+    "description_raw": "We are a remote-first company. Must reside in the US",
+    "meta": {},
+    "location": "Austin, TX",
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-remote-team-residence",
+    "title": "",
+    "description_raw": "Join our remote team. Must reside in the US",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-bvi",
+    "title": "",
+    "description_raw": "",
+    "meta": {},
+    "is_remote": true,
+    "location": "British Virgin Islands",
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-usvi",
+    "title": "",
+    "description_raw": "",
+    "meta": {},
+    "is_remote": true,
+    "location": "United States Virgin Islands",
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-short-usvi",
+    "title": "",
+    "description_raw": "",
+    "meta": {},
+    "is_remote": true,
+    "location": "US Virgin Islands",
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-guiana",
+    "title": "",
+    "description_raw": "",
+    "meta": {},
+    "is_remote": true,
+    "location": "French Guiana",
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-partial-country-list",
+    "title": "",
+    "description_raw": "",
+    "meta": {},
+    "is_remote": true,
+    "location": "United States, British Virgin Islands",
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-unknown-item",
+    "title": "",
+    "description_raw": "",
+    "meta": {},
+    "is_remote": true,
+    "location": "India, Unmapped Islands, Philippines",
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-semicolon-invalid",
+    "title": "",
+    "description_raw": "",
+    "meta": {},
+    "is_remote": true,
+    "location": "India; Unknown Island",
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-slash-invalid",
+    "title": "",
+    "description_raw": "",
+    "meta": {},
+    "is_remote": true,
+    "location": "India / Unknown Island",
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-pipe-invalid",
+    "title": "",
+    "description_raw": "",
+    "meta": {},
+    "is_remote": true,
+    "location": "India | Unknown Island",
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-and-invalid",
+    "title": "",
+    "description_raw": "",
+    "meta": {},
+    "is_remote": true,
+    "location": "India and Unknown Island",
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-all-separators",
+    "title": "",
+    "description_raw": "",
+    "meta": {},
+    "is_remote": true,
+    "location": "Remote (India); Philippines / Canada | UK and US",
+    "expected": {
+      "remote_regions": [
+        "CA",
+        "GB",
+        "IN",
+        "PH",
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "disc06-r1-exact-case-aliases",
+    "title": "",
+    "description_raw": "",
+    "meta": {},
+    "is_remote": true,
+    "location": " remote (uNiTeD sTaTeS), (CANADA) ",
+    "expected": {
+      "remote_regions": [
+        "CA",
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "disc06-r1-region-token-item",
+    "title": "",
+    "description_raw": "",
+    "meta": {},
+    "is_remote": true,
+    "location": "Remote (north_america)",
+    "expected": {
+      "remote_regions": [
+        "NORTH_AMERICA"
+      ]
+    }
+  },
+  {
+    "id": "disc06-r1-latam-long-list",
+    "title": "",
+    "description_raw": "Must reside in Latin America",
+    "meta": {},
+    "is_remote": true,
+    "location": "Anguilla, Antigua and Barbuda, Argentina, Aruba, Brazil, British Virgin Islands, Chile, Colombia, French Guiana, Mexico, Peru, US Virgin Islands",
+    "expected": {
+      "remote_regions": [
+        "LATAM"
+      ]
+    }
+  },
+  {
+    "id": "disc06-r1-latam-covered-countries",
+    "title": "",
+    "description_raw": "Must reside in Latin America",
+    "meta": {},
+    "is_remote": true,
+    "location": "Argentina, Brazil, Chile, Colombia, Mexico, Peru",
+    "expected": {
+      "remote_regions": [
+        "LATAM"
+      ]
+    }
+  },
+  {
+    "id": "disc06-r1-region-does-not-cover-us",
+    "title": "",
+    "description_raw": "Must reside in Latin America",
+    "meta": {},
+    "is_remote": true,
+    "location": "United States, Argentina",
+    "expected": {
+      "remote_regions": [
+        "LATAM",
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "disc06-r1-invalid-location-retains-text",
+    "title": "",
+    "description_raw": "Must reside in India",
+    "meta": {},
+    "is_remote": true,
+    "location": "Canada, Unknown Island",
+    "expected": {
+      "remote_regions": [
+        "IN"
+      ]
+    }
+  },
+  {
+    "id": "disc06-stated-countries-beat-worldwide",
+    "title": "",
+    "description_raw": "Fully remote. Open to candidates worldwide",
+    "meta": {},
+    "is_remote": true,
+    "location": "United States, Canada",
+    "expected": {
+      "remote_mode": "remote",
+      "remote_regions": [
+        "CA",
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "disc06-r1-europe-covers-country",
+    "title": "",
+    "description_raw": "Must reside in Europe",
+    "meta": {},
+    "is_remote": true,
+    "location": "United Kingdom, Germany, France",
+    "expected": {
+      "remote_regions": [
+        "EUROPE"
+      ]
+    }
+  },
+  {
+    "id": "disc06-r1-authorization-nbsp",
+    "title": "",
+    "description_raw": "Must be legally authorized to work in the United States",
+    "meta": {},
+    "expected": {
+      "work_authorization": [
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "disc06-r1-authorization-unicode-spaces",
+    "title": "",
+    "description_raw": "Must be legally authorized　to work in the United States",
+    "meta": {},
+    "expected": {
+      "work_authorization": [
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "disc06-r1-export-residency",
+    "title": "",
+    "description_raw": "U.S. Citizenship, Lawful Permanent Residency, or Refugee/Asylee Status Required",
+    "meta": {},
+    "expected": {
+      "work_authorization": [
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "disc06-r1-export-refugee",
+    "title": "",
+    "description_raw": "Must be a U.S. citizen or have refugee status",
+    "meta": {},
+    "expected": {
+      "work_authorization": [
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "disc06-r1-export-asylee",
+    "title": "",
+    "description_raw": "U.S. citizenship or asylee status required",
+    "meta": {},
+    "expected": {
+      "work_authorization": [
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "disc06-r1-export-protected",
+    "title": "",
+    "description_raw": "Must be a United States citizen, lawful permanent resident, or protected individual",
+    "meta": {},
+    "expected": {
+      "work_authorization": [
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "disc06-r1-authorization-that-location",
+    "title": "",
+    "description_raw": "Applicants must reside in and be authorized to work in that location",
+    "meta": {},
+    "location": "Austin, TX",
+    "expected": {
+      "work_authorization": [
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "disc06-r1-authorization-this-location",
+    "title": "",
+    "description_raw": "Applicants must reside in and be authorized to work in this location",
+    "meta": {},
+    "location": "London",
+    "expected": {
+      "work_authorization": [
+        "GB"
+      ]
+    }
+  },
+  {
+    "id": "disc06-r1-authorization-this-country",
+    "title": "",
+    "description_raw": "Applicants must reside in and be authorized to work in this country",
+    "meta": {},
+    "location": "Bengaluru, India",
+    "expected": {
+      "work_authorization": [
+        "IN"
+      ]
+    }
+  },
+  {
+    "id": "disc06-r1-authorization-multiple-countries",
+    "title": "",
+    "description_raw": "Applicants must reside in and be authorized to work in that location",
+    "meta": {},
+    "location": "United States, Canada",
+    "expected": {
+      "work_authorization": []
+    }
+  },
+  {
+    "id": "disc06-r1-authorization-unknown-location",
+    "title": "",
+    "description_raw": "Applicants must reside in and be authorized to work in that location",
+    "meta": {},
+    "location": "Unknown City",
+    "expected": {
+      "work_authorization": []
+    }
+  },
+  {
+    "id": "disc06-r1-authorization-no-location",
+    "title": "",
+    "description_raw": "Applicants must reside in and be authorized to work in this country",
+    "meta": {},
+    "expected": {
+      "work_authorization": []
+    }
+  },
+  {
+    "id": "disc06-r1-unrelated-location-not-authorization",
+    "title": "",
+    "description_raw": "Must have work authorization",
+    "meta": {},
+    "location": "Austin, TX",
+    "expected": {
+      "work_authorization": []
+    }
+  },
+  {
+    "id": "disc06-r1-explicit-role-remote",
+    "title": "",
+    "description_raw": "This role is remote",
+    "meta": {},
+    "expected": {
+      "remote_mode": "remote"
+    }
+  },
+  {
+    "id": "disc06-r1-explicit-position-hybrid",
+    "title": "",
+    "description_raw": "This position is hybrid",
+    "meta": {},
+    "expected": {
+      "remote_mode": "hybrid"
+    }
+  },
+  {
+    "id": "disc06-r1-explicit-job-onsite",
+    "title": "",
+    "description_raw": "This job is on-site",
+    "meta": {},
+    "expected": {
+      "remote_mode": "onsite"
+    }
+  },
+  {
+    "id": "disc06-r1-explicit-internship-remote",
+    "title": "",
+    "description_raw": "This internship is remote",
+    "meta": {},
+    "expected": {
+      "remote_mode": "remote"
+    }
+  },
+  {
+    "id": "disc06-r1-mode-label",
+    "title": "",
+    "description_raw": "Work mode: remote",
+    "meta": {},
+    "expected": {
+      "remote_mode": "remote"
+    }
+  },
+  {
+    "id": "disc06-r1-arrangement-label",
+    "title": "",
+    "description_raw": "Work arrangement: hybrid",
+    "meta": {},
+    "expected": {
+      "remote_mode": "hybrid"
+    }
+  },
+  {
+    "id": "disc06-r1-type-label",
+    "title": "",
+    "description_raw": "Work type: on-site",
+    "meta": {},
+    "expected": {
+      "remote_mode": "onsite"
+    }
+  },
+  {
+    "id": "disc06-r1-location-label",
+    "title": "",
+    "description_raw": "Work location: remote",
+    "meta": {},
+    "expected": {
+      "remote_mode": "remote"
+    }
+  },
+  {
+    "id": "disc06-r1-remote-heading",
+    "title": "",
+    "description_raw": "# Remote",
+    "meta": {},
+    "expected": {
+      "remote_mode": "remote"
+    }
+  },
+  {
+    "id": "disc06-r1-hybrid-heading",
+    "title": "",
+    "description_raw": "Hybrid",
+    "meta": {},
+    "expected": {
+      "remote_mode": "hybrid"
+    }
+  },
+  {
+    "id": "disc06-r1-onsite-heading",
+    "title": "",
+    "description_raw": "On-site",
+    "meta": {},
+    "expected": {
+      "remote_mode": "onsite"
+    }
+  },
+  {
+    "id": "disc06-r1-days-a-week",
+    "title": "",
+    "description_raw": "Work three days a week in the office",
+    "meta": {},
+    "expected": {
+      "remote_mode": "hybrid"
+    }
+  },
+  {
+    "id": "disc06-r1-days-per-week",
+    "title": "",
+    "description_raw": "2 days per week in office",
+    "meta": {},
+    "expected": {
+      "remote_mode": "hybrid"
+    }
+  },
+  {
+    "id": "disc06-r1-in-person-internship",
+    "title": "",
+    "description_raw": "This is an in-person internship",
+    "meta": {},
+    "expected": {
+      "remote_mode": "onsite"
+    }
+  },
+  {
+    "id": "disc06-r1-li-remote",
+    "title": "",
+    "description_raw": "#LI-Remote",
+    "meta": {},
+    "expected": {
+      "remote_mode": "remote"
+    }
+  },
+  {
+    "id": "disc06-r1-li-hybrid",
+    "title": "",
+    "description_raw": "#LI-Hybrid",
+    "meta": {},
+    "expected": {
+      "remote_mode": "hybrid"
+    }
+  },
+  {
+    "id": "disc06-r1-li-onsite",
+    "title": "",
+    "description_raw": "#LI-Onsite",
+    "meta": {},
+    "expected": {
+      "remote_mode": "onsite"
+    }
+  },
+  {
+    "id": "disc06-r1-location-exact-remote",
+    "title": "",
+    "description_raw": "",
+    "meta": {},
+    "location": "Remote",
+    "expected": {
+      "remote_mode": "remote"
+    }
+  },
+  {
+    "id": "disc06-r1-location-exact-hybrid",
+    "title": "",
+    "description_raw": "",
+    "meta": {},
+    "location": "Hybrid",
+    "expected": {
+      "remote_mode": "hybrid"
+    }
+  },
+  {
+    "id": "disc06-r1-interview",
+    "title": "",
+    "description_raw": "There is an on-site interview",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-round",
+    "title": "",
+    "description_raw": "Round 1 online",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-event",
+    "title": "",
+    "description_raw": "Attend our offline event",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-screening",
+    "title": "",
+    "description_raw": "Complete an online screening",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-remote-team",
+    "title": "",
+    "description_raw": "You will join our remote team",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-remote-first",
+    "title": "",
+    "description_raw": "We are a remote-first company",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-collaborate",
+    "title": "",
+    "description_raw": "Collaborate remotely with your peers",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-fully-remote-interview",
+    "title": "",
+    "description_raw": "We conduct fully remote interviews",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-fully-remote-team",
+    "title": "",
+    "description_raw": "Our team is fully remote",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-hybrid-cloud",
+    "title": "",
+    "description_raw": "Build hybrid cloud systems",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-onsite-customer",
+    "title": "",
+    "description_raw": "Help on-site customers",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-remote-stray-onsite",
+    "title": "",
+    "description_raw": "Fully remote. You may attend an on-site interview",
+    "meta": {},
+    "expected": {
+      "remote_mode": "remote"
+    }
+  },
+  {
+    "id": "disc06-r1-remote-stray-hybrid",
+    "title": "",
+    "description_raw": "Fully remote. Build hybrid cloud systems",
+    "meta": {},
+    "expected": {
+      "remote_mode": "remote"
+    }
+  },
+  {
+    "id": "disc06-r1-remote-onsite-conflict",
+    "title": "",
+    "description_raw": "This role is remote. This position is on-site",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-remote-onsite-conflict-regions",
+    "title": "",
+    "description_raw": "This role is remote. This position is on-site. Must reside in India",
+    "meta": {},
+    "is_remote": true,
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-hybrid-remote-conflict",
+    "title": "",
+    "description_raw": "This role is hybrid. This position is remote",
+    "meta": {},
+    "expected": {
+      "remote_mode": "hybrid"
+    }
+  },
+  {
+    "id": "disc06-r1-hybrid-onsite-conflict",
+    "title": "",
+    "description_raw": "This role is hybrid. This position is on-site",
+    "meta": {},
+    "expected": {
+      "remote_mode": "hybrid"
+    }
+  },
+  {
+    "id": "disc06-r1-all-mode-statements",
+    "title": "",
+    "description_raw": "This role is remote. This position is on-site. Work arrangement: hybrid",
+    "meta": {},
+    "expected": {
+      "remote_mode": "hybrid"
+    }
+  },
+  {
+    "id": "disc06-r1-conflict-across-sources",
+    "title": "Fully remote",
+    "description_raw": "This role is on-site",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-location-not-exact-remote",
+    "title": "",
+    "description_raw": "",
+    "meta": {},
+    "location": "Remote team headquarters",
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-location-remote-wrapper-clauses",
+    "title": "",
+    "description_raw": "Must reside in the US",
+    "meta": {},
+    "location": "Remote; India",
+    "expected": {
+      "remote_regions": [
+        "IN",
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "disc06-r1-unicode-legacy",
+    "title": "",
+    "description_raw": "Currently pursuing a bachelor’s degree; 2026 batch",
+    "meta": {},
+    "expected": {
+      "stages": [
+        "undergraduate"
+      ],
+      "grad_years": [
+        2026
+      ]
+    }
+  },
+  {
+    "id": "disc06-r1-review-remote-wrapper-suffix",
+    "title": "",
+    "description_raw": "",
+    "meta": {},
+    "location": "United States (Remote)",
+    "is_remote": false,
+    "expected": {
+      "remote_regions": [
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "disc06-r1-review-remote-worldwide-location",
+    "title": "",
+    "description_raw": "",
+    "meta": {},
+    "location": "Remote Worldwide",
+    "is_remote": false,
+    "expected": {
+      "remote_regions": [
+        "WORLDWIDE"
+      ]
+    }
+  },
+  {
+    "id": "disc06-r1-review-remote-interview-regions",
+    "title": "",
+    "description_raw": "Remote (US only) interviews",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-review-remote-marketing-anywhere",
+    "title": "",
+    "description_raw": "Our customers work from anywhere",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-review-referenced-region-not-country",
+    "title": "",
+    "description_raw": "Must reside in and be authorized to work in this country",
+    "meta": {},
+    "location": "North America",
+    "expected": {
+      "work_authorization": []
+    }
+  },
+  {
+    "id": "disc06-r1-review-location-all-or-nothing-no-semicolon",
+    "title": "",
+    "description_raw": "",
+    "meta": {},
+    "is_remote": true,
+    "location": "Argentina; Brazil; Unknown Island",
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-interview-process",
+    "title": "",
+    "description_raw": "Our interview process is fully remote",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-fully-remote-round",
+    "title": "",
+    "description_raw": "The final round will be fully remote",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-team-culture",
+    "title": "",
+    "description_raw": "Our team enjoys a fully remote working culture",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-culture-wfh",
+    "title": "",
+    "description_raw": "Our company culture allows employees to work from home",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-r1-fully-remote-role-interview",
+    "title": "",
+    "description_raw": "This role is fully remote with an on-site interview",
+    "meta": {},
+    "expected": {
+      "remote_mode": "remote"
+    }
+  },
+  {
+    "id": "disc06-r1-explicit-arrangement-plus-round",
+    "title": "",
+    "description_raw": "Work arrangement: remote with an on-site final round",
+    "meta": {},
+    "expected": {
+      "remote_mode": "remote"
+    }
+  },
+  {
+    "id": "disc06-everify-conditional",
+    "title": "Engineer",
+    "description_raw": "For positions located in the United States of America, the company uses E-Verify to confirm employment eligibility.",
+    "meta": {},
+    "location": "Zurich, Switzerland",
+    "is_remote": true,
+    "expected": {}
+  },
+  {
+    "id": "disc06-right-to-work-notice",
+    "title": "Analyst",
+    "description_raw": "Right to Work Notice (English/Spanish)",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-contingent-secure",
+    "title": "Analyst",
+    "description_raw": "All offers of employment are contingent upon an individual's ability to secure and maintain the legal right to work at the company.",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-generic-remote-roles",
+    "title": "Analyst",
+    "description_raw": "Our hybrid and fully remote roles include regular opportunities for in-person connection through socials and off-sites.",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "disc06-culture-anywhere-not-worldwide",
+    "title": "Engineer",
+    "description_raw": "- Remote - Japan\n- Work from anywhere: Remote-first Culture",
+    "meta": {},
+    "location": null,
+    "is_remote": true,
+    "expected": {
+      "remote_regions": [
+        "JP"
+      ]
+    }
+  },
+  {
+    "id": "disc06-ineligible-sponsorship",
+    "title": "Analyst",
+    "description_raw": "This position is ineligible for visa sponsorship.\nYou must be legally authorized to work in the United States and not require sponsorship for employment now or in the future.",
+    "meta": {},
+    "expected": {
+      "visa_sponsorship": false,
+      "work_authorization": [
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "disc06-immigration-sponsorship",
+    "title": "Analyst",
+    "description_raw": "We are unable to offer any type of employment-based immigration sponsorship for this program.",
+    "meta": {},
+    "expected": {
+      "visa_sponsorship": false
+    }
+  },
+  {
+    "id": "disc06-bonus-section-ends",
+    "title": "Intern",
+    "description_raw": "Bonus\n\n- Experience with RF\n\nThe base pay for this position is $29.00 per hour.\n\nU.S. Citizenship, Lawful Permanent Residency, or Refugee/Asylee Status Required",
+    "meta": {},
+    "expected": {
+      "work_authorization": [
+        "US"
+      ]
+    }
   }
 ]

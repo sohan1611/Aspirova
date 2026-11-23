@@ -708,10 +708,15 @@ def _refresh_eligibility_facts(mapper, connection, target: Opportunity) -> None:
     """One write seam for all ORM ingest paths; liveness-only writes stay cheap."""
     state = inspect(target)
     if state.pending or any(
-        state.attrs[name].history.has_changes() for name in ("title", "description_raw", "meta")
+        state.attrs[name].history.has_changes()
+        for name in ("title", "description_raw", "meta", "location", "is_remote")
     ):
         from core.eligibility_facts import extract_eligibility_facts
 
         target.eligibility_facts = extract_eligibility_facts(
-            target.title, target.description_raw, target.meta
+            target.title,
+            target.description_raw,
+            target.meta,
+            location=target.location,
+            is_remote=target.is_remote,
         )

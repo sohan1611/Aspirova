@@ -8,10 +8,12 @@ from sys import float_info
 
 from fastapi import HTTPException
 from sqlalchemy import Float, and_, case, cast, false, func, literal, not_, or_, text
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import JSONB
 
 from core import models, role_level
 from core.eligibility import ELIGIBLE_EXPERIENCED_ONLY_META_KEY
+from core.eligibility_facts import regions_for_country
 from core.organisers import ORGANISER_TYPE_LABELS, organiser_type_expression
 from core.role_level import (
     CLEARLY_SENIOR_TITLE_PATTERN,
@@ -729,51 +731,58 @@ def location_scope_filters(
     country: str | None,
     include_remote_abroad: bool = False,
 ) -> list:
-    """Return country-scope filters with an opt-in for foreign remote roles.
+    """Unknown remote restrictions stay visible, never labelled worldwide.
 
-    When enabled for a domestic scope, ``include_remote_abroad`` admits remote
-    roles tied to another country. Those roles usually mean remote within that
-    country and may require local work authorization, so the option is opt-in.
+    Abroad retains the old physical-country rule, except remote rows explicitly
+    covering the reader's country (including regions) are domestic-eligible.
+    Unknown regions can therefore still appear in both scopes.
     """
     country_upper = country.strip().upper() if country else ""
-    if (
-        scope not in {"domestic", "abroad"}
-        or len(country_upper) != 2
-        or not country_upper.isalpha()
-    ):
+    if scope not in {"domestic", "abroad"} or not re.fullmatch(r"[A-Z]{2}", country_upper):
         return []
-
-    if scope == "domestic" and include_remote_abroad:
-        return [
-            or_(
-                models.Opportunity.country == country_upper,
-                models.Opportunity.is_remote.is_(True),
-            )
-        ]
-
+    opportunity = models.Opportunity
+    value = opportunity.eligibility_facts["remote_regions"]["value"]
+    stated = (func.jsonb_typeof(value) == "array").is_(True)
+    covers = value.has_any(postgresql.array(regions_for_country(country_upper))).is_(True)
+    remote_allowed = and_(opportunity.is_remote.is_(True), or_(not_(stated), covers))
     if scope == "domestic":
         return [
             or_(
-                models.Opportunity.country == country_upper,
-                and_(
-                    models.Opportunity.is_remote.is_(True),
-                    models.Opportunity.country.is_(None),
+                opportunity.country == country_upper,
+                (
+                    remote_allowed
+                    if include_remote_abroad
+                    else and_(opportunity.country.is_(None), remote_allowed)
                 ),
             )
         ]
-
     return [
-        or_(
-            and_(
-                models.Opportunity.country.is_not(None),
-                models.Opportunity.country != country_upper,
+        and_(
+            or_(
+                and_(opportunity.country.is_not(None), opportunity.country != country_upper),
+                and_(opportunity.is_remote.is_(True), opportunity.country.is_(None)),
             ),
-            and_(
-                models.Opportunity.is_remote.is_(True),
-                models.Opportunity.country.is_(None),
-            ),
+            not_(and_(opportunity.is_remote.is_(True), stated, covers)),
         )
     ]
+
+
+def visa_filters(visa: str | None = None, country: str | None = None) -> list:
+    """Opt-in only: discard stated conflicts, retain every unknown dimension."""
+    if visa is None:
+        return []
+    if visa != "needs":
+        raise HTTPException(422, "Invalid visa filter")
+    facts = models.Opportunity.eligibility_facts
+    filters = [facts["visa_sponsorship"]["value"].as_boolean().is_not(False)]
+    if country:
+        # Any already-required foreign authorization is a conflict. An empty
+        # array explicitly means country unclear, so is retained like unknown.
+        authorization = facts["work_authorization"]["value"]
+        stated = (func.jsonb_typeof(authorization) == "array").is_(True)
+        foreign = authorization.contained_by([country.strip().upper()]).is_(False)
+        filters.append(not_(and_(stated, foreign)))
+    return filters
 
 
 def eligibility_filters(
@@ -834,6 +843,7 @@ def saved_search_base_filters(params: dict) -> list:
             params.get("grad_year"), params.get("stage"), params.get("eligibility_stated", False)
         ),
         *location_scope_filters(scope, country, False),
+        *visa_filters(params.get("visa"), country),
     ]
     base_filters.extend(
         role_signal_filters(

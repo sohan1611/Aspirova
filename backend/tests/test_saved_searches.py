@@ -541,3 +541,22 @@ def test_empty_saved_search_still_lists_and_accepts_non_filter_edits(
     assert row.last_alerted_at == baseline
     for key, value in patch.items():
         assert getattr(row, key) == value
+
+
+def test_visa_saved_search_create_update_and_roundtrip(client, db_session):
+    created = client.post("/saved-searches", json={"params": {"visa": "needs", "country": "IN"}})
+    assert created.status_code == 200, created.text
+    item = created.json()
+    assert item["params"] == {"visa": "needs", "country": "IN"}
+    assert db_session.get(models.SavedSearch, item["id"]).params == item["params"]
+    assert (
+        next(row for row in client.get("/saved-searches").json() if row["id"] == item["id"])[
+            "params"
+        ]
+        == item["params"]
+    )
+    response = client.patch(f"/saved-searches/{item['id']}", json={"params": {"country": "IN"}})
+    assert response.status_code == 200, response.text
+    assert response.json()["params"] == {"country": "IN"}
+    invalid = client.post("/saved-searches", json={"params": {"visa": "no"}})
+    assert invalid.status_code == 422

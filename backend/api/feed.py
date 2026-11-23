@@ -27,6 +27,7 @@ from api.filters import (
     exclude_stale_opportunities,
     experience_filters,
     eligibility_filters,
+    visa_filters,
     kind_filters,
     listing_closed,
     location_scope_filters,
@@ -62,6 +63,7 @@ def get_feed(
     grad_year: int | None = Query(None, ge=2015, le=2035),
     stage: list[str] | None = Query(None),
     eligibility_stated: bool = Query(False),
+    visa: str | None = Query(None, pattern="^needs$"),
     comp_type: list[str] | None = Query(None),
     registration: str | None = Query(None),
     deadline_within: int | None = Query(None),
@@ -95,6 +97,7 @@ def get_feed(
         *opportunity_filters(category, remote, company, location, top),
         *experience_filters(experience),
         *eligibility_filters(grad_year, stage, eligibility_stated),
+        *visa_filters(visa, country),
         *role_signal_filters(
             paid, min_stipend, part_time, max_duration, job_offer, posted_within, role
         ),
@@ -169,6 +172,7 @@ def get_feed(
                 country,
                 source,
                 experience,
+                visa,
                 grad_year,
                 stage,
                 comp_type,

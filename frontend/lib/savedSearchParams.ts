@@ -53,6 +53,7 @@ export function savedSearchSummary(params: SavedSearchParams): string {
   const parts: string[] = [];
   if (params.grad_year) parts.push(`${params.grad_year} batch`);
   if (params.stage?.length) parts.push(...params.stage.map((value) => value.replaceAll("_", " ")));
+  if (params.visa === "needs") parts.push("needs visa sponsorship");
   if (params.eligibility_stated) parts.push("eligibility stated");
   if (params.q) parts.push(`“${params.q}”`);
   if (params.category) parts.push(params.category);

@@ -48,6 +48,10 @@ export default function EligibilityFilters({ searchParams, onChange, disabled = 
           ))}
         </div>
       </fieldset>
+      <label className="flex min-h-11 items-center gap-2 text-sm">
+        <input type="checkbox" checked={selected.visa === "needs"} onChange={(event) => update("visa", event.target.checked ? "needs" : null)} />
+        I need visa sponsorship
+      </label>
       {(selected.grad_year || selected.stage?.length) && (
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">Listings that don&apos;t state eligibility stay in and are marked.</p>

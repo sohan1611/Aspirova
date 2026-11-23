@@ -156,4 +156,6 @@ The full rationale and rejected alternatives live in the relevant docs. This is 
 
 | 2026-11-22 | **DISC-04: eligibility facts are evidence-only, from listing text and source eligibility tags.** Not stated is preserved. Graduation-year and study-level filters never drop a row for missing information unless the reader explicitly opts into listings that state the selected dimensions. No company, category, location or country inference. | **Binding** |
 
+| 2026-11-23 | **DISC-06: a remote role is never assumed open worldwide.** Remote regions, work authorization, visa sponsorship and time zones come only from listing text, source tags and remote-board location restrictions. Not stated is preserved and shown; missing information does not hide a listing unless the reader opts in. Cross-country scope respects stated remote regions; the optional visa sponsorship filter excludes explicit conflicts and retains unknowns. | **Binding** |
+
 > Engineers: do not contradict a **Binding** row without an architect-approved amendment.

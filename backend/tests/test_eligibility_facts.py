@@ -19,13 +19,34 @@ def _purge_isolation_test_residue():
 
 @pytest.mark.parametrize("row", CASES, ids=[row["id"] for row in CASES])
 def test_eligibility_fixture(row):
-    facts = extract_eligibility_facts(row["title"], row["description_raw"], row["meta"])
-    assert facts["v"] == ELIGIBILITY_FACTS_VERSION == 2
-    assert {key: value["value"] for key, value in facts.items() if key != "v"} == row["expected"]
+    facts = extract_eligibility_facts(
+        row["title"],
+        row["description_raw"],
+        row["meta"],
+        location=row.get("location"),
+        is_remote=row.get("is_remote"),
+    )
+    assert facts["v"] == ELIGIBILITY_FACTS_VERSION == 3
+    legacy = {
+        "grad_years",
+        "stages",
+        "final_year_only",
+        "degree_levels",
+        "college_restriction",
+        "citizenship",
+    }
+    assert {
+        key: value["value"]
+        for key, value in facts.items()
+        if key != "v" and (row["id"].startswith("disc06-") or key in legacy)
+    } == row["expected"]
     sources = {
         "title": _plain(row["title"]),
         "description": _plain(row["description_raw"]),
-        "tags": "\n".join(row["meta"].get("eligibility", [])),
+        "tags": "\n".join(row["meta"].get("eligibility", []))
+        + "\n"
+        + row["meta"].get("sponsorship", ""),
+        "location": _plain(row.get("location")),
     }
     for key, fact in facts.items():
         if key == "v":
@@ -36,6 +57,7 @@ def test_eligibility_fixture(row):
 
 def test_fixture_count_and_scan_cap():
     assert len(CASES) >= 70
+    assert sum(row["id"].startswith("disc06-") for row in CASES) >= 50
     assert extract_eligibility_facts("Role", "x" * 60_001 + " 2026 batch", {}) == {
         "v": ELIGIBILITY_FACTS_VERSION
     }
@@ -57,3 +79,36 @@ def test_evaluation_counts_errors_and_draws():
     assert [(e["id"], e["dimension"]) for e in errors] == [("a", "grad_years"), ("b", "stages")]
     with pytest.raises(ValueError, match="ids must match"):
         evaluate(samples, {})
+
+
+def test_remote_unions_keep_first_exact_clause_and_ignore_unrelated_sources():
+    description = "Remote within India; Remote in the Philippines"
+    facts = extract_eligibility_facts(
+        "Role", description, {}, location="United States", is_remote=True
+    )
+    assert facts["remote_regions"] == {
+        "value": ["IN", "PH", "US"],
+        "evidence": "Remote within India",
+        "source": "description",
+    }
+    assert facts == extract_eligibility_facts(
+        "Role", description, {}, location="United States", is_remote=True
+    )
+    assert "work_authorization" not in facts
+    assert "citizenship" not in facts
+
+
+def test_scalar_restrictions_quote_the_decisive_clause():
+    facts = extract_eligibility_facts(
+        "Fully remote", "Hybrid; No visa sponsorship", {"sponsorship": "Offers Sponsorship"}
+    )
+    assert facts["remote_mode"] == {
+        "value": "hybrid",
+        "evidence": "Hybrid",
+        "source": "description",
+    }
+    assert facts["visa_sponsorship"] == {
+        "value": False,
+        "evidence": "No visa sponsorship",
+        "source": "description",
+    }

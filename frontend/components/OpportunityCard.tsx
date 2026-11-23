@@ -1,4 +1,4 @@
-import EligibilityLabel from "@/components/EligibilityLabel";
+import EligibilityLabel, { RemoteLabel } from "@/components/EligibilityLabel";
 import HoverPrefetchLink from "@/components/HoverPrefetchLink";
 import { Badge } from "@/components/ui/badge";
 import CompanyFavicon from "@/components/CompanyFavicon";
@@ -256,15 +256,11 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
                     <span className="min-w-0 truncate">Location not stated</span>
                   </span>
                 )}
-                {item.is_remote && (
-                  <span className="inline-flex shrink-0 items-center gap-1.5">
-                    <span aria-hidden="true" className="ico ico-globe size-3.5" />Remote
-                  </span>
-                )}
                 {registered !== null && (
                   <span>{registered.toLocaleString("en-US")} registered</span>
                 )}
               </div>
+              <RemoteLabel facts={item.eligibility} isRemote={item.is_remote === true} />
               <div className="flex min-h-11 min-w-0 flex-wrap items-center gap-1.5 pr-10 sm:min-h-8">
                 {(payText || prizeText) && (
                   <span className={`${isRole ? "min-w-0 truncate" : "break-words"} max-w-full rounded-md bg-accent px-2 py-1 text-xs font-semibold text-accent-foreground`}>

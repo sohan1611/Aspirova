@@ -61,6 +61,7 @@ def test_feed_list_query_does_not_select_heavy_opportunity_columns(
         grad_year=None,
         stage=None,
         eligibility_stated=False,
+        visa=None,
         # Called as a plain function, not through FastAPI, so an omitted
         # parameter keeps its Query(...) default OBJECT rather than resolving to
         # None. Every new /feed parameter must be listed here or the helpers

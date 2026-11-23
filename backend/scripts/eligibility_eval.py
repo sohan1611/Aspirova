@@ -20,6 +20,11 @@ DIMENSIONS = (
     "degree_levels",
     "college_restriction",
     "citizenship",
+    "remote_mode",
+    "remote_regions",
+    "work_authorization",
+    "visa_sponsorship",
+    "timezones",
 )
 
 
@@ -41,6 +46,8 @@ def _tokens(value: object) -> set:
         return set()
     if isinstance(value, list):
         return set(value) if value else {"stated_country_unclear"}
+    if isinstance(value, dict):
+        return {tuple(sorted(value.items()))}
     return {value}
 
 
@@ -62,7 +69,13 @@ def evaluate(samples: dict[str, dict], labels: dict[str, dict]) -> tuple[dict, l
         facts = extract_eligibility_facts(
             sample.get("title"),
             sample.get("description_raw"),
-            {"eligibility": sample.get("meta_eligibility")},
+            sample.get("meta")
+            or {
+                "eligibility": sample.get("meta_eligibility"),
+                "sponsorship": sample.get("meta_sponsorship"),
+            },
+            location=sample.get("location"),
+            is_remote=sample.get("is_remote"),
         )
         for key in DIMENSIONS:
             actual = facts.get(key, {}).get("value")
