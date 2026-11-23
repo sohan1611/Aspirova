@@ -1,3 +1,4 @@
+import { appendEligibilityParams, assertEligibilityFacts, type EligibilityParams } from "./eligibility";
 import type { HomeDesk } from "./home";
 import { fetchListing, type ListingSnapshot } from "./listingFetch";
 import { appendRoleSignalParams, type RoleSignalParams } from "./roleSignalQuery";
@@ -136,7 +137,7 @@ function throwResumeApiError(res: Response, action: string): never {
   throw new Error(`${action}: ${res.status}`);
 }
 
-export interface FeedParams extends RoleSignalParams {
+export interface FeedParams extends RoleSignalParams, EligibilityParams {
   deadline_confidence?: "explicit";
   category?: "internship" | "job" | "hackathon" | "competition" | "scholarship";
   kind?: "roles" | "competitions";
@@ -190,6 +191,7 @@ export interface ProgrammeParams {
 
 type SearchFilterParams = Pick<
   FeedParams,
+  | keyof EligibilityParams
   | keyof RoleSignalParams
   | "category"
   | "kind"
@@ -252,6 +254,7 @@ export async function getFeed(
   if (params.source) search.set("source", params.source);
   if (params.experience) search.set("experience", params.experience);
   appendRoleSignalParams(search, params);
+  appendEligibilityParams(search, params);
   if (params.remote !== undefined) search.set("remote", String(params.remote));
   appendRepeatedParam(search, "location", params.location);
   appendRepeatedParam(search, "company", params.company);
@@ -357,6 +360,7 @@ export async function searchOpportunities(
   if (filters.source) search.set("source", filters.source);
   if (filters.experience) search.set("experience", filters.experience);
   appendRoleSignalParams(search, filters);
+  appendEligibilityParams(search, filters);
   if (filters.remote !== undefined) search.set("remote", String(filters.remote));
   appendRepeatedParam(search, "location", filters.location);
   appendRepeatedParam(search, "company", filters.company);
@@ -393,7 +397,9 @@ export async function getOpportunity(
   );
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Failed to load opportunity: ${res.status}`);
-  return res.json();
+  const data = await res.json();
+  assertEligibilityFacts(data.eligibility);
+  return data;
 }
 
 export async function getProgrammes(

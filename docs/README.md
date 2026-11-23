@@ -154,4 +154,6 @@ The full rationale and rejected alternatives live in the relevant docs. This is 
 
 | 2026-11-17 | **TRUST-05: user reports have opaque receipts, public status and founder triage via `scripts/reports.py`.** SLA targets are 48 h to triage and 7 days to resolution, measured from receipt for every plan. Manual corrections beat crawls; listing detail pages publish safe correction notes. Reporter identities stay private, and reporting never affects an account or plan. | **Binding** |
 
+| 2026-11-22 | **DISC-04: eligibility facts are evidence-only, from listing text and source eligibility tags.** Not stated is preserved. Graduation-year and study-level filters never drop a row for missing information unless the reader explicitly opts into listings that state the selected dimensions. No company, category, location or country inference. | **Binding** |
+
 > Engineers: do not contradict a **Binding** row without an architect-approved amendment.

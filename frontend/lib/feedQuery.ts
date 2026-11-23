@@ -1,3 +1,4 @@
+import { ELIGIBILITY_FILTER_KEYS, parseEligibilityParams } from "@/lib/eligibility";
 import { type FeedParams, getFeed, getForYou, searchOpportunities } from "@/lib/api";
 import { parseRoleSignalParams, ROLE_FILTER_KEYS } from "@/lib/roleSignalQuery";
 import { parseSortParams, type UiSort } from "@/lib/sortParams";
@@ -78,7 +79,7 @@ export function parseFeedRequest(sp: URLSearchParams): FeedRequest {
       : "roles";
 
   const filters: FeedParams = {
-    ...parseRoleSignalParams(sp),
+    ...parseRoleSignalParams(sp), ...parseEligibilityParams(sp),
     category: category as "internship" | "job" | undefined,
     kind: kindParam as "roles" | "competitions" | undefined,
     source: get("source") as "direct" | "unstop" | "remoteok" | "devpost" | undefined,
@@ -96,14 +97,14 @@ export function parseFeedRequest(sp: URLSearchParams): FeedRequest {
   const forYouTerms = splitList(sp.get("terms"));
   const forYouSkills = splitList(sp.get("skills"));
   const isForYou = (view === "foryou" || Boolean(forYouSkills?.length)) && !q &&
-    !ROLE_FILTER_KEYS.some((key) => sp.has(key));
+    ![...ROLE_FILTER_KEYS, ...ELIGIBILITY_FILTER_KEYS].some((key) => sp.has(key));
 
   const hasActiveFilters = Boolean(
     category ||
       kindParam ||
       get("source") ||
       get("experience") ||
-      ROLE_FILTER_KEYS.some((key) => sp.has(key)) ||
+      [...ROLE_FILTER_KEYS, ...ELIGIBILITY_FILTER_KEYS].some((key) => sp.has(key)) ||
       remote !== undefined ||
       location.length > 0 ||
       company.length > 0 ||

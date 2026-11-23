@@ -1,3 +1,4 @@
+import EligibilitySection from "@/components/EligibilitySection";
 import { ArrowUpRight, Building2, CalendarClock, Clock, ExternalLink, GraduationCap, ListChecks, MapPin, Trophy } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -419,6 +420,7 @@ export default async function OpportunityPage({ params }: PageProps) {
             <article className="mt-6 sm:mt-8" aria-labelledby="about-role-heading">
               <h2 id="about-role-heading" className="font-serif text-xl font-bold sm:text-2xl">About the role</h2>
               <div className="mt-4 space-y-4 text-sm leading-6 text-muted-foreground sm:text-[0.95rem] sm:leading-7">
+                <EligibilitySection facts={opportunity.eligibility} />
                 <DescriptionBlocks blocks={sections.about} />
               </div>
               {(sections.requirements.length > 0 || sections.eligibility.length > 0) && (

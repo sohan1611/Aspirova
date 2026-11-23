@@ -1,0 +1,1195 @@
+[
+  {
+    "id": "text-001",
+    "title": "2025 batch",
+    "description_raw": "",
+    "meta": {},
+    "expected": {
+      "grad_years": [
+        2025
+      ]
+    }
+  },
+  {
+    "id": "text-002",
+    "title": "",
+    "description_raw": "2025 and 2026 batches",
+    "meta": {},
+    "expected": {
+      "grad_years": [
+        2025,
+        2026
+      ]
+    }
+  },
+  {
+    "id": "text-003",
+    "title": "",
+    "description_raw": "Batch of 2027",
+    "meta": {},
+    "expected": {
+      "grad_years": [
+        2027
+      ]
+    }
+  },
+  {
+    "id": "text-004",
+    "title": "",
+    "description_raw": "Class of 2028",
+    "meta": {},
+    "expected": {
+      "grad_years": [
+        2028
+      ]
+    }
+  },
+  {
+    "id": "text-005",
+    "title": "",
+    "description_raw": "Graduating in 2026",
+    "meta": {},
+    "expected": {
+      "grad_years": [
+        2026
+      ]
+    }
+  },
+  {
+    "id": "text-006",
+    "title": "",
+    "description_raw": "Graduation year: 2026",
+    "meta": {},
+    "expected": {
+      "grad_years": [
+        2026
+      ]
+    }
+  },
+  {
+    "id": "text-007",
+    "title": "",
+    "description_raw": "2025/2026 pass-outs",
+    "meta": {},
+    "expected": {
+      "grad_years": [
+        2025,
+        2026
+      ]
+    }
+  },
+  {
+    "id": "text-008",
+    "title": "",
+    "description_raw": "2025-2027 batch",
+    "meta": {},
+    "expected": {
+      "grad_years": [
+        2025,
+        2026,
+        2027
+      ]
+    }
+  },
+  {
+    "id": "text-009",
+    "title": "",
+    "description_raw": "2025–2029 graduates",
+    "meta": {},
+    "expected": {
+      "grad_years": [
+        2025,
+        2026,
+        2027,
+        2028,
+        2029
+      ]
+    }
+  },
+  {
+    "id": "text-010",
+    "title": "",
+    "description_raw": "2015-2015 batch",
+    "meta": {},
+    "expected": {
+      "grad_years": [
+        2015
+      ]
+    }
+  },
+  {
+    "id": "text-011",
+    "title": "",
+    "description_raw": "2034-2035 batches",
+    "meta": {},
+    "expected": {
+      "grad_years": [
+        2034,
+        2035
+      ]
+    }
+  },
+  {
+    "id": "text-012",
+    "title": "",
+    "description_raw": "2025-2030 batch",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-013",
+    "title": "",
+    "description_raw": "2027-2025 batch",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-014",
+    "title": "",
+    "description_raw": "2014-2016 batch",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-015",
+    "title": "",
+    "description_raw": "2034-2036 batch",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-016",
+    "title": "Hackathon 2026",
+    "description_raw": "",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-017",
+    "title": "Summer 2026 internship",
+    "description_raw": "",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-018",
+    "title": "2026 internship",
+    "description_raw": "",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-019",
+    "title": "",
+    "description_raw": "deadline 15 March 2026",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-020",
+    "title": "",
+    "description_raw": "Founded in 2015",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-021",
+    "title": "",
+    "description_raw": "Copyright 2026",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-022",
+    "title": "",
+    "description_raw": "Fiscal year 2026",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-023",
+    "title": "",
+    "description_raw": "2025 batch preferred",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-024",
+    "title": "",
+    "description_raw": "Preferably graduating in 2026",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-025",
+    "title": "",
+    "description_raw": "Not for 2025 batch",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-026",
+    "title": "",
+    "description_raw": "2026 graduates are ineligible",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-027",
+    "title": "",
+    "description_raw": "Except 2026 graduates",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-028",
+    "title": "",
+    "description_raw": "Excluding 2026 graduates",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-029",
+    "title": "",
+    "description_raw": "2026 graduates or later",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-030",
+    "title": "",
+    "description_raw": "Graduated after 2025",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-031",
+    "title": "",
+    "description_raw": "Ideally 2026 batch",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-032",
+    "title": "",
+    "description_raw": "2026 batch is a plus",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-033",
+    "title": "",
+    "description_raw": "Bonus: 2026 batch",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-034",
+    "title": "",
+    "description_raw": "Currently pursuing a bachelor’s degree",
+    "meta": {},
+    "expected": {
+      "stages": [
+        "undergraduate"
+      ]
+    }
+  },
+  {
+    "id": "text-035",
+    "title": "",
+    "description_raw": "Currently pursuing a B.Tech degree",
+    "meta": {},
+    "expected": {
+      "stages": [
+        "undergraduate"
+      ]
+    }
+  },
+  {
+    "id": "text-036",
+    "title": "",
+    "description_raw": "Enrolled in a B.E. degree",
+    "meta": {},
+    "expected": {
+      "stages": [
+        "undergraduate"
+      ]
+    }
+  },
+  {
+    "id": "text-037",
+    "title": "",
+    "description_raw": "Pursuing a B.Sc degree",
+    "meta": {},
+    "expected": {
+      "stages": [
+        "undergraduate"
+      ]
+    }
+  },
+  {
+    "id": "text-038",
+    "title": "",
+    "description_raw": "Pursuing an undergraduate degree",
+    "meta": {},
+    "expected": {
+      "stages": [
+        "undergraduate"
+      ]
+    }
+  },
+  {
+    "id": "text-039",
+    "title": "",
+    "description_raw": "Currently pursuing a master’s degree",
+    "meta": {},
+    "expected": {
+      "stages": [
+        "postgraduate"
+      ]
+    }
+  },
+  {
+    "id": "text-040",
+    "title": "",
+    "description_raw": "Enrolled in an M.Tech degree",
+    "meta": {},
+    "expected": {
+      "stages": [
+        "postgraduate"
+      ]
+    }
+  },
+  {
+    "id": "text-041",
+    "title": "",
+    "description_raw": "Currently pursuing an MS",
+    "meta": {},
+    "expected": {
+      "stages": [
+        "postgraduate"
+      ]
+    }
+  },
+  {
+    "id": "text-042",
+    "title": "",
+    "description_raw": "Pursuing an MBA",
+    "meta": {},
+    "expected": {
+      "stages": [
+        "postgraduate"
+      ]
+    }
+  },
+  {
+    "id": "text-043",
+    "title": "PhD student",
+    "description_raw": "",
+    "meta": {},
+    "expected": {
+      "stages": [
+        "doctoral"
+      ]
+    }
+  },
+  {
+    "id": "text-044",
+    "title": "",
+    "description_raw": "Doctoral candidate",
+    "meta": {},
+    "expected": {
+      "stages": [
+        "doctoral"
+      ]
+    }
+  },
+  {
+    "id": "text-045",
+    "title": "",
+    "description_raw": "Currently pursuing a PhD",
+    "meta": {},
+    "expected": {
+      "stages": [
+        "doctoral"
+      ]
+    }
+  },
+  {
+    "id": "text-046",
+    "title": "",
+    "description_raw": "High school students",
+    "meta": {},
+    "expected": {
+      "stages": [
+        "school"
+      ]
+    }
+  },
+  {
+    "id": "text-047",
+    "title": "",
+    "description_raw": "Class 9-12",
+    "meta": {},
+    "expected": {
+      "stages": [
+        "school"
+      ]
+    }
+  },
+  {
+    "id": "text-048",
+    "title": "",
+    "description_raw": "Class 10 students",
+    "meta": {},
+    "expected": {
+      "stages": [
+        "school"
+      ]
+    }
+  },
+  {
+    "id": "text-049",
+    "title": "",
+    "description_raw": "School students",
+    "meta": {},
+    "expected": {
+      "stages": [
+        "school"
+      ]
+    }
+  },
+  {
+    "id": "text-050",
+    "title": "Recent graduates",
+    "description_raw": "",
+    "meta": {},
+    "expected": {
+      "stages": [
+        "recent_graduate"
+      ]
+    }
+  },
+  {
+    "id": "text-051",
+    "title": "Freshers",
+    "description_raw": "",
+    "meta": {},
+    "expected": {
+      "stages": [
+        "recent_graduate"
+      ]
+    }
+  },
+  {
+    "id": "text-052",
+    "title": "",
+    "description_raw": "Graduated within the last 12 months",
+    "meta": {},
+    "expected": {
+      "stages": [
+        "recent_graduate"
+      ]
+    }
+  },
+  {
+    "id": "text-053",
+    "title": "",
+    "description_raw": "Final year students",
+    "meta": {},
+    "expected": {
+      "final_year_only": true
+    }
+  },
+  {
+    "id": "text-054",
+    "title": "",
+    "description_raw": "Final year students preferred",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-055",
+    "title": "",
+    "description_raw": "Currently pursuing a bachelor’s degree is preferred",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-056",
+    "title": "",
+    "description_raw": "Recent graduates are not eligible",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-057",
+    "title": "",
+    "description_raw": "Bachelor’s degree required",
+    "meta": {},
+    "expected": {
+      "degree_levels": [
+        "bachelor"
+      ]
+    }
+  },
+  {
+    "id": "text-058",
+    "title": "",
+    "description_raw": "Bachelor’s degree in computer science",
+    "meta": {},
+    "expected": {
+      "degree_levels": [
+        "bachelor"
+      ]
+    }
+  },
+  {
+    "id": "text-059",
+    "title": "",
+    "description_raw": "B.Tech degree required",
+    "meta": {},
+    "expected": {
+      "degree_levels": [
+        "bachelor"
+      ]
+    }
+  },
+  {
+    "id": "text-060",
+    "title": "",
+    "description_raw": "B.E. degree in engineering",
+    "meta": {},
+    "expected": {
+      "degree_levels": [
+        "bachelor"
+      ]
+    }
+  },
+  {
+    "id": "text-061",
+    "title": "",
+    "description_raw": "Master’s degree required",
+    "meta": {},
+    "expected": {
+      "degree_levels": [
+        "master"
+      ]
+    }
+  },
+  {
+    "id": "text-062",
+    "title": "",
+    "description_raw": "PhD required",
+    "meta": {},
+    "expected": {
+      "degree_levels": [
+        "doctorate"
+      ]
+    }
+  },
+  {
+    "id": "text-063",
+    "title": "",
+    "description_raw": "Diploma required",
+    "meta": {},
+    "expected": {
+      "degree_levels": [
+        "diploma"
+      ]
+    }
+  },
+  {
+    "id": "text-064",
+    "title": "",
+    "description_raw": "Must hold a bachelor’s degree",
+    "meta": {},
+    "expected": {
+      "degree_levels": [
+        "bachelor"
+      ]
+    }
+  },
+  {
+    "id": "text-065",
+    "title": "",
+    "description_raw": "Master’s degree required; Bachelor’s degree preferred",
+    "meta": {},
+    "expected": {
+      "degree_levels": [
+        "master"
+      ]
+    }
+  },
+  {
+    "id": "text-066",
+    "title": "",
+    "description_raw": "Bachelor’s degree in CS preferred",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-067",
+    "title": "",
+    "description_raw": "Master’s degree is nice to have",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-068",
+    "title": "",
+    "description_raw": "PhD required is a bonus",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-069",
+    "title": "",
+    "description_raw": "Bachelor’s degree not required",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-070",
+    "title": "",
+    "description_raw": "Only open to students of IIT Delhi",
+    "meta": {},
+    "expected": {
+      "college_restriction": true
+    }
+  },
+  {
+    "id": "text-071",
+    "title": "",
+    "description_raw": "Only for students from Oxford University",
+    "meta": {},
+    "expected": {
+      "college_restriction": true
+    }
+  },
+  {
+    "id": "text-072",
+    "title": "",
+    "description_raw": "Exclusively for Stanford students",
+    "meta": {},
+    "expected": {
+      "college_restriction": true
+    }
+  },
+  {
+    "id": "text-073",
+    "title": "",
+    "description_raw": "Students of IIT Bombay only",
+    "meta": {},
+    "expected": {
+      "college_restriction": true
+    }
+  },
+  {
+    "id": "text-074",
+    "title": "",
+    "description_raw": "On-campus drive for IIT Madras",
+    "meta": {},
+    "expected": {
+      "college_restriction": true
+    }
+  },
+  {
+    "id": "text-075",
+    "title": "",
+    "description_raw": "Only for students from any college/university",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-076",
+    "title": "",
+    "description_raw": "Students from any college/university",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-077",
+    "title": "",
+    "description_raw": "Only for students from all universities",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-078",
+    "title": "",
+    "description_raw": "Exclusively for Harvard students preferred",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-079",
+    "title": "",
+    "description_raw": "Not exclusively for Stanford students",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-080",
+    "title": "",
+    "description_raw": "Must be a US citizen",
+    "meta": {},
+    "expected": {
+      "citizenship": [
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "text-081",
+    "title": "",
+    "description_raw": "Must be a U.S. citizen",
+    "meta": {},
+    "expected": {
+      "citizenship": [
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "text-082",
+    "title": "",
+    "description_raw": "Must be an American citizen",
+    "meta": {},
+    "expected": {
+      "citizenship": [
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "text-083",
+    "title": "",
+    "description_raw": "United States citizens only",
+    "meta": {},
+    "expected": {
+      "citizenship": [
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "text-084",
+    "title": "",
+    "description_raw": "Indian citizens only",
+    "meta": {},
+    "expected": {
+      "citizenship": [
+        "IN"
+      ]
+    }
+  },
+  {
+    "id": "text-085",
+    "title": "",
+    "description_raw": "Open to British nationals",
+    "meta": {},
+    "expected": {
+      "citizenship": [
+        "GB"
+      ]
+    }
+  },
+  {
+    "id": "text-086",
+    "title": "",
+    "description_raw": "Canadian citizens only",
+    "meta": {},
+    "expected": {
+      "citizenship": [
+        "CA"
+      ]
+    }
+  },
+  {
+    "id": "text-087",
+    "title": "",
+    "description_raw": "Must be an Australian citizen",
+    "meta": {},
+    "expected": {
+      "citizenship": [
+        "AU"
+      ]
+    }
+  },
+  {
+    "id": "text-088",
+    "title": "",
+    "description_raw": "Open to German nationals",
+    "meta": {},
+    "expected": {
+      "citizenship": [
+        "DE"
+      ]
+    }
+  },
+  {
+    "id": "text-089",
+    "title": "",
+    "description_raw": "Singaporean citizens only",
+    "meta": {},
+    "expected": {
+      "citizenship": [
+        "SG"
+      ]
+    }
+  },
+  {
+    "id": "text-090",
+    "title": "",
+    "description_raw": "Citizenship required",
+    "meta": {},
+    "expected": {
+      "citizenship": []
+    }
+  },
+  {
+    "id": "text-091",
+    "title": "",
+    "description_raw": "Open to Martian nationals",
+    "meta": {},
+    "expected": {
+      "citizenship": []
+    }
+  },
+  {
+    "id": "text-092",
+    "title": "",
+    "description_raw": "US or Canadian citizens only",
+    "meta": {},
+    "expected": {
+      "citizenship": [
+        "CA",
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "text-093",
+    "title": "",
+    "description_raw": "US citizens only preferred",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-094",
+    "title": "",
+    "description_raw": "Not open to Indian nationals",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-095",
+    "title": "",
+    "description_raw": "US work authorization required",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-096",
+    "title": "",
+    "description_raw": "No visa sponsorship",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-097",
+    "title": "",
+    "description_raw": "Residents only",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-098",
+    "title": "Google internship",
+    "description_raw": "Location: United States",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-099",
+    "title": "IIT Madras research intern",
+    "description_raw": "Based in India",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-100",
+    "title": "",
+    "description_raw": "<p>Currently pursuing a bachelor&#39;s degree</p>",
+    "meta": {},
+    "expected": {
+      "stages": [
+        "undergraduate"
+      ]
+    }
+  },
+  {
+    "id": "text-101",
+    "title": "",
+    "description_raw": "<div>2025 &amp; 2026 batch</div>",
+    "meta": {},
+    "expected": {
+      "grad_years": [
+        2025,
+        2026
+      ]
+    }
+  },
+  {
+    "id": "text-102",
+    "title": "",
+    "description_raw": "<script>2025 batch</script>Work with us",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-103",
+    "title": "",
+    "description_raw": "Preferred Qualifications\nBachelor’s degree in CS",
+    "meta": {},
+    "expected": {}
+  },
+  {
+    "id": "text-104",
+    "title": "",
+    "description_raw": "Preferred Qualifications\nBachelor’s degree in CS\nMinimum Qualifications\nMaster’s degree required",
+    "meta": {},
+    "expected": {
+      "degree_levels": [
+        "master"
+      ]
+    }
+  },
+  {
+    "id": "tags-1",
+    "title": "Opportunity",
+    "description_raw": "",
+    "meta": {
+      "eligibility": [
+        "Undergraduate"
+      ]
+    },
+    "expected": {
+      "stages": [
+        "undergraduate"
+      ]
+    }
+  },
+  {
+    "id": "tags-2",
+    "title": "Opportunity",
+    "description_raw": "",
+    "meta": {
+      "eligibility": [
+        "Postgraduate"
+      ]
+    },
+    "expected": {
+      "stages": [
+        "postgraduate"
+      ]
+    }
+  },
+  {
+    "id": "tags-3",
+    "title": "Opportunity",
+    "description_raw": "",
+    "meta": {
+      "eligibility": [
+        "MBA Students"
+      ]
+    },
+    "expected": {
+      "stages": [
+        "postgraduate"
+      ]
+    }
+  },
+  {
+    "id": "tags-4",
+    "title": "Opportunity",
+    "description_raw": "",
+    "meta": {
+      "eligibility": [
+        "School Students"
+      ]
+    },
+    "expected": {
+      "stages": [
+        "school"
+      ]
+    }
+  },
+  {
+    "id": "tags-5",
+    "title": "Opportunity",
+    "description_raw": "",
+    "meta": {
+      "eligibility": [
+        "Fresher"
+      ]
+    },
+    "expected": {
+      "stages": [
+        "recent_graduate"
+      ]
+    }
+  },
+  {
+    "id": "tags-6",
+    "title": "Opportunity",
+    "description_raw": "",
+    "meta": {
+      "eligibility": [
+        "Engineering Students"
+      ]
+    },
+    "expected": {}
+  },
+  {
+    "id": "tags-7",
+    "title": "Opportunity",
+    "description_raw": "",
+    "meta": {
+      "eligibility": [
+        "All"
+      ]
+    },
+    "expected": {}
+  },
+  {
+    "id": "tags-8",
+    "title": "Opportunity",
+    "description_raw": "",
+    "meta": {
+      "eligibility": [
+        "Management",
+        "Medical",
+        "Law"
+      ]
+    },
+    "expected": {}
+  },
+  {
+    "id": "tags-9",
+    "title": "Opportunity",
+    "description_raw": "",
+    "meta": {
+      "eligibility": [
+        "Undergraduate",
+        "Postgraduate"
+      ]
+    },
+    "expected": {
+      "stages": [
+        "postgraduate",
+        "undergraduate"
+      ]
+    }
+  },
+  {
+    "id": "tags-10",
+    "title": "Opportunity",
+    "description_raw": "",
+    "meta": {
+      "eligibility": [
+        "US citizens only"
+      ]
+    },
+    "expected": {
+      "citizenship": [
+        "US"
+      ]
+    }
+  },
+  {
+    "id": "tags-11",
+    "title": "Opportunity",
+    "description_raw": "",
+    "meta": {
+      "eligibility": [
+        "Citizens only"
+      ]
+    },
+    "expected": {
+      "citizenship": []
+    }
+  },
+  {
+    "id": "tags-12",
+    "title": "Opportunity",
+    "description_raw": "",
+    "meta": {
+      "eligibility": [
+        "US work authorization required"
+      ]
+    },
+    "expected": {}
+  },
+  {
+    "id": "tags-13",
+    "title": "Opportunity",
+    "description_raw": "",
+    "meta": {
+      "eligibility": [
+        "Residents only"
+      ]
+    },
+    "expected": {}
+  },
+  {
+    "id": "non-inference",
+    "title": "Internship",
+    "description_raw": "",
+    "meta": {
+      "company": "IIT Delhi",
+      "category": "internship",
+      "location": "US",
+      "country": "US"
+    },
+    "expected": {}
+  },
+  {
+    "id": "pursued-alternatives",
+    "title": "Intern",
+    "description_raw": "Currently pursuing a bachelor’s or master’s degree",
+    "meta": {},
+    "expected": {
+      "stages": [
+        "postgraduate",
+        "undergraduate"
+      ]
+    }
+  },
+  {
+    "id": "independent-requirement",
+    "title": "Role",
+    "description_raw": "Master’s degree preferred. 2026 batch",
+    "meta": {},
+    "expected": {
+      "grad_years": [
+        2026
+      ]
+    }
+  },
+  {
+    "id": "different-source-dimensions",
+    "title": "2026 batch",
+    "description_raw": "PhD student",
+    "meta": {},
+    "expected": {
+      "grad_years": [
+        2026
+      ],
+      "stages": [
+        "doctoral"
+      ]
+    }
+  }
+]

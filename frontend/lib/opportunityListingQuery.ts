@@ -1,3 +1,4 @@
+import { ELIGIBILITY_FILTER_KEYS, parseEligibilityParams } from "@/lib/eligibility";
 import { type FeedParams, getFeed, searchOpportunities } from "@/lib/api";
 import { parseRoleSignalParams, ROLE_FILTER_KEYS } from "@/lib/roleSignalQuery";
 import { buildPagePath } from "@/lib/pagination";
@@ -64,6 +65,7 @@ export const OPPORTUNITY_EXPERIENCE_OPTIONS = [
 
 const FILTER_PARAM_KEYS = [
   ...ROLE_FILTER_KEYS,
+  ...ELIGIBILITY_FILTER_KEYS,
   "q",
   "scope",
   "country",
@@ -143,7 +145,7 @@ function hasActiveFilterParam(sp: URLSearchParams, baseQuery: FeedParams): boole
     hasRawValue(sp, "company") ||
     hasRawValue(sp, "source") ||
     hasRawValue(sp, "experience") ||
-    ROLE_FILTER_KEYS.some((key) => hasRawValue(sp, key))
+    [...ROLE_FILTER_KEYS, ...ELIGIBILITY_FILTER_KEYS].some((key) => hasRawValue(sp, key))
   );
 }
 
@@ -224,7 +226,7 @@ export function parseOpportunityListingRequest(
   const source = parseSource(sp.get("source"));
   const experience = parseExperience(sp.get("experience"));
 
-  const filters: FeedParams = { ...options.baseQuery, ...parseRoleSignalParams(sp) };
+  const filters: FeedParams = { ...options.baseQuery, ...parseRoleSignalParams(sp), ...parseEligibilityParams(sp) };
   if (scope) filters.scope = scope;
   if (country) filters.country = country;
   if (remote !== undefined) filters.remote = remote;

@@ -23,6 +23,8 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     text,
+    event,
+    inspect,
 )
 from pgvector.sqlalchemy import Vector
 from sqlalchemy.dialects.postgresql import ARRAY, CITEXT, JSONB, TSVECTOR, UUID
@@ -146,6 +148,7 @@ class Opportunity(Base):
     deadline: Mapped[datetime | None] = mapped_column()
     closed_at: Mapped[datetime | None] = mapped_column()
     meta: Mapped[dict | None] = mapped_column(JSONB)
+    eligibility_facts: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True), nullable=True)
     # Maintained by the role-rank trigger; omitted from ORM INSERT/UPDATE values.
     role_rank: Mapped[int | None] = mapped_column(
         SmallInteger, nullable=True, server_default=FetchedValue(), server_onupdate=FetchedValue()
@@ -697,3 +700,18 @@ class BugReport(Base):
         Index("ix_bug_reports_status_created_at", "status", "created_at"),
         UniqueConstraint("reference", name="uq_bug_reports_reference"),
     )
+
+
+@event.listens_for(Opportunity, "before_insert")
+@event.listens_for(Opportunity, "before_update")
+def _refresh_eligibility_facts(mapper, connection, target: Opportunity) -> None:
+    """One write seam for all ORM ingest paths; liveness-only writes stay cheap."""
+    state = inspect(target)
+    if state.pending or any(
+        state.attrs[name].history.has_changes() for name in ("title", "description_raw", "meta")
+    ):
+        from core.eligibility_facts import extract_eligibility_facts
+
+        target.eligibility_facts = extract_eligibility_facts(
+            target.title, target.description_raw, target.meta
+        )
