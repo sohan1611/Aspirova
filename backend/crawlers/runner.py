@@ -58,7 +58,12 @@ from crawlers.unstop import UnstopAdapter
 from crawlers.workday import WorkdayAdapter
 from pipeline.company_resolution import resolve_company
 from pipeline.expire import FULL_INVENTORY_SOURCES
-from pipeline.ingest import ingest_one, load_board_state, load_source_raw_listings
+from pipeline.ingest import (
+    claim_legacy_raw_listings,
+    ingest_one,
+    load_board_state,
+    load_source_raw_listings,
+)
 from pipeline.retirement import (
     GOVERNMENT_NOTICE_SOURCES,
     ROLLING_WINDOW_SOURCES,
@@ -1106,6 +1111,20 @@ def crawl_company_board(
             company.id,
             board_raw_by_external_id,
         )
+        legacy_external_id = getattr(adapter, "legacy_external_id", None)
+        if legacy_external_id is not None:
+            legacy_by_new_id = {
+                raw.external_id: legacy_id
+                for raw in raw_listings
+                if raw.external_id not in board_raw_by_external_id
+                and (legacy_id := legacy_external_id(raw)) is not None
+                and legacy_id != raw.external_id
+            }
+            claimed = claim_legacy_raw_listings(session, source_id, board_state, legacy_by_new_id)
+            if claimed:
+                # Keep renames through any later listing-batch rollback.
+                session.commit()
+                _emit(f"    {activity} claimed {claimed} legacy external ids")
 
         # Commit every BATCH_SIZE listings, not once per company (the
         # original bug) and not once per listing (the first fix). Per-
