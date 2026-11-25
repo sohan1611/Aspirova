@@ -6,8 +6,9 @@ import type { OpportunityListItem } from "@/lib/types";
 
 const linkClass = "inline-flex min-h-11 items-center text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
-export default function HomePreviews({ closing, calendar, asOf }: {
+export default function HomePreviews({ closing, calendar, asOf, loading = false }: {
   closing: OpportunityListItem[] | null; calendar: CalendarItem[] | null; asOf: number;
+  loading?: boolean;
 }) {
   const roles = closingSoonItems(closing ?? [], asOf);
   const windows = calendarPreviewItems(calendar ?? [], asOf);
@@ -16,7 +17,7 @@ export default function HomePreviews({ closing, calendar, asOf }: {
       <section aria-labelledby="home-closing-title" className="rounded-lg border border-border bg-card p-4">
         <h2 id="home-closing-title" className="font-serif text-xl font-bold">Closing soon</h2>
         <p className="mt-1 text-xs text-muted-foreground">Explicit deadlines from the source. Check before applying.</p>
-        {roles.length ? <ol className="mt-2 grid gap-x-4 sm:grid-cols-2">
+        {loading ? <p className="mt-3 text-sm text-muted-foreground">Loading closing deadlines…</p> : roles.length ? <ol className="mt-2 grid gap-x-4 sm:grid-cols-2">
           {roles.map(item => <li key={item.slug} className="min-w-0 border-t border-border py-1">
             <Link href={`/opportunity/${item.slug}`} className={`${linkClass} max-w-full break-words`}>{item.title}</Link>
             <p className="text-xs text-muted-foreground">{item.company?.name} · Deadline <time dateTime={item.deadline!}>{formatDateUtc(item.deadline!)}</time></p>
@@ -29,7 +30,7 @@ export default function HomePreviews({ closing, calendar, asOf }: {
           <Link href="/calendar" className={linkClass}>Open calendar →</Link>
         </div>
         <p className="text-xs text-muted-foreground">Next windows · official dates first, tentative trends labelled.</p>
-        {windows.length ? <ol className="mt-2 divide-y divide-border">
+        {loading ? <p className="mt-3 text-sm text-muted-foreground">Loading calendar preview…</p> : windows.length ? <ol className="mt-2 divide-y divide-border">
           {windows.map(item => <li key={item.id} className="py-1">
             <Link href={`/calendar?item=${encodeURIComponent(item.id)}`} className={linkClass}>{item.programme.name}</Link>
             <p className="text-xs leading-5 text-muted-foreground"><span className="font-medium">{item.edition.basis === "official" ? "Official" : "Tentative · historical trend"}</span> · {windowText(item)}</p>

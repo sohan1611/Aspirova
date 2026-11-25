@@ -192,3 +192,88 @@ Non-transient/4xx, runtime and CI/local behavior is preserved. Validation:
 6,877 backend tests, old/new parity, frontend node tests, Ruff, Black, ESLint and
 TypeScript passed. Local evidence and production-verification limits are in this
 audit; no production access or deployment was performed.
+
+## Review round 1 — misleading home preview failures (2026-11-26)
+
+The saved `index.html` from the reviewer’s build has two hero trees. The
+unavailable copy is inside the route fallback's `<main aria-busy="true">`.
+The resolved page is streamed in `<div hidden id="S:0">` and contains populated
+deadline and calendar lists. The same unavailable copy appears in the serialized
+loading tree, accounting for two raw-file matches per message. This is not a
+successful response becoming null in `Promise.all`, nor an AbortSignal/cache
+failure: `app/(feed)/loading.tsx` separately renders `<SignedOutHero asOf={0} />`,
+whose default null preview props incorrectly mean “failed” before reads finish.
+
+This predates #235. `loading.tsx`, `SignedOutHero.tsx` and `HomePreviews.tsx` are
+identical at `00f6f24` and merged #235. Rendering the original `00f6f24` loading
+component from an isolated `git archive` reproduces both unavailable messages.
+Its resolved page already passes both successful preview results correctly.
+
+The loading route now passes an explicit `loading` flag through the hero to its
+previews, which show neutral loading copy. Settled successful results, genuine
+failures and successful empty lists keep their existing distinct behavior. No
+API, caching, signal, retry or 40-second budget code changed in this follow-up.
+
+Regression tests render the real loading boundary (failed before the fix),
+preserve settled null/empty states, and render the home page through the actual
+HTTP/validation/build-fallback path with non-empty fake API results under both
+Vercel-build and runtime environments. All five fetches carry live AbortSignals;
+both preview props are non-null and their actual item links/text render.
+
+Validation: **376 frontend node tests passed**, ESLint exit **0**, TypeScript
+exit **0**. A real `next build --webpack` at `00f6f24` was attempted with
+`VERCEL=1`, the public API URL and placeholder Auth configuration, but outbound
+Google Fonts requests failed with **EACCES** before prerendering. A separate
+public `/stats` reachability check also failed with EACCES. Therefore neither a
+completed before/after networked build nor regenerated fixed `index.html` is
+claimed; the reviewer must run that check in the unrestricted environment.
+
+The requested `git switch -c fix/home-previews-null origin/master` failed because
+the sandbox cannot write the parent repository's worktree `index.lock`.
+The current detached HEAD `62cb29b` and `origin/master` merge `dacb0d3` have
+identical trees. Changes remain uncommitted here; branch creation is still
+required outside the sandbox. No commits or pushes were made.
+
+## Review round 2 — closing feed snapshot crosses IST midnight (2026-11-26)
+
+The successful closing response is not projected or stripped. The reviewer’s
+local Next fetch cache contains a complete six-item snapshot loaded at
+**2026-11-25 18:13:15.893 UTC**, with deadlines **18:08, 18:27, 18:29, 18:29,
+18:29, 18:29 UTC** that day. All six otherwise satisfy the preview predicates;
+all 21 public list-item keys are present. The cached file is
+`860bbb21c201df1393c64d70ba23cb1a1a62aceeb6a14f0085913dbc3788f6c3` in the
+ignored `.next/cache/fetch-cache/` directory. A copy of the public snapshot is
+saved to `_local/closing-preview-stale-snapshot.json` for review.
+
+At the next render, the page cutoff advances to **18:30 UTC**, midnight IST.
+Every cached item is now older than that cutoff, so `closingSoonItems` correctly
+returns an empty list. Both 18:13 and 18:38 UTC are in the same **18:00–24:00 UTC**
+six-hour cache bucket. The unchanged closing-feed URL therefore reuses the old
+snapshot even though a fresh API response has later deadlines. The calendar’s
+URL already includes the new date and naturally misses its old entry.
+
+The home closing read now includes `closing:${asOf}` in its snapshot identity.
+The optional `cacheScope` is passed through `getFeed` to `fetchListing`, where
+it augments the existing cache key without changing the HTTP URL, the six-hour
+interval, other readers’ keys, or the 40-second budget. A changed cutoff loads
+a new snapshot; repeated renders for that cutoff still use its cache.
+
+The regression uses exactly the public /feed list-item keys and runs the actual
+API/fetch/validation/fallback/page/hero/preview path with a serialized-cache
+double. It warms the cache before IST midnight, then advances time across
+midnight within the same six-hour bucket. Both build and runtime tests failed
+before the fix (one closing HTTP read instead of two, leaving the real hero
+empty) and pass afterward: all six upcoming links render, all response fields
+are preserved, and a third render reuses the refreshed snapshot. The existing
+successful-read test also now uses the exact public list shape.
+
+The unscoped six-hour snapshot and date cutoff are present in the original
+DISC-02 commit `e1aa0bf`, so this predates #235 and the loading-copy fix. Earlier
+local HTML inspected in round 1 did contain populated closing lists; this is a
+rollover failure, not evidence that the rail could never render items. Historical
+production display cannot be established from the available local artifacts.
+
+Validation: **378 frontend node tests passed**, ESLint exit **0**, TypeScript
+exit **0**. No backend changes or networked build are claimed for this round.
+Changes are uncommitted on `fix/home-previews-pending`, on top of `fd515b9`.
+No commits or pushes were made.

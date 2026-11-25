@@ -6,7 +6,7 @@ export type ListingSnapshot<T> = T & { loadedAt: number; expiresAt: number };
 type Shape = "page" | "array" | "object" | "calendar" | "company";
 
 /** Cache parsed successes only: malformed 200 bodies must not poison ISR. */
-export async function fetchListing<T>(url: string, seconds = 300, shape: Shape = "page", signal?: AbortSignal): Promise<ListingSnapshot<T>> {
+export async function fetchListing<T>(url: string, seconds = 300, shape: Shape = "page", signal?: AbortSignal, cacheScope?: string): Promise<ListingSnapshot<T>> {
   const load = async () => {
     const timeout = AbortSignal.timeout(20_000);
     const response = await fetch(url, { cache: "no-store", signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
@@ -28,8 +28,9 @@ export async function fetchListing<T>(url: string, seconds = 300, shape: Shape =
   // A new time bucket must await validation rather than receive unstable_cache's
   // stale-while-revalidate value. A failed refresh then throws to the route's ISR
   // boundary, preserving its last good HTML. Errors never create a cache entry.
+  // Date-sensitive readers can scope a snapshot to their cutoff within a bucket.
   const snapshot = typeof window === "undefined" && seconds > 0
-    ? await unstable_cache(load, ["validated-list-v1", url, String(Math.floor(Date.now() / (seconds * 1000)))], { revalidate: seconds })()
+    ? await unstable_cache(load, ["validated-list-v1", url, String(Math.floor(Date.now() / (seconds * 1000))), ...(cacheScope === undefined ? [] : [cacheScope])], { revalidate: seconds })()
     : await load();
   return (snapshot.data === null ? null : Object.assign(snapshot.data as object, {
     loadedAt: snapshot.loadedAt,
