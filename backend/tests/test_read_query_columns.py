@@ -102,6 +102,7 @@ def test_feed_list_query_does_not_select_heavy_opportunity_columns(
     assert "opportunities.slug" in compiled
     assert "opportunities.title" in compiled
     assert "opportunities.location" in compiled
+    assert "opportunities.destination_facts" in compiled
     assert ("source_rank" in compiled) is (sort == "student")
 
 

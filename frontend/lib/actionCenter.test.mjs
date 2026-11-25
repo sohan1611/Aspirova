@@ -81,7 +81,8 @@ function renderSource(row) {
 test("open source uses describeApply's honest destination caption and existing ApplyLink", () => {
   const html = renderSource(item("planned"));
   assert.match(html, /data-apply="planned"/);
-  assert.match(html, /Example&#x27;s careers listing, hosted on Greenhouse \(boards.greenhouse.io\)/);
+  assert.match(html, /the listing hosted on Greenhouse \(boards.greenhouse.io\)/);
+  assert.match(html, /Employer origin has not been verified/);
   assert.match(html, /Aspirova never handles your application/);
   const board = renderSource(item("applied", "board", { destination: { kind: "job_board", host: "remoteok.com", label: "RemoteOK" } }));
   assert.match(board, /RemoteOK is a job board/);
@@ -91,7 +92,7 @@ test("early closure, explicit past deadline and estimated deadline render warnin
   for (const extra of [{ closed_at: "2026-11-16T00:00:00Z" }, { deadline: "2000-01-01T00:00:00Z" }, { status: "closed" }]) {
     const html = renderSource(item("applied", "closed", extra));
     assert.match(html, /Applications closed/);
-    assert.match(html, /Verify on Example/);
+    assert.match(html, /Verify at the source/);
     assert.match(html, /check whether it is still open/);
     assert.doesNotMatch(html, /data-apply/);
   }

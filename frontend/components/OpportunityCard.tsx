@@ -1,4 +1,5 @@
 import EligibilityLabel, { RemoteLabel } from "@/components/EligibilityLabel";
+import DestinationLabel from "@/components/DestinationLabel";
 import HoverPrefetchLink from "@/components/HoverPrefetchLink";
 import { Badge } from "@/components/ui/badge";
 import CompanyFavicon from "@/components/CompanyFavicon";
@@ -186,6 +187,7 @@ export default function OpportunityCard({ item }: { item: OpportunityListItem })
             {item.title}
           </h3>
           <EligibilityLabel facts={item.eligibility} />
+          <DestinationLabel facts={item.destination_facts} />
           {item.summary && (
             <p className="line-clamp-2 break-words text-sm leading-5 text-muted-foreground">
               {item.summary}

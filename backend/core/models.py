@@ -28,6 +28,7 @@ from sqlalchemy import (
 )
 from pgvector.sqlalchemy import Vector
 from sqlalchemy.dialects.postgresql import ARRAY, CITEXT, JSONB, TSVECTOR, UUID
+from sqlalchemy.engine import Connection
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -149,6 +150,7 @@ class Opportunity(Base):
     closed_at: Mapped[datetime | None] = mapped_column()
     meta: Mapped[dict | None] = mapped_column(JSONB)
     eligibility_facts: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True), nullable=True)
+    destination_facts: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True), nullable=True)
     # Maintained by the role-rank trigger; omitted from ORM INSERT/UPDATE values.
     role_rank: Mapped[int | None] = mapped_column(
         SmallInteger, nullable=True, server_default=FetchedValue(), server_onupdate=FetchedValue()
@@ -805,3 +807,71 @@ def _refresh_eligibility_facts(mapper, connection, target: Opportunity) -> None:
             location=target.location,
             is_remote=target.is_remote,
         )
+
+
+@event.listens_for(Opportunity, "before_insert")
+@event.listens_for(Opportunity, "before_update")
+def _refresh_destination_facts(mapper, connection, target: Opportunity) -> None:
+    """Cover ingest and founder ORM updates, without per-row company queries."""
+    state = inspect(target)
+    if not (
+        state.pending
+        or any(
+            state.attrs[name].history.has_changes()
+            for name in ("apply_url", "company_id", "primary_source")
+        )
+    ):
+        return
+    refresh_destination_for_opportunity(connection, target)
+
+
+def refresh_destination_for_opportunity(connection: Connection, target: Opportunity) -> None:
+    """Lazy ingest refresh; metadata-only ORM writes never enter this function."""
+    from datetime import timezone
+
+    from core.destination_facts import refresh_destination_facts
+    from sqlalchemy.orm.attributes import NO_VALUE
+
+    # Prefer loaded company evidence: an ORM company edit in this same transaction
+    # must supersede the transaction cache without any listener or child-row lock.
+    evidence = None
+    session = inspect(target).session
+    if target.company_id and session is not None:
+        company = session.identity_map.get(
+            inspect(Company).identity_key_from_primary_key((target.company_id,))
+        )
+        if company is not None:
+            loaded = tuple(
+                inspect(company).attrs[name].loaded_value
+                for name in ("domain", "ats_type", "ats_board_id")
+            )
+            if all(value is not NO_VALUE for value in loaded):
+                evidence = loaded
+
+    # One lookup per company/transaction (board ingest), not one per listing.
+    transaction = connection.get_transaction()
+    cache = connection.info.get("destination_companies")
+    if cache is None or cache[0] is not transaction:
+        cache = (transaction, {})
+        connection.info["destination_companies"] = cache
+    if evidence is None and target.company_id and target.company_id not in cache[1]:
+        cache[1][target.company_id] = connection.execute(
+            Company.__table__.select()
+            .with_only_columns(Company.domain, Company.ats_type, Company.ats_board_id)
+            .where(Company.id == target.company_id)
+        ).first()
+    if evidence is None:
+        evidence = cache[1].get(target.company_id)
+    domain, ats_type, board_id = evidence if evidence is not None else (None, None, None)
+    facts = refresh_destination_facts(
+        target.apply_url,
+        target.destination_facts,
+        computed_at=datetime.now(timezone.utc).isoformat(),
+        source=target.primary_source,
+        company_id=target.company_id,
+        company_domain=domain,
+        ats_type=ats_type,
+        ats_board_id=board_id,
+    )
+    if facts != target.destination_facts:
+        target.destination_facts = facts

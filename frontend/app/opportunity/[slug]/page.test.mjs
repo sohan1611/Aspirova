@@ -69,6 +69,7 @@ function load(filename) {
       if (name === "@/components/HoverPrefetchLink") return { default: anchor };
       if (name === "@/components/ListingCorrections") return load(path.join(frontend, "components/ListingCorrections.tsx"));
       if (name === "@/components/RoleLevelLabel") return load(path.join(frontend, "components/RoleLevelLabel.tsx"));
+      if (name === "@/components/EligibilityLabel") return { default: () => null, RemoteLabel: () => null };
       if (name.startsWith("@/components/")) return { default: () => null };
       if (name.startsWith("@/lib/")) return load(path.join(frontend, name.slice(2) + ".ts"));
       if (name.startsWith(".")) return load(path.resolve(path.dirname(filename), name + ".ts"));

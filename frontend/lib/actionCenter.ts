@@ -1,4 +1,4 @@
-import { describeApply, describeVerification } from "./applyDestination";
+import { describeApply, describeVerification, destinationFacts } from "./applyDestination";
 import { closedDeadlineLabel, estimatedClosedDeadlineLabel, isListingClosed } from "./deadline";
 import { safeExternalUrl } from "./safeUrl";
 import type { BookmarkStage, SavedOpportunityItem } from "./types";
@@ -83,8 +83,8 @@ export function actionSource(item: SavedOpportunityItem) {
   const closed = item.status === "closed" || item.status === "expired"
     || isListingClosed(item.closed_at, item.deadline, item.category);
   const copy = closed
-    ? describeVerification(item.destination, item.company?.name)
-    : describeApply(item.destination, item.company?.name);
+    ? describeVerification(item.destination, item.company?.name, destinationFacts(item.destination_facts))
+    : describeApply(item.destination, item.company?.name, destinationFacts(item.destination_facts));
   const estimated = !item.closed_at && item.status !== "closed" && item.status !== "expired"
     && item.deadline_confidence !== "explicit";
   return {
