@@ -1,16 +1,12 @@
 """GET /feed - the main browse surface. No AI/heavy work on this hot path
 (Doc 02 sec 3 hard rule) - just indexed Postgres queries.
 
-total_count is fetched via a count(*) OVER() window function in the SAME
-query as the page of results, not a separate count query - each query is a
-real network round-trip to the Supabase pooler (measured ~44ms baseline per
-round-trip), so halving the round-trips roughly halves latency. This is
-what brought p95 back under the Phase-1 budget; the naive two-query version
-measured p50 248-272ms / p95 up to 1254ms against the same real data.
+Ordinary pages retain their window counts. The home landing selection ranks
+narrow candidates once, aggregates exact counts, then hydrates only its cards.
 """
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import Date, and_, case, cast, func, select
+from sqlalchemy import Date, case, cast, func, select
 from sqlalchemy.orm import Session
 
 from api.deps import get_db
@@ -38,7 +34,7 @@ from api.filters import (
     student_rank_expression,
 )
 from api.opportunity_loading import opportunity_list_load_options
-from api.landing import famous_company_filter, landing_rows
+from api.landing import landing_feed_rows
 from api.schemas import FeedResponse, OpportunityListItem
 from core import models
 
@@ -195,28 +191,7 @@ def get_feed(
         )
     )
     landing = prefer_logos and page == 1 and sort == "student" and not has_filters
-    if landing:
-        has_logo = models.Opportunity.company.has(models.Company.logo_url.is_not(None))
-        # Freeze original source order and logo-eligible totals before quota selection.
-        source_ranks = (
-            select(
-                models.Opportunity.id,
-                source_rank,
-                func.count().filter(has_logo).over().label("total_count"),
-                func.count().filter(and_(has_logo, is_closed == 0)).over().label("open_count"),
-            )
-            .where(*base_filters)
-            .subquery()
-        )
-        base_filters.append(has_logo)
-        source_rank = source_ranks.c.source_rank
-        selected_columns[1:3] = [source_ranks.c.total_count, source_ranks.c.open_count]
-        selected_columns[-1] = source_rank
     query = select(*selected_columns).options(*opportunity_list_load_options()).where(*base_filters)
-    if landing:
-        query = query.join_from(
-            models.Opportunity, source_ranks, source_ranks.c.id == models.Opportunity.id
-        )
     ordering = [is_closed.asc()]
     if kind == "roles" and sort != "prize":
         roles_first = case(
@@ -289,13 +264,7 @@ def get_feed(
     query = query.order_by(*ordering)
 
     if landing:
-        rows = landing_rows(
-            db,
-            query,
-            models.Opportunity.company.has(famous_company_filter()),
-            limit,
-            listing_order=ordering,
-        )
+        rows = landing_feed_rows(db, base_filters, ordering, limit)
     else:
         rows = db.execute(query.offset((page - 1) * limit).limit(limit)).unique().all()
 

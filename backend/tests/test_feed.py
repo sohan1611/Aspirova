@@ -1,10 +1,11 @@
 import uuid
+import inspect
 from collections import Counter
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select, update
 from sqlalchemy.orm import Session
 
 from api import feed, middleware, trending
@@ -12,6 +13,119 @@ from api.deps import get_db
 from api.filters import ROLE_TERMS, STALE_AFTER_DAYS, role_match_expression
 from api.main import app
 from core import models
+from tests.landing_reference import legacy_landing_feed_rows
+
+
+@pytest.fixture
+def landing_parity_rows(db_session, monkeypatch):
+    """Ties, skewed companies/sources, legacy ranks and real visibility filters."""
+    suffix = uuid.uuid4().hex
+    now = datetime.now(UTC)
+    companies = [
+        models.Company(
+            slug=f"parity-co-{suffix}-{i}",
+            name=f"Parity {i}",
+            logo_url=f"https://example.org/{i}.png" if i % 5 < 3 else None,
+            prestige_rank=i if i % 3 == 0 else None,
+            global_rank=i if i % 7 == 0 else None,
+        )
+        for i in range(20)
+    ]
+    rows = []
+    for i in range(240):
+        row = models.Opportunity(
+            slug=f"parity-{suffix}-{i}",
+            title=["Software Intern", "Senior Engineer", "Graduate Analyst", "Staff Accountant"][
+                i % 4
+            ],
+            category="internship" if i % 4 == 0 else "job",
+            company=companies[0 if i % 3 == 0 else i % 20] if i % 17 else None,
+            primary_source=["greenhouse", "lever", "unstop", None][i % 4],
+            country=["IN", "US", None][i % 3],
+            is_remote=i % 2 == 0,
+            apply_url=f"https://example.org/{i}",
+            status="closed" if i % 19 == 0 else "active",
+            first_seen_at=now - timedelta(days=400 if i % 23 == 0 else 2),
+            last_seen_at=now - timedelta(hours=i % 7),
+            closed_at=now - timedelta(days=1) if i % 29 == 0 else None,
+            deadline=now - timedelta(days=1) if i % 31 == 0 else None,
+            is_hidden=i % 37 == 0,
+            meta={
+                "eligible_experienced_only": i % 41 == 0,
+                "eligibility": ["School Students"] if i % 43 == 0 else ["Undergraduate"],
+            },
+            eligibility_facts=(
+                None
+                if i % 3 == 0
+                else {
+                    "grad_years": {"value": [2026 + i % 3]},
+                    "stages": {"value": ["undergraduate" if i % 2 else "postgraduate"]},
+                    "remote_regions": {"value": ["IN", "APAC"] if i % 2 else ["US"]},
+                    "visa_sponsorship": {"value": i % 2 == 0},
+                }
+            ),
+        )
+        rows.append(row)
+    db_session.add_all(rows)
+    db_session.flush()
+    db_session.execute(
+        update(models.Opportunity)
+        .where(models.Opportunity.id.in_([row.id for row in rows[::3]]))
+        .values(role_rank=None)
+    )
+    original = feed.exclude_stale_opportunities
+    monkeypatch.setattr(
+        feed,
+        "exclude_stale_opportunities",
+        lambda: and_(original(), models.Opportunity.id.in_([row.id for row in rows])),
+    )
+    return rows
+
+
+@pytest.mark.parametrize("limit", [1, 5, 24, 100])
+@pytest.mark.parametrize(
+    "params",
+    [
+        {},
+        {"prefer_country": "IN"},
+        {"students": True},
+        {"students": False},
+        {"kind": "roles"},
+        {"scope": "domestic", "country": "IN", "remote_abroad": True},
+        {"remote": True},
+        {"grad_year": 2027, "stage": ["undergraduate"]},
+        {"grad_year": 2027, "stage": ["undergraduate"], "eligibility_stated": True},
+        {"visa": "needs", "country": "IN"},
+    ],
+)
+def test_landing_old_new_query_parity(db_session, monkeypatch, landing_parity_rows, params, limit):
+    defaults = {
+        key: parameter.default.default
+        for key, parameter in inspect.signature(feed.get_feed).parameters.items()
+        if key != "db"
+    }
+    kwargs = {**defaults, "prefer_logos": True, "limit": limit, **params, "db": db_session}
+    actual = feed.get_feed(**kwargs)
+    monkeypatch.setattr(feed, "landing_feed_rows", legacy_landing_feed_rows)
+    expected = feed.get_feed(**kwargs)
+    ids = {row.slug: row.id for row in landing_parity_rows}
+    assert [ids[item.slug] for item in actual.items] == [ids[item.slug] for item in expected.items]
+    assert actual.model_dump() == expected.model_dump()  # all fields and exact counts
+
+
+@pytest.mark.parametrize("pool", ["scarce", "all_famous", "no_famous", "no_logos"])
+def test_landing_old_new_quota_edge_parity(db_session, monkeypatch, landing_parity_rows, pool):
+    companies = {row.company.id: row.company for row in landing_parity_rows if row.company}
+    for index, company in enumerate(companies.values()):
+        if pool in {"scarce", "no_logos"} and (pool == "no_logos" or index > 1):
+            company.logo_url = None
+        if pool in {"all_famous", "no_famous"}:
+            company.prestige_rank = 1 if pool == "all_famous" else None
+            company.global_rank = None
+    db_session.flush()
+    test_landing_old_new_query_parity(
+        db_session, monkeypatch, landing_parity_rows, {"prefer_country": "IN"}, 24
+    )
 
 
 @pytest.fixture

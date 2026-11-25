@@ -9,18 +9,31 @@ const offline = async () => { throw new Error("API unavailable"); };
 const count = data => data.items.length;
 
 const vercelBuild = { NEXT_PHASE: PHASE_PRODUCTION_BUILD, VERCEL: "1" };
-function retryHarness(env = vercelBuild, timer) {
+function retryHarness(env = vercelBuild, timer, overrides = {}) {
   const waits = [], logs = [];
-  const load = testModuleLoader({}, {
+  const pending = new Map();
+  let nextTimer = 0;
+  const load = testModuleLoader(overrides, {
     process: { env },
     console: { error: line => logs.push(line) },
     setTimeout(resolve, delay) {
-      waits.push(delay);
-      if (timer) timer(resolve);
-      else resolve();
+      const id = ++nextTimer;
+      pending.set(id, { resolve, delay });
+      if (delay !== 40_000) {
+        waits.push(delay);
+        if (timer) timer(resolve);
+        else resolve();
+      }
+      return id;
     },
+    clearTimeout: id => pending.delete(id),
   });
-  return { load, waits, logs, withBuildFallback: load("lib/buildFallback.ts").withBuildFallback };
+  const expireBudget = () => {
+    const budget = [...pending.values()].find(timer => timer.delay === 40_000);
+    assert.ok(budget, "the whole read has one 40s deadline");
+    budget.resolve();
+  };
+  return { load, waits, logs, pending, expireBudget, withBuildFallback: load("lib/buildFallback.ts").withBuildFallback };
 }
 
 test("Vercel build waits before retrying a timeout, then returns the loaded snapshot", async () => {
@@ -45,13 +58,12 @@ test("Vercel build waits before retrying a timeout, then returns the loaded snap
   assert.deepEqual(harness.logs, ["[build] API read failed (TimeoutError), retrying in 3s (attempt 2/3)"]);
 });
 
-test("Vercel build honours both waits and throws the last of three transient failures", async () => {
+test("Vercel build honours both waits then renders failed/null after three transient failures", async () => {
   const timers = [];
   const harness = retryHarness(vercelBuild, resolve => timers.push(resolve));
   const errors = [new DOMException("slow", "TimeoutError"), new DOMException("aborted", "AbortError"), new TypeError("fetch failed")];
   let calls = 0;
   const result = harness.withBuildFallback(async () => { throw errors[calls++]; }, count);
-  const rejected = assert.rejects(result, error => error === errors[2]);
   await new Promise(setImmediate);
   assert.equal(calls, 1);
   assert.deepEqual(harness.waits, [3_000]);
@@ -60,13 +72,47 @@ test("Vercel build honours both waits and throws the last of three transient fai
   assert.equal(calls, 2);
   assert.deepEqual(harness.waits, [3_000, 8_000]);
   timers.shift()();
-  await rejected;
+  const state = await result;
+  assert.equal(state.status, "failed");
+  assert.equal(state.data, null);
+  assert.equal(state.loadedAt, null);
+  assert.equal(Object.hasOwn(state, "total"), false);
+  assert.equal(harness.pending.size, 0);
   assert.equal(calls, 3);
   assert.deepEqual(harness.logs, [
     "[build] API read failed (TimeoutError), retrying in 3s (attempt 2/3)",
     "[build] API read failed (AbortError), retrying in 8s (attempt 3/3)",
+    "[build] API read unavailable; rendering recovery shell",
   ]);
 });
+
+for (const phase of ["read", "wait", "retry"]) {
+  test(`Vercel build budget bounds a stalled ${phase} and stops further attempts`, async () => {
+    const timers = [];
+    const harness = retryHarness(vercelBuild, resolve => timers.push(resolve));
+    let calls = 0;
+    let activeSignal;
+    const result = harness.withBuildFallback(async signal => {
+      activeSignal = signal;
+      calls++;
+      if (phase !== "read" && calls === 1) throw new Error("Couldn't load results: 503");
+      return new Promise(() => {});
+    }, count);
+    await new Promise(setImmediate);
+    if (phase === "retry") {
+      timers.shift()();
+      await new Promise(setImmediate);
+    }
+    harness.expireBudget();
+    const state = await result;
+    assert.equal(state.status, "failed");
+    assert.equal(state.data, null);
+    assert.equal(activeSignal.aborted, true);
+    assert.equal(activeSignal.reason.name, "TimeoutError");
+    assert.equal(calls, phase === "retry" ? 2 : 1);
+    assert.equal(harness.pending.size, 0);
+  });
+}
 
 for (const status of [429, 500, 502, 503, 504, 599]) {
   for (const representation of ["listJson", "status"]) {
@@ -87,6 +133,23 @@ for (const status of [429, 500, 502, 503, 504, 599]) {
   }
 }
 
+test("home feed forwards the build deadline signal through to the listing fetch", async () => {
+  let fetchSignal;
+  const harness = retryHarness(vercelBuild, undefined, {
+    "./listingFetch": { fetchListing(_url, _seconds, _shape, signal) {
+      fetchSignal = signal;
+      return new Promise(() => {});
+    } },
+  });
+  const feed = harness.load("lib/feedQuery.ts");
+  const result = harness.withBuildFallback(signal => feed.loadFeedData(feed.defaultFeedRequest(), 21600, signal), count);
+  await new Promise(setImmediate);
+  assert.equal(fetchSignal.aborted, false);
+  harness.expireBudget();
+  assert.equal((await result).status, "failed");
+  assert.equal(fetchSignal.aborted, true);
+});
+
 for (const message of ["fetch failed", "Failed to fetch", "NetworkError when attempting to fetch resource."]) {
   test("Vercel build retries fetch TypeError: " + message, async () => {
     const harness = retryHarness();
@@ -105,6 +168,7 @@ for (const error of [
   new Error("coding bug"), new TypeError("Cannot read properties of undefined"),
   new SyntaxError("Invalid JSON"), new Error("Couldn't load results: 404"),
   Object.assign(new Error("HTTP failure"), { status: 404 }),
+  ...[400, 401, 403, 422].map(status => Object.assign(new Error("HTTP failure"), { status })),
   Object.assign(new Error("HTTP failure"), { status: 600 }),
   new Error("Unknown failure: 503"), { message: "unknown" },
 ]) {
@@ -219,6 +283,44 @@ test("an existing successful default prerender makes no mount-time request", asy
 
 const component = fn => ({ __esModule: true, default: fn });
 const hidden = component(() => null);
+
+test("home prerender keeps healthy blocks when the landing read exhausts its build budget", async () => {
+  const overrides = Object.fromEntries([
+    "FeedGrid", "FeedNavigation", "MostViewed", "RecentlyViewed", "HomeDesk",
+    "SignedOutHero", "TopCompanies",
+  ].map(name => ["@/components/" + name, hidden]));
+  const harness = retryHarness(vercelBuild, undefined, {
+    ...overrides,
+    "@/components/ListingFeedback": {
+      ListingUnavailable: () => React.createElement("p", null, "Unavailable feed"),
+    },
+    "@/components/FeedResults": component(({ initialData }) =>
+      React.createElement("p", null, initialData === null ? "Unavailable feed" : "Loaded feed")),
+    "@/components/StatsBar": component(() => React.createElement("p", null, "Stats stayed")),
+    "@/lib/api": {
+      getStats: async () => ({ opportunities: 1 }),
+      getTrending: async () => ({ items: [] }),
+      getFeed: async () => ({ items: [] }),
+    },
+    "@/lib/feedQuery": {
+      defaultFeedRequest: () => ({ cols: 3 }),
+      loadFeedData: () => new Promise(() => {}),
+    },
+    "@/lib/hiringCalendar": {
+      parseCalendarParams: () => ({ from: "2026-11-25" }),
+      todayIST: () => "2026-11-25",
+      fetchCalendar: async () => ({ items: [] }),
+    },
+  });
+  const rendering = harness.load("app/(feed)/page.tsx").default();
+  await new Promise(setImmediate);
+  assert.equal(harness.pending.size, 1);
+  harness.expireBudget();
+  const html = renderToStaticMarkup(await rendering);
+  assert.match(html, /Unavailable feed/);
+  assert.match(html, /Stats stayed/);
+  assert.equal(harness.pending.size, 0);
+});
 
 for (const kind of ["programme", "companies", "company"]) {
   test("offline " + kind + " shell fetches on mount and heals without Retry", async () => {

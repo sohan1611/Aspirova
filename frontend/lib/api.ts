@@ -246,6 +246,7 @@ function appendStringParams(
 export async function getFeed(
   params: FeedParams = {},
   revalidateSeconds = 300,
+  signal?: AbortSignal,
 ): Promise<ListingSnapshot<FeedResponse>> {
   const search = new URLSearchParams();
   if (params.category) search.set("category", params.category);
@@ -286,7 +287,7 @@ export async function getFeed(
   if (params.page) search.set("page", String(params.page));
   if (params.limit) search.set("limit", String(params.limit));
 
-  return fetchListing<FeedResponse>(`${API_URL}/feed?${search.toString()}`, revalidateSeconds, "page");
+  return fetchListing<FeedResponse>(`${API_URL}/feed?${search.toString()}`, revalidateSeconds, "page", signal);
 }
 export async function pingOpportunityView(slug: string): Promise<void> {
   try {
@@ -303,17 +304,18 @@ export async function getTrending(
   limit?: number,
   revalidateSeconds = 600,
   preferLogos = false,
+  signal?: AbortSignal,
 ): Promise<TrendingResponse> {
   const search = new URLSearchParams();
   if (limit !== undefined) search.set("limit", String(limit));
   if (preferLogos) search.set("prefer_logos", "true");
   const query = search.toString();
-  const data = await fetchListing<TrendingResponse>(`${API_URL}/trending${query ? `?${query}` : ""}`, revalidateSeconds, "object");
+  const data = await fetchListing<TrendingResponse>(`${API_URL}/trending${query ? `?${query}` : ""}`, revalidateSeconds, "object", signal);
   if (!Array.isArray(data.items)) throw new Error("Invalid trending response");
   return data;
 }
 
-export async function getForYou(params: ForYouParams = {}): Promise<ListingSnapshot<FeedResponse>> {
+export async function getForYou(params: ForYouParams = {}, signal?: AbortSignal): Promise<ListingSnapshot<FeedResponse>> {
   const search = new URLSearchParams();
   if (params.terms?.length) {
     search.set("terms", params.terms.join(","));
@@ -329,11 +331,11 @@ export async function getForYou(params: ForYouParams = {}): Promise<ListingSnaps
   if (params.page) search.set("page", String(params.page));
   if (params.limit) search.set("limit", String(params.limit));
 
-  return fetchListing<FeedResponse>(`${API_URL}/for-you?${search.toString()}`, 300, "page");
+  return fetchListing<FeedResponse>(`${API_URL}/for-you?${search.toString()}`, 300, "page", signal);
 }
 // revalidateSeconds caps the calling route's ISR window - see getFeed above.
-export async function getStats(revalidateSeconds = 300): Promise<ListingSnapshot<StatsResponse>> {
-  return fetchListing<StatsResponse>(`${API_URL}/stats`, revalidateSeconds, "object");
+export async function getStats(revalidateSeconds = 300, signal?: AbortSignal): Promise<ListingSnapshot<StatsResponse>> {
+  return fetchListing<StatsResponse>(`${API_URL}/stats`, revalidateSeconds, "object", signal);
 }
 export async function getFacets(
   params: Pick<FeedParams, "kind"> & {
@@ -353,6 +355,7 @@ export async function searchOpportunities(
   filters: SearchFilterParams = {},
   page = 1,
   limit = 20,
+  signal?: AbortSignal,
 ): Promise<ListingSnapshot<SearchResponse>> {
   const search = new URLSearchParams({ q, page: String(page), limit: String(limit) });
   if (filters.category) search.set("category", filters.category);
@@ -385,7 +388,7 @@ export async function searchOpportunities(
   // in the browser, so fetchListing gets a zero server-cache window here.
   // Removing next: { revalidate } was tried during the earlier search bug and
   // did not fix it: the lost component state is documented in listingStore.ts.
-  return fetchListing<SearchResponse>(`${API_URL}/search?${search.toString()}`, 0, "page");
+  return fetchListing<SearchResponse>(`${API_URL}/search?${search.toString()}`, 0, "page", signal);
 }
 // This fetch revalidate caps its route's ISR window; lowering it silently shortens page cache lifetime.
 export async function getOpportunity(
