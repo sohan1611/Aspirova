@@ -291,7 +291,7 @@ def test_switch_to_annual_verify_cancel_failure_keeps_annual_and_alerts_founder(
     monkeypatch.setattr(settings, "waitlist_notify_email", "founder@example.com")
     sent_emails: list[dict[str, str]] = []
 
-    def fake_send_email(to: str, subject: str, html: str, text: str) -> bool:
+    def fake_send_email(to: str, subject: str, html: str, text: str, **kwargs) -> bool:
         sent_emails.append({"to": to, "subject": subject, "html": html, "text": text})
         return True
 

@@ -359,6 +359,10 @@ def send_resolution_email(session: Session, reference: str) -> bool:
                 show_preferences=False,
             ),
             text=f"Your report was resolved\n\n{lines[0]}\n\nView report status: {url}",
+            session=session,
+            kind="report_resolution",
+            identity=report.reference,
+            user_id=report.user_id,
         )
     except Exception:
         logger.warning("Resolution email failed for %s", reference, exc_info=True)
@@ -447,6 +451,9 @@ def remind(session: Session, *, now: datetime | None = None) -> bool:
         subject=f"Aspirova: {len(reports)} overdue reports",
         html=f"<pre>{escape(text)}</pre>",
         text=text,
+        session=session,
+        kind="report_reminder",
+        identity=current.date().isoformat(),
     )
 
 

@@ -172,7 +172,12 @@ def programme_watch_updates(
     watches = _watches(session, user.id)
     programmes, windows = _current_programmes(watches, now)
     updates: dict[int, ProgrammeWatchUpdate] = {}
+    from core.email_outbox import reserved_notification_ids
+
+    reserved = reserved_notification_ids(session, user.id)
     for notification in _pending_notifications(session, user.id):
+        if notification.id in reserved:
+            continue
         programme_id = notification.meta.get("programme_id")
         meta = _live_pending_meta(
             notification.meta, programmes.get(programme_id), windows.get(programme_id, {})

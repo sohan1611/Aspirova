@@ -8,7 +8,7 @@ from sqlalchemy import event, select
 
 import pipeline.notifications as notifications
 import pipeline.saved_search_alerts as searches
-from core import models
+from core import email_outbox, models
 from core.alert_identity import (
     NEW_LISTING_EVENTS,
     already_notified,
@@ -106,12 +106,14 @@ def reader(db, employer=None, *, paid=None):
 
 def ledger(db, user):
     return db.scalars(
-        select(models.Notification).where(
+        select(models.Notification)
+        .where(
             models.Notification.user_id == user.id,
             models.Notification.channel == "email",
             models.Notification.type.in_(NEW_LISTING_EVENTS),
             models.Notification.status == "sent",
         )
+        .order_by(models.Notification.id)
     ).all()
 
 
@@ -370,7 +372,7 @@ def test_saved_listing_notices_remain_specific_to_each_saved_row(db_session, del
 
 
 @pytest.mark.parametrize("fail_first", [False, True])
-def test_saved_searches_share_one_index_and_only_successful_sends_suppress(
+def test_saved_searches_share_one_index_and_pending_intents_reserve_roles(
     db_session, deliveries, monkeypatch, fail_first
 ):
     employer = company(db_session)
@@ -405,6 +407,9 @@ def test_saved_searches_share_one_index_and_only_successful_sends_suppress(
     monkeypatch.setattr(searches, "send_email", deliver)
     searches.send_saved_search_alerts(db_session, now=NOW)
     assert loads.count(user.id) == 1
-    assert len(attempts) == (2 if fail_first else 1)
+    assert len(attempts) == 1
+    if fail_first:
+        email_outbox.drain(db_session, now=NOW + timedelta(minutes=3), sender=deliver)
+        assert len(attempts) == 2
     assert len(ledger(db_session, user)) == 1
     assert len([email for email in deliveries if email["to"] == user.email]) == 1

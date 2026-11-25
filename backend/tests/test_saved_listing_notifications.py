@@ -13,7 +13,7 @@ from api import middleware, reports
 from api.auth import get_current_user
 from api.deps import get_db
 from api.main import app
-from core import models
+from core import email_outbox, models
 from core.adapters import NormalizedListing, RawListing
 from core.config import get_settings
 from core.listing_safety import safety_flag
@@ -380,7 +380,7 @@ def test_failed_email_retries_without_duplicate_in_app(
         for row in notices(db_session, user)
     )
     monkeypatch.setattr(notifications, "send_email", successful_send)
-    notifications.send_closing_soon_alerts(db_session, now=now + timedelta(hours=1))
+    email_outbox.drain(db_session, now=now + timedelta(hours=1), sender=successful_send)
     assert {row.id for row in notices(db_session, user)} == first_ids
     assert all(
         not row.meta["email_pending"] and row.meta["emailed_at"]
@@ -405,7 +405,8 @@ def test_reopened_or_cleared_warning_is_not_emailed_on_retry(
     db_session.delete(db_session.get(models.Bookmark, (user.id, unsafe.id)))
     db_session.flush()
     monkeypatch.setattr(notifications, "send_email", sender)
-    notifications.send_closing_soon_alerts(db_session, now=now)
+    email_outbox.drain(db_session, now=now + timedelta(minutes=3), sender=sender)
+    notifications.send_closing_soon_alerts(db_session, now=now + timedelta(minutes=3))
     assert not any(call["to"] == user.email for call in mail)
     assert len(notices(db_session, user)) == 2
     assert all(not row.meta["email_pending"] for row in notices(db_session, user))

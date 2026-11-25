@@ -505,6 +505,16 @@ def test_missing_signing_key_omits_unsubscribe_links_and_headers(kind, monkeypat
     users = Mock()
     users.all.return_value = [user]
     send = Mock(return_value=True)
+    # This test exercises rendering; durable storage/transport is covered by
+    # test_delivery_health against Postgres.
+    from core import email_outbox
+
+    monkeypatch.setattr(
+        email_outbox,
+        "send",
+        lambda db, sender, *args, **kw: sender(*args, headers=kw.get("headers")),
+    )
+    monkeypatch.setattr(email_outbox, "reserved_notification_ids", lambda *a: set())
     if kind == "closing_soon":
         monkeypatch.setattr(notifications, "load_closure_notice_breaker", lambda *a: Mock())
         monkeypatch.setattr(notifications, "collect_saved_listing_changes", lambda *a, **kw: [])
@@ -512,7 +522,6 @@ def test_missing_signing_key_omits_unsubscribe_links_and_headers(kind, monkeypat
         opportunities.all.return_value = [item]
         session.scalars.side_effect = [users, opportunities]
         monkeypatch.setattr(notifications, "already_notified", lambda *args, **kwargs: set())
-        monkeypatch.setattr(notifications, "_record_notification", Mock())
         monkeypatch.setattr(notifications, "send_email", send)
         notifications.send_closing_soon_alerts(session, now=NOW)
     elif kind == "saved_search":
@@ -536,7 +545,6 @@ def test_missing_signing_key_omits_unsubscribe_links_and_headers(kind, monkeypat
         monkeypatch.setattr(weekly_report, "_recent_hidden_opportunities", lambda *args: [])
         monkeypatch.setattr(weekly_report, "_recent_dream_company_matches", lambda *args: [])
         monkeypatch.setattr(weekly_report, "_cohort_intro", lambda *args, **kwargs: None)
-        monkeypatch.setattr(weekly_report, "_record_delivery", Mock())
         monkeypatch.setattr(weekly_report, "send_email", send)
         weekly_report.send_weekly_reports(session, now=NOW)
     send.assert_called_once()

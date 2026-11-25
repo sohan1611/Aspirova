@@ -145,6 +145,9 @@ def _notify_founder(
             ),
             html=html_body,
             text=text_body,
+            kind="report_intake",
+            identity=report.reference,
+            user_id=report.user_id,
         )
         if not sent:
             logger.warning(

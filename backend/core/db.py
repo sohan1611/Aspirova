@@ -149,6 +149,9 @@ def make_engine(**kwargs) -> Engine:
         pool_kwargs.pop("max_overflow", None)
         pool_kwargs.pop("pool_recycle", None)
     pool_kwargs.update(kwargs)
+    # Delivery payloads and other user data must never appear in exception
+    # parameters in public worker logs. SQL text remains available for diagnosis.
+    pool_kwargs.setdefault("hide_parameters", True)
     engine = create_engine(settings.database_url, connect_args=connect_args, **pool_kwargs)
 
     if not transaction_mode:
