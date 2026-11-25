@@ -12,7 +12,7 @@ from ipaddress import ip_address
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlsplit
 
-DESTINATION_FACTS_VERSION = 1
+DESTINATION_FACTS_VERSION = 2
 DESTINATION_TYPES = (
     "employer_ats",
     "employer_site",
@@ -30,7 +30,6 @@ AGGREGATORS = {
     "arbeitnow.com": "Arbeitnow",
     "remotive.com": "Remotive",
     "remotive.io": "Remotive",
-    "unstop.com": "Unstop",
     "github.com": "GitHub lists",
     "simplify.jobs": "SimplifyJobs",
     "linkedin.com": "LinkedIn",
@@ -48,6 +47,7 @@ REPOST_SOURCES = {
     "github_lists": "GitHub lists (SimplifyJobs)",
 }
 PLATFORMS = {
+    "unstop.com": "Unstop",
     "devpost.com": "Devpost",
     "devfolio.co": "Devfolio",
     "hackerearth.com": "HackerEarth",
@@ -60,6 +60,7 @@ ATS = {
     "ashbyhq.com": "ashby",
     "smartrecruiters.com": "smartrecruiters",
     "myworkdayjobs.com": "workday",
+    "myworkdaysite.com": "workday",
     "keka.com": "keka",
     "recruitee.com": "recruitee",
     "workable.com": "workable",
@@ -68,6 +69,8 @@ ATS = {
     "successfactors.com": "successfactors",
     "oraclecloud.com": "oraclecloud",
     "bamboohr.com": "bamboohr",
+    "personio.de": "personio",
+    "personio.com": "personio",
 }
 
 
@@ -150,11 +153,11 @@ def public_host(value: str | None) -> str | None:
         return None
 
 
-@lru_cache(maxsize=1)
-def _suffixes():
+@lru_cache(maxsize=2)
+def _suffixes(only_icann: bool = False):
     from publicsuffixlist import PublicSuffixList
 
-    return PublicSuffixList()
+    return PublicSuffixList(only_icann=only_icann)
 
 
 def registrable_domain(host: str | None) -> str | None:
@@ -196,17 +199,50 @@ def ats_board(url: str) -> tuple[str, str] | None:
             "jobs.smartrecruiters.com": "smartrecruiters",
         }[host]
         token = path[0] if path else ""
-    elif re.fullmatch(r"[a-z0-9-]+\.(?:recruitee|keka)\.com", host):
+    elif re.fullmatch(r"[a-z0-9-]+\.(?:recruitee|keka|bamboohr)\.com", host):
         token, kind = host.split(".")[:2]
+    elif match := re.fullmatch(r"([a-z0-9-]+)\.jobs\.personio\.(?:de|com)", host):
+        kind, token = "personio", match[1]
     elif match := re.fullmatch(r"([a-z0-9-]+)\.(wd\d+)\.myworkdayjobs\.com", host):
-        if path and re.fullmatch(r"[a-zA-Z]{2}[-_][a-zA-Z]{2}", path[0]):
+        if len(path) > 1 and path[1] != "job" and _workday_locale(path[0]):
             path = path[1:]
         if not path or not re.fullmatch(r"[a-zA-Z0-9_-]+", path[0]) or path[0] in {"wday", "job"}:
             return None
-        return "workday", f"{match[1]}|{match[2]}|{path[0]}"
+        return "workday", f"{match[1]}|{match[2]}|{path[0]}".casefold()
+    elif match := re.fullmatch(r"(wd\d+)\.myworkdaysite\.com", host):
+        if len(path) > 1 and path[1] == "recruiting" and _workday_locale(path[0]):
+            path = path[1:]
+        if (
+            len(path) < 3
+            or path[0] != "recruiting"
+            or not all(re.fullmatch(r"[a-zA-Z0-9_-]+", part) for part in path[1:3])
+        ):
+            return None
+        return "workday", f"{path[1]}|{match[1]}|{path[2]}".casefold()
     else:
         return None
     return (kind, token) if re.fullmatch(r"[a-zA-Z0-9_-]+", token) else None
+
+
+def _workday_locale(value: str) -> bool:
+    return bool(re.fullmatch(r"[a-zA-Z]{2}(?:[-_][a-zA-Z]{2,4}(?:[-_][a-zA-Z]{2})?)?", value))
+
+
+def board_matches_company(
+    board: tuple[str, str] | None,
+    ats_type: str | None,
+    ats_board_id: str | None,
+) -> bool:
+    """Match explicit board evidence; only DNS slugs and Workday IDs fold case."""
+    if not board or not ats_type or not ats_board_id:
+        return False
+    kind, token = board
+    if kind != ats_type.strip().casefold():
+        return False
+    expected = ats_board_id.strip()
+    if kind in {"recruitee", "keka", "bamboohr", "personio", "workday"}:
+        return token.casefold() == expected.casefold()
+    return token == expected
 
 
 def classify_destination_facts(
@@ -253,10 +289,18 @@ def classify_destination_facts(
     }
     if host:
         aggregator = next((label for d, label in AGGREGATORS.items() if matches(host, d)), None)
-        # Arbeitnow's country sites are explicitly supported by the existing classifier.
-        if re.fullmatch(r"(?:[a-z0-9-]+\.)*arbeitnow\.(?:com|ch|fr|co\.uk)", host):
+        # Match the actual registrable ICANN domain, not an Arbeitnow-named
+        # tenant of a shared service such as arbeitnow.github.io.
+        icann_domain = _suffixes(only_icann=True).privatesuffix(host, accept_unknown=False)
+        if icann_domain and icann_domain.split(".", 1)[0] == "arbeitnow":
             aggregator = "Arbeitnow"
         platform = next((label for d, label in PLATFORMS.items() if matches(host, d)), None)
+        if matches(host, "unstop.com"):
+            path = [unquote(p).casefold() for p in urlsplit(url.strip()).path.split("/") if p]
+            if path and path[0] in {"jobs", "internships"}:
+                aggregator, platform = "Unstop", None
+            elif source == "unstop":
+                facts["via"] = None
         board = ats_board(url or "")
         company_host = public_host(
             company_domain if "://" in (company_domain or "") else f"https://{company_domain}"
@@ -272,11 +316,11 @@ def classify_destination_facts(
         if aggregator:
             facts.update(type="aggregator", via=aggregator)
         elif platform:
-            facts.update(type="competition_platform")
+            facts.update(type="competition_platform", platform=platform)
         elif any(matches(host, d) for d in ATS):
             facts.update(
                 type="employer_ats",
-                employer_verified=bool(board and board == (ats_type, ats_board_id)),
+                employer_verified=board_matches_company(board, ats_type, ats_board_id),
             )
         elif any(matches(host, d) for d in ("gov", "gov.in", "nic.in", "gov.uk", "gov.au")):
             facts.update(type="government", employer_verified=own)
@@ -297,7 +341,12 @@ def classify_destination_facts(
         facts["warnings"] = list(observation.get("warnings", []))
         facts["terminal_host"] = observation.get("terminal_host")
         facts["terminal_domain"] = observation.get("terminal_domain")
-        if facts["warnings"] or facts["status"] in {"invalid", "unknown"}:
+        # A bot block/timeout does not disprove an exact company-domain or board
+        # binding. Redirect/parked/login warnings still withhold the origin claim.
+        if (
+            any(warning not in {"blocked_403", "blocked_429"} for warning in facts["warnings"])
+            or facts["status"] == "invalid"
+        ):
             facts["employer_verified"] = False
     return facts
 

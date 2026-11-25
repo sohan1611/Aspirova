@@ -142,9 +142,15 @@ def score(rows: list[dict], labels: list[dict]) -> tuple[dict, bool]:
         ):
             raise ValueError("Incomplete or invalid labels")
         predicted = predictions(by_id[label["id"]])
-        code = (by_id[label["id"]].get("observation") or {}).get("http_status")
+        observation = by_id[label["id"]].get("observation") or {}
+        code = observation.get("http_status")
         if code in {404, 410, 401, 403}:
-            status = "gone" if code in {404, 410} else "sign_in_required"
+            if code in {404, 410}:
+                status = "gone"
+            elif code == 401 or "login_wall" in observation.get("warnings", []):
+                status = "sign_in_required"
+            else:
+                status = "unknown"
             totals[f"http{code}_total"] += 1
             totals[f"http{code}_correct"] += predicted["status"] == label["status"] == status
         expected, actual = label["type"], predicted["type"]

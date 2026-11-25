@@ -24,7 +24,7 @@ There are **23 adapter source slugs** in the worktree, rather than the onboardin
 | remoteok | Feed `url`, falling back to `apply_url`; normalized Apply uses that source URL | Aggregator; rolling feed |
 | himalayas | `applicationLink`, `applicationUrl`, `applyUrl`, `apply_url`, then listing URL | Aggregator; Apply may already be an employer link |
 | jobicy | Feed `url`, `jobUrl`, or `applyUrl`; normalized Apply uses source URL | Aggregator; rolling feed |
-| unstop | `seo_url`, falling back to source URL | Aggregator/re-poster, including jobs and events |
+| unstop | `seo_url`, falling back to source URL | Aggregator for `/jobs` and `/internships`; competition platform for events |
 | github_lists | Canonicalized record `url` from endorsed SimplifyJobs JSON lists | Re-poster; links commonly go directly to employers |
 | devpost | Event `url`, falling back to source URL | Competition platform |
 | devfolio | Event URL derived from its slug, falling back to source URL | Competition platform |
@@ -90,7 +90,7 @@ Existing validation and liveness:
 
 ## Design and implementation
 
-`core/destination_facts.py` provides the pure version-1 classifier. It takes explicit URL,
+`core/destination_facts.py` provides the pure version-2 classifier. It takes explicit URL,
 company domain/ATS board, source context, optional observation and timestamp inputs. It
 returns URL validity, ASCII/IDNA host, registrable domain, one of the seven requested types,
 verified-employer boolean, aggregator attribution/warning, status and warnings. URL hashes
@@ -142,8 +142,10 @@ Greenhouse's known soft-404 redirects retain their existing interpretation.
 
 Unrelated redirects stop **before fetching the target**. The recorded target host/domain is
 observed from Location, not claimed as a checked terminal page. Downgrades, loops, hop limits,
-invalid redirects, parked/for-sale signals and login walls remain visible evidence. Auth
-responses and login walls are `sign_in_required`, including Workday; timeouts/5xx are unknown.
+invalid redirects, parked/for-sale signals and login walls remain visible evidence. HTTP 401
+or a login host/path/form supports `sign_in_required`, including Workday. A bare 403 is not
+evidence of an auth wall: 403/429 without login evidence are `unknown` with `blocked_403` or
+`blocked_429`, never closed and never labelled sign-in required. Timeouts/5xx remain unknown.
 Only existing positive liveness evidence reaches `_mark_closed`. A concurrent replacement
 of the Apply URL cannot cause that new URL to be closed by an old check. No new absence or
 closure path, read-time network request, AI call, workflow, or public per-row log is added.
@@ -267,6 +269,70 @@ node node_modules/typescript/bin/tsc --noEmit
 - Production sampling and independent human labels were deliberately not run. The private
   sampler/scorer and synthetic hundred-row regression are ready for the founder.
 
+## Review round 2 — evidence required for an auth label
+
+The reviewer supplied a real 100-row production URL check: 78 alive, 10 gone (eight 410,
+two 404), eight labelled sign-in required and four unknown. All eight sign-in labels were
+false: five Himalayas and three Workday pages returned bare 403 to automated clients but
+opened publicly in a browser. No login URL, form or redirect evidence was recorded.
+
+The checker now requires HTTP 401, a login/SSO/auth host or path, or a detected login form.
+Bare 403/429 responses stay unknown and record a blocked warning. This includes Workday CXS;
+neither a working control nor a 403 alone can establish an authentication requirement.
+A 403 carrying a valid login Location or a login form still records an auth wall. Isolated
+sign-in wording and ordinary sign-in navigation do not qualify as a login form.
+
+The frontend already displays the sign-in notice only for `sign_in_required`; new render
+tests prove blocked 403/429 add neither a sign-in label nor an unknown-status notice. Offline
+HTTP-403 scoring also requires recorded login-wall evidence instead of assuming authentication.
+The existing slow-check regression function remains unchanged from `origin/master`.
+
+Targeted pytest: **155 passed**, including Himalayas-style bot blocks, Workday CXS 403s,
+401, login-host redirects, login forms, closure exclusion and the unchanged slow-check test.
+Frontend lib tests: **326 passed**. Ruff, Black --check, eslint and TypeScript all exited **0**.
+Tests used the existing local PostgreSQL compatibility schema; full pgvector validation
+remains unavailable locally. No production URL was fetched in this round, and `_local/`
+and the independent labeller's artifacts were not read or changed.
+
+## Review round 3 — exact board forms and platform types
+
+The reviewer scored the independently labelled 100-row production sample: domain and
+validity 100/100, HTTP status 99/100 (one transient 502 answered 200 on recheck), gone handling
+10/10, and bare-403 handling 8/8 unknown. Employer verification was 85/100, with **zero
+invented employer origins**. The 15 disagreements were conservative false negatives.
+These are reviewer-supplied baseline results; the production sample was not read or rerun here.
+
+Classifier **v2** adds Workday `wdN.myworkdaysite.com/recruiting/<tenant>/<site>/...` and
+normalizes Workday identities as `tenant|wdN|site`, including locale-prefixed myworkdayjobs
+URLs and casing differences in the recorded site. All three identity components must
+match the company's board. Recruitee, Keka, Personio and BambooHR DNS slugs compare without
+case sensitivity; path-based Greenhouse, Lever, Ashby, SmartRecruiters and Workable tokens
+retain exact comparisons. The existing eight token-based crawler adapters are covered;
+Personio/BambooHR are additional strictly matched destination forms, not new adapters.
+An exact company-domain/ATS binding remains ownership evidence under an inconclusive bot
+block or timeout. Redirect, parked and other untrusted-target warnings still withhold an
+origin claim; liveness and sign-in status do not change as part of these type corrections.
+
+Unstop's `/jobs` and `/internships` paths remain aggregator listings. Its other paths,
+including competitions, hackathons and quizzes, are competition-platform destinations.
+Their UI says **Hosted on Unstop**, with no claim that the platform is the employer's own
+page. Arbeitnow is recognized on any ICANN registrable TLD, including `.nl` and `.co.uk`;
+an Arbeitnow-named tenant of `github.io` or an unrelated suffix remains unknown.
+
+**Deliberately unchanged:** Devfolio subdomains and HackerEarth hackathon pages remain
+`employer_verified=false` even when the platform was recorded as the company. The platform
+does not prove organiser identity. Nine of the 15 independent-label disagreements are this
+intentional rule, not permission to invent an employer origin. GitHub-list career hosts
+without company-domain evidence also remain unknown; the optional host-name heuristic was
+not adopted.
+
+The existing founder backfill detects v1 facts as older and recomputes them as v2. It still
+preserves matching network observations, skips future versions and is idempotent after
+refresh. No schema migration, dependency change or production access is added in this round.
+Targeted classifier/HTTP/PostgreSQL/liveness tests: **217 passed**. Frontend lib tests:
+**328 passed**. Ruff, Black --check, eslint and TypeScript all exited **0**. `_local/`
+was not read or changed. The full pgvector-backed suite remains unavailable locally.
+
 ## Draft PR text
 
 **Title:** Label Apply destinations with versioned evidence and preserve auth walls
@@ -275,8 +341,9 @@ Apply links could identify an arbitrary ATS-hosted URL as the named employer's c
 page, and a login redirect could look live. Store deterministic destination facts, require
 company-domain or exact ATS-board evidence before showing employer origin, and disclose
 aggregators on cards and job pages. Existing background liveness now records bounded
-redirects, login/parked targets and terminal domains; 401/403 never close a listing, while
-404/410 retain the existing closure rules and coverage protections.
+redirects, login/parked targets and terminal domains. Auth walls never close a listing;
+bare 403/429 responses stay unknown without a sign-in claim. HTTP 404/410 retain the existing
+closure rules and coverage protections.
 
 Adds a private read-only sampler, offline counts-only scorer and idempotent dry-run-first
 backfill. Adds one nullable JSONB column with bounded migration-lock retries. Facts stay outside

@@ -61,3 +61,35 @@ test("real notice DOM wraps long hosts and renders external auth evidence", () =
   assert.match(html, /overflow-wrap:anywhere/);
   assert.match(html, /min-w-0 max-w-full/);
 });
+
+test("blocked 403 and 429 do not add a sign-in label or an unknown notice", () => {
+  const Label = load("components/DestinationLabel.tsx").default;
+  for (const code of [403, 429]) {
+    const unknown = facts({ status: "unknown", warnings: [`blocked_${code}`] });
+    assert.deepEqual(Array.from(destinationLines(unknown)), Array.from(destinationLines(facts({}))));
+    const html = renderToStaticMarkup(React.createElement(Label, { facts: unknown }));
+    assert.doesNotMatch(html, /Sign-in required|blocked_|unknown/i);
+  }
+});
+
+test("Unstop event copy names the platform without an employer-origin claim", () => {
+  const event = facts({ v: 2, host: "unstop.com", domain: "unstop.com", type: "competition_platform",
+    platform: "Unstop", employer_verified: false, via: null, aggregator_warning: false });
+  const lines = destinationLines(event).join(". ");
+  assert.match(lines, /Hosted on Unstop \(unstop.com\)/);
+  assert.doesNotMatch(lines, /employer|own page|aggregator/i);
+  const copy = describeApply({ kind: "event_platform", host: "unstop.com", label: "Unstop" }, "Unstop", event);
+  assert.match(copy.caption, /hosted on Unstop/);
+  assert.doesNotMatch(copy.caption, /own|verified careers|employer/i);
+  const Label = load("components/DestinationLabel.tsx").default;
+  const fallback = renderToStaticMarkup(React.createElement(Label, {
+    destination: { kind: "event_platform", host: "unstop.com", label: "Unstop" },
+  }));
+  assert.match(fallback, /Hosted on Unstop/);
+  assert.doesNotMatch(fallback, /employer|own page/i);
+});
+
+test("Unstop jobs keep aggregator disclosure", () => {
+  const job = facts({ v: 2, host: "unstop.com", type: "aggregator", via: "Unstop", aggregator_warning: true });
+  assert.match(destinationLines(job).join(". "), /Listed via Unstop — not the employer's own page/);
+});

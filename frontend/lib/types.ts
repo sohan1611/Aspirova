@@ -197,6 +197,7 @@ export interface DestinationFacts {
   employer_verified: boolean;
   aggregator_warning: boolean;
   via: string | null;
+  platform?: string | null;
   status: string;
   warnings: string[];
   terminal_host?: string | null;

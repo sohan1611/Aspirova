@@ -96,3 +96,21 @@ def test_invalid_workday_paths_are_inconclusive_without_html_fetch(url, monkeypa
     monkeypatch.setattr(liveness, "sleep", lambda _delay: None)
     with httpx.Client(transport=httpx.MockTransport(respond)) as client:
         assert liveness.fetch_url_liveness_status(url, client) == "inconclusive"
+
+
+@pytest.mark.parametrize("login_evidence", [False, True])
+def test_workday_cxs_403_requires_login_evidence(detail, monkeypatch, login_evidence):
+    monkeypatch.setattr(liveness, "sleep", lambda _: None)
+
+    def respond(request):
+        assert "/wday/cxs/" in request.url.path
+        headers = {"location": "https://sso.example.com/"} if login_evidence else {}
+        return httpx.Response(403, headers=headers, text="Access denied")
+
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        observation = liveness.fetch_destination_observation(
+            detail["jobPostingInfo"]["externalUrl"], client
+        )
+    assert observation["status"] == ("sign_in_required" if login_evidence else "unknown")
+    assert observation["warnings"] == (["login_wall"] if login_evidence else ["blocked_403"])
+    assert liveness.observation_liveness(observation) == "inconclusive"

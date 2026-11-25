@@ -17,7 +17,9 @@ export function destinationFacts(value?: unknown): DestinationFacts | null {
 export function destinationLines(facts: DestinationFacts | null): string[] {
   if (!facts) return [];
   if (!facts.valid) return ["Original link unavailable"];
-  const lines = facts.host ? [`Applies on ${facts.host}`] : [];
+  const lines = facts.host ? [facts.type === "competition_platform"
+    ? `Hosted on ${facts.platform ? `${facts.platform} (${facts.host})` : facts.host}`
+    : `Applies on ${facts.host}`] : [];
   if (facts.aggregator_warning) lines.push(facts.type === "aggregator"
     ? `Listed via ${facts.via || "an aggregator"} — not the employer's own page`
     : `Listed via ${facts.via || "a re-poster"}`);
@@ -34,6 +36,11 @@ function destinationCopy(destination: Destination, companyName?: string | null, 
   const co = name || "the company";
   if (facts) {
     const host = facts.host || "the source";
+    if (facts.type === "competition_platform") return {
+      buttonLabel: `Apply on ${facts.platform || host} →`,
+      listing: `the event hosted on ${facts.platform ? `${facts.platform} (${host})` : host}`,
+      caveat: "",
+    };
     const verified = facts.employer_verified === true;
     return {
       buttonLabel: facts.aggregator_warning && facts.type === "aggregator"
@@ -69,7 +76,7 @@ function destinationCopy(destination: Destination, companyName?: string | null, 
       return {
         buttonLabel: `Apply on ${label} →`,
         listing: `this listing on ${label} (${host})`,
-        caveat: label === "Unstop" ? "Unstop is an aggregator, not the employer's own page. " : "",
+        caveat: "",
       };
     default:
       return {

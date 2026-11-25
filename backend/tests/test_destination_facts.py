@@ -3,6 +3,8 @@
 import pytest
 
 from core.destination_facts import (
+    DESTINATION_FACTS_VERSION,
+    ats_board,
     classify_destination_facts,
     public_host,
     refresh_destination_facts,
@@ -108,6 +110,34 @@ def test_every_source_shape(source, url, kind, domain):
         ("recruitee", "acme", "https://acme.recruitee.com/o/1"),
         ("keka", "acme", "https://acme.keka.com/careers/jobdetails/1"),
         ("workday", "acme|wd5|Careers", "https://acme.wd5.myworkdayjobs.com/en-US/Careers/job/1"),
+        (
+            "workday",
+            "hp|wd5|externalcareersite",
+            "https://hp.wd5.myworkdayjobs.com/en-US/ExternalCareerSite/job/1",
+        ),
+        (
+            "workday",
+            "baird|wd1|careers",
+            "https://wd1.myworkdaysite.com/recruiting/baird/Careers/job/1",
+        ),
+        (
+            "workday",
+            "hp|wd5|externalcareersite",
+            "https://wd5.myworkdaysite.com/en-US/recruiting/hp/ExternalCareerSite/job/1",
+        ),
+        (
+            "workday",
+            "hp|wd5|externalcareersite",
+            "https://hp.wd5.myworkdayjobs.com/zh-Hans/ExternalCareerSite/job/1",
+        ),
+        ("recruitee", "sendcloud", "https://sendcloud.recruitee.com/o/intern"),
+        ("recruitee", "SendCloud", "https://sendcloud.recruitee.com/o/intern"),
+        ("personio", "acme", "https://acme.jobs.personio.de/job/1"),
+        ("personio", "Acme", "https://acme.jobs.personio.com/job/1"),
+        ("bamboohr", "Acme", "https://acme.bamboohr.com/careers/1"),
+        ("bamboohr", "acme", "https://acme.bamboohr.com/jobs/view.php?id=1"),
+        ("greenhouse", "acme", "https://job-boards.eu.greenhouse.io/acme/jobs/1"),
+        ("lever", "acme", "https://jobs.lever.co/acme/1"),
     ],
 )
 def test_exact_company_board_evidence(kind, board, url):
@@ -118,6 +148,136 @@ def test_exact_company_board_evidence(kind, board, url):
     assert not classify_destination_facts(url, ats_type="other", ats_board_id=board)[
         "employer_verified"
     ]
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://hp.wd5.myworkdayjobs.com/en-US/ExternalCareerSite/job/1",
+        "https://wd5.myworkdaysite.com/recruiting/hp/ExternalCareerSite/job/1",
+    ],
+)
+@pytest.mark.parametrize(
+    "board",
+    ["other|wd5|externalcareersite", "hp|wd1|externalcareersite", "hp|wd5|othersite", "hp", None],
+)
+def test_workday_requires_matching_tenant_cluster_and_site(url, board):
+    facts = classify_destination_facts(url, ats_type="workday", ats_board_id=board)
+    assert facts["type"] == "employer_ats" and not facts["employer_verified"]
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://wd1.myworkdaysite.com/recruiting/baird",
+        "https://wd1.myworkdaysite.com/other/baird/careers/job/1",
+        "https://evil.wd1.myworkdaysite.com/recruiting/baird/careers/job/1",
+        "https://wd1.myworkdaysite.com.evil.com/recruiting/baird/careers/job/1",
+        "https://sendcloud.recruitee.com.evil.com/o/intern",
+        "https://acme.jobs.personio.com.evil.com/job/1",
+        "https://acme.bamboohr.com.evil.com/careers/1",
+    ],
+)
+def test_unrecognized_or_spoofed_board_forms_do_not_verify(url):
+    assert ats_board(url) is None
+
+
+@pytest.mark.parametrize(
+    "url,kind,board",
+    [
+        (
+            "https://hp.wd5.myworkdayjobs.com/ExternalCareerSite/job/1",
+            "workday",
+            "hp|wd5|externalcareersite",
+        ),
+        ("https://sendcloud.recruitee.com/o/intern", "recruitee", "sendcloud"),
+    ],
+)
+def test_exact_employer_binding_survives_bare_bot_blocks(url, kind, board):
+    observation = {
+        "url_key": url_key(url),
+        "status": "unknown",
+        "http_status": 403,
+        "warnings": ["blocked_403"],
+    }
+    facts = classify_destination_facts(
+        url, ats_type=kind, ats_board_id=board, observation=observation
+    )
+    assert facts["employer_verified"] and facts["status"] == "unknown"
+    assert not classify_destination_facts(
+        url, ats_type=kind, ats_board_id="other", observation=observation
+    )["employer_verified"]
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/competitions/event-1",
+        "/hackathons/event-1",
+        "/quiz/event-1",
+        "/quizzes/event-1",
+        "/",
+        "/competitions/jobs-challenge",
+    ],
+)
+def test_unstop_events_are_hosted_on_a_competition_platform(path):
+    facts = classify_destination_facts("https://unstop.com" + path, "unstop.com", source="unstop")
+    assert facts["type"] == "competition_platform" and facts["platform"] == "Unstop"
+    assert not facts["employer_verified"] and not facts["aggregator_warning"]
+
+
+@pytest.mark.parametrize("path", ["/jobs/role-1", "/internships/role-1", "/jobs", "/internships/"])
+def test_unstop_jobs_remain_aggregator_listings(path):
+    facts = classify_destination_facts("https://unstop.com" + path, source="unstop")
+    assert facts["type"] == "aggregator" and facts["aggregator_warning"]
+    assert not facts["employer_verified"]
+
+
+@pytest.mark.parametrize(
+    "host",
+    ["arbeitnow.com", "arbeitnow.nl", "www.arbeitnow.de", "jobs.arbeitnow.co.uk", "arbeitnow.jobs"],
+)
+def test_arbeitnow_country_and_other_tlds_are_aggregators(host):
+    facts = classify_destination_facts("https://" + host + "/view/1")
+    assert facts["type"] == "aggregator" and facts["via"] == "Arbeitnow"
+    assert facts["aggregator_warning"] and not facts["employer_verified"]
+
+
+@pytest.mark.parametrize(
+    "host",
+    ["arbeitnow.github.io", "arbeitnow.com.evil.com", "notarbeitnow.nl", "arbeitnow.invalid"],
+)
+def test_arbeitnow_tenant_and_suffix_spoofs_remain_unknown(host):
+    assert classify_destination_facts("https://" + host)["type"] == "unknown"
+
+
+@pytest.mark.parametrize(
+    "host",
+    [
+        "alpha.devfolio.co",
+        "beta.devfolio.co",
+        "gamma.devfolio.co",
+        "delta.devfolio.co",
+        "epsilon.devfolio.co",
+        "zeta.devfolio.co",
+        "www.hackerearth.com",
+        "challenges.hackerearth.com",
+        "hackerearth.com",
+    ],
+)
+def test_platform_as_company_never_proves_organiser_origin(host):
+    facts = classify_destination_facts("https://" + host + "/hackathon", company_domain=host)
+    assert facts["type"] == "competition_platform" and not facts["employer_verified"]
+
+
+def test_v1_facts_are_recomputed_once_by_the_existing_backfill():
+    url = "https://wd1.myworkdaysite.com/recruiting/baird/careers/job/1"
+    previous = refresh_destination_facts(url, None, computed_at="old")
+    previous["v"] = 1
+    assert needs_backfill(previous, url)
+    refreshed = refresh_destination_facts(url, previous, computed_at="new")
+    assert refreshed["v"] == DESTINATION_FACTS_VERSION == 2
+    assert not needs_backfill(refreshed, url)
 
 
 @pytest.mark.parametrize(
@@ -215,7 +375,8 @@ def test_observation_invalidated_after_link_change_and_computation_is_stable():
     assert changed["status"] == "unchecked" and changed["checked_at"] is None
     assert changed["computed_at"] == "later"
     assert needs_backfill(None, url) and needs_backfill({}, url)
-    assert not needs_backfill(result, url) and not needs_backfill({"v": 2}, url)
+    assert not needs_backfill(result, url)
+    assert not needs_backfill({"v": DESTINATION_FACTS_VERSION + 1}, url)
 
 
 def test_company_evidence_and_source_changes_are_detected_without_a_url_change():
@@ -235,7 +396,11 @@ def test_stratified_hundred_and_counts_only_eval(capsys):
     ]
     sampled = stratify(rows, 100)
     assert len(sampled) == 100 and len({r["source"] for r in sampled[:20]}) == 20
-    for row, code, status in [(sampled[0], 404, "gone"), (sampled[1], 403, "sign_in_required")]:
+    for row, code, status in [
+        (sampled[0], 404, "gone"),
+        (sampled[1], 401, "sign_in_required"),
+        (sampled[2], 403, "unknown"),
+    ]:
         row["observation"] = {
             "url_key": url_key(row["url"]),
             "http_status": code,
@@ -258,7 +423,8 @@ def test_stratified_hundred_and_counts_only_eval(capsys):
     labels[0]["type"] = "aggregator"
     _, passed = score(sampled, labels)
     assert not passed
-    assert "https" not in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert "https" not in output and "http403_total=1 http403_correct=1" in output
 
 
 def test_sampler_keeps_rare_http_boundary_cases():
@@ -266,7 +432,7 @@ def test_sampler_keeps_rare_http_boundary_cases():
         {"id": i, "source": f"source{i % 20}", "url": f"https://company{i}.com"} for i in range(500)
     ]
     rows[-1]["observation"] = {"http_status": 404, "status": "gone"}
-    rows[-2]["observation"] = {"http_status": 403, "status": "sign_in_required"}
+    rows[-2]["observation"] = {"http_status": 403, "status": "unknown", "warnings": ["blocked_403"]}
     sample = stratify(rows, 100)
     assert {498, 499}.issubset({row["id"] for row in sample})
     assert len(sample) == 100 and len({row["source"] for row in sample}) == 20

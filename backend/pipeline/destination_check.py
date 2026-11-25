@@ -10,12 +10,21 @@ from urllib.parse import parse_qs, urljoin, urlsplit
 
 import httpx
 
-from core.destination_facts import ATS, ats_board, matches, public_host, registrable_domain, url_key
+from core.destination_facts import (
+    ATS,
+    ats_board,
+    board_matches_company,
+    matches,
+    public_host,
+    registrable_domain,
+    url_key,
+)
 
 MAX_REDIRECT_HOPS = 5
 MAX_BODY_BYTES = 65536
 MAX_CHECK_SECONDS = 20
 _LOGIN = re.compile(r"(?:^|/)(?:login|log-in|signin|sign-in|sign_in|auth|sso)(?:[./]|$)", re.I)
+_LOGIN_HOST = re.compile(r"(?:^|\.)(?:login|log-in|signin|sign-in|auth|sso)(?:\.|$)", re.I)
 _PARKED = re.compile(
     r"(?:this domain (?:is |name is )?for sale|buy this domain|domain (?:is )?parked|"
     r"sedoparking\.com|parkingcrew\.net)",
@@ -37,19 +46,13 @@ def public_dns(host: str, port: int) -> bool:
 
 def is_login(url: str, body: str = "") -> bool:
     parts = urlsplit(url)
-    if _LOGIN.search(parts.path):
+    if _LOGIN.search(parts.path) or _LOGIN_HOST.search(parts.hostname or ""):
         return True
-    if re.search(
-        r"(?:sign[- ]?in required|login required|authentication required|"
-        r"(?:must|need to) (?:sign|log) in|please (?:sign|log) in to (?:view|access|continue|apply))",
-        body,
-        re.I,
-    ):
-        return True
-    # Requiring both avoids treating an ordinary page's navigation sign-in as a wall.
-    return bool(
-        re.search(r"type\s*=\s*['\"]?password", body, re.I)
-        and re.search(r"(?:sign in|log in|login)", body, re.I)
+    # Login navigation or isolated sign-in wording is not an authentication wall.
+    return any(
+        re.search(r"<(?:input|button)\b", form, re.I)
+        and re.search(r"\b(?:sign[- ]?in|log[- ]?in|login)\b", form, re.I)
+        for form in re.findall(r"<form\b[^>]*>.*?</form\s*>", body, re.I | re.S)
     )
 
 
@@ -132,8 +135,26 @@ def inspect_destination(
             result["hops"].append(
                 {"host": host, "domain": registrable_domain(host), "status": code}
             )
-            if code in {401, 403}:
+            if code == 401:
                 result.update(status="sign_in_required")
+                return result
+            if code in {403, 429}:
+                # These responses often mean bot protection/rate limiting, not auth.
+                # Some sites include an authentication Location even on a 403.
+                location = response.headers.get("location")
+                target = urljoin(current, location) if location else None
+                target_host = public_host(target) if target else None
+                if target_host and is_login(target):
+                    result.update(
+                        terminal_host=target_host, terminal_domain=registrable_domain(target_host)
+                    )
+                    result.update(status="sign_in_required")
+                    result["warnings"].append("login_wall")
+                elif is_login(current, body):
+                    result.update(status="sign_in_required")
+                    result["warnings"].append("login_wall")
+                else:
+                    result["warnings"].append(f"blocked_{code}")
                 return result
             if code in {404, 410}:
                 result.update(status="gone")
@@ -160,7 +181,9 @@ def inspect_destination(
                 # Compare board identities on shared ATS domains, not just their eTLD+1.
                 board, target_board = ats_board(current), ats_board(target)
                 same_board = bool(board and board == target_board)
-                tied_board = bool(allowed_board and allowed_board == target_board)
+                tied_board = bool(
+                    allowed_board and board_matches_company(target_board, *allowed_board)
+                )
                 greenhouse_soft_404 = bool(
                     host
                     in {

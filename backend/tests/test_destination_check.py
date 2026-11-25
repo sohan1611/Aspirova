@@ -21,7 +21,7 @@ def inspect(respond, url="https://careers.example.com/job", **kwargs):
         (404, "gone", "closed"),
         (410, "gone", "closed"),
         (401, "sign_in_required", "inconclusive"),
-        (403, "sign_in_required", "inconclusive"),
+        (403, "unknown", "inconclusive"),
         (429, "unknown", "inconclusive"),
         (500, "unknown", "inconclusive"),
         (503, "unknown", "inconclusive"),
@@ -30,6 +30,46 @@ def inspect(respond, url="https://careers.example.com/job", **kwargs):
 def test_status_handling(code, status, liveness):
     result = inspect(lambda _: httpx.Response(code))
     assert result["status"] == status and observation_liveness(result) == liveness
+    if code in {403, 429}:
+        assert result["warnings"] == [f"blocked_{code}"]
+
+
+@pytest.mark.parametrize(
+    "url", ["https://himalayas.app/companies/acme/jobs/intern", "https://careers.example.com/job"]
+)
+def test_bot_protection_403_is_unknown_without_auth_evidence(url):
+    body = "<title>Access denied</title><p>Request blocked by bot protection.</p><nav>Sign in</nav>"
+    result = inspect(lambda _: httpx.Response(403, text=body), url)
+    assert result["status"] == "unknown" and result["warnings"] == ["blocked_403"]
+    assert observation_liveness(result) == "inconclusive"
+    isolated_copy = inspect(
+        lambda _: httpx.Response(403, text="Please sign in to view this posting"), url
+    )
+    assert isolated_copy["status"] == "unknown" and isolated_copy["warnings"] == ["blocked_403"]
+
+
+@pytest.mark.parametrize("code", [302, 403])
+def test_redirect_to_login_host_is_auth_evidence(code):
+    result = inspect(
+        lambda _: httpx.Response(code, headers={"location": "https://login.example.com/"})
+    )
+    assert result["status"] == "sign_in_required" and result["warnings"] == ["login_wall"]
+    assert result["terminal_host"] == "login.example.com"
+    assert observation_liveness(result) == "inconclusive"
+
+
+@pytest.mark.parametrize(
+    "url,body",
+    [
+        ("https://example.com/login", ""),
+        ("https://auth.example.com/", ""),
+        ("https://example.com/job", "<form>Sign in<input type='password'></form>"),
+    ],
+)
+def test_403_requires_a_login_terminal_url_or_form(url, body):
+    result = inspect(lambda _: httpx.Response(403, text=body), url)
+    assert result["status"] == "sign_in_required" and result["warnings"] == ["login_wall"]
+    assert observation_liveness(result) == "inconclusive"
 
 
 def test_same_site_chain_upgrade_and_ats_host_hop():
@@ -106,6 +146,23 @@ def test_company_tied_ats_hop_is_permitted():
     assert inspect(respond, allowed_board=("lever", "acme"))["status"] == "alive"
 
 
+@pytest.mark.parametrize("cluster,expected", [("wd5", "alive"), ("wd1", "unknown")])
+def test_workday_redirects_require_the_same_normalized_board(cluster, expected):
+    def respond(request):
+        if request.url.host.endswith(".myworkdayjobs.com"):
+            return httpx.Response(
+                302,
+                headers={
+                    "location": f"https://{cluster}.myworkdaysite.com/recruiting/hp/externalcareersite/job/1"
+                },
+            )
+        return httpx.Response(200)
+
+    result = inspect(respond, "https://hp.wd5.myworkdayjobs.com/en-US/ExternalCareerSite/job/1")
+    assert result["status"] == expected
+    assert ("redirect_unrelated" in result["warnings"]) is (expected == "unknown")
+
+
 @pytest.mark.parametrize("location", ["/login?next=/job", "https://accounts.other.com/signin"])
 def test_redirect_to_login_is_auth_not_closed(location):
     result = inspect(lambda _: httpx.Response(302, headers={"location": location}))
@@ -135,7 +192,11 @@ def test_html_login_parked_timeout_and_redirect_budget():
 
 
 def test_passwordless_login_wall_is_not_alive_or_closed():
-    result = inspect(lambda _: httpx.Response(200, text="Please sign in to view this posting"))
+    result = inspect(
+        lambda _: httpx.Response(
+            200, text="<form><input type='email'><button>Sign in</button></form>"
+        )
+    )
     assert result["status"] == "sign_in_required"
 
 

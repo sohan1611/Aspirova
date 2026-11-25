@@ -179,7 +179,7 @@ def test_loaded_company_edits_override_cached_evidence_in_the_same_transaction(e
         (404, "gone", True),
         (410, "gone", True),
         (401, "sign_in_required", False),
-        (403, "sign_in_required", False),
+        (403, "unknown", False),
         (503, "unknown", False),
     ],
 )
