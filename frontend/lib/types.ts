@@ -51,6 +51,7 @@ export interface EligibilityFacts {
 }
 
 export interface OpportunityListItem {
+  destination_facts?: DestinationFacts | null;
   eligibility?: EligibilityFacts | null;
   role_level?: RoleLevel;
   status?: string;
@@ -185,6 +186,24 @@ export interface ApplyDestination {
   kind: "company" | "ats" | "job_board" | "event_platform" | "unverified";
   host: string | null;
   label: string | null;
+}
+
+export interface DestinationFacts {
+  v: number;
+  valid: boolean;
+  host: string | null;
+  domain: string | null;
+  type: "employer_ats" | "employer_site" | "aggregator" | "government" | "academic" | "competition_platform" | "unknown";
+  employer_verified: boolean;
+  aggregator_warning: boolean;
+  via: string | null;
+  platform?: string | null;
+  status: string;
+  warnings: string[];
+  terminal_host?: string | null;
+  terminal_domain?: string | null;
+  checked_at?: string | null;
+  computed_at?: string | null;
 }
 
 export interface ListingCorrection {

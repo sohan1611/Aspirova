@@ -75,6 +75,7 @@ class OpportunityListItem(BaseModel):
     safety: ListingSafety | None = None
     status: str = "active"
     eligibility: dict | None = None
+    destination_facts: dict | None = None
     role_level: RoleLevelSchema
 
     @field_validator("location")
@@ -117,6 +118,7 @@ class OpportunityListItem(BaseModel):
             safety=safety_flag(o),
             status=o.status or "active",
             eligibility=o.eligibility_facts,
+            destination_facts=o.destination_facts,
             role_level=RoleLevelSchema.model_validate(
                 classify_role_level(o.title, o.category, o.meta, o.slug)
             ),
@@ -467,6 +469,7 @@ class OpportunityDetail(OpportunityListItem):
             safety=safety_flag(o),
             status=o.status or "active",
             eligibility=o.eligibility_facts,
+            destination_facts=o.destination_facts,
             role_level=RoleLevelSchema.model_validate(
                 classify_role_level(o.title, o.category, o.meta, o.slug)
             ),

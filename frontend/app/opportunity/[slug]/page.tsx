@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { addCacheTag } from "@vercel/functions";
 import { cache } from "react";
 import ApplyLink from "@/components/ApplyLink";
+import DestinationLabel from "@/components/DestinationLabel";
 import AddToCalendar from "@/components/AddToCalendar";
 import BookmarkButton from "@/components/BookmarkButton";
 import CompanyFavicon from "@/components/CompanyFavicon";
@@ -24,7 +25,7 @@ import SimilarOpportunitiesList from "@/components/SimilarOpportunitiesList";
 import { splitDescriptionSections } from "@/lib/descriptionSections";
 import { getOpportunity, getSimilarOpportunities } from "@/lib/api";
 import { formatDate } from "@/lib/date";
-import { describeApply, describeVerification } from "@/lib/applyDestination";
+import { describeApply, describeVerification, destinationFacts } from "@/lib/applyDestination";
 import {
   competitionMode,
   eligibilityText,
@@ -164,8 +165,8 @@ export default async function OpportunityPage({ params }: PageProps) {
     ? estimatedClosedDeadlineLabel(opportunity.category)
     : closedDeadlineLabel(opportunity.category);
   const staleStatusLabel = estimatedClosedDeadlineLabel(opportunity.category);
-  const apply = describeApply(opportunity.destination, opportunity.company?.name);
-  const verification = describeVerification(opportunity.destination, opportunity.company?.name);
+  const apply = describeApply(opportunity.destination, opportunity.company?.name, destinationFacts(opportunity.destination_facts));
+  const verification = describeVerification(opportunity.destination, opportunity.company?.name, destinationFacts(opportunity.destination_facts));
   const verifyLabel = verification.buttonLabel;
   const closedCaption = opportunity.closed_at
     ? `The source listing appears to be closed. ${verification.closedCaption}`
@@ -344,6 +345,7 @@ export default async function OpportunityPage({ params }: PageProps) {
                   <ShareButton slug={opportunity.slug} title={opportunity.title} />
                   {opportunity.company?.slug && <div className="min-w-0 max-w-full [&>div]:mt-0 sm:ml-auto"><FollowCompanyButton slug={opportunity.company.slug} companyName={opportunity.company.name} /></div>}
                 </div>
+                <DestinationLabel facts={opportunity.destination_facts} destination={opportunity.destination} />
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                   <p className="max-w-lg text-xs leading-5 text-muted-foreground">{withdrawn ? "Review the safety warning above before taking any action." : closed ? closedCaption : stale ? verification.caption : apply.caption}</p>
                   <ReportIssueDialog opportunitySlug={opportunity.slug} />

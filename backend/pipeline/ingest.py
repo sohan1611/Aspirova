@@ -475,6 +475,7 @@ def ingest_one(
     """
 
     def mark_seen(opportunity: models.Opportunity) -> None:
+        models.refresh_destination_for_opportunity(session.connection(), opportunity)
         if seen_opportunity_ids is not None and opportunity.id is not None:
             seen_opportunity_ids.add(opportunity.id)
         else:

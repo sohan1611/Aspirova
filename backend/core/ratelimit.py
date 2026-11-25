@@ -14,6 +14,7 @@ logged and allows the request rather than producing a 429 or 500.
 
 import asyncio
 import logging
+import math
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -173,8 +174,17 @@ def _check_memory_rate_limit(
             return RateLimitResult(allowed=True)
         return RateLimitResult(
             allowed=False,
-            retry_after_seconds=max(0, round(window_end - now)),
+            retry_after_seconds=_retry_after(window_end - now),
         )
+
+
+def _retry_after(seconds_left: float) -> int:
+    """A blocked request is always told to wait at least one second.
+
+    round() turned the last half-second of a window into "Retry-After: 0",
+    which tells clients to retry immediately and be blocked again.
+    """
+    return max(1, math.ceil(seconds_left))
 
 
 def _reset_memory_rate_limit_state() -> None:
@@ -212,7 +222,7 @@ async def _check_redis_rate_limit(
         prefix=f"aspirova:rl:{bucket}",
     )
     result = await asyncio.wait_for(limiter.limit(identifier), timeout=_CALL_TIMEOUT_SECONDS)
-    retry_after = max(0, round(result.reset - time.time())) if not result.allowed else 0
+    retry_after = _retry_after(result.reset - time.time()) if not result.allowed else 0
     return RateLimitResult(allowed=result.allowed, retry_after_seconds=retry_after)
 
 

@@ -14,6 +14,18 @@ from pipeline.liveness import _classify_status_code, check_listing_liveness
 from pipeline.liveness import _select_candidates, fetch_url_liveness_status
 
 
+@pytest.fixture(autouse=True)
+def public_dns(monkeypatch):
+    from pipeline import liveness
+
+    original = liveness.inspect_destination
+    monkeypatch.setattr(
+        liveness,
+        "inspect_destination",
+        lambda *args, **kwargs: original(*args, resolve=lambda *_: True, **kwargs),
+    )
+
+
 @pytest.fixture
 def db_session(engine):
     connection = engine.connect()
@@ -200,20 +212,20 @@ def test_liveness_status_code_classification_is_conservative() -> None:
     [
         ("job-boards.greenhouse.io", "error=true", "closed"),
         ("boards.greenhouse.io", "foo=bar&error=true", "closed"),
-        ("job-boards.greenhouse.io", "error=false", "alive"),
-        ("job-boards.greenhouse.io", "", "alive"),
+        ("job-boards.greenhouse.io", "error=false", "inconclusive"),
+        ("job-boards.greenhouse.io", "", "inconclusive"),
         ("job-boards.greenhouse.io.evil.example", "error=true", "alive"),
         ("example.com", "error=true", "alive"),
     ],
 )
 def test_greenhouse_soft_404_after_redirect(host, query, expected):
     def respond(request):
-        if request.url.host == "original.example":
+        if request.url.path == "/jobs/1":
             return httpx.Response(302, headers={"location": f"https://{host}/webflow?{query}"})
         return httpx.Response(200, text="board page")
 
     with httpx.Client(transport=httpx.MockTransport(respond), follow_redirects=True) as client:
-        assert fetch_url_liveness_status("https://original.example/jobs/1", client) == expected
+        assert fetch_url_liveness_status(f"https://{host}/jobs/1", client) == expected
 
 
 def test_liveness_rotates_every_outcome_without_clobbering_meta(db_session):

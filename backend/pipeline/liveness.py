@@ -2,7 +2,7 @@
 
 This covers the small slice of listings that cannot be refreshed by deadline
 logic and have not been confirmed by a real crawl in the last four days. Only
-404/410 responses, confirmed Greenhouse soft-404s and controlled Workday 403s
+404/410 responses and confirmed Greenhouse soft-404s
 mark a listing closed.
 Every completed check rotates out of the queue for three days.
 """
@@ -14,10 +14,23 @@ from datetime import datetime, timezone
 from threading import Lock
 from time import monotonic, sleep
 from typing import Any, Literal
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import urlsplit
 
 import httpx
-from sqlalchemy import DateTime, cast, func, or_, select, text, update
+from sqlalchemy import (
+    BigInteger,
+    DateTime,
+    cast,
+    column,
+    func,
+    or_,
+    select,
+    text,
+    tuple_,
+    update,
+    values,
+)
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session
 
 from core import models
@@ -25,6 +38,8 @@ from core.listing_safety import without_manual_override, without_safety_flag
 from crawlers.common import USER_AGENT, request_with_retries
 from crawlers.workday import REQUEST_DELAY_SECONDS, cxs_endpoints, tenant_lock
 from pipeline.retirement import ROLLING_WINDOW_SOURCES
+from pipeline.destination_check import inspect_destination, observation_liveness
+from core.destination_facts import classify_destination_facts, destination_input_key
 
 DEFAULT_LIMIT = 1500
 DEFAULT_MAX_SECONDS = 600
@@ -39,6 +54,8 @@ LivenessStatus = Literal["alive", "closed", "inconclusive"]
 class LivenessCandidate:
     id: int
     apply_url: str
+    ats_type: str | None = None
+    ats_board_id: str | None = None
 
 
 @dataclass
@@ -75,11 +92,7 @@ def _classify_status_code(status_code: int) -> LivenessStatus:
 
 
 class WorkdayLivenessChecker:
-    """Share tenant/site search controls across all workers and batches in a run."""
-
-    def __init__(self) -> None:
-        self._controls: dict[str, bool] = {}
-        self._control_lock = Lock()
+    """Check the posting API while retaining the crawler's tenant pacing."""
 
     def _request(
         self, client: httpx.Client, method: str, url: str, **kwargs: Any
@@ -95,36 +108,39 @@ class WorkdayLivenessChecker:
         with tenant_lock(base):
             return request_with_retries(once, max_retries=1, sleeper=sleep).response
 
-    def check(self, url: str, client: httpx.Client) -> LivenessStatus:
+    def observe(self, url: str, client: httpx.Client) -> dict:
         endpoints = cxs_endpoints(url)
         if endpoints is None:
-            return "inconclusive"
-        search_url, detail_url = endpoints
-        response = self._request(client, "GET", detail_url)
-        if response is None:
-            return "inconclusive"
-        if response.status_code in {404, 410}:
-            return "closed"
-        if response.status_code == 200:
-            return "alive"
-        if response.status_code != 403:
-            return "inconclusive"
-        with self._control_lock:
-            if search_url not in self._controls:
-                control = self._request(
-                    client,
-                    "POST",
-                    search_url,
-                    json={
-                        "appliedFacets": {},
-                        "limit": 1,
-                        "offset": 0,
-                        "searchText": "intern",
-                    },
-                )
-                self._controls[search_url] = control is not None and control.status_code == 200
-            available = self._controls[search_url]
-        return "closed" if available else "inconclusive"
+            from core.destination_facts import url_key
+
+            return {"url_key": url_key(url), "status": "unknown", "warnings": []}
+        # A Workday SPA can return 200 for a missing job; retain the CXS detail check.
+        # TRUST-01 supersedes controlled-403 closure: an auth response is never absence.
+        return inspect_destination(
+            url,
+            client,
+            request_url=endpoints[1],
+            request=lambda target: self._request(client, "GET", target),
+        )
+
+    def check(self, url: str, client: httpx.Client) -> LivenessStatus:
+        return observation_liveness(self.observe(url, client))
+
+
+def fetch_destination_observation(
+    url: str,
+    client: httpx.Client,
+    *,
+    workday_checker: WorkdayLivenessChecker | None = None,
+    allowed_board: tuple[str, str] | None = None,
+) -> dict:
+    try:
+        host = urlsplit(url).hostname or ""
+    except ValueError:
+        host = ""
+    if host.endswith(".myworkdayjobs.com"):
+        return (workday_checker or WorkdayLivenessChecker()).observe(url, client)
+    return inspect_destination(url, client, allowed_board=allowed_board)
 
 
 def fetch_url_liveness_status(
@@ -133,30 +149,13 @@ def fetch_url_liveness_status(
     *,
     workday_checker: WorkdayLivenessChecker | None = None,
 ) -> LivenessStatus:
-    try:
-        host = urlsplit(url).hostname or ""
-    except ValueError:
-        return "inconclusive"
-    if host.endswith(".myworkdayjobs.com"):
-        return (workday_checker or WorkdayLivenessChecker()).check(url, client)
-    try:
-        response = client.get(url)
-    except httpx.RequestError:
-        return "inconclusive"
-    final_url = urlsplit(str(response.url))
-    if (
-        200 <= response.status_code < 400
-        and final_url.hostname
-        in {
-            "boards.greenhouse.io",
-            "job-boards.greenhouse.io",
-            "boards.eu.greenhouse.io",
-            "job-boards.eu.greenhouse.io",
-        }
-        and "true" in parse_qs(final_url.query).get("error", [])
-    ):
-        return "closed"
-    return classify_liveness_status_code(response.status_code)
+    return observation_liveness(
+        fetch_destination_observation(
+            url,
+            client,
+            workday_checker=workday_checker,
+        )
+    )
 
 
 def _fetch_liveness_status(apply_url: str, client: httpx.Client) -> LivenessStatus:
@@ -166,7 +165,13 @@ def _fetch_liveness_status(apply_url: str, client: httpx.Client) -> LivenessStat
 def _select_candidates(session: Session, *, limit: int) -> list[LivenessCandidate]:
     checked_at = models.Opportunity.meta["liveness_checked_at"].astext
     rows = session.execute(
-        select(models.Opportunity.id, models.Opportunity.apply_url)
+        select(
+            models.Opportunity.id,
+            models.Opportunity.apply_url,
+            models.Company.ats_type,
+            models.Company.ats_board_id,
+        )
+        .outerjoin(models.Company, models.Opportunity.company_id == models.Company.id)
         .where(
             models.Opportunity.status == "active",
             without_safety_flag(),
@@ -190,7 +195,12 @@ def _select_candidates(session: Session, *, limit: int) -> list[LivenessCandidat
         )
         .limit(limit)
     ).all()
-    return [LivenessCandidate(id=row.id, apply_url=row.apply_url) for row in rows]
+    return [
+        LivenessCandidate(
+            id=row.id, apply_url=row.apply_url, ats_type=row.ats_type, ats_board_id=row.ats_board_id
+        )
+        for row in rows
+    ]
 
 
 def _check_candidates(
@@ -230,13 +240,26 @@ def _check_candidates(
     return results
 
 
-def _mark_closed(session: Session, *, opportunity_ids: list[int], detected_at: datetime) -> int:
+def _mark_closed(
+    session: Session,
+    *,
+    opportunity_ids: list[int],
+    detected_at: datetime,
+    expected_urls: dict[int, str] | None = None,
+) -> int:
     if not opportunity_ids:
         return 0
     result = session.execute(
         update(models.Opportunity)
         .where(
             models.Opportunity.id.in_(opportunity_ids),
+            (
+                tuple_(models.Opportunity.id, models.Opportunity.apply_url).in_(
+                    list(expected_urls.items())
+                )
+                if expected_urls is not None
+                else True
+            ),
             models.Opportunity.status == "active",
             without_safety_flag(),
             without_manual_override(),
@@ -273,6 +296,75 @@ def _stamp_checked(session: Session, opportunity_ids: list[int], detected_at: da
     )
 
 
+def _store_observations(
+    session: Session,
+    checks: list[tuple[LivenessCandidate, LivenessStatus]],
+    observations: dict[str, dict],
+    checked_at: datetime,
+) -> None:
+    candidates = [
+        (candidate.id, candidate.apply_url)
+        for candidate, _ in checks
+        if candidate.apply_url in observations
+    ]
+    if not candidates:
+        return
+    rows = session.execute(
+        select(
+            models.Opportunity.id,
+            models.Opportunity.apply_url,
+            models.Opportunity.primary_source,
+            models.Opportunity.company_id,
+            models.Opportunity.destination_facts,
+            models.Company.domain,
+            models.Company.ats_type,
+            models.Company.ats_board_id,
+        )
+        .outerjoin(models.Company, models.Opportunity.company_id == models.Company.id)
+        .where(
+            tuple_(models.Opportunity.id, models.Opportunity.apply_url).in_(candidates),
+            models.Opportunity.status == "active",
+            without_safety_flag(),
+            without_manual_override(),
+        )
+        .with_for_update(of=models.Opportunity)
+    ).all()
+    updates = []
+    for row in rows:
+        context = dict(
+            source=row.primary_source,
+            company_id=row.company_id,
+            company_domain=row.domain,
+            ats_type=row.ats_type,
+            ats_board_id=row.ats_board_id,
+        )
+        previous = row.destination_facts if isinstance(row.destination_facts, dict) else {}
+        computed_at = (
+            previous.get("computed_at")
+            if previous.get("input_key") == destination_input_key(row.apply_url, **context)
+            else None
+        )
+        facts = classify_destination_facts(
+            row.apply_url,
+            **context,
+            computed_at=computed_at or checked_at.isoformat(),
+            observation=observations[row.apply_url],
+        )
+        updates.append((row.id, facts))
+    if updates:
+        parsed = values(
+            column("id", BigInteger), column("facts", JSONB), name="destination_updates"
+        ).data(updates)
+        # One locked read and one write per batch, not per listing. Core bypasses
+        # ORM hooks; neither statement changes the opportunity's metadata.
+        session.execute(
+            update(models.Opportunity)
+            .where(models.Opportunity.id == parsed.c.id)
+            .values(destination_facts=parsed.c.facts)
+            .execution_options(synchronize_session=False)
+        )
+
+
 def check_listing_liveness(
     session: Session,
     *,
@@ -297,7 +389,11 @@ def check_listing_liveness(
 
     detected_at = now or datetime.now(timezone.utc)
     started_at = monotonic()
-    candidates = _select_candidates(session, limit=limit)
+    # Freeze every value before a commit can expire ORM state supplied by a caller.
+    candidates = [
+        LivenessCandidate(row.id, row.apply_url, row.ats_type, row.ats_board_id)
+        for row in _select_candidates(session, limit=limit)
+    ]
     result = LivenessResult()
     workday_checker = WorkdayLivenessChecker()
 
@@ -309,6 +405,16 @@ def check_listing_liveness(
         ):
             result.timed_out = True
             break
+
+        # Gather all batch context before committing. Between commit and completion
+        # of the HTTP workers, only these plain values may be read.
+        observations: dict[str, dict] = {}
+        observation_lock = Lock()
+        boards = {
+            candidate.apply_url: (candidate.ats_type, candidate.ats_board_id)
+            for candidate in batch
+            if candidate.ats_type and candidate.ats_board_id
+        }
 
         # Nothing may hold a database transaction open across the network
         # checks. Selecting candidates (and the script's SET) starts a
@@ -322,6 +428,14 @@ def check_listing_liveness(
         if apply and commit_each_batch:
             session.commit()
 
+        def observe(url: str) -> LivenessStatus:
+            observation = fetch_destination_observation(
+                url, client, workday_checker=workday_checker, allowed_board=boards.get(url)
+            )
+            with observation_lock:
+                observations[url] = observation
+            return observation_liveness(observation)
+
         if checker is None:
             with httpx.Client(
                 headers={"User-Agent": USER_AGENT},
@@ -330,9 +444,7 @@ def check_listing_liveness(
             ) as client:
                 checks = _check_candidates(
                     batch,
-                    checker=lambda url: fetch_url_liveness_status(
-                        url, client, workday_checker=workday_checker
-                    ),
+                    checker=observe,
                     concurrency=concurrency,
                 )
         else:
@@ -350,10 +462,12 @@ def check_listing_liveness(
 
         if apply:
             _stamp_checked(session, [candidate.id for candidate, _ in checks], detected_at)
+            _store_observations(session, checks, observations, detected_at)
             result.closed += _mark_closed(
                 session,
                 opportunity_ids=closed_ids,
                 detected_at=detected_at,
+                expected_urls={candidate.id: candidate.apply_url for candidate, _ in checks},
             )
             if checks and commit_each_batch:
                 session.commit()

@@ -8,7 +8,7 @@ from typing import Iterable, Literal, Protocol
 
 from pydantic import BaseModel, model_validator
 
-from core.domains import http_url
+from core.destination_facts import public_host
 
 
 class RawListing(BaseModel):
@@ -52,7 +52,7 @@ class NormalizedListing(BaseModel):
         listing is still ingested, so no crawl batch is rolled back and a
         full-inventory source does not read the listing as absent.
         """
-        if http_url(self.apply_url) is None and http_url(self.source_url) is not None:
+        if public_host(self.apply_url) is None and public_host(self.source_url) is not None:
             self.apply_url = self.source_url
         return self
 

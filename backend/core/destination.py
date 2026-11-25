@@ -2,9 +2,7 @@
 
 import re
 from dataclasses import dataclass
-from ipaddress import ip_address
 from typing import Literal
-from urllib.parse import urlsplit
 
 DestinationKind = Literal["company", "job_board", "event_platform", "ats", "unverified"]
 
@@ -23,32 +21,9 @@ class ApplyDestination:
 
 
 def _host(value: str | None, *, domain: bool = False) -> str | None:
-    if not value or re.search(r"[\s\\]", value):
-        return None
-    try:
-        parsed = urlsplit(value if not domain or "://" in value else f"https://{value}")
-        if parsed.scheme.lower() not in {"http", "https"}:
-            return None
-        host = parsed.hostname
-        parsed.port  # Reject malformed ports as well as malformed hosts.
-    except ValueError:
-        return None
-    if not host:
-        return None
-    host = host.lower().removeprefix("www.")
-    try:
-        ascii_host = host.encode("idna").decode("ascii")
-    except UnicodeError:
-        return None
-    if not re.fullmatch(
-        r"([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)*[a-z0-9]([a-z0-9-]*[a-z0-9])?",
-        ascii_host,
-    ):
-        try:
-            ip_address(host)
-        except ValueError:
-            return None
-    return host
+    from core.destination_facts import public_host
+
+    return public_host(value if not domain or "://" in (value or "") else f"https://{value}")
 
 
 def _matches(host: str, domain: str) -> bool:
