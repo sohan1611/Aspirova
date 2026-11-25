@@ -5,10 +5,11 @@ import { HOME_CATEGORIES } from "@/lib/home";
 import type { CalendarItem } from "@/lib/hiringCalendar";
 import type { OpportunityListItem } from "@/lib/types";
 
-export default function SignedOutHero({ closing = null, calendar = null, asOf }: {
+export default function SignedOutHero({ closing = null, calendar = null, asOf, loading = false }: {
   closing?: OpportunityListItem[] | null;
   calendar?: CalendarItem[] | null;
   asOf: number;
+  loading?: boolean;
 }) {
   return (
     <SignedOutHeroVisibility>
@@ -40,7 +41,7 @@ export default function SignedOutHero({ closing = null, calendar = null, asOf }:
             </p>
             <a href="#feed-search" className="mt-1 inline-flex min-h-11 items-center text-sm font-medium text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Browse below ↓</a>
           </div>
-          <HomePreviews closing={closing} calendar={calendar} asOf={asOf} />
+          <HomePreviews closing={closing} calendar={calendar} asOf={asOf} loading={loading} />
         </div>
       </section>
     </SignedOutHeroVisibility>

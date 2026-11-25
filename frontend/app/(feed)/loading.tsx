@@ -15,7 +15,8 @@ export default function Loading() {
 
       <BrandLoading />
 
-      <SignedOutHero asOf={0} />
+      {/* The route fallback has pending reads; show the hero's loading state. */}
+      <SignedOutHero asOf={0} loading />
 
       <div className="mb-6 scroll-mt-20 pt-10" aria-hidden="true">
         <div className="flex flex-col gap-3">

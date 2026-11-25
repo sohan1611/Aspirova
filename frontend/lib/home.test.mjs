@@ -3,6 +3,7 @@ import { test } from "node:test";
 import fs from "node:fs";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { PHASE_PRODUCTION_BUILD } from "next/constants.js";
 import { testModuleLoader } from "../scripts/test-module.mjs";
 
 const component = fn => ({ __esModule: true, default: fn });
@@ -65,6 +66,75 @@ test("server-rendered hero explains sources and verification without requiring s
   assert.doesNotMatch(html, /aria-live|role="status"|Create a free account/);
   assert.ok(html.indexOf("hero-search") < html.indexOf("home-closing-title"));
 });
+
+test("the home loading boundary shows pending previews rather than failed reads", () => {
+  const Loading = load("app/(feed)/loading.tsx").default;
+  const html = renderToStaticMarkup(React.createElement(Loading));
+  assert.match(html, /aria-busy="true"/);
+  assert.match(html, /Loading closing deadlines/);
+  assert.match(html, /Loading calendar preview/);
+  assert.doesNotMatch(html, /temporarily unavailable|No upcoming explicit deadlines|No dated windows/);
+});
+
+for (const data of [null, []]) {
+  test(`settled previews retain their ${data === null ? "failed" : "empty"} state`, () => {
+    const html = renderToStaticMarkup(React.createElement(Preview, { closing: data, calendar: data, asOf: now }));
+    if (data === null) {
+      assert.match(html, /Closing deadlines are temporarily unavailable/);
+      assert.match(html, /Calendar preview is temporarily unavailable/);
+    } else {
+      assert.match(html, /No upcoming explicit deadlines right now/);
+      assert.match(html, /No dated windows in the next 12 months/);
+      assert.doesNotMatch(html, /temporarily unavailable/);
+    }
+    assert.doesNotMatch(html, /Loading closing deadlines|Loading calendar preview/);
+  });
+}
+
+for (const env of [
+  { NEXT_PHASE: PHASE_PRODUCTION_BUILD, VERCEL: "1" },
+  { NEXT_PHASE: "phase-production-server", VERCEL: "1" },
+]) {
+  test(`successful home HTTP reads render both previews: ${env.NEXT_PHASE}`, async () => {
+    const hidden = component(() => null);
+    const reads = [];
+    let previewProps;
+    const pageLoad = testModuleLoader({
+      ...overrides,
+      ...Object.fromEntries([
+        "HomeDesk", "StatsBar", "RecentlyViewed", "FeedResults", "MostViewed", "TopCompanies", "FeedGrid",
+      ].map(name => ["@/components/" + name, hidden])),
+      "@/components/SignedOutHero": component(props => {
+        previewProps = props;
+        return React.createElement(Hero, props);
+      }),
+      "@/components/FeedNavigation": { FeedNavigationProvider: ({ children }) => children },
+    }, {
+      process: { env: { ...env, NEXT_PUBLIC_API_URL: "http://127.0.0.1:9999" } },
+      Date: class extends Date {
+        constructor(...args) { super(...(args.length ? args : [now])); }
+        static now() { return now; }
+      },
+      async fetch(url, options) {
+        const path = new URL(url).pathname;
+        reads.push({ path, signal: options.signal });
+        const body = path === "/calendar"
+          ? { items: [window("Successful calendar preview", "official", "2027-01-01T00:00:00Z")], rolling: [] }
+          : path === "/stats" ? { opportunities: 1 }
+          : { items: [role("successful-closing-preview")], total: 1, open_total: 1 };
+        return new Response(JSON.stringify(body), { status: 200 });
+      },
+    });
+    const html = renderToStaticMarkup(await pageLoad("app/(feed)/page.tsx").default());
+    assert.equal(previewProps.closing.length, 1);
+    assert.equal(previewProps.calendar.length, 1);
+    assert.match(html, /Role successful-closing-preview/);
+    assert.match(html, /Successful calendar preview/);
+    assert.doesNotMatch(html, /temporarily unavailable|Loading closing deadlines|Loading calendar preview/);
+    assert.equal(reads.length, 5);
+    assert.ok(reads.every(read => read.signal instanceof AbortSignal && !read.signal.aborted));
+  });
+}
 
 test("closing rail filters before capping and orders explicit open deadlines", () => {
   const accepted = Array.from({ length: 8 }, (_, index) => role(`open-${index}`, { deadline: `2027-01-${String(index + 1).padStart(2, "0")}T00:00:00Z` }));
