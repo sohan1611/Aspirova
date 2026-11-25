@@ -1124,7 +1124,7 @@ def crawl_company_board(
             if claimed:
                 # Keep renames through any later listing-batch rollback.
                 session.commit()
-                print(f"    {activity} claimed {claimed} legacy external ids", flush=True)
+                _emit(f"    {activity} claimed {claimed} legacy external ids")
 
         # Commit every BATCH_SIZE listings, not once per company (the
         # original bug) and not once per listing (the first fix). Per-
