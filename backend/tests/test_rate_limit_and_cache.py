@@ -980,3 +980,14 @@ def test_l2_error_cooldown_and_opening_log(
     assert cache_module.l2_circuit_open()
     clock["now"] += 1
     assert not cache_module.l2_circuit_open()
+
+
+def test_blocked_request_never_gets_retry_after_zero():
+    """The last half-second of a window used to round to "Retry-After: 0"."""
+    from core.ratelimit import _retry_after
+
+    assert _retry_after(0.4) == 1
+    assert _retry_after(0.0) == 1
+    assert _retry_after(-2.0) == 1
+    assert _retry_after(1.2) == 2
+    assert _retry_after(59.0) == 59
