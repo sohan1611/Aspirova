@@ -1426,7 +1426,9 @@ def test_run_tier_ats_crawls_stalest_boards_first(monkeypatch) -> None:
     crawl_order: list[str] = []
     _run_tier_ats_scaffold(monkeypatch, companies, states, crawl_order)
 
-    runner.run_tier(1, group="ats", ats_max_seconds=10_000.0)  # big budget: all run
+    # Execution order is deterministic only on the inline path; parallel
+    # submission order is covered by test_ats_parallel_ingest.py.
+    runner.run_tier(1, group="ats", ats_max_seconds=10_000.0, ats_ingest_workers=1)
 
     # never-crawled first, then oldest, then freshest.
     assert crawl_order == ["never", "old", "fresh"]

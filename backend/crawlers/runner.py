@@ -4,21 +4,17 @@ board never aborts the batch) and change detection (Doc 04 sec 6) gating
 the expensive parse/dedup work. Invoked by GitHub Actions cron, NEVER by
 the API process (Doc 02 sec 3.3 hard rule).
 
-Deliberate Phase-1 simplification: iterates sources/companies directly
-rather than claiming work via the crawl_jobs SKIP LOCKED queue. That queue
-exists to let multiple parallel matrix runners claim disjoint work once
-there are enough sources/companies to need parallelism (Doc 04 sec 4) - at
-12 companies and one adapter, a single sequential pass finishes in well
-under a minute, so building the parallel-claim path now would be scaling
-for anticipated load rather than measured load (Doc 02 sec 5, Doc 08
-binding rule). crawl_jobs remains in the schema, unused, until company
-count actually justifies it - a real future amendment, not silent drift.
+ATS boards are prefetched concurrently, then ingested with bounded workers
+and one session per board. Boards sharing company or listing keys run in
+order within a group. The main thread owns dispatch, budgets and summaries;
+crawl_jobs remains unused.
 """
 
 import argparse
 import hashlib
 import os
 import signal
+import sys
 import threading
 import time
 import traceback
@@ -26,7 +22,7 @@ from collections.abc import Callable
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, TextIO
 
 from sqlalchemy import Select, func, select, update
 from sqlalchemy.orm import Session
@@ -62,7 +58,12 @@ from crawlers.unstop import UnstopAdapter
 from crawlers.workday import WorkdayAdapter
 from pipeline.company_resolution import resolve_company
 from pipeline.expire import FULL_INVENTORY_SOURCES
-from pipeline.ingest import ingest_one, load_board_state, load_source_raw_listings
+from pipeline.ingest import (
+    claim_legacy_raw_listings,
+    ingest_one,
+    load_board_state,
+    load_source_raw_listings,
+)
 from pipeline.retirement import (
     GOVERNMENT_NOTICE_SOURCES,
     ROLLING_WINDOW_SOURCES,
@@ -110,6 +111,10 @@ AGGREGATOR_ADAPTERS: dict[str, type] = {
 }
 
 ATS_FETCH_MAX_WORKERS = 10
+DEFAULT_ATS_INGEST_WORKERS = 4
+# Production has max_connections=60 (infra/db/provision.sh); the API can use
+# 40 during an overlapping Render deploy. Leave headroom for other clients.
+MAX_ATS_INGEST_WORKERS = 6
 DEFAULT_AGGREGATOR_MAX_SECONDS = 7200.0
 # Per-source aggregator budget. The group ceiling remains a separate hang
 # backstop; it must not turn back into the shared pool that let Unstop consume
@@ -144,10 +149,20 @@ AGGREGATOR_SOURCE_RESERVE_SECONDS: dict[str, float] = {
 #
 # The gap between this soft budget and the ATS step timeout must exceed the
 # SLOWEST SINGLE BOARD, because the deadline only gates whether a board may
-# START; once one is in flight it runs to completion. With a 7200s soft budget
-# and 150-minute step timeout, that in-flight-board gap remains 30 minutes.
+# START; in-flight boards finish side by side, so the gap covers the slowest
+# single board, not their sum. With a 7200s budget and 150-minute step timeout,
+# that gap remains 30 minutes.
 DEFAULT_ATS_MAX_SECONDS = 7200.0
 _STOP_REQUESTED = threading.Event()
+_OUTPUT_LOCK = threading.Lock()
+
+
+def _emit(text: str, *, stream: TextIO | None = None) -> None:
+    with _OUTPUT_LOCK:
+        output = stream if stream is not None else sys.stdout
+        output.write(text + "\n")
+        output.flush()
+
 
 _FULL_LIST_SOURCE_KEYS = {
     "ashby",
@@ -180,21 +195,20 @@ def _truncation_line(event: _TruncationEvent) -> str:
 
 
 def _print_truncation(event: _TruncationEvent) -> None:
-    print(_truncation_line(event), flush=True)
+    _emit(_truncation_line(event))
 
 
 def _print_truncation_summary(events: list[_TruncationEvent]) -> None:
     if not events:
-        print("TRUNCATION SUMMARY: no sources truncated", flush=True)
+        _emit("TRUNCATION SUMMARY: no sources truncated")
         return
 
-    print("TRUNCATION SUMMARY: truncated sources:", flush=True)
+    _emit("TRUNCATION SUMMARY: truncated sources:")
     for event in events:
-        print(
+        _emit(
             "  - "
             f"{event.source}: after {_format_seconds(event.elapsed_seconds)}s "
             f"(budget {_format_seconds(event.budget_seconds)}s)",
-            flush=True,
         )
 
 
@@ -513,11 +527,11 @@ def _coverage_line(source_key: str, coverage: dict[str, Any]) -> str:
 
 def _print_coverage_summary(coverage_by_source: dict[str, list[dict[str, Any]]]) -> None:
     if not coverage_by_source:
-        print("COVERAGE: none/? (UNKNOWN - no sources crawled)", flush=True)
+        _emit("COVERAGE: none/? (UNKNOWN - no sources crawled)")
         return
 
     for source_key, records in coverage_by_source.items():
-        print(_coverage_line(source_key, _merge_coverage(records)), flush=True)
+        _emit(_coverage_line(source_key, _merge_coverage(records)))
 
 
 def _order_ats_jobs(
@@ -615,6 +629,84 @@ class _PrefetchedBoard:
     coverage: dict[str, Any] | None = None
 
 
+@dataclass(frozen=True)
+class _AtsBoardOutcome:
+    result: dict[str, Any] | None
+    changed_slugs: set[str]
+
+
+def _ats_ingest_groups(
+    jobs: list[_AtsJob], prefetched_boards: dict[str, _PrefetchedBoard]
+) -> list[int]:
+    """Group conflicting boards; each group's id is its earliest position."""
+    parents = list(range(len(jobs)))
+
+    def root(index: int) -> int:
+        while parents[index] != index:
+            parents[index] = parents[parents[index]]
+            index = parents[index]
+        return index
+
+    def union(left: int, right: int) -> None:
+        left, right = root(left), root(right)
+        parents[max(left, right)] = min(left, right)
+
+    company_owner: dict[int, int] = {}
+    board_owner: dict[tuple[int, str], int] = {}
+    listing_owner: dict[tuple[int, str], int] = {}
+    for position, job in enumerate(jobs):
+        union(position, company_owner.setdefault(job.company_id, position))
+        union(position, board_owner.setdefault((job.source_id, job.board_token), position))
+        prefetched = prefetched_boards.get(job.company_slug)
+        if prefetched is not None:
+            for raw in prefetched.listings:
+                union(
+                    position, listing_owner.setdefault((job.source_id, raw.external_id), position)
+                )
+    return [root(position) for position in range(len(jobs))]
+
+
+def _ingest_ats_board(
+    engine,
+    job: _AtsJob,
+    prefetched: _PrefetchedBoard,
+    should_stop: Callable[[], bool] | None,
+) -> _AtsBoardOutcome:
+    changed_slugs: set[str] = set()
+    try:
+        # BoardState holds ORM objects across batch commits; expiration would
+        # add a lazy-reload round trip on the next listing touching each row.
+        with Session(engine, expire_on_commit=False) as session:
+            try:
+                source = session.get(models.Source, job.source_id)
+                company = session.scalar(
+                    select(models.Company).where(models.Company.slug == job.company_slug)
+                )
+                result = crawl_company_board(
+                    session,
+                    source,
+                    company,
+                    ATS_ADAPTERS[job.adapter_key],
+                    prefetched=prefetched.listings,
+                    prefetched_health=prefetched.health,
+                    prefetched_coverage=prefetched.coverage,
+                    should_stop=should_stop,
+                    changed_slugs=changed_slugs,
+                )
+            except Exception:
+                try:
+                    session.rollback()
+                except Exception:
+                    pass
+                raise
+    except Exception as exc:
+        # Last-resort isolation includes session setup/teardown failures and
+        # preserves slugs committed before an unexpected board exception.
+        _emit(f"ERROR: {job.company_slug} crawl raised unexpectedly: {exc}")
+        return _AtsBoardOutcome(None, changed_slugs)
+    return _AtsBoardOutcome(result, changed_slugs)
+
+
 def _state_has_previous_listings(state: object | None) -> bool:
     return bool(getattr(state, "last_content_hash", None))
 
@@ -666,10 +758,9 @@ def _configured_aggregator_max_seconds() -> float:
     try:
         max_seconds = float(raw_value)
     except ValueError:
-        print(
+        _emit(
             "WARNING: AGGREGATOR_MAX_SECONDS must be a number; "
             f"using {DEFAULT_AGGREGATOR_MAX_SECONDS:.0f} seconds",
-            flush=True,
         )
         return DEFAULT_AGGREGATOR_MAX_SECONDS
 
@@ -684,10 +775,9 @@ def _configured_aggregator_group_max_seconds() -> float:
     try:
         max_seconds = float(raw_value)
     except ValueError:
-        print(
+        _emit(
             "WARNING: AGGREGATOR_GROUP_MAX_SECONDS must be a number; "
             f"using {DEFAULT_AGGREGATOR_GROUP_MAX_SECONDS:.0f} seconds",
-            flush=True,
         )
         return DEFAULT_AGGREGATOR_GROUP_MAX_SECONDS
 
@@ -702,14 +792,25 @@ def _configured_ats_max_seconds() -> float:
     try:
         max_seconds = float(raw_value)
     except ValueError:
-        print(
+        _emit(
             "WARNING: CRAWLER_ATS_MAX_SECONDS must be a number; "
             f"using {DEFAULT_ATS_MAX_SECONDS:.0f} seconds",
-            flush=True,
         )
         return DEFAULT_ATS_MAX_SECONDS
 
     return max(0.0, max_seconds)
+
+
+def _configured_ats_ingest_workers() -> int:
+    raw_value = os.getenv("CRAWLER_ATS_INGEST_WORKERS")
+    if raw_value is None:
+        return DEFAULT_ATS_INGEST_WORKERS
+    try:
+        workers = int(raw_value)
+    except ValueError:
+        _emit("WARNING: CRAWLER_ATS_INGEST_WORKERS must be an integer; using 4 workers")
+        return DEFAULT_ATS_INGEST_WORKERS
+    return max(1, min(workers, MAX_ATS_INGEST_WORKERS))
 
 
 def _fetch_company_board(
@@ -737,7 +838,7 @@ def _fetch_company_board(
     except Exception as exc:
         # Persist an error run through the normal ingest path, rather than
         # dropping the run and accidentally preserving a dead-board streak.
-        print(f"ERROR: {activity} fetch failed: {type(exc).__name__}: {exc}", flush=True)
+        _emit(f"ERROR: {activity} fetch failed: {type(exc).__name__}: {exc}")
         adapter.last_board_state = "error"
         listings, health, empty_after_retry = [], "degraded", False
     watchdog.beat(f"{activity}:fetched")
@@ -766,9 +867,9 @@ def _fetch_company_board(
 def _prefetch_ats_boards(
     ats_jobs: list[_AtsJob], should_stop: Callable[[], bool] | None = None
 ) -> dict[str, _PrefetchedBoard]:
-    """Fetch ATS boards concurrently while keeping all database work out of
-    worker threads. A failed board is logged and omitted so it cannot abort
-    other boards' fetches or trigger a retry during sequential ingestion.
+    """Fetch ATS boards concurrently without database sessions in fetch
+    workers. A failed board is logged and omitted so it cannot abort
+    other boards' fetches or trigger a retry during ingestion.
     """
     if not ats_jobs or _is_stop_requested(should_stop):
         return {}
@@ -808,9 +909,8 @@ def _prefetch_ats_boards(
                     if board is not None:
                         prefetched[job.company_slug] = board
                 except Exception as exc:
-                    print(
+                    _emit(
                         f"ERROR: {job.company_slug} fetch failed: {type(exc).__name__}: {exc}",
-                        flush=True,
                     )
 
             stopped = _is_stop_requested(should_stop)
@@ -987,9 +1087,8 @@ def crawl_company_board(
                     session.rollback()
                 except Exception:
                     pass
-                print(
+                _emit(
                     f"WARNING: failed to record crawl_runs for {company_slug}: {exc}",
-                    flush=True,
                 )
             return result  # change-detection skip: nothing changed since last crawl
 
@@ -1012,6 +1111,20 @@ def crawl_company_board(
             company.id,
             board_raw_by_external_id,
         )
+        legacy_external_id = getattr(adapter, "legacy_external_id", None)
+        if legacy_external_id is not None:
+            legacy_by_new_id = {
+                raw.external_id: legacy_id
+                for raw in raw_listings
+                if raw.external_id not in board_raw_by_external_id
+                and (legacy_id := legacy_external_id(raw)) is not None
+                and legacy_id != raw.external_id
+            }
+            claimed = claim_legacy_raw_listings(session, source_id, board_state, legacy_by_new_id)
+            if claimed:
+                # Keep renames through any later listing-batch rollback.
+                session.commit()
+                _emit(f"    {activity} claimed {claimed} legacy external ids")
 
         # Commit every BATCH_SIZE listings, not once per company (the
         # original bug) and not once per listing (the first fix). Per-
@@ -1038,6 +1151,42 @@ def crawl_company_board(
         seen_opportunity_ids: set[int] = set()
         pending_changed_slugs: set[str] = set()
 
+        def rollback_batch(exc: Exception, external_id: str) -> None:
+            nonlocal board_raw_by_external_id, board_state
+            nonlocal since_last_commit, pending_new_opps
+            try:
+                session.rollback()
+            except Exception:
+                pass
+            # See the board_state comment above - a rollback can leave
+            # it holding invalid/detached objects from this same
+            # uncommitted batch. Reload fresh rather than risk a later
+            # listing touching one; if the connection itself is what
+            # broke, this raises too and is caught the same way,
+            # exactly like every other per-listing failure here.
+            try:
+                board_raw_by_external_id = load_source_raw_listings(
+                    session,
+                    source_id,
+                    external_ids=board_external_ids,
+                )
+                board_state = load_board_state(
+                    session,
+                    source_id,
+                    company.id,
+                    board_raw_by_external_id,
+                )
+            except Exception:
+                pass
+            since_last_commit = 0
+            pending_new_opps = 0
+            pending_changed_slugs.clear()
+            result["errors"] += 1
+            _emit(
+                f"    {activity} listing error ({external_id}): {type(exc).__name__}: {exc}",
+            )
+
+        last_pending_external_id = ""
         for raw in raw_listings:
             if _is_stop_requested(should_stop):
                 stopped_early = True
@@ -1055,6 +1204,7 @@ def crawl_company_board(
                     seen_opportunity_ids=seen_opportunity_ids,
                     changed_slugs=pending_changed_slugs,
                 )
+                last_pending_external_id = raw.external_id
                 since_last_commit += 1
                 if is_new:
                     pending_new_opps += 1
@@ -1069,73 +1219,53 @@ def crawl_company_board(
                     since_last_commit = 0
                     pending_new_opps = 0
             except Exception as exc:
-                try:
-                    session.rollback()
-                except Exception:
-                    pass
-                # See the board_state comment above - a rollback can leave
-                # it holding invalid/detached objects from this same
-                # uncommitted batch. Reload fresh rather than risk a later
-                # listing touching one; if the connection itself is what
-                # broke, this raises too and is caught the same way,
-                # exactly like every other per-listing failure here.
-                try:
-                    board_raw_by_external_id = load_source_raw_listings(
-                        session,
-                        source_id,
-                        external_ids=board_external_ids,
-                    )
-                    board_state = load_board_state(
-                        session,
-                        source_id,
-                        company.id,
-                        board_raw_by_external_id,
-                    )
-                except Exception:
-                    pass
-                since_last_commit = 0
-                pending_new_opps = 0
-                pending_changed_slugs.clear()
-                result["errors"] += 1
-                print(
-                    f"    listing error ({raw.external_id}): {type(exc).__name__}: {exc}",
-                    flush=True,
-                )
+                rollback_batch(exc, raw.external_id)
 
         if since_last_commit > 0:
+            try:
+                session.commit()
+                watchdog.beat(f"{activity}:batch-committed")
+                run_changed_slugs.update(pending_changed_slugs)
+                committed_changed_slugs.update(pending_changed_slugs)
+                pending_changed_slugs.clear()
+                result["changed_slugs"] = len(committed_changed_slugs)
+                result["new_opps"] += pending_new_opps
+            except Exception as exc:
+                rollback_batch(exc, last_pending_external_id)
+
+        # Seen timestamps can include linked opportunities outside this company.
+        # Keep those writes in the same rollback/reload boundary as listing batches.
+        try:
+            if seen_opportunity_ids:
+                ids = list(seen_opportunity_ids)
+                for i in range(0, len(ids), 5000):
+                    session.execute(
+                        update(models.Opportunity)
+                        .where(models.Opportunity.id.in_(ids[i : i + 5000]))
+                        .values(last_seen_at=func.now())
+                    )
+
+            if _is_stop_requested(should_stop):
+                stopped_early = True
+                result["status"] = "partial"
+
+            if result["errors"] > 0 and result["status"] == "success":
+                result["status"] = "partial"
+
+            if fingerprint is not None and result["status"] == "success":
+                if state is None:
+                    state = models.SourceState(source_id=source_id, page_key=board_token)
+                    session.add(state)
+                state.last_content_hash = fingerprint
+                state.last_crawled_at = datetime.now(timezone.utc)
+
             session.commit()
-            watchdog.beat(f"{activity}:batch-committed")
-            run_changed_slugs.update(pending_changed_slugs)
-            committed_changed_slugs.update(pending_changed_slugs)
-            pending_changed_slugs.clear()
-            result["changed_slugs"] = len(committed_changed_slugs)
-            result["new_opps"] += pending_new_opps
-
-        if seen_opportunity_ids:
-            ids = list(seen_opportunity_ids)
-            for i in range(0, len(ids), 5000):
-                session.execute(
-                    update(models.Opportunity)
-                    .where(models.Opportunity.id.in_(ids[i : i + 5000]))
-                    .values(last_seen_at=func.now())
-                )
-
-        if _is_stop_requested(should_stop):
-            stopped_early = True
-            result["status"] = "partial"
-
-        if result["errors"] > 0 and result["status"] == "success":
-            result["status"] = "partial"
-
-        if fingerprint is not None and result["status"] == "success":
-            if state is None:
-                state = models.SourceState(source_id=source_id, page_key=board_token)
-                session.add(state)
-            state.last_content_hash = fingerprint
-            state.last_crawled_at = datetime.now(timezone.utc)
-
-        session.commit()
-        watchdog.beat(f"{activity}:finished")
+            watchdog.beat(f"{activity}:finished")
+        except Exception as exc:
+            # Not a listing: the seen-stamp / fingerprint write itself failed.
+            rollback_batch(exc, "board finalize")
+            if result["status"] == "success":
+                result["status"] = "partial"
 
     except Exception as exc:
         try:
@@ -1154,11 +1284,10 @@ def crawl_company_board(
         # fails a WHOLE source must not be quieter than the one that skips a
         # single row.
         result["failure_reason"] = f"{type(exc).__name__}: {exc}"
-        print(
+        _emit(
             f"    {activity} FAILED: {type(exc).__name__}: {exc}",
-            flush=True,
         )
-        traceback.print_exc()
+        _emit(traceback.format_exc().rstrip("\n"), stream=sys.stderr)
 
     try:
         _record_crawl_run(
@@ -1182,7 +1311,7 @@ def crawl_company_board(
             session.rollback()
         except Exception:
             pass
-        print(f"WARNING: failed to record crawl_runs for {company_slug}: {exc}", flush=True)
+        _emit(f"WARNING: failed to record crawl_runs for {company_slug}: {exc}")
 
     return result
 
@@ -1393,7 +1522,7 @@ def crawl_aggregator(
                     session.rollback()
                 except Exception:
                     pass
-                print(f"WARNING: failed to record crawl_runs for aggregator: {exc}", flush=True)
+                _emit(f"WARNING: failed to record crawl_runs for aggregator: {exc}")
             return result  # change-detection skip: nothing changed since last crawl
 
         shared_raw_by_external_id: dict[str, models.RawListing] | None = None
@@ -1488,9 +1617,8 @@ def crawl_aggregator(
                 pending_new_opps = 0
                 pending_changed_slugs.clear()
                 result["errors"] += 1
-                print(
+                _emit(
                     f"    listing error ({raw.external_id}): {type(exc).__name__}: {exc}",
-                    flush=True,
                 )
 
         if since_last_commit > 0:
@@ -1571,11 +1699,10 @@ def crawl_aggregator(
         # fails a WHOLE source must not be quieter than the one that skips a
         # single row.
         result["failure_reason"] = f"{type(exc).__name__}: {exc}"
-        print(
+        _emit(
             f"    {activity} FAILED: {type(exc).__name__}: {exc}",
-            flush=True,
         )
-        traceback.print_exc()
+        _emit(traceback.format_exc().rstrip("\n"), stream=sys.stderr)
 
     if source_label == "github_lists" and result["status"] != "success":
         # Retirement reads coverage, so ingestion failures must also fail closed.
@@ -1603,7 +1730,7 @@ def crawl_aggregator(
             session.rollback()
         except Exception:
             pass
-        print(f"WARNING: failed to record crawl_runs for aggregator: {exc}", flush=True)
+        _emit(f"WARNING: failed to record crawl_runs for aggregator: {exc}")
 
     return result
 
@@ -1613,17 +1740,15 @@ def _refresh_prestige_matches(engine) -> dict[str, object] | None:
         with Session(engine) as session:
             result = match_prestige(session)
     except Exception as exc:
-        print(
+        _emit(
             "WARNING: prestige match after crawl failed: " f"{type(exc).__name__}: {exc}",
-            flush=True,
         )
         return None
 
-    print(
+    _emit(
         "prestige match after crawl: "
         f"scanned {result['scanned']}, ranked {result['ranked']}, "
         f"unranked {result['unranked']}",
-        flush=True,
     )
     return result
 
@@ -1635,6 +1760,7 @@ def run_tier(
     aggregator_max_seconds: float | None = None,
     aggregator_group_max_seconds: float | None = None,
     ats_max_seconds: float | None = None,
+    ats_ingest_workers: int | None = None,
     should_stop: Callable[[], bool] | None = None,
 ) -> None:
     if aggregator_max_seconds is None:
@@ -1643,6 +1769,11 @@ def run_tier(
         aggregator_group_max_seconds = _configured_aggregator_group_max_seconds()
     if ats_max_seconds is None:
         ats_max_seconds = _configured_ats_max_seconds()
+    workers = (
+        _configured_ats_ingest_workers()
+        if ats_ingest_workers is None
+        else max(1, min(ats_ingest_workers, MAX_ATS_INGEST_WORKERS))
+    )
     if should_stop is None:
         should_stop = _STOP_REQUESTED.is_set
 
@@ -1755,9 +1886,8 @@ def run_tier(
         watchdog.beat(f"{group}:worklist-loaded")
 
     # Fetches are pure HTTP and may safely overlap. The gather session above
-    # is already closed here; worker threads never receive a Session or ORM
-    # object. Ingest remains below in the original one-session-per-board
-    # sequence, so the Supabase session-mode pool sees no extra connections.
+    # is already closed here. Ingest workers each open their own board session;
+    # no Session or ORM object crosses threads. Conflicting boards serialize.
     # Soft wall-clock budget: stop the ATS loop cleanly before the workflow's
     # hard step cap, so committed boards persist and the aggregator + tail
     # steps still run (a completed, GREEN run) instead of a SIGKILL at the cap.
@@ -1775,83 +1905,113 @@ def run_tier(
 
     prefetched_boards = _prefetch_ats_boards(ats_jobs, should_stop=should_stop)
 
-    for job in ats_jobs:
+    groups = _ats_ingest_groups(ats_jobs, prefetched_boards)
+    _emit(f"ATS INGEST: {len(ats_jobs)} boards, {len(set(groups))} groups, {workers} workers")
+    ats_coverage: dict[int, dict[str, Any]] = {}
+    ats_truncation: _TruncationEvent | None = None
+    ats_stop_message: str | None = None
+
+    def may_start_board() -> bool:
+        nonlocal ats_truncation, ats_stop_message
         if _is_stop_requested(should_stop):
-            event = _TruncationEvent(
+            ats_truncation = _TruncationEvent(
                 source="ATS",
                 elapsed_seconds=time.monotonic() - ats_started_monotonic,
                 budget_seconds=ats_max_seconds,
             )
-            truncations.append(event)
-            _print_truncation(event)
-            print("Stop requested; ending ATS ingestion after committed work", flush=True)
-            break
+            ats_stop_message = "Stop requested; ending ATS ingestion after committed work"
+            return False
         now_monotonic = time.monotonic()
         if now_monotonic >= ats_deadline_monotonic:
-            event = _TruncationEvent(
+            ats_truncation = _TruncationEvent(
                 source="ATS",
                 elapsed_seconds=now_monotonic - ats_started_monotonic,
                 budget_seconds=ats_max_seconds,
             )
-            truncations.append(event)
-            _print_truncation(event)
-            print("ATS time budget reached; ending after committed work", flush=True)
-            break
+            ats_stop_message = "ATS time budget reached; ending after committed work"
+            return False
+        return True
 
-        prefetched = prefetched_boards.get(job.company_slug)
-        if prefetched is None:
-            # _prefetch_ats_boards already logged the isolated fetch error.
-            coverage_by_source.setdefault(job.adapter_key, []).append(
-                _coverage_from_adapter(
-                    object(),
-                    job.adapter_key,
-                    0,
-                    health="degraded",
-                    board_name=job.board_token,
-                    incomplete_note="board fetch failed before ingestion",
-                )
-            )
-            continue
+    def record_fetch_failure(position: int, job: _AtsJob) -> None:
+        # _prefetch_ats_boards already logged the isolated fetch error.
+        ats_coverage[position] = _coverage_from_adapter(
+            object(),
+            job.adapter_key,
+            0,
+            health="degraded",
+            board_name=job.board_token,
+            incomplete_note="board fetch failed before ingestion",
+        )
 
-        # expire_on_commit=False: board_state (loaded once per company in
-        # crawl_company_board) holds ORM objects across several batch
-        # commits within this same company's crawl - without this, each
-        # commit would expire them, and the next listing that touches one
-        # would pay a lazy-reload round trip, quietly clawing back the
-        # round trips this refactor exists to eliminate.
-        with Session(engine, expire_on_commit=False) as session:
-            source = session.get(models.Source, job.source_id)
-            company = session.scalar(
-                select(models.Company).where(models.Company.slug == job.company_slug)
-            )
-            try:
-                result = crawl_company_board(
-                    session,
-                    source,
-                    company,
-                    ATS_ADAPTERS[job.adapter_key],
-                    prefetched=prefetched.listings,
-                    prefetched_health=prefetched.health,
-                    prefetched_coverage=prefetched.coverage,
-                    should_stop=should_stop,
-                    changed_slugs=changed_slugs,
-                )
-            except Exception as exc:
-                # Last-resort safety net: crawl_company_board already
-                # catches its own failures, but per-source isolation (Doc
-                # 04 sec 7) must hold even against a bug in that handling
-                # itself - one company can never take down the batch.
-                try:
-                    session.rollback()
-                except Exception:
-                    pass
-                print(f"ERROR: {job.company_slug} crawl raised unexpectedly: {exc}", flush=True)
-                continue
-            print(f"{job.company_slug}: {result}", flush=True)
+    def merge_outcome(position: int, job: _AtsJob, outcome: _AtsBoardOutcome) -> None:
+        result = outcome.result
+        if result is not None:
+            _emit(f"{job.company_slug}: {result}")
             watchdog.beat(f"{job.adapter_key}:{job.board_token}:source-finished")
-            coverage = result.get("coverage")
-            if isinstance(coverage, dict):
-                coverage_by_source.setdefault(job.adapter_key, []).append(coverage)
+        changed_slugs.update(outcome.changed_slugs)
+        if result is not None and isinstance(result.get("coverage"), dict):
+            ats_coverage[position] = result["coverage"]
+
+    if workers == 1:
+        # Preserve the original inline order and exactly one clock read per
+        # board-start check (plus the ATS start), including fetch failures.
+        for position, job in enumerate(ats_jobs):
+            if not may_start_board():
+                break
+            prefetched = prefetched_boards.get(job.company_slug)
+            if prefetched is None:
+                record_fetch_failure(position, job)
+                continue
+            merge_outcome(position, job, _ingest_ats_board(engine, job, prefetched, should_stop))
+    elif ats_jobs:
+        executor = ThreadPoolExecutor(
+            max_workers=min(workers, len(ats_jobs)), thread_name_prefix="ats-ingest"
+        )
+        pending = list(range(len(ats_jobs)))
+        in_flight = {}
+        busy_groups: set[int] = set()
+        try:
+            while pending or in_flight:
+                while ats_truncation is None and pending and len(in_flight) < workers:
+                    # The first eligible board is always the oldest pending
+                    # member of its group; a busy group never blocks others.
+                    position = next(
+                        (index for index in pending if groups[index] not in busy_groups), None
+                    )
+                    if position is None:
+                        break
+                    if not may_start_board():
+                        break
+                    pending.remove(position)
+                    job = ats_jobs[position]
+                    prefetched = prefetched_boards.get(job.company_slug)
+                    if prefetched is None:
+                        record_fetch_failure(position, job)
+                        continue
+                    future = executor.submit(
+                        _ingest_ats_board, engine, job, prefetched, should_stop
+                    )
+                    in_flight[future] = position
+                    busy_groups.add(groups[position])
+
+                if not in_flight:
+                    break
+                completed, _ = wait(in_flight, timeout=0.5, return_when=FIRST_COMPLETED)
+                for future in sorted(completed, key=in_flight.__getitem__):
+                    position = in_flight.pop(future)
+                    merge_outcome(position, ats_jobs[position], future.result())
+                    busy_groups.remove(groups[position])
+        finally:
+            # A budget/stop gates starts only; submitted boards always drain.
+            executor.shutdown(wait=True)
+
+    if ats_truncation is not None:
+        truncations.append(ats_truncation)
+        _print_truncation(ats_truncation)
+        _emit(ats_stop_message)
+
+    for position, coverage in sorted(ats_coverage.items()):
+        coverage_by_source.setdefault(ats_jobs[position].adapter_key, []).append(coverage)
 
     aggregator_started_monotonic = time.monotonic()
     aggregator_group_deadline_monotonic = (
@@ -1867,7 +2027,7 @@ def run_tier(
             )
             truncations.append(event)
             _print_truncation(event)
-            print("Stop requested; ending aggregator crawl after committed work", flush=True)
+            _emit("Stop requested; ending aggregator crawl after committed work")
             break
 
         now_monotonic = time.monotonic()
@@ -1879,7 +2039,7 @@ def run_tier(
             )
             truncations.append(event)
             _print_truncation(event)
-            print("Aggregator time budget reached; ending after committed work", flush=True)
+            _emit("Aggregator time budget reached; ending after committed work")
             break
 
         # A per-source budget alone does NOT guarantee every source runs: with
@@ -1935,11 +2095,9 @@ def run_tier(
                     session.rollback()
                 except Exception:
                     pass
-                print(
-                    f"ERROR: {adapter_key} aggregator crawl raised unexpectedly: {exc}", flush=True
-                )
+                _emit(f"ERROR: {adapter_key} aggregator crawl raised unexpectedly: {exc}")
                 continue
-            print(f"{adapter_key} (aggregator): {result}", flush=True)
+            _emit(f"{adapter_key} (aggregator): {result}")
             watchdog.beat(f"{adapter_key}:source-finished")
             coverage = result.get("coverage")
             if isinstance(coverage, dict):
