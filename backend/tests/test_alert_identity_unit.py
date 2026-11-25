@@ -96,7 +96,7 @@ class LedgerSession:
     """Exercise the reader's identity logic without a database or config load."""
 
     def __init__(self, rows, legacy=()):
-        self.rows = rows
+        self.rows = [(row, opportunity, row.sent_at or NOW) for row, opportunity in rows]
         self.legacy = legacy
         self.queries = 0
 

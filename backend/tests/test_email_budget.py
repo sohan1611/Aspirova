@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from api.auth import get_current_user
 from api.deps import get_db
 from api.main import app
-from core import models
+from core import email_outbox, models
 from core.alert_identity import already_notified, announcement_meta
 from core.config import get_settings
 from core.email_budget import EmailBudget, sent_today
@@ -179,8 +179,9 @@ def test_digest_activity_order_and_prior_day_deferrals_first(db_session, setup):
     )
     setup[1].clear()
     tomorrow = NOW + timedelta(days=1)
+    email_outbox.drain(db_session, now=tomorrow, sender=worker.send_email)
     result = worker.send_daily_digests(db_session, now=tomorrow)
-    assert result["sent"] == 7
+    assert result["sent"] == 2
     assert [call[0] for call in setup[1]][:5] == [user.email for user in users[7:]]
     for user in users[7:]:
         sent = db_session.scalar(
@@ -303,17 +304,15 @@ def test_reserve_shared_by_closing_and_saved_search_then_stops(db_session, setup
                 models.Notification.type == "saved_search_alert",
             )
         )
-        is None
+        is not None  # durable deferred receipt, never a successful delivery
     )
     # Retry the remaining search with exactly the same cursor/window tomorrow.
-    assert (
-        saved_search_alerts.send_saved_search_alerts(db_session, now=NOW + timedelta(days=1))[
-            "emailed"
-        ]
-        == 1
+    email_outbox.drain(
+        db_session, now=NOW + timedelta(days=1), sender=saved_search_alerts.send_email
     )
+    assert len(setup[1]) == 11
     db_session.refresh(pending[0])
-    assert pending[0].last_alerted_at == NOW + timedelta(days=1)
+    assert pending[0].last_alerted_at == NOW  # recovery must not skip outage-window matches
 
 
 def test_deferred_rows_do_not_affect_any_sent_reader(db_session, setup):
@@ -368,9 +367,7 @@ def test_deferred_rows_do_not_affect_any_sent_reader(db_session, setup):
 
 
 @pytest.mark.parametrize("instant_only", [False, True])
-def test_company_alert_deferred_without_ledger_and_retried(
-    db_session, setup, monkeypatch, instant_only
-):
+def test_company_alert_deferred_durably_and_retried(db_session, setup, monkeypatch, instant_only):
     user = reader(db_session, setup)
     db_session.add(
         models.DreamCompany(
@@ -380,25 +377,27 @@ def test_company_alert_deferred_without_ledger_and_retried(
     opportunity = listing(db_session, setup)
     monkeypatch.setattr(get_settings(), "email_daily_budget", 0)
     assert worker.send_company_alerts(db_session, now=NOW, instant_only=instant_only)["sent"] == 0
-    assert db_session.scalar(select(models.Notification.id)) is None
+    assert db_session.scalar(select(models.Notification.status)) == "deferred"
     monkeypatch.setattr(get_settings(), "email_daily_budget", 1)
-    assert worker.send_company_alerts(db_session, now=NOW, instant_only=instant_only)["sent"] == 1
+    email_outbox.drain(db_session, now=NOW + timedelta(days=1), sender=worker.send_email)
+    assert db_session.scalar(select(models.Notification.status)) == "sent"
     assert db_session.scalar(select(models.Notification.opportunity_id)) == opportunity.id
 
 
-def test_weekly_deferral_is_not_a_delivery_or_generation(db_session, setup, monkeypatch):
+def test_weekly_deferral_is_a_durable_intent_not_a_delivery(db_session, setup, monkeypatch):
     reader(db_session, setup)
     monkeypatch.setattr(get_settings(), "email_daily_budget", 0)
 
     def no_generation(*args, **kwargs):
-        pytest.fail("A deferred report must not generate its introduction")
+        return None  # render the immutable intent using the disabled-AI fallback
 
     monkeypatch.setattr(weekly_report, "_cohort_intro", no_generation)
     assert weekly_report.send_weekly_reports(db_session, now=NOW)["sent"] == 0
-    assert db_session.scalar(select(models.Notification.id)) is None
+    assert db_session.scalar(select(models.Notification.status)) == "deferred"
     monkeypatch.setattr(get_settings(), "email_daily_budget", 1)
     monkeypatch.setattr(weekly_report, "_cohort_intro", lambda *args, **kwargs: None)
-    assert weekly_report.send_weekly_reports(db_session, now=NOW)["sent"] == 1
+    email_outbox.drain(db_session, now=NOW + timedelta(days=1), sender=weekly_report.send_email)
+    assert db_session.scalar(select(models.Notification.status)) == "sent"
 
 
 def test_saved_notice_defers_email_but_keeps_in_app_and_pending(db_session, setup, monkeypatch):
@@ -413,10 +412,11 @@ def test_saved_notice_defers_email_but_keeps_in_app_and_pending(db_session, setu
     assert "emailed_at" not in row.meta
     assert not setup[1]
     monkeypatch.setattr(get_settings(), "email_daily_budget", 1)
-    assert worker.send_closing_soon_alerts(db_session, now=NOW)["users_notified"] == 1
+    email_outbox.drain(db_session, now=NOW + timedelta(days=1), sender=worker.send_email)
+    assert len(setup[1]) == 1
     db_session.refresh(row)
     assert row.meta["email_pending"] is False
-    assert sent_today(db_session, NOW) == 1
+    assert sent_today(db_session, NOW + timedelta(days=1)) == 1
     assert worker.send_closing_soon_alerts(db_session, now=NOW)["users_notified"] == 0
     assert len(setup[1]) == 1
     app.dependency_overrides[get_db] = lambda: db_session
@@ -431,7 +431,7 @@ def test_saved_notice_defers_email_but_keeps_in_app_and_pending(db_session, setu
         app.dependency_overrides.pop(get_current_user, None)
 
 
-def test_deadline_email_defers_without_ledger_and_retries(db_session, setup, monkeypatch):
+def test_deadline_email_defers_durably_and_retries(db_session, setup, monkeypatch):
     user = reader(db_session, setup)
     opportunity = listing(
         db_session,
@@ -442,9 +442,10 @@ def test_deadline_email_defers_without_ledger_and_retries(db_session, setup, mon
     db_session.add(models.Bookmark(user_id=user.id, opportunity_id=opportunity.id))
     monkeypatch.setattr(get_settings(), "email_daily_budget", 0)
     assert worker.send_closing_soon_alerts(db_session, now=NOW)["users_notified"] == 0
-    assert db_session.scalar(select(models.Notification.id)) is None
+    assert db_session.scalar(select(models.Notification.status)) == "deferred"
     monkeypatch.setattr(get_settings(), "email_daily_budget", 1)
-    assert worker.send_closing_soon_alerts(db_session, now=NOW)["users_notified"] == 1
+    email_outbox.drain(db_session, now=NOW + timedelta(days=1), sender=worker.send_email)
+    assert db_session.scalar(select(models.Notification.status)) == "sent"
     assert len(setup[1]) == 1
 
 

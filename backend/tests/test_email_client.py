@@ -26,47 +26,54 @@ def test_format_from_quotes_display_name_with_comma() -> None:
     )
 
 
-def test_send_email_returns_false_when_unconfigured(monkeypatch) -> None:
-    # send_email calls get_settings() internally - there is no module-level
-    # `settings` attribute to patch, so patch the factory instead.
+def test_transport_reports_unconfigured_without_network(monkeypatch) -> None:
     monkeypatch.setattr(
         email_client,
         "get_settings",
-        lambda: SimpleNamespace(
-            resend_api_key="",
-            resend_from_email="noreply@aspirova.org",
-            resend_from_name="Aspirova",
+        lambda: SimpleNamespace(resend_api_key="", resend_from_email="noreply@example.test"),
+    )
+    monkeypatch.setattr(
+        email_client.httpx,
+        "post",
+        lambda *a, **kw: (_ for _ in ()).throw(
+            AssertionError("Unconfigured transport must not make HTTP")
         ),
     )
-
-    assert (
-        email_client.send_email(
-            to="student@example.com",
-            subject="Test email",
-            html="<p>Test email</p>",
-            text="Test email",
-        )
-        is False
-    )
+    result = email_client._transport({"text": "test"}, "email/test")
+    assert result.provider_id is None
+    assert result.code == 503
 
 
 def test_plain_transactional_email_omits_html(monkeypatch) -> None:
+    from core import email_outbox
+    from unittest.mock import Mock
+
+    captured = []
+    session = Mock()
     monkeypatch.setattr(
-        email_client,
+        email_outbox,
         "get_settings",
         lambda: SimpleNamespace(
-            resend_api_key="test-key",
-            resend_from_email="noreply@example.test",
-            resend_from_name="Aspirova",
+            resend_from_email="noreply@example.test", resend_from_name="Aspirova"
         ),
     )
-    calls = []
-    monkeypatch.setattr(email_client.resend.Emails, "send", calls.append)
-    assert (
-        email_client.send_email(
-            "deleted@example.test", "Your Aspirova account has been deleted", "", "Account deleted."
-        )
-        is True
+    monkeypatch.setattr(
+        email_outbox,
+        "enqueue",
+        lambda *args, **kwargs: captured.append(kwargs) or SimpleNamespace(id=123),
     )
-    assert calls[0]["text"] == "Account deleted."
-    assert "html" not in calls[0]
+    monkeypatch.setattr(email_outbox, "attempt_delivery", lambda *args, **kwargs: True)
+    assert email_client.send_email(
+        "deleted@example.test",
+        "Account deleted",
+        "",
+        "Account deleted.",
+        session=session,
+        kind="account_deleted",
+        identity="event-123",
+    )
+    payload = captured[0]["payload"]
+    assert payload["text"] == "Account deleted."
+    assert "html" not in payload
+    assert captured[0]["kind"] == "account_deleted"
+    session.commit.assert_called_once()

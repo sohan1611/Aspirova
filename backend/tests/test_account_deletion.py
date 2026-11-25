@@ -26,7 +26,7 @@ import pipeline.saved_search_alerts as searches
 import pipeline.weekly_report as weekly
 from api.deps import get_db
 from api.main import app
-from core import models
+from core import email_outbox, models
 from core.config import get_settings
 from scripts.finish_account_deletions import finish_account_deletions
 
@@ -191,6 +191,15 @@ def seed_owned(db, user):
             user_id=user.id, category="other", message="Personal text", contact_email=user.email
         ),
     ]
+    email_outbox.enqueue(
+        db,
+        to=user.email,
+        user_id=user.id,
+        kind="digest",
+        identity=suffix,
+        payload={"to": [user.email], "subject": "Private", "text": "Private"},
+        now=datetime.now(UTC),
+    )
     db.add_all(rows)
     # Unrelated data must survive the purge.
     db.add(models.SavedSearch(user_id=other.id, params={"q": "unrelated"}))

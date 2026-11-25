@@ -137,9 +137,13 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     resend_from_email: str = ""
     resend_from_name: str = "Aspirova"
-    # Free-plan worker cap; leave headroom for Auth SMTP and API emails.
+    # Free-plan application cap; leave headroom for external Auth SMTP.
     email_daily_budget: int = Field(default=85, ge=0)
     email_digest_reserve: int = Field(default=10, ge=0)
+    email_max_attempts: int = Field(default=6, ge=1)
+    email_lease_seconds: int = Field(default=300, ge=60)
+    resend_webhook_secret: str = ""
+    delivery_admin_token: str = ""
 
     # Pricing-page waitlist (Doc handoffs/PHASE-2.5-HANDOFF.md sec 3.7) -
     # the honest Razorpay dummy: no checkout, just a founder notification

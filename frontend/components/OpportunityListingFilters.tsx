@@ -1,4 +1,6 @@
 "use client";
+import EligibilityFilters from "@/components/EligibilityFilters";
+import { ELIGIBILITY_FILTER_KEYS } from "@/lib/eligibility";
 
 import { ArrowUpDown, GraduationCap, Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
@@ -198,6 +200,7 @@ export function getOpportunityListingAdvancedFilterCount(
     activeValues(searchParams, "company").length +
     (activeSingleValue(searchParams, "source") ? 1 : 0) +
     (activeSingleValue(searchParams, "experience") ? 1 : 0) +
+    ELIGIBILITY_FILTER_KEYS.filter((key) => activeSingleValue(searchParams, key)).length +
     ROLE_FILTER_KEYS.filter((key) => activeSingleValue(searchParams, key)).length
   );
 }
@@ -245,7 +248,7 @@ function OpportunityListingAdvancedPanel({
 
   function clearAdvancedFilters() {
     const params = new URLSearchParams(searchParams.toString());
-    for (const key of ["company", "source", "experience", ...ROLE_FILTER_KEYS] as const) {
+    for (const key of ["company", "source", "experience", ...ROLE_FILTER_KEYS, ...ELIGIBILITY_FILTER_KEYS] as const) {
       params.delete(key);
     }
     commit(params);
@@ -289,6 +292,8 @@ function OpportunityListingAdvancedPanel({
           idPrefix={idPrefix}
         />
       )}
+
+      <EligibilityFilters searchParams={searchParams} onChange={commit} disabled={isPending} idPrefix={idPrefix} />
 
       <FilterPanelSection title="Company">
         <div className="grid gap-3">
@@ -652,12 +657,18 @@ export function OpportunityListingActiveFilterChips({
     filters.push({ id: key, label, humanLabel: label, onRemove: () => removeSingleParam(key) });
   }
 
+  const visa = activeSingleValue(searchParams, "visa");
+  if (visa === "needs") {
+    filters.push({ id: "visa", label: "I need visa sponsorship", humanLabel: "I need visa sponsorship", onRemove: () => removeSingleParam("visa") });
+  }
+
   const clearableFilterCount =
     (uiSort !== "newest" ? 1 : 0) +
     (hasLocationFilter ? 1 : 0) +
     activeValues(searchParams, "company").length +
     (source ? 1 : 0) +
     (experience ? 1 : 0) +
+    (visa === "needs" ? 1 : 0) +
     ROLE_FILTER_KEYS.filter((key) => activeSingleValue(searchParams, key)).length;
 
   return (

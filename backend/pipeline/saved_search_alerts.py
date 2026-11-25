@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from api.filters import saved_search_base_filters
 from core import models
+from core import email_outbox
 from core.email_budget import EmailBudget
 from core.alert_identity import (
     NEW_LISTING_EVENTS,
@@ -141,6 +142,7 @@ def send_saved_search_alerts(
 ) -> dict[str, int]:
     """Send each enabled saved search a one-time list of newly seen matches."""
 
+    delivery_now = now
     now = now or datetime.now(timezone.utc)
     budget = EmailBudget.for_step(session, now)
     result = {"searches": 0, "emailed": 0, "skipped_empty": 0}
@@ -215,9 +217,6 @@ def send_saved_search_alerts(
                 continue
 
             preference_key = f"saved_search:{saved_search.id}"
-            if not budget.can_send("saved_search_alert"):
-                budget.deferred += 1
-                continue
             html, text = _render_saved_search_alert(
                 saved_search,
                 opportunities,
@@ -229,37 +228,38 @@ def send_saved_search_alerts(
                 f"{len(opportunities)} new match"
                 f"{'es' if len(opportunities) > 1 else ''} for your saved search"
             )
-            sent = send_email(
+            meta = {
+                "saved_search_id": saved_search.id,
+                "opportunity_ids": [o.id for o in opportunities],
+                **announcement_meta(opportunities, "saved_search_alert"),
+            }
+            sent = email_outbox.send(
+                session,
+                send_email,
                 user.email,
                 subject,
                 html,
                 text,
+                kind="saved_search_alert",
+                identity=[saved_search.id, meta],
+                user_id=user.id,
                 headers=list_unsubscribe_headers(user.id, preference_key),
+                receipts=[{"meta": meta}],
+                effects={
+                    "saved_search_id": saved_search.id,
+                    "saved_search_cutoff": now.isoformat(),
+                },
+                now=delivery_now,
             )
             if sent:
                 budget.record_sent()
-            saved_search.last_alerted_at = now
-            meta = {
-                "saved_search_id": saved_search.id,
-                "opportunity_ids": [opportunity.id for opportunity in opportunities],
-                **announcement_meta(opportunities, "saved_search_alert"),
-            }
-            session.add(
-                models.Notification(
-                    user_id=user.id,
-                    type="saved_search_alert",
-                    status="sent" if sent else "failed",
-                    sent_at=now if sent else None,
-                    meta=meta,
-                )
-            )
-            session.commit()
+            # Queued intents also reserve identities for later searches in this batch.
+            sent_index.record_sent(meta, "saved_search_alert", now)
             if sent:
-                sent_index.record_sent(meta, "saved_search_alert", now)
                 result["emailed"] += 1
         except Exception:
             session.rollback()
-            logger.exception("saved-search alert failed for saved search %s", saved_search.id)
+            logger.warning("email selector failure_count=1")
         finally:
             session.commit()
 

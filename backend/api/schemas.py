@@ -74,6 +74,7 @@ class OpportunityListItem(BaseModel):
     meta: dict | None = None
     safety: ListingSafety | None = None
     status: str = "active"
+    eligibility: dict | None = None
     role_level: RoleLevelSchema
 
     @field_validator("location")
@@ -115,6 +116,7 @@ class OpportunityListItem(BaseModel):
             meta=public_listing_meta(o.meta),
             safety=safety_flag(o),
             status=o.status or "active",
+            eligibility=o.eligibility_facts,
             role_level=RoleLevelSchema.model_validate(
                 classify_role_level(o.title, o.category, o.meta, o.slug)
             ),
@@ -308,6 +310,13 @@ class SavedSearchParams(BaseModel):
     country: str | None = None
     source: str | None = None
     experience: str | None = None
+    grad_year: int | None = Field(default=None, ge=2015, le=2035)
+    stage: (
+        list[Literal["school", "undergraduate", "postgraduate", "doctoral", "recent_graduate"]]
+        | None
+    ) = None
+    eligibility_stated: bool | None = None
+    visa: Literal["needs"] | None = None
     location: list[Annotated[str, Field(max_length=80)]] | None = Field(default=None, max_length=5)
     role: str | None = None
     paid: bool | None = None
@@ -457,6 +466,7 @@ class OpportunityDetail(OpportunityListItem):
             meta=public_listing_meta(o.meta),
             safety=safety_flag(o),
             status=o.status or "active",
+            eligibility=o.eligibility_facts,
             role_level=RoleLevelSchema.model_validate(
                 classify_role_level(o.title, o.category, o.meta, o.slug)
             ),

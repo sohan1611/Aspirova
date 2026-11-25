@@ -195,20 +195,32 @@ def load_sent_alert_index(
     together in a second query. No per-item reads or cross-channel suppression.
     """
     rows = session.execute(
-        select(models.Notification, models.Opportunity)
+        select(models.Notification, models.Opportunity, models.EmailOutbox.created_at)
+        .outerjoin(models.EmailOutbox, models.EmailOutbox.id == models.Notification.outbox_id)
         .outerjoin(models.Opportunity, models.Opportunity.id == models.Notification.opportunity_id)
         .options(joinedload(models.Opportunity.company))
         .where(
             models.Notification.user_id == user_id,
             models.Notification.type.in_(events),
             models.Notification.channel == channel,
-            models.Notification.status == "sent",
-            models.Notification.sent_at >= since,
+            or_(
+                and_(models.Notification.status == "sent", models.Notification.sent_at >= since),
+                # Outstanding intents reserve exactly the same role/version identities.
+                # A fresh composition must not duplicate an uncertain accepted send.
+                and_(
+                    models.Notification.outbox_id.is_not(None),
+                    models.EmailOutbox.created_at >= since,
+                    or_(
+                        models.EmailOutbox.status.in_(["queued", "sending"]),
+                        models.EmailOutbox.uncertain_since.is_not(None),
+                    ),
+                ),
+            ),
         )
     ).all()
     legacy_ids: set[int] = set()
     records = []
-    for row, opportunity in rows:
+    for row, opportunity, intended_at in rows:
         meta = row.meta if isinstance(row.meta, dict) else {}
         roles = meta.get("role_keys")
         roles = roles if isinstance(roles, dict) else {}
@@ -221,7 +233,7 @@ def load_sent_alert_index(
                 ids.update(i for i in values if isinstance(i, int))
         ids.update(int(i) for i in roles if i.isdecimal())
         legacy_ids.update(i for i in ids if str(i) not in roles and i != row.opportunity_id)
-        records.append((row, opportunity, ids, roles, versions))
+        records.append((row, opportunity, ids, roles, versions, intended_at))
     legacy = {}
     if legacy_ids:
         legacy = {
@@ -234,7 +246,7 @@ def load_sent_alert_index(
         }
 
     index = SentAlertIndex()
-    for row, joined, ids, roles, versions in records:
+    for row, joined, ids, roles, versions, intended_at in records:
         for identity_id in ids:
             stored = joined if identity_id == row.opportunity_id else legacy.get(identity_id)
             role = roles.get(str(identity_id))
@@ -245,7 +257,9 @@ def load_sent_alert_index(
                 # A legacy reminder never snapshotted its date. The current
                 # joined deadline is the only available historical evidence.
                 version = version_key(stored, row.type)
-            index._record(identity_id, role, row.type, version, row.sent_at)
+            # An intent reserves identities without advancing successful history.
+            at = row.sent_at or intended_at
+            index._record(identity_id, role, row.type, version, at)
     return index
 
 

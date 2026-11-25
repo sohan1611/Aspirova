@@ -26,6 +26,8 @@ from api.filters import (
     exclude_school_only_opportunities,
     exclude_stale_opportunities,
     experience_filters,
+    eligibility_filters,
+    visa_filters,
     kind_filters,
     listing_closed,
     location_scope_filters,
@@ -58,6 +60,10 @@ def get_feed(
     prefer_country: str | None = Query(None, pattern="^[A-Za-z]{2}$"),
     source: str | None = Query(None, pattern="^(direct|unstop|remoteok|devpost)$"),
     experience: str | None = Query(None, pattern="^(early|new_grad)$"),
+    grad_year: int | None = Query(None, ge=2015, le=2035),
+    stage: list[str] | None = Query(None),
+    eligibility_stated: bool = Query(False),
+    visa: str | None = Query(None, pattern="^needs$"),
     comp_type: list[str] | None = Query(None),
     registration: str | None = Query(None),
     deadline_within: int | None = Query(None),
@@ -90,6 +96,8 @@ def get_feed(
         exclude_closed_competitions() if status == "closed" else exclude_closed_now(),
         *opportunity_filters(category, remote, company, location, top),
         *experience_filters(experience),
+        *eligibility_filters(grad_year, stage, eligibility_stated),
+        *visa_filters(visa, country),
         *role_signal_filters(
             paid, min_stipend, part_time, max_duration, job_offer, posted_within, role
         ),
@@ -151,6 +159,7 @@ def get_feed(
     # The landing-page preference applies to the unfiltered first student page.
     has_filters = (
         remote_abroad
+        or eligibility_stated
         or kind not in {None, "roles"}
         or any(
             value is not None
@@ -163,6 +172,9 @@ def get_feed(
                 country,
                 source,
                 experience,
+                visa,
+                grad_year,
+                stage,
                 comp_type,
                 registration,
                 deadline_within,

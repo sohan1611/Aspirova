@@ -12,7 +12,7 @@ import pipeline.notifications as notifications
 from api.auth import get_current_user
 from api.deps import get_db
 from api.main import app
-from core import models
+from core import email_outbox, models
 from core.programme_watches import programme_signature
 from pipeline.programme_watch_notifications import (
     ProgrammeWatchUpdate,
@@ -249,7 +249,7 @@ def test_failed_digest_retries_pending_event_without_duplicate_notification(
     assert len(rows) == 1 and rows[0].meta["email_pending"] is True
 
     monkeypatch.setattr(notifications, "send_email", transport)
-    notifications.send_daily_digests(db_session, now=NOW)
+    email_outbox.drain(db_session, now=NOW + timedelta(minutes=3), sender=transport)
 
     assert len(_emails(deliveries, reader)) == 1
     rows = _watch_rows(db_session, reader)
@@ -279,7 +279,8 @@ def test_withdrawn_official_window_cancels_retry_but_keeps_in_app_history(
     assert watch.notified_signature == baseline
     monkeypatch.setattr(notifications, "send_email", transport)
 
-    notifications.send_daily_digests(db_session, now=NOW + timedelta(minutes=1))
+    email_outbox.drain(db_session, now=NOW + timedelta(minutes=3), sender=transport)
+    notifications.send_daily_digests(db_session, now=NOW + timedelta(minutes=3))
     notifications.send_daily_digests(db_session, now=NOW + timedelta(days=1))
 
     assert _emails(deliveries, reader) == []
@@ -288,7 +289,7 @@ def test_withdrawn_official_window_cancels_retry_but_keeps_in_app_history(
     assert rows[0].meta == {**snapshot, "email_pending": False}
 
 
-def test_retry_uses_current_official_opening_without_rewriting_in_app_snapshot(
+def test_retry_preserves_immutable_payload_without_rewriting_in_app_snapshot(
     db_session, deliveries, watched, monkeypatch
 ):
     reader, _, edition, _ = watched
@@ -299,18 +300,19 @@ def test_retry_uses_current_official_opening_without_rewriting_in_app_snapshot(
     row = _watch_rows(db_session, reader)[0]
     original_opening = row.meta["opens_at"]
     edition.opens_at += timedelta(days=4)
-    expected_opening = edition.opens_at.date().isoformat()
+    payload = db_session.scalar(select(models.EmailOutbox.payload))
     db_session.flush()
 
     preview = notifications.preview_daily_digest(db_session, reader, now=NOW)
 
-    assert preview.programme_updates[0].meta["opens_at"] == expected_opening
+    assert preview.programme_updates == []  # the queued intent owns this notice
     assert row.meta["opens_at"] == original_opening
     monkeypatch.setattr(notifications, "send_email", transport)
 
-    notifications.send_daily_digests(db_session, now=NOW + timedelta(minutes=1))
+    email_outbox.drain(db_session, now=NOW + timedelta(minutes=3), sender=transport)
 
     assert len(_emails(deliveries, reader)) == 1
+    assert _emails(deliveries, reader)[0]["text"] == payload["text"]
     assert len(_watch_rows(db_session, reader)) == 1
     assert row.meta["opens_at"] == original_opening
     assert row.meta["email_pending"] is False
@@ -377,17 +379,22 @@ def test_pending_changes_coalesce_to_one_entry_per_programme(
     transport = notifications.send_email
     monkeypatch.setattr(notifications, "send_email", lambda *args, **kwargs: False)
     notifications.send_daily_digests(db_session, now=NOW)
+    original = db_session.scalar(select(models.EmailOutbox.payload))
     edition.closes_at += timedelta(days=7)
     db_session.flush()
     monkeypatch.setattr(notifications, "send_email", transport)
 
-    notifications.send_daily_digests(db_session, now=NOW + timedelta(minutes=1))
+    email_outbox.drain(db_session, now=NOW + timedelta(minutes=3), sender=transport)
+    notifications.send_daily_digests(db_session, now=NOW + timedelta(minutes=3))
 
     email = _emails(deliveries, reader)[0]
     assert email["html"].count(f"/programme/{programme.slug}") == 1
-    assert "official deadline changed" in email["text"]
+    assert email["text"] == original["text"]
     rows = _watch_rows(db_session, reader)
     assert len(rows) == 2
+    assert sum(bool(row.meta["email_pending"]) for row in rows) == 1
+    notifications.send_daily_digests(db_session, now=NOW + timedelta(days=1))
+    assert "official deadline changed" in _emails(deliveries, reader)[-1]["text"]
     assert all(row.meta["email_pending"] is False for row in rows)
 
 
@@ -399,7 +406,10 @@ def test_unwatch_discards_pending_digest_entry(db_session, deliveries, watched, 
     db_session.delete(watch)
     db_session.flush()
 
+    email_outbox.drain(db_session, now=NOW + timedelta(minutes=3), sender=notifications.send_email)
     assert programme_watch_updates(db_session, reader, NOW) == []
+    assert _emails(deliveries, reader) == []
+    assert db_session.scalar(select(models.EmailOutbox.status)) == "suppressed"
 
 
 def test_month_precision_dates_never_render_a_day():

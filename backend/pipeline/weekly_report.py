@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session, joinedload
 from api.filters import exclude_stale_opportunities, followed_company_match
 from core import ai_budget, ai_client, models
 from core.config import get_settings
+from core import email_outbox
 from core.email_budget import EmailBudget
 from core.email_components import MUTED, TABLE, greeting, opportunity_card, section, status_panel
 from core.email_templates import email_layout, text_footer
@@ -259,36 +260,9 @@ def _cohort_intro(
     return cache[cohort]
 
 
-def _record_delivery(
-    session: Session,
-    user: models.User,
-    data: WeeklyReportData,
-    *,
-    now: datetime,
-    sent: bool,
-) -> None:
-    iso_year, iso_week, _weekday = now.isocalendar()
-    session.add(
-        models.Notification(
-            user_id=user.id,
-            type="weekly_report",
-            opportunity_id=None,
-            status="sent" if sent else "failed",
-            sent_at=now if sent else None,
-            meta={
-                "iso_week": f"{iso_year}-W{iso_week:02d}",
-                "dream_company_match_ids": [item.id for item in data.dream_company_matches],
-                "closing_soon_ids": [item.id for item in data.closing_soon],
-                "hidden_opportunity_ids": [item.id for item in data.hidden_opportunities],
-                "intro_included": data.intro is not None,
-            },
-        )
-    )
-    session.commit()
-
-
 def send_weekly_reports(session: Session, *, now: datetime | None = None) -> dict[str, int]:
     """Build and send at most one report per eligible user per ISO week."""
+    delivery_now = now
     current = _as_utc(now or datetime.now(timezone.utc))
     budget = EmailBudget.for_step(session, current)
     result = {
@@ -325,9 +299,6 @@ def send_weekly_reports(session: Session, *, now: datetime | None = None) -> dic
             user = lock_recipient(session, user.id)
             if user is None:
                 continue
-            if not budget.can_send("weekly_report"):
-                budget.deferred += 1
-                continue
             data = WeeklyReportData(
                 dream_company_matches=_recent_dream_company_matches(
                     session, user.id, since, current
@@ -344,20 +315,38 @@ def send_weekly_reports(session: Session, *, now: datetime | None = None) -> dic
             html, text = _render_weekly_report(
                 user, data, unsub_url=unsubscribe_url(user.id, "weekly_report"), now=current
             )
-            sent = send_email(
+            iso_year, iso_week, _ = current.isocalendar()
+            week = f"{iso_year}-W{iso_week:02d}"
+            sent = email_outbox.send(
+                session,
+                send_email,
                 user.email,
                 "Your Aspirova weekly career report",
                 html,
                 text,
+                kind="weekly_report",
+                identity=week,
+                user_id=user.id,
                 headers=list_unsubscribe_headers(user.id, "weekly_report"),
+                receipts=[
+                    {
+                        "meta": {
+                            "iso_week": week,
+                            "dream_company_match_ids": [o.id for o in data.dream_company_matches],
+                            "closing_soon_ids": [o.id for o in data.closing_soon],
+                            "hidden_opportunity_ids": [o.id for o in data.hidden_opportunities],
+                            "intro_included": data.intro is not None,
+                        }
+                    }
+                ],
+                now=delivery_now,
             )
             if sent:
                 budget.record_sent()
-            _record_delivery(session, user, data, now=current, sent=sent)
             result["sent" if sent else "failed"] += 1
         except Exception:
             session.rollback()
-            logger.exception("weekly report failed for user %s", user.id)
+            logger.warning("email selector failure_count=1")
             result["failed"] += 1
             continue
         finally:

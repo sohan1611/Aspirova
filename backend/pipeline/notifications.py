@@ -52,6 +52,7 @@ from core.alert_relevance import (
 from core.interest_ranking import fts_ranking, rank_profile_query
 from core.taxonomy import build_feed_terms, interest_terms, selected_interests
 from core.config import get_settings
+from core import email_outbox
 from core.email_budget import EmailBudget, utc_midnight
 from core.email_components import (
     MUTED,
@@ -70,7 +71,6 @@ from pipeline.company_alert_email import CompanyAlertGroup, render_company_alert
 from pipeline.programme_watch_notifications import (
     ProgrammeWatchUpdate,
     collect_programme_watch_changes,
-    mark_programme_watch_updates_emailed,
     programme_watch_updates,
     render_programme_watch_updates,
 )
@@ -116,31 +116,6 @@ DIGEST_REPEAT_LOOKBACK = timedelta(days=7)
 _HACKATHON_CATEGORIES = {"hackathon", "competition"}
 
 
-def _record_notification(
-    session: Session,
-    user_id,
-    notification_type: str,
-    *,
-    opportunity_id: int | None,
-    status: str,
-    meta: dict | None = None,
-    now: datetime | None = None,
-    commit: bool = True,
-) -> None:
-    session.add(
-        models.Notification(
-            user_id=user_id,
-            type=notification_type,
-            opportunity_id=opportunity_id,
-            status=status,
-            sent_at=(now or datetime.now(timezone.utc)) if status == "sent" else None,
-            meta=meta,
-        )
-    )
-    if commit:
-        session.commit()
-
-
 def _already_sent_today(session: Session, user_id, notification_type: str, now: datetime) -> bool:
     """Has this user already had this notification on the same UTC calendar day?
 
@@ -163,7 +138,8 @@ def _already_sent_today(session: Session, user_id, notification_type: str, now: 
                 models.Notification.type == notification_type,
                 models.Notification.channel == "email",
                 models.Notification.status == "sent",
-                func.date(models.Notification.sent_at) == now.date(),
+                models.Notification.sent_at >= utc_midnight(now),
+                models.Notification.sent_at < utc_midnight(now) + timedelta(days=1),
             )
             .limit(1)
         )
@@ -1153,6 +1129,7 @@ def _digest_readers(session: Session, now: datetime) -> list[models.User]:
 
 
 def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict:
+    delivery_now = now
     now = _utc(now or datetime.now(timezone.utc))
     budget = EmailBudget.for_step(session, now)
 
@@ -1161,15 +1138,9 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
 
     for user in _digest_readers(session, now):
         try:
-            # The same user lock protects collection, the UTC-day cap and the
-            # outbound send across overlapping scheduler runs. Contenders skip
-            # this reader; the worker holding the lock completes their digest.
-            locked_user = session.scalar(
-                select(models.User)
-                .where(models.User.id == user.id, *recipient_filters())
-                .with_for_update(skip_locked=True)
-                .execution_options(populate_existing=True)
-            )
+            # Sender-only advisory lock also serializes company/search selection;
+            # ordinary authenticated requests retain their concurrent key-share lock.
+            locked_user = lock_recipient(session, user.id)
             if locked_user is None:
                 continue
             user = locked_user
@@ -1194,65 +1165,48 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
                 session.commit()
                 continue
 
-            if not budget.can_send("digest"):
-                budget.deferred += 1
-                result["skipped_budget"] += 1
-                _record_notification(
-                    session,
-                    user.id,
-                    "digest",
-                    opportunity_id=None,
-                    status="deferred",
-                    # No sent_at: this never advances history or ALERT-03.
-                    meta={"reason": "budget", "deferred_at": now.isoformat()},
-                    now=now,
-                )
-                continue
-
-            try:
-                sent = send_email(
-                    user.email,
-                    draft.subject,
-                    draft.html,
-                    draft.text,
-                    headers=list_unsubscribe_headers(user.id, "daily_digest"),
-                )
-            except Exception:
-                logger.exception("daily digest delivery failed for user %s", user.id)
-                sent = False
+            meta = {
+                "opportunity_ids": [o.id for o in draft.opportunities],
+                "hackathon_ids": [o.id for o in draft.hackathons],
+                "reasons": draft.reasons,
+                "reader_profile": reader_profile_summary(user),
+                **announcement_meta([*draft.opportunities, *draft.hackathons], "digest"),
+                **(
+                    {"programme_slugs": [u.meta["programme_slug"] for u in draft.programme_updates]}
+                    if draft.programme_updates
+                    else {}
+                ),
+            }
+            sent = email_outbox.send(
+                session,
+                send_email,
+                user.email,
+                draft.subject,
+                draft.html,
+                draft.text,
+                kind="digest",
+                identity=now.date().isoformat(),
+                user_id=user.id,
+                headers=list_unsubscribe_headers(user.id, "daily_digest"),
+                receipts=[{"meta": meta}],
+                effects={
+                    "emailed_notification_ids": [
+                        i for u in draft.programme_updates for i in u.notification_ids
+                    ]
+                },
+                now=delivery_now,
+            )
             if sent:
                 budget.record_sent()
-                mark_programme_watch_updates_emailed(session, draft.programme_updates, now)
-            _record_notification(
-                session,
-                user.id,
-                "digest",
-                opportunity_id=None,
-                status="sent" if sent else "failed",
-                meta={
-                    "opportunity_ids": [o.id for o in draft.opportunities],
-                    "hackathon_ids": [o.id for o in draft.hackathons],
-                    "reasons": draft.reasons,
-                    "reader_profile": reader_profile_summary(user),
-                    **announcement_meta([*draft.opportunities, *draft.hackathons], "digest"),
-                    # Only digests that carried watch updates get the key, so
-                    # earlier rows and readers keep their exact shape.
-                    **(
-                        {
-                            "programme_slugs": [
-                                update.meta["programme_slug"] for update in draft.programme_updates
-                            ]
-                        }
-                        if draft.programme_updates
-                        else {}
-                    ),
-                },
-                now=now,
-            )
-            result["sent" if sent else "failed"] += 1
+                result["sent"] += 1
+            elif not budget.can_send("digest"):
+                budget.deferred += 1
+                result["skipped_budget"] += 1
+            else:
+                result["failed"] += 1
         except Exception:
             session.rollback()
-            logger.exception("daily digest failed for user %s", user.id)
+            logger.warning("email selector failure_count=1")
             result["failed"] += 1
             continue
         finally:
@@ -1265,6 +1219,7 @@ def send_daily_digests(session: Session, *, now: datetime | None = None) -> dict
 def send_company_alerts(
     session: Session, *, now: datetime | None = None, instant_only: bool = False
 ) -> dict:
+    delivery_now = now
     now = now or datetime.now(timezone.utc)
     now = now.replace(tzinfo=timezone.utc) if now.tzinfo is None else now.astimezone(timezone.utc)
     budget = EmailBudget.for_step(session, now)
@@ -1365,9 +1320,6 @@ def send_company_alerts(
             if not selected:
                 result["skipped_empty"] += 1
                 continue
-            if not budget.can_send("instant_alert"):
-                budget.deferred += 1
-                continue
             subject, html, text = render_company_alert(
                 display_name=user.display_name,
                 user_skills=user.skills,
@@ -1375,38 +1327,30 @@ def send_company_alerts(
                 unsub_url=unsubscribe_url(user_id, "instant_alerts"),
                 now=now,
             )
-            try:
-                sent = send_email(
-                    user.email,
-                    subject,
-                    html,
-                    text,
-                    headers=list_unsubscribe_headers(user_id, "instant_alerts"),
-                )
-            except Exception:
-                logger.exception("company alert delivery failed for user %s", user_id)
-                sent = False
+            meta = announcement_meta(selected, "instant_alert")
+            sent = email_outbox.send(
+                session,
+                send_email,
+                user.email,
+                subject,
+                html,
+                text,
+                kind="instant_alert",
+                identity=[meta["role_keys"], meta["version_keys"]],
+                user_id=user_id,
+                headers=list_unsubscribe_headers(user_id, "instant_alerts"),
+                receipts=[
+                    {"opportunity_id": o.id, "meta": announcement_meta([o], "instant_alert")}
+                    for o in selected
+                ],
+                now=delivery_now,
+            )
             if sent:
                 budget.record_sent()
-            # Commit the complete group together, including cards covered by the more link.
-            session.add_all(
-                [
-                    models.Notification(
-                        user_id=user_id,
-                        type="instant_alert",
-                        opportunity_id=opportunity.id,
-                        status="sent" if sent else "failed",
-                        sent_at=now if sent else None,
-                        meta=announcement_meta([opportunity], "instant_alert"),
-                    )
-                    for opportunity in selected
-                ]
-            )
-            session.commit()
             result["sent" if sent else "failed"] += 1
         except Exception:
             session.rollback()
-            logger.exception("company alert failed for user %s", user_id)
+            logger.warning("email selector failure_count=1")
             result["failed"] += 1
         finally:
             session.commit()
@@ -1421,6 +1365,7 @@ def send_instant_alerts(session: Session, *, now: datetime | None = None) -> dic
 def send_closing_soon_alerts(
     session: Session, *, now: datetime | None = None, within_days: int = 3
 ) -> dict:
+    delivery_now = now
     now = now or datetime.now(timezone.utc)
     budget = EmailBudget.for_step(session, now)
     cutoff = now + timedelta(days=within_days)
@@ -1443,6 +1388,8 @@ def send_closing_soon_alerts(
             ):
                 continue
             pending = collect_saved_listing_changes(session, user, now, breaker=breaker)
+            reserved = email_outbox.reserved_notification_ids(session, user.id)
+            pending = [(row, o) for row, o in pending if row.id not in reserved]
             if not wants(user, "closing_soon"):
                 continue
 
@@ -1487,9 +1434,6 @@ def send_closing_soon_alerts(
             closed = [o for row, o in pending if row.type == "saved_closed"]
             if not opportunities and not pending:
                 continue
-            if not budget.can_send("closing_soon"):
-                budget.deferred += 1
-                continue
 
             unsub_url = unsubscribe_url(user.id, "closing_soon")
             subject, html = _render_closing_soon(
@@ -1508,54 +1452,40 @@ def send_closing_soon_alerts(
                 safety=safety,
                 closed=closed,
             )
-            try:
-                sent = send_email(
-                    user.email,
-                    subject,
-                    html,
-                    text,
-                    headers=list_unsubscribe_headers(user.id, "closing_soon"),
-                )
-            except Exception:
-                logger.exception("saved listing email failed for user %s", user.id)
-                sent = False
-            status = "sent" if sent else "failed"
-            for opportunity in opportunities:
-                _record_notification(
-                    session,
-                    user.id,
-                    "closing_soon",
-                    opportunity_id=opportunity.id,
-                    status=status,
-                    meta=announcement_meta([opportunity], "closing_soon"),
-                    now=now,
-                    commit=False,
-                )
-
+            meta = announcement_meta(opportunities, "closing_soon")
+            pending_ids = [row.id for row, _ in pending]
+            receipts = [
+                {"opportunity_id": o.id, "meta": announcement_meta([o], "closing_soon")}
+                for o in opportunities
+            ]
+            if not opportunities:
+                receipts = [
+                    {"type": "saved_listing_notice", "meta": {"notification_ids": pending_ids}}
+                ]
+            sent = email_outbox.send(
+                session,
+                send_email,
+                user.email,
+                subject,
+                html,
+                text,
+                kind="closing_soon",
+                identity=[meta, pending_ids],
+                user_id=user.id,
+                headers=list_unsubscribe_headers(user.id, "closing_soon"),
+                receipts=receipts,
+                effects={"emailed_notification_ids": pending_ids},
+                now=delivery_now,
+            )
             if sent:
                 budget.record_sent()
-                if not opportunities:
-                    # A notice-only email used to have only in-app rows. Give
-                    # its delivery one email row so later steps count it too.
-                    _record_notification(
-                        session,
-                        user.id,
-                        "saved_listing_notice",
-                        opportunity_id=None,
-                        status="sent",
-                        meta={"notification_ids": [row.id for row, _ in pending]},
-                        now=now,
-                        commit=False,
-                    )
-                for row, _ in pending:
-                    row.meta = {**row.meta, "email_pending": False, "emailed_at": now.isoformat()}
                 result["users_notified"] += 1
                 result["opportunities"] += len(opportunities) + len(pending)
             else:
                 result["failed"] += 1
         except Exception:
             session.rollback()
-            logger.exception("closing-soon alert failed for user %s", user.id)
+            logger.warning("email selector failure_count=1")
             result["failed"] += 1
             continue
         finally:

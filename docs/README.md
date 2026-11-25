@@ -154,4 +154,10 @@ The full rationale and rejected alternatives live in the relevant docs. This is 
 
 | 2026-11-17 | **TRUST-05: user reports have opaque receipts, public status and founder triage via `scripts/reports.py`.** SLA targets are 48 h to triage and 7 days to resolution, measured from receipt for every plan. Manual corrections beat crawls; listing detail pages publish safe correction notes. Reporter identities stay private, and reporting never affects an account or plan. | **Binding** |
 
+| 2026-11-22 | **DISC-04: eligibility facts are evidence-only, from listing text and source eligibility tags.** Not stated is preserved. Graduation-year and study-level filters never drop a row for missing information unless the reader explicitly opts into listings that state the selected dimensions. No company, category, location or country inference. | **Binding** |
+
+| 2026-11-23 | **DISC-06: a remote role is never assumed open worldwide.** Remote regions, work authorization, visa sponsorship and time zones come only from listing text, source tags and remote-board location restrictions. Not stated is preserved and shown; missing information does not hide a listing unless the reader opts in. Cross-country scope respects stated remote regions; the optional visa sponsorship filter excludes explicit conflicts and retains unknowns. | **Binding** |
+
+| 2026-11-23 | **ALERT-02: every application-owned email send goes through the durable Postgres outbox with a unique intent and Resend idempotency key. Retries never resend an accepted message; uncertain sends stop before the provider key expires. Hard-bounce and complaint suppression is honored for queued and future sends.** Existing alert role/version identities and rendered content remain authoritative. Attempts consume the shared 85/day application budget, with 10 reserved from digests and 15 of the provider's 100/day left for external Auth SMTP. Founder recovery is dry-run-first and cannot force an expired uncertain key. [Delivery audit and runbook](audits/2026-11-23-ALERT-02-delivery-health.md). | **Binding** |
+
 > Engineers: do not contradict a **Binding** row without an architect-approved amendment.

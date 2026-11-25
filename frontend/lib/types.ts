@@ -29,7 +29,29 @@ export interface RoleLevel {
   source: "title" | "category" | "eligibility" | "override";
 }
 
+export type Stage = "school" | "undergraduate" | "postgraduate" | "doctoral" | "recent_graduate";
+export interface EligibilityFact<T> {
+  value: T;
+  evidence: string;
+  source: "title" | "description" | "tags" | "location";
+}
+export interface EligibilityFacts {
+  v: number;
+  grad_years?: EligibilityFact<number[]>;
+  stages?: EligibilityFact<Stage[]>;
+  final_year_only?: EligibilityFact<true>;
+  degree_levels?: EligibilityFact<("diploma" | "bachelor" | "master" | "doctorate")[]>;
+  college_restriction?: EligibilityFact<true>;
+  citizenship?: EligibilityFact<string[]>;
+  remote_mode?: EligibilityFact<"remote" | "hybrid" | "onsite">;
+  remote_regions?: EligibilityFact<string[]>;
+  work_authorization?: EligibilityFact<string[]>;
+  visa_sponsorship?: EligibilityFact<boolean>;
+  timezones?: EligibilityFact<{ min: number; max: number }>;
+}
+
 export interface OpportunityListItem {
+  eligibility?: EligibilityFacts | null;
   role_level?: RoleLevel;
   status?: string;
   safety?: ListingSafety | null;
@@ -111,6 +133,10 @@ export interface DreamCompanyItem {
 }
 
 export interface SavedSearchParams {
+  grad_year?: number;
+  stage?: Stage[];
+  eligibility_stated?: boolean;
+  visa?: "needs";
   q?: string | null;
   category?: "internship" | "job" | "hackathon" | "competition" | "scholarship" | null;
   kind?: "roles" | "competitions" | null;

@@ -36,6 +36,7 @@ PERSONAL_COLUMNS = (
 # whenever a new users.id FK is added. Billing tables are deliberately absent.
 OWNED_MODELS = (
     models.Notification,
+    models.EmailOutbox,
     models.ProgrammeWatch,
     models.SavedSearch,
     models.Bookmark,

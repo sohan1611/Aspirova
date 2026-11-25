@@ -2,6 +2,8 @@
 
 from datetime import datetime, timezone
 
+from core import models
+
 import pipeline.notifications as notifications_module
 import pipeline.weekly_report as weekly_report_module
 from tests import test_notifications as notification_tests
@@ -41,11 +43,14 @@ def test_daily_digest_isolates_per_user_render_failure(
     failed_opportunity = opportunities_by_user[failed_user.id]
     rollback_calls = []
 
-    monkeypatch.setattr(
-        db_session,
-        "scalars",
-        lambda *_args, **_kwargs: _ScalarResult(users),
-    )
+    original_scalars = db_session.scalars
+
+    def only_override_readers(statement, *args, **kwargs):
+        if statement.column_descriptions[0].get("entity") is models.User:
+            return _ScalarResult(users)
+        return original_scalars(statement, *args, **kwargs)
+
+    monkeypatch.setattr(db_session, "scalars", only_override_readers)
     monkeypatch.setattr(
         notifications_module,
         "_already_sent_today",
@@ -96,11 +101,14 @@ def test_weekly_report_isolates_per_user_render_failure(db_session, monkeypatch)
 
     sent_emails = []
     rollback_calls = []
-    monkeypatch.setattr(
-        db_session,
-        "scalars",
-        lambda *_args, **_kwargs: _ScalarResult(users),
-    )
+    original_scalars = db_session.scalars
+
+    def only_override_readers(statement, *args, **kwargs):
+        if statement.column_descriptions[0].get("entity") is models.User:
+            return _ScalarResult(users)
+        return original_scalars(statement, *args, **kwargs)
+
+    monkeypatch.setattr(db_session, "scalars", only_override_readers)
     monkeypatch.setattr(
         weekly_report_module,
         "_already_sent_this_week",
