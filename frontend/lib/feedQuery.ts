@@ -159,6 +159,7 @@ export function parseFeedRequest(sp: URLSearchParams): FeedRequest {
 export function loadFeedData(
   request: FeedRequest,
   revalidateSeconds?: number,
+  signal?: AbortSignal,
 ): Promise<FeedResultData> {
   if (request.q) {
     return searchOpportunities(
@@ -166,6 +167,7 @@ export function loadFeedData(
       { ...request.filters, sort: request.sort, students: request.students },
       request.page,
       request.limit,
+      signal,
     );
   }
 
@@ -179,7 +181,7 @@ export function loadFeedData(
       scope: request.filters.scope,
       page: request.page,
       limit: request.limit,
-    });
+    }, signal);
   }
 
   return getFeed(
@@ -194,6 +196,7 @@ export function loadFeedData(
       limit: request.limit,
     },
     revalidateSeconds,
+    signal,
   );
 }
 

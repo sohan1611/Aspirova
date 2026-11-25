@@ -174,7 +174,7 @@ test("preview reads retain the home ISR window and withBuildFallback", () => {
   const source = fs.readFileSync(new URL("../app/(feed)/page.tsx", import.meta.url), "utf8");
   assert.match(source, /export const revalidate = 21600/);
   assert.doesNotMatch(source, /await searchParams|searchParams:/);
-  assert.match(source, /withBuildFallback\(\(\) => getFeed\([\s\S]*?deadline_confidence: "explicit"[\s\S]*?PAGE_REVALIDATE/);
-  assert.match(source, /withBuildFallback\(\(\) => fetchCalendar\(calendarQuery, undefined, PAGE_REVALIDATE\)/);
+  assert.match(source, /withBuildFallback\(signal => getFeed\([\s\S]*?deadline_confidence: "explicit"[\s\S]*?PAGE_REVALIDATE, signal/);
+  assert.match(source, /withBuildFallback\(signal => fetchCalendar\(calendarQuery, \{ signal \}, PAGE_REVALIDATE\)/);
   assert.ok(source.indexOf("<HomeActionDesk") < source.indexOf("<FeedResults initialData"));
 });

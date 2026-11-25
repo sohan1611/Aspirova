@@ -27,8 +27,8 @@ export const revalidate = 21600;
 // default would have quietly reduced this page to a 5-minute cache.
 const PAGE_REVALIDATE = 21600;
 
-async function loadStats(): Promise<StatsResponse | null> {
-  return getStats(PAGE_REVALIDATE);
+async function loadStats(signal?: AbortSignal): Promise<StatsResponse | null> {
+  return getStats(PAGE_REVALIDATE, signal);
 }
 
 // Prerendered into the static HTML as the Suspense fallback below. FeedResults
@@ -75,12 +75,15 @@ export default async function HomePage() {
 
   const calendarQuery = parseCalendarParams(new URLSearchParams(), todayIST());
   const asOf = Date.parse(`${calendarQuery.from}T00:00:00+05:30`);
+  // Run reads concurrently: each withBuildFallback has a total 40s Vercel
+  // build budget, leaving room under Next's 60s page limit for the recovery
+  // shell to render. A failed/null feed is retried on client mount and by ISR.
   const [stats, trending, data, closing, calendar] = await Promise.all([
     withBuildFallback(loadStats, data => data?.opportunities ?? 0).then(state => state.data),
-    withBuildFallback(() => getTrending(undefined, PAGE_REVALIDATE, true), data => data.items.length).then(state => state.data),
-    withBuildFallback(() => loadFeedData(request, PAGE_REVALIDATE), data => data.items.length).then(state => state.data),
-    withBuildFallback(() => getFeed({ sort: "deadline", deadline_confidence: "explicit", limit: 6 }, PAGE_REVALIDATE), data => data.items.length).then(state => state.data),
-    withBuildFallback(() => fetchCalendar(calendarQuery, undefined, PAGE_REVALIDATE), data => data.items.length).then(state => state.data),
+    withBuildFallback(signal => getTrending(undefined, PAGE_REVALIDATE, true, signal), data => data.items.length).then(state => state.data),
+    withBuildFallback(signal => loadFeedData(request, PAGE_REVALIDATE, signal), data => data.items.length).then(state => state.data),
+    withBuildFallback(signal => getFeed({ sort: "deadline", deadline_confidence: "explicit", limit: 6 }, PAGE_REVALIDATE, signal), data => data.items.length).then(state => state.data),
+    withBuildFallback(signal => fetchCalendar(calendarQuery, { signal }, PAGE_REVALIDATE), data => data.items.length).then(state => state.data),
   ]);
 
   return (

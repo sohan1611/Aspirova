@@ -33,7 +33,7 @@ export function testModuleLoader(overrides = {}, globals = {}) {
       },
       process: { env: { NEXT_PUBLIC_API_URL: "http://127.0.0.1:9999" } },
       fetch: (...args) => globalThis.fetch(...args),
-      URLSearchParams, AbortSignal, Error, Response, Date,
+      URLSearchParams, AbortSignal, AbortController, Error, Response, Date,
       setTimeout, clearTimeout, setInterval, clearInterval,
       ...globals,
     };
