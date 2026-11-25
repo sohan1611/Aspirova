@@ -75,6 +75,8 @@ export default async function HomePage() {
 
   const calendarQuery = parseCalendarParams(new URLSearchParams(), todayIST());
   const asOf = Date.parse(`${calendarQuery.from}T00:00:00+05:30`);
+  // IST midnight can fall inside a six-hour cache bucket. Refresh the closing
+  // snapshot when its cutoff changes, before filtering out yesterday's dates.
   // Run reads concurrently: each withBuildFallback has a total 40s Vercel
   // build budget, leaving room under Next's 60s page limit for the recovery
   // shell to render. A failed/null feed is retried on client mount and by ISR.
@@ -82,7 +84,7 @@ export default async function HomePage() {
     withBuildFallback(loadStats, data => data?.opportunities ?? 0).then(state => state.data),
     withBuildFallback(signal => getTrending(undefined, PAGE_REVALIDATE, true, signal), data => data.items.length).then(state => state.data),
     withBuildFallback(signal => loadFeedData(request, PAGE_REVALIDATE, signal), data => data.items.length).then(state => state.data),
-    withBuildFallback(signal => getFeed({ sort: "deadline", deadline_confidence: "explicit", limit: 6 }, PAGE_REVALIDATE, signal), data => data.items.length).then(state => state.data),
+    withBuildFallback(signal => getFeed({ sort: "deadline", deadline_confidence: "explicit", limit: 6 }, PAGE_REVALIDATE, signal, `closing:${asOf}`), data => data.items.length).then(state => state.data),
     withBuildFallback(signal => fetchCalendar(calendarQuery, { signal }, PAGE_REVALIDATE), data => data.items.length).then(state => state.data),
   ]);
 

@@ -36,6 +36,20 @@ function role(slug, extra = {}) {
   };
 }
 
+// The public /feed list shape, without bookmark/detail-only fixture fields.
+function feedListItem(slug, deadline = "2026-11-25T20:50:00Z") {
+  return {
+    category: "job", closed_at: null,
+    company: { name: "Example", slug: "example", logo_url: null, global_rank: null, prestige_rank: null },
+    country: "IN", deadline, deadline_confidence: "explicit", destination_facts: null,
+    eligibility: null, is_hidden: false, is_remote: false,
+    last_seen_at: "2026-11-25T18:10:00Z", location: "Bengaluru",
+    meta: { eligibility: ["Fresher"], eligible_experienced_only: false },
+    posted_at: null, role_level: { level: "unknown", evidence: null, source: "category" },
+    safety: null, slug, source: "unstop", status: "active", summary: null, title: `Role ${slug}`,
+  };
+}
+
 function window(slug, basis, opening, extra = {}) {
   return {
     id: `${slug}:2027:0`, programme: { slug, name: slug },
@@ -121,7 +135,7 @@ for (const env of [
         const body = path === "/calendar"
           ? { items: [window("Successful calendar preview", "official", "2027-01-01T00:00:00Z")], rolling: [] }
           : path === "/stats" ? { opportunities: 1 }
-          : { items: [role("successful-closing-preview")], total: 1, open_total: 1 };
+          : { items: [feedListItem("successful-closing-preview")], total: 1, open_total: 1 };
         return new Response(JSON.stringify(body), { status: 200 });
       },
     });
@@ -133,6 +147,73 @@ for (const env of [
     assert.doesNotMatch(html, /temporarily unavailable|Loading closing deadlines|Loading calendar preview/);
     assert.equal(reads.length, 5);
     assert.ok(reads.every(read => read.signal instanceof AbortSignal && !read.signal.aborted));
+  });
+}
+
+for (const phase of [PHASE_PRODUCTION_BUILD, "phase-production-server"]) {
+  test(`closing snapshots refresh across IST midnight within one six-hour bucket: ${phase}`, async () => {
+    const before = Date.parse("2026-11-25T18:13:15.893Z");
+    const after = Date.parse("2026-11-25T18:38:00Z");
+    const seconds = 21600;
+    assert.equal(Math.floor(before / (seconds * 1000)), Math.floor(after / (seconds * 1000)));
+    let clock = before;
+    const cache = new Map();
+    let closingReads = 0;
+    let previewProps;
+    const hidden = component(() => null);
+    const oldItems = Array.from({ length: 6 }, (_, i) =>
+      feedListItem(`old-${i}`, `2026-11-25T18:${i === 0 ? "08" : "29"}:00Z`));
+    const upcoming = Array.from({ length: 6 }, (_, i) =>
+      feedListItem(`upcoming-${i}`, `2026-11-25T20:${50 + i}:00Z`));
+    const pageLoad = testModuleLoader({
+      ...overrides,
+      ...Object.fromEntries([
+        "HomeDesk", "StatsBar", "RecentlyViewed", "FeedResults", "MostViewed", "TopCompanies", "FeedGrid",
+      ].map(name => ["@/components/" + name, hidden])),
+      "@/components/SignedOutHero": component(props => {
+        previewProps = props;
+        return React.createElement(Hero, props);
+      }),
+      "@/components/FeedNavigation": { FeedNavigationProvider: ({ children }) => children },
+      "next/cache": { unstable_cache(callback, keys) {
+        const key = JSON.stringify([callback.toString(), keys]);
+        return async () => {
+          if (!cache.has(key)) cache.set(key, structuredClone(await callback()));
+          return structuredClone(cache.get(key));
+        };
+      } },
+    }, {
+      process: { env: { NEXT_PHASE: phase, VERCEL: "1", NEXT_PUBLIC_API_URL: "http://127.0.0.1:9999" } },
+      Date: class extends Date {
+        constructor(...args) { super(...(args.length ? args : [clock])); }
+        static now() { return clock; }
+      },
+      async fetch(url, options) {
+        assert.ok(options.signal instanceof AbortSignal && !options.signal.aborted);
+        const request = new URL(url);
+        let body;
+        if (request.pathname === "/calendar") body = { items: [], rolling: [] };
+        else if (request.pathname === "/stats") body = { opportunities: 1875 };
+        else if (request.searchParams.get("deadline_confidence") === "explicit") {
+          closingReads++;
+          assert.deepEqual(Object.fromEntries(request.searchParams), { deadline_confidence: "explicit", sort: "deadline", limit: "6" });
+          body = { items: clock === before ? oldItems : upcoming, total: 1875, open_total: 1875, page: 1, limit: 6 };
+        } else body = { items: [], total: 0 };
+        return new Response(JSON.stringify(body), { status: 200 });
+      },
+    });
+    const Page = pageLoad("app/(feed)/page.tsx").default;
+    assert.match(renderToStaticMarkup(await Page()), /Role old-0/);
+    assert.equal(closingReads, 1);
+    clock = after;
+    const html = renderToStaticMarkup(await Page());
+    assert.equal(previewProps.asOf, Date.parse("2026-11-25T18:30:00Z"));
+    assert.equal(closingReads, 2, "a new cutoff must not reuse the earlier day's closing snapshot");
+    assert.deepEqual(previewProps.closing, upcoming); // Preserve every public API field.
+    for (const item of upcoming) assert.ok(html.includes(`href="/opportunity/${item.slug}"`));
+    assert.doesNotMatch(html, /Role old-|No upcoming explicit deadlines|temporarily unavailable/);
+    assert.match(renderToStaticMarkup(await Page()), /Role upcoming-0/);
+    assert.equal(closingReads, 2, "the refreshed snapshot remains cached for the same cutoff");
   });
 }
 

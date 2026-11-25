@@ -247,6 +247,7 @@ export async function getFeed(
   params: FeedParams = {},
   revalidateSeconds = 300,
   signal?: AbortSignal,
+  cacheScope?: string,
 ): Promise<ListingSnapshot<FeedResponse>> {
   const search = new URLSearchParams();
   if (params.category) search.set("category", params.category);
@@ -287,7 +288,7 @@ export async function getFeed(
   if (params.page) search.set("page", String(params.page));
   if (params.limit) search.set("limit", String(params.limit));
 
-  return fetchListing<FeedResponse>(`${API_URL}/feed?${search.toString()}`, revalidateSeconds, "page", signal);
+  return fetchListing<FeedResponse>(`${API_URL}/feed?${search.toString()}`, revalidateSeconds, "page", signal, cacheScope);
 }
 export async function pingOpportunityView(slug: string): Promise<void> {
   try {
