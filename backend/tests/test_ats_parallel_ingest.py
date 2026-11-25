@@ -670,6 +670,13 @@ def seeded_boards(engine, monkeypatch):
             session.commit()
 
 
+def _without_clock(key, value):
+    """destination_facts is compared in full except its two clock stamps."""
+    if key == "destination_facts" and isinstance(value, dict):
+        return {k: v for k, v in value.items() if k not in {"computed_at", "checked_at"}}
+    return value
+
+
 def _snapshot(seed):
     """Stable values only: ids and clock-dependent columns are deliberately absent."""
     with Session(seed.engine) as session:
@@ -700,7 +707,7 @@ def _snapshot(seed):
             "opportunities": {
                 opportunity.slug: {
                     **{
-                        column.key: getattr(opportunity, column.key)
+                        column.key: _without_clock(column.key, getattr(opportunity, column.key))
                         for column in models.Opportunity.__table__.columns
                         if column.key not in excluded
                     },
