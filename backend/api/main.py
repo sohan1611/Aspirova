@@ -9,6 +9,7 @@ from api import (
     copilot,
     digest,
     dream_companies,
+    delivery,
     email_samples,
     facets,
     feed,
@@ -85,6 +86,7 @@ app.include_router(sitemap.router)
 app.include_router(stats.router)
 app.include_router(trending.router)
 app.include_router(waitlist.router)
+app.include_router(delivery.router)
 
 
 @app.get("/health")

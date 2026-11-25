@@ -253,7 +253,12 @@ def test_migration_contract_no_rewrite_and_downgrade(eligibility_schema):
     config.set_main_option(
         "script_location", str(Path(__file__).resolve().parents[1] / "migrations")
     )
-    assert ScriptDirectory.from_config(config).get_heads() == [migration.revision]
+    scripts = ScriptDirectory.from_config(config)
+    head = scripts.get_current_head()
+    assert head is not None
+    assert migration.revision in {
+        revision.revision for revision in scripts.iterate_revisions(head, "base")
+    }
     migration.downgrade()
     assert "eligibility_facts" not in {
         c["name"] for c in inspect(connection).get_columns("opportunities")

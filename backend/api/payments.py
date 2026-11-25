@@ -30,7 +30,7 @@ from sqlalchemy.orm import Session
 
 from api.auth import get_current_user
 from api.deps import get_db
-from core import models
+from core import email_outbox, models
 from core.config import get_settings
 from core.email_client import send_email
 from core.email_templates import subscription_layout, text_footer
@@ -121,26 +121,25 @@ def _send_subscription_status_email(
             )
             notification_type = "subscription_payment_failed"
 
-        try:
-            sent = send_email(user.email, subject, html, text)
-        except Exception:
-            logger.exception("subscription email send failed for subscription %s", subscription.id)
-            sent = False
-
-        now = datetime.now(timezone.utc)
-        db.add(
-            models.Notification(
-                user_id=user.id,
-                type=notification_type,
-                status="sent" if sent else "failed",
-                sent_at=now if sent else None,
-                meta={
-                    "subscription_id": subscription.id,
-                    "razorpay_sub_id": subscription.razorpay_sub_id,
-                },
-            )
+        email_outbox.send(
+            db,
+            send_email,
+            user.email,
+            subject,
+            html,
+            text,
+            user_id=user.id,
+            kind=notification_type,
+            identity=[subscription.id, new_status, subscription.last_webhook_event_at],
+            receipts=[
+                {
+                    "meta": {
+                        "subscription_id": subscription.id,
+                        "razorpay_sub_id": subscription.razorpay_sub_id,
+                    }
+                }
+            ],
         )
-        db.commit()
     except Exception:
         # The subscription state was committed before this helper is called.
         db.rollback()
@@ -278,6 +277,10 @@ def _send_upgrade_reconciliation_alert(
             subject=subject,
             html=html,
             text=text,
+            session=db,
+            kind="billing_reconciliation",
+            identity=upgrade.id,
+            user_id=subscription.user_id,
         )
     except Exception:
         logger.exception(

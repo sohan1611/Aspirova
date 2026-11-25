@@ -396,6 +396,10 @@ def delete_account(
                 "Your Aspirova account has been deleted. You will no longer receive "
                 "Aspirova alerts or reports. Billing records and backup copies are "
                 "retained as described in our Privacy Policy.",
+                session=db,
+                kind="account_deleted",
+                identity=str(user_id),
+                user_id=user_id,
             )
             if not sent:
                 logger.warning("Account deletion confirmation failed for user %s", user_id)

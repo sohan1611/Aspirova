@@ -57,6 +57,8 @@ def join_waitlist(body: WaitlistSignupRequest) -> WaitlistSignupResponse:
             subject="Aspirova pricing waitlist signup",
             html=f"<p>New waitlist signup: {escape(body.email, quote=True)}</p>",
             text=f"New waitlist signup: {body.email}",
+            kind="waitlist",
+            identity=body.email.strip().lower(),
         )
     # Always ok=True regardless of email delivery - a public marketing
     # page should never surface an internal notification failure to the

@@ -47,6 +47,7 @@ class FakeSession:
         self.added: list[models.Notification] = []
         self.commit_statuses: list[str] = []
         self.rollbacks = 0
+        self.intents = []
 
     def scalar(self, statement):
         entity = statement.column_descriptions[0]["entity"]
@@ -81,6 +82,19 @@ def client(fake_db: FakeSession, monkeypatch) -> TestClient:
     monkeypatch.setattr(settings, "razorpay_key_secret", "placeholder_secret")
     monkeypatch.setattr(settings, "site_url", "https://aspirova.test")
 
+    # Test the webhook -> durable-intent contract independently of Postgres.
+    # Actual acceptance/ledger behavior is exercised in test_delivery_health.
+    monkeypatch.setattr(payments_module, "lock_recipient", lambda *a, **kw: fake_db.user)
+
+    def submit(db, sender, to, subject, html, text, **kwargs):
+        assert db.commit_statuses  # billing state committed before email enqueue
+        db.intents.append(kwargs)
+        try:
+            return sender(to, subject, html, text)
+        except Exception:
+            return False
+
+    monkeypatch.setattr(payments_module.email_outbox, "send", submit)
     app.dependency_overrides[get_db] = lambda: fake_db
     try:
         with TestClient(app) as test_client:
@@ -148,11 +162,11 @@ def test_non_active_to_active_sends_one_activation_email(
     assert ">Unsubscribe</a>" not in sent_emails[0]["html"]
     assert "https://aspirova.test" in sent_emails[0]["html"]
 
-    notification = fake_db.added[0]
-    assert notification.type == "subscription_activated"
-    assert notification.status == "sent"
-    assert notification.sent_at is not None
-    assert notification.meta == {
+    intent = fake_db.intents[0]
+    assert intent["kind"] == "subscription_activated"
+    assert intent["user_id"] == fake_db.user.id
+    assert intent["identity"][0] == fake_db.subscription.id
+    assert intent["receipts"][0]["meta"] == {
         "subscription_id": fake_db.subscription.id,
         "razorpay_sub_id": fake_db.subscription.razorpay_sub_id,
     }
@@ -172,7 +186,7 @@ def test_second_charged_event_while_active_sends_nothing(
     assert second_response.status_code == 200
     assert fake_db.subscription.status == "active"
     assert len(sent_emails) == 1
-    assert len(fake_db.added) == 1
+    assert len(fake_db.intents) == 1
 
 
 def test_transition_to_past_due_sends_payment_failed_email(
@@ -192,9 +206,7 @@ def test_transition_to_past_due_sends_payment_failed_email(
     assert "account?section=subscription" in sent_emails[0]["html"]
     assert "Pro features are paused until your payment succeeds" in sent_emails[0]["text"]
 
-    notification = fake_db.added[0]
-    assert notification.type == "subscription_payment_failed"
-    assert notification.status == "sent"
+    assert fake_db.intents[0]["kind"] == "subscription_payment_failed"
 
 
 def test_email_exception_does_not_fail_webhook_or_status_update(
@@ -212,8 +224,8 @@ def test_email_exception_does_not_fail_webhook_or_status_update(
     assert response.status_code == 200
     assert fake_db.subscription.status == "active"
     assert fake_db.commit_statuses[0] == "active"
-    assert fake_db.added[0].status == "failed"
-    assert fake_db.added[0].sent_at is None
+    assert len(fake_db.intents) == 1
+    assert fake_db.intents[0]["kind"] == "subscription_activated"
 
 
 def test_terminal_subscription_short_circuits_without_email(

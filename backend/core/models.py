@@ -581,7 +581,92 @@ class Notification(Base):
     read_at: Mapped[datetime | None] = mapped_column()
     meta: Mapped[dict | None] = mapped_column()
 
+    outbox_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("email_outbox.id", ondelete="CASCADE"), index=True
+    )
+
     __table_args__ = (Index("ix_notifications_user_type_sent", "user_id", "type", "sent_at"),)
+
+
+class EmailOutbox(Base):
+    """One immutable email intent. Payloads stay private in Postgres, never in logs."""
+
+    __tablename__ = "email_outbox"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), index=True
+    )
+    recipient: Mapped[str] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(Text)
+    dedupe_key: Mapped[str] = mapped_column(Text, unique=True)
+    payload: Mapped[dict] = mapped_column(JSONB)
+    effects: Mapped[dict] = mapped_column(JSONB, default=dict)
+    status: Mapped[str] = mapped_column(Text, default="queued")
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    next_attempt_at: Mapped[datetime] = mapped_column()
+    lease_until: Mapped[datetime | None] = mapped_column()
+    lease_token: Mapped[str | None] = mapped_column(Text)
+    uncertain_since: Mapped[datetime | None] = mapped_column()
+    last_code: Mapped[int | None] = mapped_column(Integer)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    retryable: Mapped[bool] = mapped_column(Boolean, default=True)
+    provider_id: Mapped[str | None] = mapped_column(Text, unique=True)
+    delivery_status: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column()
+    updated_at: Mapped[datetime] = mapped_column()
+    sent_at: Mapped[datetime | None] = mapped_column()
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('queued','sending','sent','failed','dead','suppressed')",
+            name="ck_email_outbox_status",
+        ),
+        Index("ix_email_outbox_due", "status", "next_attempt_at"),
+        Index("ix_email_outbox_created", "created_at"),
+    )
+
+
+class EmailAttempt(Base):
+    __tablename__ = "email_attempts"
+
+    outbox_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("email_outbox.id", ondelete="CASCADE"), primary_key=True
+    )
+    number: Mapped[int] = mapped_column(Integer, primary_key=True)
+    started_at: Mapped[datetime] = mapped_column(index=True)
+    finished_at: Mapped[datetime | None] = mapped_column()
+    outcome: Mapped[str] = mapped_column(Text, default="sending")
+    vendor_code: Mapped[int | None] = mapped_column(Integer)
+    message: Mapped[str | None] = mapped_column(Text)
+
+
+class EmailSuppression(Base):
+    __tablename__ = "email_suppressions"
+
+    address: Mapped[str] = mapped_column(Text, primary_key=True)
+    reason: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column()
+
+
+class EmailBudgetDay(Base):
+    """PII-free quota reservations survive account/payload deletion."""
+
+    __tablename__ = "email_budget_days"
+
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    used: Mapped[int] = mapped_column(Integer)
+
+
+class EmailWebhookEvent(Base):
+    """Minimal verified receipt; retain no webhook bodies or recipient lists."""
+
+    __tablename__ = "email_webhook_events"
+
+    event_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    provider_id: Mapped[str] = mapped_column(Text, index=True)
+    event_type: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column()
 
 
 class AiUsage(Base):

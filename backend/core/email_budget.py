@@ -1,14 +1,15 @@
-"""Per-step worker email allowance, shared through the notification ledger.
+"""Per-step display snapshot of the durable application email attempt budget.
 
-API mail and Supabase Auth SMTP are outside this ledger; the default 15-email
-headroom covers them. The digest leaves a further reserve for later steps.
+All Resend HTTP mail shares 85 slots; Supabase Auth SMTP remains outside the
+application's send path with 15 slots of headroom. Digests leave 10 slots for
+other kinds. The authoritative concurrent check lives in email_outbox.
 """
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, union_all
 from sqlalchemy.orm import Session
 
 from core import models
@@ -25,18 +26,32 @@ def utc_midnight(now: datetime) -> datetime:
 
 
 def sent_today(session: Session, now: datetime) -> int:
-    """One range query; never wrap sent_at in a date function.
+    """One query: durable attempt reservations plus pre-outbox successful sends.
 
-    Count sent email rows conservatively: legacy grouped company/deadline
-    emails can have several rows. Auth/API emails use the reserved headroom.
+    Each retry costs a slot, even if it times out or a worker crashes. Legacy
+    ledger rows count until UTC midnight on deployment day; no backfill needed.
     """
+    events = union_all(
+        select(models.EmailAttempt.outbox_id.label("id")).where(
+            models.EmailAttempt.started_at >= utc_midnight(now),
+            models.EmailAttempt.started_at < utc_midnight(now) + timedelta(days=1),
+        ),
+        select(models.Notification.id).where(
+            models.Notification.channel == "email",
+            models.Notification.status == "sent",
+            models.Notification.outbox_id.is_(None),
+            models.Notification.sent_at >= utc_midnight(now),
+            models.Notification.sent_at < utc_midnight(now) + timedelta(days=1),
+        ),
+    ).subquery()
+    reservations = (
+        select(models.EmailBudgetDay.used)
+        .where(models.EmailBudgetDay.day == utc_midnight(now).date())
+        .scalar_subquery()
+    )
     return (
         session.scalar(
-            select(func.count(models.Notification.id)).where(
-                models.Notification.channel == "email",
-                models.Notification.status == "sent",
-                models.Notification.sent_at >= utc_midnight(now),
-            )
+            select(func.greatest(func.count(), func.coalesce(reservations, 0))).select_from(events)
         )
         or 0
     )

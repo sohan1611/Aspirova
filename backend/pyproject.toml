@@ -49,6 +49,7 @@ target-version = "py312"
 [tool.black]
 line-length = 100
 target-version = ["py312"]
+extend-exclude = '(^|/)_local/pytest-delivery-[^/]+/'
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -18,6 +18,7 @@ import logging
 from sqlalchemy.orm import Session
 
 from core.db import make_engine
+from core.email_outbox import drain, status_counts
 from pipeline.notifications import (
     send_closing_soon_alerts,
     send_company_alerts,
@@ -58,6 +59,9 @@ def main() -> None:
 
     engine = make_engine()
     with Session(engine) as session:
+        # Includes API/founder mail and expired leases, regardless of which
+        # selector runs today. Transient failures retain their original payload.
+        drain(session)
         if args.digest:
             result = send_daily_digests(session)
             print(f"daily digests: {result}", flush=True)
@@ -76,6 +80,10 @@ def main() -> None:
         else:
             result = send_instant_alerts(session)
             print(f"instant alerts: {result}", flush=True)
+        counts = status_counts(session)
+        print(f"email delivery: {counts}", flush=True)  # public logs: counts only
+        if counts.get("dead", 0) + counts.get("failed", 0):
+            raise SystemExit(1)
 
 
 if __name__ == "__main__":

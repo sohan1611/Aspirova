@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 import pipeline.notifications as notifications_module
-from core import models
+from core import email_outbox, models
 from core.alert_identity import announcement_meta
 from core.unsubscribe import unsubscribe_url, verify_token
 from pipeline.notifications import (
@@ -164,7 +164,13 @@ def test_free_user_gets_generic_digest_when_no_dream_companies(
 ) -> None:
     _source, company = source_and_company
     user = _make_user(db_session)
-    _make_opportunity(db_session, company, first_seen_at=datetime.now(timezone.utc))
+    _make_opportunity(
+        db_session,
+        company,
+        title="Software Engineering Intern",
+        category="internship",
+        first_seen_at=datetime.now(timezone.utc),
+    )
 
     result = send_daily_digests(db_session)
 
@@ -1083,8 +1089,9 @@ def test_failed_company_alert_retries_all_rows(
     rows = _alert_rows(db_session, user)
     assert len(rows) == 1 and rows[0].status == "failed" and rows[0].sent_at is None
     monkeypatch.setattr(notifications_module, "send_email", original)
-    send_company_alerts(db_session, now=now)
-    assert {row.status for row in _alert_rows(db_session, user)} == {"sent", "failed"}
+    email_outbox.drain(db_session, now=now + timedelta(minutes=3), sender=original)
+    assert {row.status for row in _alert_rows(db_session, user)} == {"sent"}
+    assert len(_alert_rows(db_session, user)) == 1
     assert all(row.opportunity_id == opportunity.id for row in _alert_rows(db_session, user))
     assert len([email for email in sent_emails if email["to"] == user.email]) == 1
 

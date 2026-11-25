@@ -197,7 +197,7 @@ def test_saved_search_alert_leaves_last_alerted_at_when_no_new_matches(
     )
 
 
-def test_saved_search_alert_records_failed_delivery_and_advances_window(
+def test_saved_search_alert_failure_preserves_window_for_durable_retry(
     db_session, monkeypatch
 ) -> None:
     monkeypatch.setattr(saved_search_alerts_module, "send_email", lambda *args, **kwargs: False)
@@ -221,7 +221,7 @@ def test_saved_search_alert_records_failed_delivery_and_advances_window(
 
     assert result["emailed"] == 0
     db_session.refresh(saved_search)
-    assert saved_search.last_alerted_at == now
+    assert saved_search.last_alerted_at == last_alerted_at
     notification = db_session.scalar(
         select(models.Notification).where(
             models.Notification.user_id == user.id,

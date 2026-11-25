@@ -26,7 +26,7 @@ def test_signup_email_is_html_escaped_in_notification(monkeypatch) -> None:
     email = "<b>&\"'</b>@x.co"
     sent_emails: list[dict[str, str]] = []
 
-    def fake_send(*, to: str, subject: str, html: str, text: str) -> bool:
+    def fake_send(*, to: str, subject: str, html: str, text: str, **kwargs) -> bool:
         sent_emails.append({"to": to, "subject": subject, "html": html, "text": text})
         return True
 
