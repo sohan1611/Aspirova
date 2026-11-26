@@ -12,7 +12,12 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from core.db import make_engine
-from pipeline.liveness import DEFAULT_LIMIT, DEFAULT_MAX_SECONDS, check_listing_liveness
+from pipeline.liveness import (
+    DEFAULT_LIMIT,
+    DEFAULT_MAX_SECONDS,
+    INCONCLUSIVE_REASONS,
+    check_listing_liveness,
+)
 from pipeline.revalidate import notify_changed
 
 MAINTENANCE_STATEMENT_TIMEOUT = "120s"
@@ -58,7 +63,7 @@ def main() -> None:
             limit=args.limit,
             max_seconds=args.max_seconds,
             freshness_mode=True,
-            changed_slugs=changed_slugs,
+            changed_slugs=changed_slugs if args.apply else None,
         )
 
     if args.apply:
@@ -72,6 +77,14 @@ def main() -> None:
     print(f"time budget exhausted: {'yes' if result.timed_out else 'no'}", flush=True)
     if not args.apply:
         print("dry-run only; no rows updated", flush=True)
+    for source, counts in sorted(result.by_source.items()):
+        print(
+            f"LIVENESS SOURCE {source}: scanned={counts.scanned} alive={counts.alive} "
+            f"closed={counts.closed} reopened={counts.reopened} inconclusive={counts.inconclusive}",
+            flush=True,
+        )
+        reasons = " ".join(f"{reason}={counts.reasons[reason]}" for reason in INCONCLUSIVE_REASONS)
+        print(f"LIVENESS INCONCLUSIVE {source}: {reasons}", flush=True)
 
 
 if __name__ == "__main__":

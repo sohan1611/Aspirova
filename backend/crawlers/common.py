@@ -145,9 +145,9 @@ def _retry_delay_seconds(
     jitter_seconds: float,
     now: Callable[[], datetime] | None,
 ) -> float:
-    retry_after_seconds = _retry_after_seconds(response, now=now)
-    if retry_after_seconds is not None:
-        return retry_after_seconds
+    retry_after = retry_after_seconds(response, now=now)
+    if retry_after is not None:
+        return retry_after
 
     exponential_delay = min(
         max_delay_seconds,
@@ -157,10 +157,10 @@ def _retry_delay_seconds(
     return exponential_delay + jitter
 
 
-def _retry_after_seconds(
+def retry_after_seconds(
     response: httpx.Response | None,
     *,
-    now: Callable[[], datetime] | None,
+    now: Callable[[], datetime] | None = None,
 ) -> float | None:
     if response is None:
         return None

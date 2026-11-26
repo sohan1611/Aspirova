@@ -66,6 +66,18 @@ def cxs_endpoints(apply_url: str) -> tuple[str, str] | None:
         return None
 
 
+def job_posting_info(payload: Any) -> dict[str, Any] | None:
+    info = payload.get("jobPostingInfo") if isinstance(payload, dict) else None
+    if (
+        isinstance(info, dict)
+        and isinstance(info.get("title"), str)
+        and info["title"].strip()
+        and isinstance(info.get("jobDescription"), str)
+    ):
+        return info
+    return None
+
+
 class _RequestLimit(Exception):
     """Stop HTTP work at a normal crawl limit without degrading source health."""
 
@@ -326,7 +338,7 @@ class WorkdayAdapter:
             payload = (
                 self._json("GET", f"{self.api_url}{path}") if self._budget_available() else None
             )
-            info = payload.get("jobPostingInfo") if payload is not None else None
+            info = job_posting_info(payload)
             if payload is None and self._limits:
                 bullet_fields = posting.get("bulletFields") or []
                 info = {
@@ -343,12 +355,7 @@ class WorkdayAdapter:
                 }
             elif payload is None:
                 continue
-            if (
-                not isinstance(info, dict)
-                or not isinstance(info.get("title"), str)
-                or not info["title"].strip()
-                or not isinstance(info.get("jobDescription"), str)
-            ):
+            if info is None:
                 self._fail("invalid_job_detail")
                 continue
             if not is_student_relevant_role(info["title"]):

@@ -1,8 +1,9 @@
 # TRUST-02 — freshness and source liveness
 
 Work order: launch audit TRUST-02, 2026-11-26. Base: `fee8290`, branch
-`feat/freshness-service`. Deterministic only. The founder supplied the Round 2
-production measurements. Engineering validation uses disposable Postgres.
+`feat/freshness-service`. Deterministic only. The founder supplied the
+Round 2 and Round 3 production measurements. Engineering validation uses
+disposable Postgres.
 
 ## Investigation: what existed
 
@@ -236,27 +237,111 @@ still applies. Workday retains tenant pacing, and network checks still run
 outside database transactions. The same evidence rule now applies to Python,
 SQL and retained checks when a checker confirms a posting without an HTTP code.
 
-### Capacity and rollout
+## Round 3 throughput and verification capacity
 
-- Steady-state worst case for Workday is `ceil(5,218 / 7) = 746` successful
-  confirmations per day at the seven-day threshold if the crawl confirms none.
-  The shared ceiling is **1,500 selections per daily run** with a **600-second
-  soft time budget** and other sources in the same queue. If work concentrates
-  on one tenant, `600 / 0.5 = 1,200` is the theoretical maximum in ten minutes
-  for that tenant before network time, retries or the worker's batch reserve.
-- The initial `ceil(3,027 / 1,500) = 3` daily runs is a lower bound to attempt
-  that snapshot's backlog using liveness alone. Confirmations, closures and
-  crawl sightings will change the actual count. The proposed 95%-within-48-hours
-  goal would need `ceil(0.95 × 5,218 / 2) = 2,479` confirmations per day in the
-  same crawl-free scenario, above the current shared ceiling even at full throughput.
-- Run the updated worker from the PR checkout and repeat the read-only preview
-  before merging PR #237 and enabling the discovery cutoff. If the preview
-  still shows thousands of stale Workday listings, hold the merge while the
-  backlog clears. If the confirmed daily crawl and liveness throughput falls
-  short of the seven-day requirement, propose a second serialized run per day
-  for founder approval. Two runs would allow up to 3,000 selections per day
-  while keeping the 600-second budget per run. Remeasure completed checks and
-  coverage before using that cap for planning. Workday stays at 168 hours.
+The founder reported these production runs. Each reached its soft time budget.
+
+| Run | Budget | Scanned | Alive | Closed | Reopened | Inconclusive |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Daily crawl, master | 600 s | 300 | 109 | 3 | — | 188 |
+| PR #237 at `cef3bb6`, limit 1,500 | 600 s | 550 | 360 | 37 | 0 | 153 |
+| PR #237 at `cef3bb6`, limit 4,000 | 3,600 s | 2,150 | 1,153 | 77 | 0 | 920 |
+
+After the master run, Workday had **5,215 visible and 2,973 stale** listings.
+The stale total comprised 2,785 without a stored check and 188 unknown with
+an attempt less than three days old. Every other tier-1 source had zero stale
+listings in that snapshot. The ten-minute branch run reduced Workday to **5,178 visible
+and 2,576 stale**. Its 37 closures were real 404/410 responses. It scanned
+0.92 rows/s and confirmed 0.60 alive/s, with 153/550 (27.8%) inconclusive.
+
+The hour-long branch run used the same code, before the Round 3 changes.
+Workday fell from **2,576 to 1,737 stale** and from **5,178 to 5,107 visible**.
+Of those still stale, 534 had no stored check and 1,203 were unknown with a
+check less than three days old. HackerEarth had one unknown and every other
+source had zero stale listings. The run averaged 0.60 scans/s and 0.32 alive/s.
+The inconclusive share rose from 28% to 43%. That makes unknown outcomes the
+larger remaining Workday backlog. Sustained throttling or blocking by client
+IP or shared Workday data centre (`wdN`) is plausible. The runs also sampled
+different parts of the queue, and their totals give no HTTP reason breakdown.
+
+The previous worker submitted 50 rows together in freshness-priority order.
+The SQL has no tenant interleaving. Several workers could queue behind the same
+Workday host lock while work for other hosts waited in the executor or the next
+batch. A Workday request holds the lock through its 0.5-second delay, HTTP call
+and any retry or backoff. The worker waited for the entire batch before its
+set-based database writes, built a new HTTP client and executor per batch, and
+reserved up to 50 seconds for the next 50 rows as if they could arrive in five
+equal waves. The production totals measure end-to-end throughput. Database
+time, network time and the production tenant distribution are unmeasured.
+
+The dispatcher preserves SQL selection and order within each Workday data
+centre. It admits one Workday CXS check per `wdN` across all its tenants.
+With the 0.5-second delay before each request, including retries, each data
+centre has a ceiling of two request starts per second. This is the pre-Round-3
+ceiling for a single busy tenant, now shared across the data centre. The
+previous worker could run multiple tenants on the same data centre at once.
+Other data centres and sources use available workers. The dispatcher reuses
+the HTTP client and executor. Once 50 results are ready, it drains the
+in-flight checks, writes and commits the batch, then resumes dispatch. This
+preserves #224 and the crawler's per-tenant lock and request delay.
+
+A 429 or 503 pauses the whole data-centre queue for at least 30 seconds, or
+longer if its `Retry-After` header (seconds or HTTP date) requires it. Three
+consecutive HTTP timeouts in that data centre also trigger a 30-second pause.
+The triggering check retains its inconclusive reason. The scheduler holds
+queued checks outside the worker pool. A cooldown beyond the soft deadline
+leaves those rows unattempted and eligible for a later run.
+
+A local, counts-only mock used 60 valid CXS responses from three grouped
+tenants (30/15/15), the real 0.5-second pacing, 10 workers, and 100/50/50 ms
+simulated HTTP latency. The baseline finished in 26.58 s (**2.26 rows/s**)
+and the initial Round 3 WIP finished in 18.07 s (**3.32 rows/s**) by
+parallelizing three tenants on one data centre. With the final cap the three
+tenants finished in 34.80 s (**1.72 rows/s**) on a shared data centre and
+18.24 s (**3.29 rows/s**) when distributed across three. Production
+throughput and the effect on unknown outcomes are pending.
+The regression tests block one tenant's first check and verify that 24 checks
+from two other data centres finish while the 500-row queue waits. They also
+exercise pausing and resuming across tenants on the same data centre.
+
+CXS direct 2xx with valid posting details already verifies a listing, and
+404/410 already supplies closure evidence. A generic HTML page, malformed JSON
+or a payload without the adapter's posting-detail shape now stays inconclusive
+on 2xx. Other CXS inconclusive cases include malformed listing URLs, exhausted
+timeouts, 403/429, other 4xx (including 401), 5xx and redirects without safe
+terminal evidence. DNS and transport failures, auth and parked pages also stay
+inconclusive for general destinations.
+The daily script adds per-source totals and the fixed reason buckets
+`timeout`, `403`, `429`, `5xx`, `other_4xx`, `parse_or_shape`, `redirect`,
+`lock_or_budget` and `other`. The existing summary lines remain available
+for tooling.
+
+- Workday needs at least `ceil(2,600 / 7) = 372` positive confirmations
+  per day for listings missed by the partial crawl. The old branch's 360 in
+  600 seconds left a shortfall even before other sources. At the observed
+  alive share over the hour (1,153/2,150), 372 requires about 694 attempts.
+- For the other partial sources, use the count each crawl does not re-see.
+  Daily positive demand is that count divided by 7 for Amazon, 10 for
+  HackerEarth, 30 for RemoteOK, Arbeitnow and Jobicy, 60 for Himalayas, and
+  45 for government notices, rounded up per source. Those steady-state
+  populations are unmeasured. Round 2 did count 110 already-stale rows across
+  the other partial sources. Covering those 110 in one day as well as
+  Workday's 372 would require about 899 attempts at that alive share.
+- The daily step now allows **2,400 seconds and 4,000 selections**. Even at
+  the slower hour-long pre-fix rate, that budget projects about **1,433 scans
+  and 769 alive confirmations per day**. That is about 397 confirmations above
+  Workday's estimated steady-state need if the rate and outcome mix hold. The
+  post-change Workday rate must average at least `372 / 2,400 = 0.155` alive/s
+  to cover the Workday need over the full budget. Other sources share that time.
+  The step retains its 60-minute hard cap and the job its 375-minute cap.
+- Run a short counts-only `--dry-run` from the updated checkout. The Workday
+  reason counts show whether 429/5xx/timeouts, 403, or redirect and payload
+  problems dominate the unknown checks in that sample. They guide whether to
+  investigate shared throttling, access blocks, or endpoint handling first.
+  A short sample cannot locate an IP/shared-data-centre limit or measure the
+  sustained rate. Use the daily totals and the read-only preview to verify
+  capacity and the remaining backlog before enabling the discovery cutoff.
+  Workday stays at 168 hours.
 
 ## Measurement and rollout
 
@@ -334,9 +419,10 @@ override; never copy its value into public logs:
 uv run python -m scripts.freshness_slo --diagnose
 # External checks, no database writes by default.
 uv run python -m scripts.rescue_closed_listings
+uv run python -m scripts.check_listing_liveness --dry-run --max-seconds 300 --limit 500
 # Apply only after reviewing the dry run; the scheduled job uses the same bounds.
 uv run python -m scripts.rescue_closed_listings --apply
-uv run python -m scripts.check_listing_liveness --apply
+uv run python -m scripts.check_listing_liveness --apply --max-seconds 2400 --limit 4000
 ```
 
 ## Validation and limits
@@ -354,6 +440,11 @@ database on localhost port 56432, including the unchanged #224 transaction
 test and the TRUST-01 checks. Ruff, Black on the five changed Python files,
 and all **382 frontend Node tests** passed. The counts-only diagnostic was
 also exercised on the disposable database.
+
+The final Round 3 backend suite passed **6,980 tests** on a fresh, migrated
+database on localhost port 56432. This includes the unchanged #224 test,
+the TRUST-01 closure checks, the Workday pacing and cooldown tests, and the
+dry-run check for unchanged listing data. Ruff and Black passed.
 
 The source-diversity fixtures used 30-day-old crawl timestamps. Those breached
 the thresholds for Greenhouse and Unstop, while RemoteOK was near its cutoff.
@@ -373,7 +464,7 @@ landing. Each pair returned the same listing IDs and counts. These are local sam
 activity. The legacy reference query timed out at 20 seconds on this data, so
 the #235 fixtures cover parity separately.
 
-Round 2 production impact counts are recorded above. Post-fix production
+Production impact counts are recorded above. Round 3 production
 throughput and a real 390px rendering remain pending.
 
 ## File map
@@ -386,17 +477,19 @@ throughput and a real 390px rendering remain pending.
 | `backend/pipeline/crawl_safety.py` | Latest-outcome and historical-volume absence circuit breaker. |
 | `backend/pipeline/expire.py` | Apply breaker, exclude Amazon, record absence reason and honor newer verification. |
 | `backend/pipeline/retirement.py` | Report rolling-feed soft aging without writing a TTL hard closure. |
-| `backend/pipeline/liveness.py` | Cadence queue with priority for partial-source rows due to go stale, same-posting rescue, transaction and race guards. |
-| `backend/pipeline/destination_check.py` | Conservative same-posting title/path/query evidence. |
+| `backend/pipeline/liveness.py` | Cadence priority, Workday data-centre pacing and cooldowns, per-source counts and transaction/race guards. |
+| `backend/pipeline/destination_check.py` | Conservative same-posting evidence, optional response validation and transport failure reasons. |
+| `backend/crawlers/workday.py` | Share CXS posting-detail shape check with liveness. |
+| `backend/crawlers/common.py` | Reuse Retry-After parsing for Workday data-centre cooldowns. |
 | `backend/pipeline/saved_search_alerts.py` | Exclude stale saved-search picks. |
-| `backend/scripts/check_listing_liveness.py` | Enable cadence, refresh page caches, print reopen counts. |
+| `backend/scripts/check_listing_liveness.py` | Enable cadence, refresh page caches and add per-source outcomes and reason buckets. |
 | `backend/scripts/rescue_closed_listings.py` | Bounded, serial, dry-run-first rescue command. |
 | `backend/scripts/landing_perf.py` | Compare the live landing query across revisions. |
 | `backend/scripts/freshness_slo.py` | Read-only per-source/tier counts, percentiles, impact preview and optional stale destination diagnostic. |
 | `backend/scripts/expire_missing.py` | Report soft-aging and dead-board counts without board addresses. |
 | `backend/api/filters.py` | Retain the posting-age rule and add verification staleness to the shared display and outbound predicates. |
 | `backend/api/schemas.py` | Nullable verification timestamp, freshness state and threshold on list/detail. |
-| `.github/workflows/crawl-tier1.yml` | Schedule rescue and read-only SLO reporting with bounded timeouts. |
+| `.github/workflows/crawl-tier1.yml` | Expand the daily liveness budget and schedule bounded rescue and read-only SLO reporting. |
 | `frontend/lib/types.ts` | Optional freshness response fields for mixed deployments. |
 | `frontend/lib/freshness.ts` | Missing-data-safe, hydration-aware freshness wording. |
 | `frontend/components/FreshnessLabel.tsx` | Small wrapping freshness label. |
@@ -408,6 +501,7 @@ throughput and a real 390px rendering remain pending.
 | `backend/tests/test_feed_source_diversity.py` | Use recent verification while retaining posting dates and source-order assertions. |
 | `backend/tests/test_post_telegram.py` | Keep discovery age independent of verification and cover the source cutoff. |
 | `backend/tests/test_freshness.py` | Cadence/evidence/breaker contracts, network transaction boundary and DB acceptance fixtures. |
+| `backend/tests/test_liveness_round3.py` | Exercise tenant fairness, pacing, budget, Workday response shape and counts-only reporting. |
 | `backend/tests/test_audit_retirement.py` | Update historical TTL expectations to soft aging; keep board/provenance checks. |
 | `backend/tests/test_government_retirement.py` | Assert soft aging while retaining deadline and extension behavior. |
 | `backend/tests/test_runner.py` | Isolate new durable-journal operations from dispatch-only fake sessions. |
@@ -437,12 +531,12 @@ visible rows by destination status and time since the last stored attempt.
 Preserve inventory provenance, unknown/auth behavior, scoped ingest locks and
 transaction-free network checks. No migration or dependencies.
 
-The founder's preview found 3,027 of 5,218 visible Workday listings stale.
-CXS 2xx already supplies positive evidence. Pre-TRUST-01 outcomes were not
-retained, and the old daily queue waited four days and ignored stale deadlines.
-The cadence worker now prioritizes due partial-source rows and accepts explicit
-same-posting API confirmations when the HTTP code is absent. The seven-day
-Workday cutoff alone needs up to 746 successful checks per day, and the initial
-backlog takes at least three runs to attempt at 1,500 per run. Use the preview
-before enabling the cutoff. Post-fix production throughput and the 390px browser
-check remain pending.
+### Round 3
+
+The founder's ten-minute branch run was 28% inconclusive. The hour-long run
+reached 43%, and 1,203 of the remaining stale Workday listings had a recent
+unknown result. The worker now gives each Workday data centre one request
+at a time and pauses its queue on 429, 503 or three consecutive timeouts.
+It honours Retry-After while other sources and data centres keep running.
+Daily liveness gets 40 minutes and a 4,000-row cap. A dry run shows the
+inconclusive reasons by source without writing any listing data.

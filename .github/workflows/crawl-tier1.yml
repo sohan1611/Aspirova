@@ -27,10 +27,10 @@ concurrency:
 jobs:
   crawl:
     runs-on: ubuntu-latest
-    # Job cap is a final hang guard, not a billed-minute budget. Keep it >= the
-    # sum of explicit step timeouts plus setup/tail margin; current arithmetic:
-    # ATS 150 + aggregators 150 + liveness 60 + rescue 5 + SLO 5 + margin = 375.
-    # Otherwise adding a future step can silently reintroduce job-level kills.
+    # Job cap is the final hang guard. Plan for board setup 35 + ATS soft 120
+    # + aggregators hard 150 + liveness soft 40 + rescue 5 + SLO 5 = 355 min.
+    # The remaining 20 min cover startup, database writes and the other tail
+    # steps. The job cap can still win if several steps approach their hard caps.
     timeout-minutes: 375
     env:
       CRAWL_ATTEMPT: ${{ github.event.inputs.attempt || '1' }}
@@ -139,16 +139,15 @@ jobs:
 
       - name: Check listing freshness and liveness
         if: success() || failure()
-        # This tail check can be slow when many undated boards need probing; the
-        # cap exists only to catch a hang, not to ration now-free public-repo
-        # runner minutes.
+        # Allow 40 minutes of dispatch plus up to 20 minutes for in-flight
+        # checks, final database writes and cache revalidation.
         timeout-minutes: 60
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           REVALIDATE_URL: ${{ secrets.REVALIDATE_URL }}
           REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
           PYTHONUNBUFFERED: "1"
-        run: uv run python -m scripts.check_listing_liveness --apply
+        run: uv run python -m scripts.check_listing_liveness --apply --max-seconds 2400 --limit 4000
 
       - name: Rescue recent false closures (bounded)
         if: success() || failure()
