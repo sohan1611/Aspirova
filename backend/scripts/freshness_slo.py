@@ -1,6 +1,9 @@
 """Read-only freshness SLO report. Never fetches destinations or prints rows/URLs."""
 
-from sqlalchemy import case, func, literal, select, text
+import argparse
+from datetime import timedelta
+
+from sqlalchemy import DateTime, case, cast, func, literal, select, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -9,6 +12,16 @@ from api.filters import open_opportunity_filters
 from core import models
 from core.db import make_engine
 from core.freshness import SOURCE_CADENCE, cadence_value, stale_expression, verified_expression
+
+DESTINATION_STATUSES = ("unchecked", "alive", "gone", "unknown", "sign_in_required", "invalid")
+
+
+def _source_label():
+    return case(
+        {key: key for key in SOURCE_CADENCE},
+        value=models.Opportunity.primary_source,
+        else_="other",
+    ).label("source")
 
 
 def measure(connection: Connection | Session) -> list[dict]:
@@ -20,11 +33,7 @@ def measure(connection: Connection | Session) -> list[dict]:
     )
     visible = (
         select(
-            case(
-                {key: key for key in SOURCE_CADENCE},
-                value=models.Opportunity.primary_source,
-                else_="other",
-            ).label("source"),
+            _source_label(),
             cadence_value("tier").label("tier"),
             cadence_value("target_hours").label("target_hours"),
             hours.label("hours"),
@@ -57,6 +66,50 @@ def measure(connection: Connection | Session) -> list[dict]:
     total = connection.execute(select(literal("all").label("key"), *metrics)).mappings().one()
     result.append({"scope": "total", **total})
     return result
+
+
+def diagnose_stale(connection: Connection | Session) -> list[dict]:
+    source = _source_label()
+    status = models.Opportunity.destination_facts["status"].astext
+    checked = cast(
+        models.Opportunity.destination_facts["checked_at"].astext, DateTime(timezone=True)
+    )
+    three_days_ago = func.now() - timedelta(days=3)
+    seven_days_ago = func.now() - timedelta(days=7)
+    query = (
+        select(
+            source,
+            *[func.count().filter(status == value).label(value) for value in DESTINATION_STATUSES],
+            func.count().filter(status.is_(None)).label("missing"),
+            func.count().filter(status.not_in(DESTINATION_STATUSES)).label("other_status"),
+            func.count().filter(checked.is_(None)).label("never"),
+            func.count().filter(checked > three_days_ago).label("under_3d"),
+            func.count().filter(checked.between(seven_days_ago, three_days_ago)).label("3_to_7d"),
+            func.count().filter(checked < seven_days_ago).label("over_7d"),
+        )
+        .where(*open_opportunity_filters(require_recent_verification=False), stale_expression())
+        .group_by(source)
+        .order_by(source)
+    )
+    return [dict(row) for row in connection.execute(query).mappings()]
+
+
+def report_diagnosis(rows: list[dict]) -> None:
+    for row in rows:
+        statuses = " ".join(
+            f"{key}={row[key]}" for key in (*DESTINATION_STATUSES, "missing", "other_status")
+        )
+        ages = " ".join(
+            f"{label}={row[key]}"
+            for key, label in (
+                ("never", "never"),
+                ("under_3d", "<3d"),
+                ("3_to_7d", "3-7d"),
+                ("over_7d", ">7d"),
+            )
+        )
+        print(f"FRESHNESS STALE STATUS: source={row['source']} {statuses}", flush=True)
+        print(f"FRESHNESS STALE CHECK AGE: source={row['source']} {ages}", flush=True)
 
 
 def report(rows: list[dict]) -> None:
@@ -92,7 +145,7 @@ def report(rows: list[dict]) -> None:
         print(f"FRESHNESS SLO: tier={key} visible=0 within_target=n/a", flush=True)
 
 
-def main() -> None:
+def main(*, diagnose: bool = False) -> None:
     engine = None
     try:
         engine = make_engine()
@@ -101,7 +154,10 @@ def main() -> None:
             connection.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
             connection.execute(text("SET LOCAL statement_timeout = '120s'"))
             rows = measure(connection)
+            diagnosis = diagnose_stale(connection) if diagnose else []
         report(rows)
+        if diagnose:
+            report_diagnosis(diagnosis)
     except SQLAlchemyError:
         print("FRESHNESS SLO: unavailable errors=1", flush=True)
         raise SystemExit(1) from None
@@ -111,4 +167,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--diagnose", action="store_true", help="Break down stale visible listings."
+    )
+    main(diagnose=parser.parse_args().diagnose)

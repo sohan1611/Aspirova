@@ -1,7 +1,9 @@
 """TRUST-02 contracts; database cases use only the caller's disposable DB."""
 
+import json
 import uuid
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import httpx
 import pytest
@@ -11,7 +13,14 @@ from sqlalchemy.orm import Session
 
 from core import models
 from core.destination_facts import classify_destination_facts, retain_alive_verification, url_key
-from core.freshness import SOURCE_CADENCE, cadence, is_stale, last_verified, stale_expression
+from core.freshness import (
+    SOURCE_CADENCE,
+    cadence,
+    is_stale,
+    last_verified,
+    stale_expression,
+    verified_expression,
+)
 from crawlers import runner
 from pipeline.crawl_safety import permits_absence
 from pipeline.destination_check import inspect_destination
@@ -554,3 +563,204 @@ def test_landing_staleness_is_a_row_predicate():
     )
     assert sql.upper().count("SELECT") == 1
     assert "first_seen_at" in sql and "last_seen_at" in sql and "destination_facts" in sql
+
+
+@pytest.mark.parametrize("source", ["workday", "amazon"])
+@pytest.mark.parametrize("code", [200, 401, 403, 429, 503, "timeout"])
+def test_destination_worker_refreshes_only_positive_posting_evidence(
+    db_session, monkeypatch, source, code
+):
+    from pipeline import liveness
+
+    now = datetime.now(timezone.utc)
+    row = listing(source)
+    row.last_seen_at = now - timedelta(days=10)
+    if source == "workday":
+        sample = Path(__file__).with_name("fixtures") / "workday_detail_sample.json"
+        payload = json.loads(sample.read_text(encoding="utf-8-sig"))
+        row.apply_url = payload["jobPostingInfo"]["externalUrl"]
+        row.title = payload["jobPostingInfo"]["title"]
+    else:
+        row.apply_url = "https://www.amazon.jobs/en/jobs/123456/software-engineer-intern"
+    db_session.add(row)
+    db_session.flush()
+    freshness = select(verified_expression(), stale_expression(now)).where(
+        models.Opportunity.id == row.id
+    )
+    assert db_session.execute(freshness).one() == (row.last_seen_at, True)
+    apply_url, title = row.apply_url, row.title
+
+    def respond(request):
+        if source == "workday":
+            assert request.url.path.startswith("/wday/cxs/")
+        else:
+            assert str(request.url) == apply_url
+        if code == "timeout":
+            raise httpx.ReadTimeout("fixture timeout", request=request)
+        if source == "workday" and code == 200:
+            return httpx.Response(code, json=payload)
+        body = f"<h1>{title}</h1>" if code == 200 else "Unavailable"
+        return httpx.Response(code, text=body, headers={"Retry-After": "0"})
+
+    client = httpx.Client
+    monkeypatch.setattr(
+        liveness.httpx,
+        "Client",
+        lambda **kwargs: client(transport=httpx.MockTransport(respond), **kwargs),
+    )
+    monkeypatch.setattr(liveness, "sleep", lambda _: None)
+    monkeypatch.setattr(
+        liveness,
+        "inspect_destination",
+        lambda *args, **kwargs: inspect_destination(*args, resolve=lambda *_: True, **kwargs),
+    )
+    result = check_listing_liveness(
+        db_session, apply=True, freshness_mode=True, now=now, limit=1, commit_each_batch=False
+    )
+    db_session.refresh(row)
+    assert row.closed_at is None
+    if code == 200:
+        assert result.alive == 1
+        assert row.destination_facts["observation"]["same_posting"] is True
+        assert row.destination_facts["observation"]["http_status"] == 200
+        assert row.destination_facts["last_alive_at"] == row.destination_facts["checked_at"]
+        verified = datetime.fromisoformat(row.destination_facts["checked_at"])
+        assert db_session.execute(freshness).one() == (verified, False)
+        assert last_verified(row) == verified
+    else:
+        assert result.inconclusive == 1
+        assert row.destination_facts["status"] == ("sign_in_required" if code == 401 else "unknown")
+        assert "last_alive_at" not in row.destination_facts
+        assert db_session.execute(freshness).one() == (row.last_seen_at, True)
+        assert last_verified(row) == row.last_seen_at
+
+
+@pytest.mark.parametrize("source", ["workday", "amazon"])
+@pytest.mark.parametrize("code,same", [(None, True), (None, False), (None, "true"), (403, True)])
+def test_read_and_retention_support_code_less_api_confirmation(db_session, source, code, same):
+    row = listing(source, age=1000)
+    row.destination_facts = classify_destination_facts(
+        row.apply_url, observation=observation(row, code=code, same_posting=same)
+    )
+    db_session.add(row)
+    db_session.flush()
+    confirmed = same is True and code is None
+    expected = NOW if confirmed else row.last_seen_at
+    freshness = select(verified_expression(), stale_expression(NOW)).where(
+        models.Opportunity.id == row.id
+    )
+    assert db_session.execute(freshness).one() == (expected, not confirmed)
+    assert last_verified(row) == expected
+
+    row.destination_facts = retain_alive_verification(
+        facts(row, "unknown", 429, NOW + timedelta(hours=1)), row.destination_facts
+    )
+    db_session.flush()
+    assert db_session.execute(freshness).one() == (expected, not confirmed)
+    assert last_verified(row) == expected
+
+
+def test_liveness_prioritizes_visible_partial_sources_by_stale_deadline(db_session):
+    from pipeline.liveness import _select_freshness_candidates
+
+    def candidate(source, age, checked_hours=None, **kwargs):
+        meta = (
+            {"liveness_checked_at": (NOW - timedelta(hours=checked_hours)).isoformat()}
+            if checked_hours is not None
+            else {}
+        )
+        return listing(
+            source, age=age, first_seen_at=NOW - timedelta(days=100), meta=meta, **kwargs
+        )
+
+    old_inventory = candidate("greenhouse", 300)
+    far_from_stale = candidate("workday", 100)
+    near_stale = candidate("workday", 150, deadline=NOW + timedelta(days=1))
+    rolling_overdue = candidate("remoteok", 728)
+    workday_overdue = candidate("workday", 196)
+    retry = candidate("workday", 210, checked_hours=26)
+    cooling_down = candidate("workday", 240, checked_hours=4)
+    hidden = candidate("workday", 220, is_hidden=True)
+    db_session.add_all(
+        [
+            old_inventory,
+            far_from_stale,
+            near_stale,
+            rolling_overdue,
+            workday_overdue,
+            retry,
+            cooling_down,
+            hidden,
+        ]
+    )
+    db_session.flush()
+    queue = _select_freshness_candidates(db_session, now=NOW, limit=4)
+    assert [item.id for item in queue] == [
+        workday_overdue.id,
+        rolling_overdue.id,
+        near_stale.id,
+        retry.id,
+    ]
+
+
+def test_stale_destination_diagnostic_reports_only_opt_in_counts(db_session, capsys):
+    from scripts.freshness_slo import diagnose_stale, report_diagnosis
+
+    now = datetime.now(timezone.utc)
+    marker = "https://private.example/diagnosis-fixture"
+
+    def item(status, age=None, *, source="workday", hidden=False):
+        row = listing(source, is_hidden=hidden)
+        row.last_seen_at = now - timedelta(days=12)
+        if age is not None:
+            row.destination_facts = facts(row, status, now=now - timedelta(days=age))
+        elif status is not None:
+            row.destination_facts = {"status": status}
+        return row
+
+    without_facts = item(None)
+    unrecognized = item(None, source=marker)
+    db_session.add_all(
+        [
+            without_facts,
+            item("unchecked"),
+            item("unknown", 2),
+            item("sign_in_required", 5),
+            item("alive", 8),
+            item("alive", 1),
+            item("unknown", 2, hidden=True),
+            unrecognized,
+        ]
+    )
+    db_session.flush()
+    db_session.execute(
+        models.Opportunity.__table__.update()
+        .where(models.Opportunity.id == without_facts.id)
+        .values(destination_facts=None)
+    )
+    db_session.execute(
+        models.Opportunity.__table__.update()
+        .where(models.Opportunity.id == unrecognized.id)
+        .values(destination_facts={"status": marker})
+    )
+    rows = diagnose_stale(db_session)
+    assert next(row for row in rows if row["source"] == "workday") == {
+        "source": "workday",
+        "unchecked": 1,
+        "alive": 1,
+        "gone": 0,
+        "unknown": 1,
+        "sign_in_required": 1,
+        "invalid": 0,
+        "missing": 1,
+        "other_status": 0,
+        "never": 2,
+        "under_3d": 1,
+        "3_to_7d": 1,
+        "over_7d": 1,
+    }
+    report_diagnosis(rows)
+    output = capsys.readouterr().out
+    assert "source=workday never=2 <3d=1 3-7d=1 >7d=1" in output
+    assert "source=other" in output and "other_status=1" in output
+    assert marker not in output

@@ -5,9 +5,11 @@ from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 from sqlalchemy import DateTime, and_, case, cast, func, literal, or_, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql.elements import ColumnElement
 
 from core import models
+from core.destination_facts import is_positive_verification
 
 
 @dataclass(frozen=True)
@@ -82,9 +84,8 @@ def _timestamp(value: object) -> datetime | None:
 
 def last_verified(opportunity: models.Opportunity) -> datetime | None:
     facts = opportunity.destination_facts or {}
-    observation = facts.get("observation") or {}
     positive = facts.get("last_alive_at")
-    if facts.get("status") == "alive" and 200 <= (observation.get("http_status") or 0) < 300:
+    if is_positive_verification(facts):
         positive = max(
             filter(None, (_timestamp(positive), _timestamp(facts.get("checked_at")))), default=None
         )
@@ -138,7 +139,11 @@ def verified_expression() -> ColumnElement[datetime | None]:
     positive = case(
         (
             (facts["status"].astext == "alive")
-            & (observation["http_status"].as_integer().between(200, 299)),
+            & or_(
+                observation["http_status"].as_integer().between(200, 299),
+                observation["http_status"].astext.is_(None)
+                & (observation["same_posting"] == literal(True, type_=JSONB)),
+            ),
             cast(facts["checked_at"].astext, DateTime(timezone=True)),
         ),
         else_=None,

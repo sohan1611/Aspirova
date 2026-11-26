@@ -351,17 +351,26 @@ def classify_destination_facts(
     return facts
 
 
+def is_positive_verification(facts: dict) -> bool:
+    if facts.get("status") != "alive":
+        return False
+    observation = facts.get("observation") or {}
+    code = observation.get("http_status")
+    if code is None:
+        # A checker can confirm the posting through an API without recording a code.
+        return observation.get("same_posting") is True
+    return 200 <= code < 300
+
+
 def retain_alive_verification(facts: dict, previous: dict | None = None) -> dict:
     """Unknown later checks cannot erase positive evidence for the same URL."""
     previous = previous if isinstance(previous, dict) else {}
     times = []
     for item in (facts, previous if previous.get("url_key") == facts.get("url_key") else {}):
-        observation = item.get("observation") or {}
         if item.get("last_alive_at"):
             times.append(item["last_alive_at"])
-        if item.get("status") == "alive" and 200 <= (observation.get("http_status") or 0) < 300:
-            if item.get("checked_at"):
-                times.append(item["checked_at"])
+        if item.get("checked_at") and is_positive_verification(item):
+            times.append(item["checked_at"])
     if times:
         # All values originate from our UTC destination checker.
         facts["last_alive_at"] = max(times)

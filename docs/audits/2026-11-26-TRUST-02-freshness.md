@@ -1,8 +1,8 @@
 # TRUST-02 — freshness and source liveness
 
 Work order: launch audit TRUST-02, 2026-11-26. Base: `fee8290`, branch
-`feat/freshness-service`. Deterministic only. No production access or production
-measurement was performed. `backend/.env` was not read. No new dependencies.
+`feat/freshness-service`. Deterministic only. The founder supplied the Round 2
+production measurements. Engineering validation uses disposable Postgres.
 
 ## Investigation: what existed
 
@@ -105,17 +105,19 @@ partial within 48 hours). COVERAGE measures enumeration, including bounded raw
 windows, not age of every visible listing. Neither reports per-listing p50/p90/p99.
 The canon records historical failures (approximately 2,000 erroneous absence
 closures and the Himalayas 1,679-row TTL incident); these are incident evidence,
-not current freshness measurements. There is no current production distribution
-available in this checkout. No observed SLO percentage is claimed.
+not current freshness measurements. The founder's current measurements are
+recorded in the Round 2 finding below.
 
 ## Design and implementation
 
 **Last verified** is the later of canonical `last_seen_at` from actual returned
-listing IDs and a destination check with `status=alive` and HTTP 2xx. Merely
-having a recent `checked_at`, a 3xx, auth wall, 403/429, timeout or 5xx never
-advances it. `destination_facts.last_alive_at` retains the last positive check
-across later inconclusive/gone observations for the same URL; URL changes discard
-that evidence. Existing positive TRUST-01 observations work without a backfill.
+listing IDs and a positive destination check. A check must return `status=alive`
+with HTTP 2xx or, when it records no HTTP status, an explicit Boolean
+`same_posting=true`. A recent `checked_at`, a 3xx, auth wall, 403/429, timeout or
+5xx never advances verification. `destination_facts.last_alive_at` retains the
+last positive check across later inconclusive/gone observations for the same
+URL. URL changes discard that evidence. Existing positive TRUST-01 observations
+work without a backfill.
 
 Derive the timestamp with a Python helper and equivalent native SQL expression.
 There is **no column, migration, index or bulk backfill**. Existing list reads
@@ -154,8 +156,8 @@ in `pipeline/ingest.py` changes. Reopen updates match only already-closed return
 IDs, never lock all active rows of a company.
 
 The scheduled liveness CLI opts into cadence checks for dated and partial-source
-listings too. Legacy Python callers keep the old undated queue. A 2xx clears
-verification staleness. Positively identified postings can reverse legacy TTL closure.
+listings too. Legacy Python callers keep the old undated queue. Positive checks
+clear verification staleness. Positively identified postings can reverse legacy TTL closure.
 Checks are tied to unchanged URLs and a fresh post-check database read. Current
 deadlines, safety withdrawals and manual corrections still win. A 404 result
 cannot override a crawl confirmation newer than the check started. Absence
@@ -192,6 +194,70 @@ counts and a GitHub Actions warning, preserving existing best-effort workflow
 semantics. It does not block explicit passed deadlines or repeated confirmed
 dead-board evidence. Amazon joins Workday in the bounded-search exclusion.
 
+## Round 2 Workday finding
+
+The founder's read-only production preview reported **53,991 visible** listings
+and **3,137 verification-stale**. Workday accounted for **3,027 of the 3,137**
+stale rows and **58% of its 5,218 visible** rows. The Workday p50/p90/p99 were
+241/310/385 hours, with 18.28% within 48 hours and zero never verified (initial
+crawl presence counts). The other ATS sources reported zero stale rows and a
+p50 below one hour. The remaining 110 stale rows were from Arbeitnow (64),
+Himalayas (38), Jobicy (4), RemoteOK (1) and HackerEarth (3).
+
+Workday crawls at most three pages per search term and also has a 25-second
+board budget and a request cap. A still-live posting can age out of those
+results. Before TRUST-01 (`a18c6e9`, November 25), checked rows only received
+an attempt timestamp in `meta.liveness_checked_at`. An alive outcome was not
+persisted. The TRUST-01 migration leaves older destination facts null, so
+historical liveness checks cannot refresh the preview's verification age.
+The current CXS checker already captures the HTTP 2xx and `checked_at`, and
+the stored observation advances verification. Amazon's search API belongs to
+the crawl adapter. Amazon liveness uses the standard HTTP destination checker
+in this revision, which also records a 2xx when the posting responds.
+
+At the repository baseline (`fee8290`), the scheduled check used the legacy
+queue, which excluded listings with application deadlines. Workday has no
+deadline and is outside the rolling-source exclusions. It becomes eligible
+after four days unseen and three days since the last attempt, including an
+inconclusive attempt. This leaves three days before the seven-day cutoff, and a
+first inconclusive result can defer the retry past that cutoff. Never-checked
+rows across sources precede every retry within one shared daily cap. The
+Workday tenant lock serializes requests for a host, with a 0.5-second delay and
+retries that honor `Retry-After` under the lock. Each batch finishes before
+the next starts, so 1,500 selections do not guarantee 1,500 finished checks.
+The aggregate preview cannot establish how many rows waited in the queue or
+received inconclusive responses.
+
+Round 2 moves public-catalogue rows from partial sources to the front of the
+cadence queue once they are overdue or would cross their cutoff by the next
+daily run. Within that group, first attempts since last confirmation precede
+retries, and each group runs in stale-deadline order. The normal retry cooldown
+still applies. Workday retains tenant pacing, and network checks still run
+outside database transactions. The same evidence rule now applies to Python,
+SQL and retained checks when a checker confirms a posting without an HTTP code.
+
+### Capacity and rollout
+
+- Steady-state worst case for Workday is `ceil(5,218 / 7) = 746` successful
+  confirmations per day at the seven-day threshold if the crawl confirms none.
+  The shared ceiling is **1,500 selections per daily run** with a **600-second
+  soft time budget** and other sources in the same queue. If work concentrates
+  on one tenant, `600 / 0.5 = 1,200` is the theoretical maximum in ten minutes
+  for that tenant before network time, retries or the worker's batch reserve.
+- The initial `ceil(3,027 / 1,500) = 3` daily runs is a lower bound to attempt
+  that snapshot's backlog using liveness alone. Confirmations, closures and
+  crawl sightings will change the actual count. The proposed 95%-within-48-hours
+  goal would need `ceil(0.95 × 5,218 / 2) = 2,479` confirmations per day in the
+  same crawl-free scenario, above the current shared ceiling even at full throughput.
+- Run the updated worker from the PR checkout and repeat the read-only preview
+  before merging PR #237 and enabling the discovery cutoff. If the preview
+  still shows thousands of stale Workday listings, hold the merge while the
+  backlog clears. If the confirmed daily crawl and liveness throughput falls
+  short of the seven-day requirement, propose a second serialized run per day
+  for founder approval. Two runs would allow up to 3,000 selections per day
+  while keeping the 600-second budget per run. Remeasure completed checks and
+  coverage before using that cap for planning. Workday stays at 168 hours.
+
 ## Measurement and rollout
 
 `scripts.freshness_slo` uses one **REPEATABLE READ, READ ONLY** transaction and a
@@ -200,6 +266,12 @@ never-verified and stale counts, p50/p90/p99 verification ages, target hours,
 and the percentage within target. Empty configured sources and tiers get an
 explicit zero. Output contains only source or tier labels and aggregate metrics.
 Connection failure emits a counts-only failure and exits 1.
+
+`--diagnose` adds per-source counts for visible stale rows by destination
+status and by `destination_facts.checked_at` age (`never`, `<3d`, `3-7d`,
+`>7d`) in the same read-only snapshot. `never` means no stored destination
+timestamp. Older workers could record only an attempt in listing metadata.
+Unrecognized source/status values are grouped under fixed labels.
 
 The preview starts with open, active, unhidden, student-facing listings that pass
 today's posting-age rule. Each `FRESHNESS IMPACT` line gives the baseline count,
@@ -212,8 +284,10 @@ individual verification ages. The proposed targets are observational.
 1. Run database checks below on the disposable instance; review query plans and
    a real 390px rendering. No schema migration is needed for TRUST-02 (the
    TRUST-01 destination column migration must already be present).
-2. Deploy the tolerant frontend and backend together, then enable the changed
-   daily workflow. Liveness/rescue use existing database/revalidation secrets.
+2. Clear the initial Workday backlog with the updated worker and preview as
+   described above. Deploy the tolerant frontend and backend together, then
+   enable the changed daily workflow. Liveness/rescue use existing
+   database/revalidation secrets.
    The workflow retains serialized runs and adds a bounded rescue and read-only
    measurement tail. Overall timeout includes these steps.
 3. Founder records the impact preview and SLO output before rollout and after
@@ -257,7 +331,7 @@ override; never copy its value into public logs:
 
 ```powershell
 # Read-only production measurement; safe counts for the review log.
-uv run python -m scripts.freshness_slo
+uv run python -m scripts.freshness_slo --diagnose
 # External checks, no database writes by default.
 uv run python -m scripts.rescue_closed_listings
 # Apply only after reviewing the dry run; the scheduled job uses the same bounds.
@@ -274,6 +348,12 @@ landing query parity cases also passed in a separate run. Ruff, Black on 31
 changed Python files, and `git diff --check` passed. The Windows sandbox
 blocked removal of the old pytest temp folders. The 382 frontend Node tests
 passed, along with ESLint and TypeScript.
+
+The full Round 2 backend suite passed **6,966 tests** on a fresh, migrated
+database on localhost port 56432, including the unchanged #224 transaction
+test and the TRUST-01 checks. Ruff, Black on the five changed Python files,
+and all **382 frontend Node tests** passed. The counts-only diagnostic was
+also exercised on the disposable database.
 
 The source-diversity fixtures used 30-day-old crawl timestamps. Those breached
 the thresholds for Greenhouse and Unstop, while RemoteOK was near its cutoff.
@@ -293,7 +373,8 @@ landing. Each pair returned the same listing IDs and counts. These are local sam
 activity. The legacy reference query timed out at 20 seconds on this data, so
 the #235 fixtures cover parity separately.
 
-Production impact counts and a real 390px rendering remain pending.
+Round 2 production impact counts are recorded above. Post-fix production
+throughput and a real 390px rendering remain pending.
 
 ## File map
 
@@ -305,13 +386,13 @@ Production impact counts and a real 390px rendering remain pending.
 | `backend/pipeline/crawl_safety.py` | Latest-outcome and historical-volume absence circuit breaker. |
 | `backend/pipeline/expire.py` | Apply breaker, exclude Amazon, record absence reason and honor newer verification. |
 | `backend/pipeline/retirement.py` | Report rolling-feed soft aging without writing a TTL hard closure. |
-| `backend/pipeline/liveness.py` | Cadence queue, retained checks, same-posting rescue, transaction and race guards. |
+| `backend/pipeline/liveness.py` | Cadence queue with priority for partial-source rows due to go stale, same-posting rescue, transaction and race guards. |
 | `backend/pipeline/destination_check.py` | Conservative same-posting title/path/query evidence. |
 | `backend/pipeline/saved_search_alerts.py` | Exclude stale saved-search picks. |
 | `backend/scripts/check_listing_liveness.py` | Enable cadence, refresh page caches, print reopen counts. |
 | `backend/scripts/rescue_closed_listings.py` | Bounded, serial, dry-run-first rescue command. |
 | `backend/scripts/landing_perf.py` | Compare the live landing query across revisions. |
-| `backend/scripts/freshness_slo.py` | Read-only per-source/tier counts, percentiles, target coverage and per-source/total impact preview. |
+| `backend/scripts/freshness_slo.py` | Read-only per-source/tier counts, percentiles, impact preview and optional stale destination diagnostic. |
 | `backend/scripts/expire_missing.py` | Report soft-aging and dead-board counts without board addresses. |
 | `backend/api/filters.py` | Retain the posting-age rule and add verification staleness to the shared display and outbound predicates. |
 | `backend/api/schemas.py` | Nullable verification timestamp, freshness state and threshold on list/detail. |
@@ -342,7 +423,7 @@ Production impact counts and a real 390px rendering remain pending.
 
 Listings can look current after their last successful check, while failed or
 truncated full-inventory crawls can reuse older coverage to close live rows.
-Define last verified from actual crawl presence or successful 2xx evidence,
+Define last verified from actual crawl presence or positive destination checks,
 retain that evidence across unknown checks, and soft-age listings by source.
 Retain the Binding posting-age exclusion and add source verification staleness
 to discovery and outbound picks. Detail pages explain the relevant stale state.
@@ -351,9 +432,17 @@ Both predicates leave hard closure to independent evidence.
 Commit crawl-start evidence, require a successful complete run and a recent-volume
 baseline before absence retirement, and exclude bounded Amazon searches. Add
 bounded same-posting rescue and a read-only source/tier percentile reporter
-with a per-source and total deploy-impact preview.
+with a per-source and total deploy-impact preview. `--diagnose` shows stale
+visible rows by destination status and time since the last stored attempt.
 Preserve inventory provenance, unknown/auth behavior, scoped ingest locks and
 transaction-free network checks. No migration or dependencies.
 
-Round 1 validation is recorded above. Production impact counts and the 390px
-browser check remain pending.
+The founder's preview found 3,027 of 5,218 visible Workday listings stale.
+CXS 2xx already supplies positive evidence. Pre-TRUST-01 outcomes were not
+retained, and the old daily queue waited four days and ignored stale deadlines.
+The cadence worker now prioritizes due partial-source rows and accepts explicit
+same-posting API confirmations when the HTTP code is absent. The seven-day
+Workday cutoff alone needs up to 746 successful checks per day, and the initial
+backlog takes at least three runs to attempt at 1,500 per run. Use the preview
+before enabling the cutoff. Post-fix production throughput and the 390px browser
+check remain pending.

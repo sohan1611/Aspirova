@@ -8,7 +8,7 @@ Greenhouse soft-404 rule close rows; unknown checks never reset verification.
 from collections.abc import Callable, Iterable
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from threading import Lock
 from time import monotonic, sleep
 from typing import Any, Literal
@@ -18,6 +18,8 @@ import httpx
 from sqlalchemy import (
     BigInteger,
     DateTime,
+    and_,
+    case,
     cast,
     column,
     func,
@@ -31,6 +33,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session
 
+from api.filters import open_opportunity_filters
 from core import models
 from core.freshness import (
     cadence_value,
@@ -55,6 +58,9 @@ DEFAULT_MAX_SECONDS = 600
 DEFAULT_CONCURRENCY = 10
 BATCH_SIZE = 50
 HTTP_TIMEOUT_SECONDS = 10.0
+# The Tier 1 crawl workflow schedules liveness once a day.
+FRESHNESS_RUN_INTERVAL = timedelta(days=1)
+PARTIAL_SOURCES = ROLLING_WINDOW_SOURCES | {"workday", "amazon", "hackerearth"}
 
 LivenessStatus = Literal["alive", "closed", "inconclusive"]
 
@@ -231,10 +237,10 @@ def _select_freshness_candidates(
     Legacy callers retain their undated-only queue. The public worker opts in
     to this cadence queue, with bounded recent-closure rescue as a separate run.
     """
-    from datetime import timedelta
     from pipeline.expire import FULL_INVENTORY_SOURCES
 
     checked = cast(models.Opportunity.meta["liveness_checked_at"].astext, DateTime(timezone=True))
+    verified = verified_expression()
     retry_due = or_(
         checked.is_(None),
         checked
@@ -243,14 +249,13 @@ def _select_freshness_candidates(
             0, 0, 0, 0, RESCUE_RECHECK_HOURS if rescue else cadence_value("check_hours")
         ),
     )
+    priority = (cadence_value("priority"), checked.asc().nulls_first(), verified.asc())
     if rescue:
         eligible = (
             (models.Opportunity.closed_at >= now - timedelta(days=RESCUE_WINDOW_DAYS))
             & (models.Opportunity.closed_at <= now)
             & or_(
-                models.Opportunity.primary_source.in_(
-                    ROLLING_WINDOW_SOURCES | {"workday", "amazon", "hackerearth"}
-                ),
+                models.Opportunity.primary_source.in_(PARTIAL_SOURCES),
                 models.Opportunity.meta["closed_reason"].astext == "absence",
                 # Before TRUST-02, absence closure had no reason. Restrict unknown
                 # reasons to sources that actually support inventory retirement.
@@ -273,9 +278,22 @@ def _select_freshness_candidates(
         eligible = or_(
             models.Opportunity.closed_at.is_(None),
             models.Opportunity.meta["closed_reason"].astext == "rolling_window_ttl",
-        ) & (
-            verified_expression()
-            < now - func.make_interval(0, 0, 0, 0, cadence_value("check_hours"))
+        ) & (verified < now - func.make_interval(0, 0, 0, 0, cadence_value("check_hours")))
+        stale_at = verified + func.make_interval(0, 0, 0, 0, cadence_value("stale_hours"))
+        urgent = case(
+            (
+                models.Opportunity.primary_source.in_(PARTIAL_SOURCES)
+                & (stale_at <= now + FRESHNESS_RUN_INTERVAL),
+                and_(*open_opportunity_filters(require_recent_verification=False)),
+            ),
+            else_=False,
+        )
+        # Try urgent postings that have no attempt since their last confirmation
+        # first so a persistent block cannot use the whole daily budget on retries.
+        priority = (
+            case((urgent, case((checked > verified, 1), else_=0)), else_=2),
+            case((urgent, stale_at)).asc(),
+            *priority,
         )
     rows = session.execute(
         select(
@@ -294,12 +312,7 @@ def _select_freshness_candidates(
             eligible,
             retry_due,
         )
-        .order_by(
-            cadence_value("priority"),
-            checked.asc().nulls_first(),
-            verified_expression().asc(),
-            models.Opportunity.id,
-        )
+        .order_by(*priority, models.Opportunity.id)
         .limit(limit)
     ).all()
     return [LivenessCandidate(*row) for row in rows]
