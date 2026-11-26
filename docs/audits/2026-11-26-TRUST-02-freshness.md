@@ -343,6 +343,118 @@ for tooling.
   capacity and the remaining backlog before enabling the discovery cutoff.
   Workday stays at 168 hours.
 
+## Round 4 production run and decision
+
+The founder's 40-minute `--apply --limit 4000 --max-seconds 2400` run at
+`12fdbfe` hit the soft time budget.
+
+| Source | Scanned | Alive | Closed | Reopened | Inconclusive |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Total | 3,194 | 566 | 61 | 185 | 2,390 |
+| Workday | 798 | 359 | 19 | 0 | 420 |
+| Himalayas | 1,844 | 1 | 0 | 0 | 1,843 |
+| Arbeitnow | 469 | 166 | 10 | 151 | 126 |
+| Greenhouse | 30 | 0 | 30 | 0 | 0 |
+| Jobicy | 15 | 4 | 2 | 4 | — |
+| RemoteOK | 38 | 36 | — | 30 | — |
+
+All 420 Workday unknowns came from 429 (313) or 403 (107). Himalayas
+returned 1,843 403s with zero stale rows at its 1,440-hour cutoff.
+Arbeitnow returned 126 429s, and its visible count grew from 931 to 1,072.
+RemoteOK had one unresolved redirect. After the run Workday had **5,088
+visible and 1,555 stale**. Of those, 71 had no stored check and 1,484 had
+an unknown result checked within three days. HackerEarth had one stale row
+and other sources had zero. Workday's stale sequence was
+3,027 → 2,973 → 2,576 → 1,737 → 1,555.
+
+### Workday capacity
+
+The run managed 0.33 Workday detail checks/s and 359 positive results, 13
+short of the estimated 372/day needed for the roughly 2,600 postings
+missed by crawls. At the observed 359/798 alive share, 372 confirmations
+take about 827 detail checks. Repeated data-centre pacing was insufficient
+against the Workday 429/403 responses in this run.
+
+The liveness job now groups due Workday rows by exact tenant and career
+site and pages that board's CXS list with the existing crawler request
+shape. It prioritizes search terms present in the due titles, uses the
+unfiltered list when none match, and can page beyond the crawl's
+three-page-per-term cap. It stops when the selected postings are found,
+the lists end, the board returns an error, or it reaches 16 page queries.
+A single-posting board keeps one detail check. Each list response can
+verify up to 20 distinct posting paths. A match requires the exact board and
+external posting path. Only matched rows receive a positive observation.
+Unlisted rows keep their existing facts, retry eligibility and state, even
+on a short final page or a list-endpoint 404/410. The bounded sweep has no
+absence authority.
+
+- At 20 matches per request the theoretical floor for 372 confirmations
+  is 19 requests. At four matches per request the daily demand is 93
+  requests, and at two it is 186, versus roughly 827 detail checks.
+  A local mocked page verified 20 targets in one POST. Production match
+  density is unmeasured. The new list summary reports
+  HTTP attempts (including retries), valid pages, matched rows and
+  failure reasons so the founder can measure it.
+- Each board can issue up to 16 list page queries, or at most 32 HTTP
+  attempts if every query needs one retry. A tenant with multiple career
+  sites shares the 0.5-second spacing and lock. The data-centre cap stays
+  at one in-flight check. Repeated 429/503 responses increase the default
+  cooldown from 30 seconds up to 480 seconds, while longer Retry-After
+  values still apply. Three consecutive 403s suspend that data centre for
+  the rest of the run. Other data centres and sources keep their workers.
+- Deepening the existing crawl from three to six pages across its five
+  terms would add up to 15 searches per board. Including the robots
+  request, this would leave only 14 of the 45 request slots for details
+  versus 29 at the current depth. It would add at least 7.5 seconds of
+  pacing per fully expanded board before network time and would compete
+  with the 25-second board budget. The Nov. 26 ATS step took 28 minutes.
+  The separate sweep leaves the ATS path and workflow caps intact. It uses
+  the existing 40-minute liveness budget.
+
+### Wasted probes and reopen evidence
+
+The scheduled queue now admits only postings whose verification is stale
+or due to cross its source cutoff by the next daily run. Generic destination
+hosts are skipped for the rest of a run after three consecutive 403
+responses. The apex and `www` host share the block. In-flight calls can
+finish. Subsequent skips and unmatched Workday rows have their own
+counts-only buckets and do not receive attempt stamps or closure evidence.
+
+Arbeitnow's adapter stores `url` as the first-choice Apply URL. For a
+legacy TTL closure, the previous liveness rule reopened a row if its page
+answered 2xx at the original path and query and the body contained its
+title. That test also passes for a retained expired copy. The production
+counts do not determine how many of the 151 Arbeitnow, 30 RemoteOK or four
+Jobicy reopens had that problem. The regression test exercises the case.
+Rolling-feed listings on known aggregator pages now require upstream
+inventory presence to reopen. Direct destinations can still reopen with
+same-posting evidence, and an explicit expiry notice in a 2xx body yields
+an unknown outcome. The crawler's existing re-seen TTL recovery remains
+available.
+
+`uv run python -m scripts.liveness_reopens --days 7` reports read-only
+per-source counts based on the new liveness reopen stamp. Earlier reopens
+with only the shared alert timestamp appear as unattributed. The shared
+timestamp cannot identify whether liveness or a crawl reopened them.
+
+### Next founder run
+
+From `backend` with the founder's production configuration:
+
+```powershell
+uv run python -m scripts.check_listing_liveness --apply --limit 4000 --max-seconds 2400
+uv run python -m scripts.freshness_slo --diagnose
+```
+
+Compare `LIVENESS WORKDAY LIST` verified rows per request and Workday stale
+counts against 359 alive and 1,555 stale. Expect positive list matches to
+reduce staleness and far-from-cutoff Himalayas rows to drop out of the
+queue. Existing reopens and Workday rows absent from the lists retain
+their state. Confirmation yield and throttle counts will show whether
+this covers the estimated daily demand. The 24-hour Workday retry interval
+still applies, so listings attempted in the previous day enter the sweep
+when that interval elapses.
+
 ## Measurement and rollout
 
 `scripts.freshness_slo` uses one **REPEATABLE READ, READ ONLY** transaction and a
@@ -446,6 +558,10 @@ database on localhost port 56432. This includes the unchanged #224 test,
 the TRUST-01 closure checks, the Workday pacing and cooldown tests, and the
 dry-run check for unchanged listing data. Ruff and Black passed.
 
+Round 4 passed **6,986 backend tests** on a fresh, migrated database on
+port 56432, including the unchanged #224 test. Ruff, Black and
+`git diff --check` passed.
+
 The source-diversity fixtures used 30-day-old crawl timestamps. Those breached
 the thresholds for Greenhouse and Unstop, while RemoteOK was near its cutoff.
 The pagination test retains the original posting dates and source assertions.
@@ -464,8 +580,8 @@ landing. Each pair returned the same listing IDs and counts. These are local sam
 activity. The legacy reference query timed out at 20 seconds on this data, so
 the #235 fixtures cover parity separately.
 
-Production impact counts are recorded above. Round 3 production
-throughput and a real 390px rendering remain pending.
+Production impact counts are recorded above. Production verification yield
+for the Workday list sweep and a real 390px rendering remain pending.
 
 ## File map
 
@@ -477,12 +593,14 @@ throughput and a real 390px rendering remain pending.
 | `backend/pipeline/crawl_safety.py` | Latest-outcome and historical-volume absence circuit breaker. |
 | `backend/pipeline/expire.py` | Apply breaker, exclude Amazon, record absence reason and honor newer verification. |
 | `backend/pipeline/retirement.py` | Report rolling-feed soft aging without writing a TTL hard closure. |
-| `backend/pipeline/liveness.py` | Cadence priority, Workday data-centre pacing and cooldowns, per-source counts and transaction/race guards. |
+| `backend/pipeline/liveness.py` | Near-cutoff queue, Workday list verification and cooldowns, host skips, and safer rolling-feed reopens. |
+| `backend/pipeline/ingest.py` | Preserve liveness reopen provenance across later source updates. |
 | `backend/pipeline/destination_check.py` | Conservative same-posting evidence, optional response validation and transport failure reasons. |
-| `backend/crawlers/workday.py` | Share CXS posting-detail shape check with liveness. |
+| `backend/crawlers/workday.py` | Share CXS detail validation and list request/response shape with liveness. |
 | `backend/crawlers/common.py` | Reuse Retry-After parsing for Workday data-centre cooldowns. |
 | `backend/pipeline/saved_search_alerts.py` | Exclude stale saved-search picks. |
 | `backend/scripts/check_listing_liveness.py` | Enable cadence, refresh page caches and add per-source outcomes and reason buckets. |
+| `backend/scripts/liveness_reopens.py` | Count recent, attributed liveness reopens and shared reopen stamps without writes. |
 | `backend/scripts/rescue_closed_listings.py` | Bounded, serial, dry-run-first rescue command. |
 | `backend/scripts/landing_perf.py` | Compare the live landing query across revisions. |
 | `backend/scripts/freshness_slo.py` | Read-only per-source/tier counts, percentiles, impact preview and optional stale destination diagnostic. |
@@ -502,6 +620,7 @@ throughput and a real 390px rendering remain pending.
 | `backend/tests/test_post_telegram.py` | Keep discovery age independent of verification and cover the source cutoff. |
 | `backend/tests/test_freshness.py` | Cadence/evidence/breaker contracts, network transaction boundary and DB acceptance fixtures. |
 | `backend/tests/test_liveness_round3.py` | Exercise tenant fairness, pacing, budget, Workday response shape and counts-only reporting. |
+| `backend/tests/test_liveness_round4.py` | Exercise exact CXS list matches, host skips, Workday backoff and reopen evidence. |
 | `backend/tests/test_audit_retirement.py` | Update historical TTL expectations to soft aging; keep board/provenance checks. |
 | `backend/tests/test_government_retirement.py` | Assert soft aging while retaining deadline and extension behavior. |
 | `backend/tests/test_runner.py` | Isolate new durable-journal operations from dispatch-only fake sessions. |
@@ -540,3 +659,14 @@ at a time and pauses its queue on 429, 503 or three consecutive timeouts.
 It honours Retry-After while other sources and data centres keep running.
 Daily liveness gets 40 minutes and a 4,000-row cap. A dry run shows the
 inconclusive reasons by source without writing any listing data.
+
+### Round 4
+
+Workday confirmed 359 listings in 798 detail checks. All 420 unknowns
+were 429s or 403s. The new worker verifies exact postings in Workday list
+responses, with up to 20 matches in one request. Missing listings stay
+untouched. It reserves checks for listings that are stale or due by the
+next run, and stops probing a host after repeated 403s. A retained job
+board page can no longer reopen a rolling-feed listing by repeating its
+old title. Counts-only logs show Workday list yield and recent liveness
+reopens.

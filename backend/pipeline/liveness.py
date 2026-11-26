@@ -12,7 +12,7 @@ from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from heapq import heappop, heappush
-from threading import TIMEOUT_MAX
+from threading import Lock, TIMEOUT_MAX
 from time import monotonic, sleep
 from typing import Any, Literal
 from urllib.parse import urlsplit
@@ -48,16 +48,27 @@ from core.freshness import (
 )
 from core.listing_safety import without_manual_override, without_safety_flag
 from crawlers.common import USER_AGENT, request_with_retries, retry_after_seconds
-from crawlers.workday import REQUEST_DELAY_SECONDS, cxs_endpoints, job_posting_info, tenant_lock
+from crawlers.workday import (
+    PAGE_SIZE,
+    REQUEST_DELAY_SECONDS,
+    SEARCH_TERMS,
+    cxs_endpoints,
+    cxs_search_body,
+    cxs_search_page,
+    job_posting_info,
+    tenant_lock,
+)
 from pipeline.retirement import ROLLING_WINDOW_SOURCES, meta_without_closed_reason
 from pipeline.destination_check import (
     CheckBudgetExceeded,
     inspect_destination,
     observation_liveness,
+    public_dns,
 )
 from core.destination_facts import (
     classify_destination_facts,
     destination_input_key,
+    registrable_domain,
     retain_alive_verification,
     url_key,
 )
@@ -68,12 +79,17 @@ DEFAULT_CONCURRENCY = 10
 BATCH_SIZE = 50
 HTTP_TIMEOUT_SECONDS = 10.0
 WORKDAY_BACKOFF_SECONDS = 30.0
+WORKDAY_MAX_BACKOFF_SECONDS = 480.0
 WORKDAY_TIMEOUT_BURST = 3
+FORBIDDEN_BURST = 3
+WORKDAY_LIST_PAGE_CAP = 16
 # The Tier 1 crawl workflow schedules liveness once a day.
 FRESHNESS_RUN_INTERVAL = timedelta(days=1)
 PARTIAL_SOURCES = ROLLING_WINDOW_SOURCES | {"workday", "amazon", "hackerearth"}
 
 LivenessStatus = Literal["alive", "closed", "inconclusive"]
+CheckStatus = Literal["alive", "closed", "inconclusive", "skipped"]
+SKIP_REASONS = ("skipped_403", "list_unmatched")
 INCONCLUSIVE_REASONS = (
     "timeout",
     "403",
@@ -97,6 +113,9 @@ class LivenessCandidate:
     source: str | None = None
 
 
+Check = tuple[LivenessCandidate, CheckStatus, dict | None]
+
+
 @dataclass
 class LivenessSourceCounts:
     scanned: int = 0
@@ -104,6 +123,7 @@ class LivenessSourceCounts:
     alive: int = 0
     inconclusive: int = 0
     reopened: int = 0
+    skipped: int = 0
     reasons: Counter[str] = field(default_factory=Counter)
 
 
@@ -111,6 +131,7 @@ class LivenessSourceCounts:
 class LivenessResult(LivenessSourceCounts):
     timed_out: bool = False
     gone: int = 0
+    workday_list: Counter[str] = field(default_factory=Counter)
     by_source: dict[str, LivenessSourceCounts] = field(
         default_factory=lambda: defaultdict(LivenessSourceCounts)
     )
@@ -133,6 +154,32 @@ def _inconclusive_reason(observation: dict | None) -> str:
         if 300 <= code < 400:
             return "redirect"
     return "other"
+
+
+class ForbiddenHosts:
+    """Remember a run's consecutive 403s for ordinary destination hosts."""
+
+    def __init__(self) -> None:
+        self._counts: Counter[str] = Counter()
+        self._lock = Lock()
+
+    def blocked(self, host: str) -> bool:
+        with self._lock:
+            return self._counts[host.removeprefix("www.")] >= FORBIDDEN_BURST
+
+    def record(self, host: str, status: int) -> None:
+        host = host.removeprefix("www.")
+        with self._lock:
+            if self._counts[host] >= FORBIDDEN_BURST:
+                return
+            if status == 403:
+                self._counts[host] += 1
+            else:
+                self._counts.pop(host, None)
+
+
+def _skip(candidate: LivenessCandidate, reason: str) -> Check:
+    return candidate, "skipped", {"failure_reason": reason}
 
 
 def classify_liveness_status_code(status_code: int) -> LivenessStatus:
@@ -174,9 +221,17 @@ class WorkdayLivenessChecker:
         self.deadline = deadline
         self.cooldown_until: dict[str, float] = {}
         self.consecutive_timeouts: Counter[str] = Counter()
+        self.forbidden = ForbiddenHosts()
+        self.backoffs: dict[str, float] = {}
 
     def _request(
-        self, client: httpx.Client, method: str, url: str, **kwargs: Any
+        self,
+        client: httpx.Client,
+        method: str,
+        url: str,
+        *,
+        on_attempt: Callable[[], None] | None = None,
+        **kwargs: Any,
     ) -> httpx.Response | None:
         host = urlsplit(url).hostname or ""
         cluster = _workday_cluster(url) or host
@@ -203,6 +258,8 @@ class WorkdayLivenessChecker:
             nonlocal last_response, last_error
             paced_sleep(REQUEST_DELAY_SECONDS)
             try:
+                if on_attempt is not None:
+                    on_attempt()
                 response = client.request(
                     method,
                     url,
@@ -222,15 +279,20 @@ class WorkdayLivenessChecker:
                 raise
             last_response, last_error = response, None
             self.consecutive_timeouts.pop(cluster, None)
+            self.forbidden.record(cluster, response.status_code)
             if response.status_code in {429, 503}:
-                defer(max(WORKDAY_BACKOFF_SECONDS, retry_after_seconds(response) or 0.0))
+                backoff = self.backoffs.get(cluster, WORKDAY_BACKOFF_SECONDS)
+                self.backoffs[cluster] = min(backoff * 2, WORKDAY_MAX_BACKOFF_SECONDS)
+                defer(max(backoff, retry_after_seconds(response) or 0.0))
+            if response.is_success:
+                self.backoffs.pop(cluster, None)
             return response
 
         lock = tenant_lock(f"https://{host}")
         if not lock.acquire(timeout=min(TIMEOUT_MAX, max(0, self.deadline - monotonic()))):
             raise CheckBudgetExceeded
         try:
-            if monotonic() < self.cooldown_until.get(cluster, 0):
+            if self.forbidden.blocked(cluster) or monotonic() < self.cooldown_until.get(cluster, 0):
                 raise CheckBudgetExceeded
             try:
                 retried = request_with_retries(once, max_retries=1, sleeper=retry_sleep)
@@ -270,6 +332,109 @@ class WorkdayLivenessChecker:
     def check(self, url: str, client: httpx.Client) -> LivenessStatus:
         return observation_liveness(self.observe(url, client))
 
+    def sweep(
+        self, client: httpx.Client, endpoint: str, candidates: list[LivenessCandidate]
+    ) -> tuple[list[Check], Counter[str]]:
+        counts: Counter[str] = Counter()
+        parts = urlsplit(endpoint)
+        host = parts.hostname or ""
+        if not public_dns(host, 443):
+            counts["other"] += 1
+            return [_skip(candidate, "list_unmatched") for candidate in candidates], counts
+
+        def count_request() -> None:
+            counts["requests"] += 1
+
+        by_detail: dict[str, list[LivenessCandidate]] = defaultdict(list)
+        for candidate in candidates:
+            endpoints = cxs_endpoints(candidate.apply_url)
+            if endpoints is not None:
+                by_detail[endpoints[1]].append(candidate)
+        titles = [(candidate.title or "").casefold() for candidate in candidates]
+        weights = {term: sum(term in title for title in titles) for term in SEARCH_TERMS}
+        terms = sorted(
+            (term for term in SEARCH_TERMS if weights[term]), key=weights.get, reverse=True
+        )
+        queue = deque((term, 0, 0) for term in (terms or [""]))
+        matches: list[Check] = []
+        board = endpoint.removesuffix("/jobs")
+        cluster = _workday_cluster(endpoint) or host
+        for _ in range(WORKDAY_LIST_PAGE_CAP):
+            if not queue or not by_detail:
+                break
+            term, offset, total = queue.popleft()
+            try:
+                response = self._request(
+                    client,
+                    "POST",
+                    endpoint,
+                    on_attempt=count_request,
+                    json=cxs_search_body(term, offset),
+                )
+            except httpx.TimeoutException:
+                counts["timeout"] += 1
+                break
+            except CheckBudgetExceeded:
+                counts["lock_or_budget"] += 1
+                break
+            except httpx.RequestError:
+                counts["other"] += 1
+                break
+            if response is None or not response.is_success:
+                code = response.status_code if response is not None else None
+                reason = (
+                    str(code) if code in {404, 410} else _inconclusive_reason({"http_status": code})
+                )
+                counts[reason] += 1
+                break
+            try:
+                page = cxs_search_page(response.json(), offset)
+            except ValueError:
+                page = None
+            if page is None:
+                counts["parse_or_shape"] += 1
+                break
+            counts["pages"] += 1
+            page_total, postings = page
+            if offset == 0:
+                total = page_total
+            checked_at = datetime.now(timezone.utc).isoformat()
+            for posting in postings:
+                path = posting.get("externalPath")
+                title = posting.get("title")
+                if not isinstance(path, str) or not isinstance(title, str) or not title.strip():
+                    continue
+                # The exact tenant, site and external posting path are required.
+                # Search text, title and requisition-like bullet fields alone
+                # cannot prove the listing identified by a different path.
+                for candidate in by_detail.pop(board + path, ()):
+                    matches.append(
+                        (
+                            candidate,
+                            "alive",
+                            {
+                                "url_key": url_key(candidate.apply_url),
+                                "status": "alive",
+                                "http_status": response.status_code,
+                                "checked_at": checked_at,
+                                "same_posting": True,
+                                "evidence": "workday_cxs_list",
+                                "terminal_host": host,
+                                "terminal_domain": registrable_domain(host),
+                                "warnings": [],
+                            },
+                        )
+                    )
+            if len(postings) >= PAGE_SIZE and offset + PAGE_SIZE < total:
+                queue.append((term, offset + PAGE_SIZE, total))
+
+        counts["verified"] = len(matches)
+        reason = "skipped_403" if self.forbidden.blocked(cluster) else "list_unmatched"
+        matches.extend(
+            _skip(candidate, reason) for rows in by_detail.values() for candidate in rows
+        )
+        return matches, counts
+
 
 def fetch_destination_observation(
     url: str,
@@ -278,6 +443,7 @@ def fetch_destination_observation(
     workday_checker: WorkdayLivenessChecker | None = None,
     allowed_board: tuple[str, str] | None = None,
     expected_title: str | None = None,
+    forbidden_hosts: ForbiddenHosts | None = None,
 ) -> dict:
     if _workday_host(url):
         observation = (workday_checker or WorkdayLivenessChecker()).observe(
@@ -286,7 +452,12 @@ def fetch_destination_observation(
         # CXS has no HTML fallback; rescue needs positive same-posting evidence.
         return observation
     return inspect_destination(
-        url, client, allowed_board=allowed_board, expected_title=expected_title
+        url,
+        client,
+        allowed_board=allowed_board,
+        expected_title=expected_title,
+        host_blocked=forbidden_hosts.blocked if forbidden_hosts else None,
+        record_response=forbidden_hosts.record if forbidden_hosts else None,
     )
 
 
@@ -401,11 +572,15 @@ def _select_freshness_candidates(
             )
         )
     else:
-        eligible = or_(
-            models.Opportunity.closed_at.is_(None),
-            models.Opportunity.meta["closed_reason"].astext == "rolling_window_ttl",
-        ) & (verified < now - func.make_interval(0, 0, 0, 0, cadence_value("check_hours")))
         stale_at = verified + func.make_interval(0, 0, 0, 0, cadence_value("stale_hours"))
+        eligible = (
+            or_(
+                models.Opportunity.closed_at.is_(None),
+                models.Opportunity.meta["closed_reason"].astext == "rolling_window_ttl",
+            )
+            & (verified < now - func.make_interval(0, 0, 0, 0, cadence_value("check_hours")))
+            & (stale_at <= now + FRESHNESS_RUN_INTERVAL)
+        )
         urgent = case(
             (
                 models.Opportunity.primary_source.in_(PARTIAL_SOURCES)
@@ -457,7 +632,7 @@ def _reopen_verified(
     expected = [
         (c.id, c.apply_url)
         for c, status in checks
-        if status == "alive" and observations.get(c.id, {}).get("same_posting") is True
+        if status == "alive" and _can_reopen(c, observations.get(c.id, {}))
     ]
     if not expected:
         return 0
@@ -476,7 +651,12 @@ def _reopen_verified(
                 else models.Opportunity.meta["closed_reason"].astext == "rolling_window_ttl"
             ),
         )
-        .values(closed_at=None, meta=meta_without_closed_reason())
+        .values(
+            closed_at=None,
+            meta=meta_without_closed_reason().op("||")(
+                func.jsonb_build_object("liveness_reopened_at", func.now())
+            ),
+        )
         .execution_options(synchronize_session=False)
         .returning(models.Opportunity.id)
     ).all()
@@ -484,15 +664,32 @@ def _reopen_verified(
     return len(reopened)
 
 
+def _can_reopen(candidate: LivenessCandidate, observation: dict) -> bool:
+    if (
+        observation.get("same_posting") is not True
+        or observation.get("evidence") == "workday_cxs_list"
+    ):
+        return False
+    if candidate.source not in ROLLING_WINDOW_SOURCES:
+        return True
+    # A retained board page can repeat the old title at the old path after expiry.
+    # Re-seen inventory still reopens TTL rows in the crawler.
+    terminal_host = observation.get("terminal_host")
+    return all(
+        classify_destination_facts(url)["type"] != "aggregator"
+        for url in (candidate.apply_url, f"https://{terminal_host}" if terminal_host else None)
+    )
+
+
 def _checked_batches(
     candidates: list[LivenessCandidate],
     *,
-    checker: Callable[[LivenessCandidate], tuple[LivenessStatus, dict | None]],
+    checker: Callable[[LivenessCandidate], list[Check]],
     concurrency: int,
     batch_size: int,
     deadline: float,
     cooldown_until: dict[str, float],
-) -> Iterator[list[tuple[LivenessCandidate, LivenessStatus, dict | None]]]:
+) -> Iterator[list[Check]]:
     # One in-flight check per Workday data centre (wdN), even across tenants.
     # With the existing request delay, each data centre is capped at two
     # request starts per second, including retries. Other URLs use the pool.
@@ -509,7 +706,7 @@ def _checked_batches(
     workers = min(concurrency, batch_size)
     with ThreadPoolExecutor(max_workers=workers) as executor:
         pending: dict[Future, int] = {}
-        batch: list[tuple[LivenessCandidate, LivenessStatus, dict | None]] = []
+        batch: list[Check] = []
         while ready or pending or cooling:
             now = monotonic()
             while cooling and cooling[0][0] <= now:
@@ -529,7 +726,8 @@ def _checked_batches(
             if not pending:
                 if batch:
                     # The caller writes and commits with no network work in flight.
-                    yield batch
+                    for start in range(0, len(batch), batch_size):
+                        yield batch[start : start + batch_size]
                     batch = []
                 elif resumes_in_budget:
                     sleep(max(0.0, next_ready - monotonic()))
@@ -556,14 +754,11 @@ def _checked_batches(
                         else:
                             heappush(ready, queue[0])
                 try:
-                    status, observation = future.result()
+                    batch.extend(future.result())
                 except Exception:
-                    status, observation = "inconclusive", None
-                if status not in {"alive", "closed", "inconclusive"}:
-                    status = "inconclusive"
-                batch.append((candidates[index], status, observation))
-        if batch:
-            yield batch
+                    batch.append((candidates[index], "inconclusive", None))
+        for start in range(0, len(batch), batch_size):
+            yield batch[start : start + batch_size]
 
 
 def _mark_closed(
@@ -733,6 +928,15 @@ def check_listing_liveness(
     )
     result = LivenessResult()
     workday_checker = WorkdayLivenessChecker(deadline)
+    forbidden_hosts = ForbiddenHosts()
+    boards: dict[str, list[LivenessCandidate]] = defaultdict(list)
+    if freshness_mode and not rescue and checker is None:
+        for candidate in candidates:
+            if candidate.source == "workday" and (endpoints := cxs_endpoints(candidate.apply_url)):
+                boards[endpoints[0]].append(candidate)
+    sweeps = {rows[0].id: (endpoint, rows) for endpoint, rows in boards.items() if len(rows) > 1}
+    followers = {candidate.id for _, rows in sweeps.values() for candidate in rows[1:]}
+    sweep_counts: dict[int, Counter[str]] = {}
     slugs = (
         dict(
             session.execute(
@@ -758,10 +962,21 @@ def check_listing_liveness(
     )
     with client_context as client:
 
-        def observe(candidate: LivenessCandidate) -> tuple[LivenessStatus, dict | None]:
+        def observe(candidate: LivenessCandidate) -> list[Check]:
             if checker is not None:
                 # Injected statuses alone carry no positive HTTP evidence.
-                return checker(candidate.apply_url), None
+                status = checker(candidate.apply_url)
+                return [
+                    (candidate, status if status in {"alive", "closed"} else "inconclusive", None)
+                ]
+            cluster = _workday_cluster(candidate.apply_url)
+            sweep = sweeps.get(candidate.id)
+            if cluster is not None and workday_checker.forbidden.blocked(cluster):
+                return [_skip(row, "skipped_403") for row in (sweep[1] if sweep else [candidate])]
+            if sweep is not None:
+                checks, counts = workday_checker.sweep(client, *sweep)
+                sweep_counts[candidate.id] = counts
+                return checks
             if rescue:
                 # Rescue is serial in the worker, at most one posting per second.
                 sleep(RESCUE_DELAY_SECONDS)
@@ -776,25 +991,28 @@ def check_listing_liveness(
                 workday_checker=workday_checker,
                 allowed_board=board,
                 expected_title=candidate.title,
+                forbidden_hosts=forbidden_hosts,
             )
-            return observation_liveness(observation), observation
+            if observation.get("failure_reason") == "skipped_403":
+                return [_skip(candidate, "skipped_403")]
+            return [(candidate, observation_liveness(observation), observation)]
 
         for batch in _checked_batches(
-            candidates,
+            [candidate for candidate in candidates if candidate.id not in followers],
             checker=observe,
             concurrency=concurrency,
             batch_size=batch_size,
             deadline=deadline,
             cooldown_until=workday_checker.cooldown_until,
         ):
-            checks = [(candidate, status) for candidate, status, _ in batch]
+            checks = [(candidate, status) for candidate, status, _ in batch if status != "skipped"]
             observations = {
                 candidate.id: observation
-                for candidate, _, observation in batch
-                if observation is not None
+                for candidate, status, observation in batch
+                if status != "skipped" and observation is not None
             }
             gone_ids = [candidate.id for candidate, status in checks if status == "closed"]
-            if apply:
+            if apply and checks:
                 closed_ids: set[int] = set()
                 reopened_ids: set[int] = set()
                 _stamp_checked(session, [candidate.id for candidate, _ in checks], detected_at)
@@ -823,9 +1041,7 @@ def check_listing_liveness(
                 reopened_ids = {
                     c.id
                     for c, status in checks
-                    if rescue
-                    and status == "alive"
-                    and observations.get(c.id, {}).get("same_posting") is True
+                    if rescue and status == "alive" and _can_reopen(c, observations.get(c.id, {}))
                 }
 
             result.gone += len(gone_ids)
@@ -834,6 +1050,10 @@ def check_listing_liveness(
                 counts = result.by_source[source]
                 reason = _inconclusive_reason(observation) if status == "inconclusive" else None
                 for total in (result, counts):
+                    if status == "skipped":
+                        total.skipped += 1
+                        total.reasons[observation["failure_reason"]] += 1
+                        continue
                     total.scanned += 1
                     total.closed += candidate.id in closed_ids
                     total.reopened += candidate.id in reopened_ids
@@ -842,5 +1062,9 @@ def check_listing_liveness(
                         total.inconclusive += 1
                         total.reasons[reason] += 1
 
-    result.timed_out = result.scanned < len(candidates)
+    for counts in sweep_counts.values():
+        result.workday_list.update(counts)
+    result.timed_out = result.scanned + result.skipped < len(candidates) or bool(
+        result.workday_list["lock_or_budget"]
+    )
     return result

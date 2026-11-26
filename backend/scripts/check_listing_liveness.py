@@ -16,6 +16,7 @@ from pipeline.liveness import (
     DEFAULT_LIMIT,
     DEFAULT_MAX_SECONDS,
     INCONCLUSIVE_REASONS,
+    SKIP_REASONS,
     check_listing_liveness,
 )
 from pipeline.revalidate import notify_changed
@@ -85,6 +86,13 @@ def main() -> None:
         )
         reasons = " ".join(f"{reason}={counts.reasons[reason]}" for reason in INCONCLUSIVE_REASONS)
         print(f"LIVENESS INCONCLUSIVE {source}: {reasons}", flush=True)
+        if counts.skipped:
+            skips = " ".join(f"{reason}={counts.reasons[reason]}" for reason in SKIP_REASONS)
+            print(f"LIVENESS SKIPPED {source}: total={counts.skipped} {skips}", flush=True)
+    if result.workday_list:
+        counters = ("requests", "pages", "verified", *INCONCLUSIVE_REASONS, "404", "410")
+        details = " ".join(f"{key}={result.workday_list[key]}" for key in counters)
+        print(f"LIVENESS WORKDAY LIST: {details}", flush=True)
 
 
 if __name__ == "__main__":

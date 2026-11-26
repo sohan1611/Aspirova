@@ -78,6 +78,27 @@ def job_posting_info(payload: Any) -> dict[str, Any] | None:
     return None
 
 
+def cxs_search_body(term: str, offset: int) -> dict[str, Any]:
+    return {"appliedFacets": {}, "limit": PAGE_SIZE, "offset": offset, "searchText": term}
+
+
+def cxs_search_page(payload: Any, offset: int) -> tuple[int, list[dict[str, Any]]] | None:
+    if not isinstance(payload, dict):
+        return None
+    jobs = payload.get("jobPostings")
+    total = payload.get("total")
+    # Later pages can report total=0 even when they contain postings.
+    if (
+        type(total) is not int
+        or total < 0
+        or not isinstance(jobs, list)
+        or any(not isinstance(job, dict) for job in jobs)
+        or (offset == 0 and total < len(jobs))
+    ):
+        return None
+    return total, jobs
+
+
 class _RequestLimit(Exception):
     """Stop HTTP work at a normal crawl limit without degrading source health."""
 
@@ -246,34 +267,18 @@ class WorkdayAdapter:
         payload = self._json(
             "POST",
             f"{self.api_url}/jobs",
-            json={
-                "appliedFacets": {},
-                "limit": PAGE_SIZE,
-                "offset": offset,
-                "searchText": term,
-            },
+            json=cxs_search_body(term, offset),
         )
         self.last_http_status = self._last_request_status
         self.last_board_state = "not_found" if self.last_http_status in {404, 410} else "error"
         if payload is None:
             return None
-        jobs = payload.get("jobPostings")
-        total = payload.get("total")
-        # Workday reports the real total only on the first page; later pages
-        # answer total=0 (verified live on NVIDIA 2026-11-08), so only the
-        # first page's total is checked against its postings.
-        if (
-            not isinstance(total, int)
-            or isinstance(total, bool)
-            or total < 0
-            or not isinstance(jobs, list)
-            or any(not isinstance(job, dict) for job in jobs)
-            or (offset == 0 and total < len(jobs))
-        ):
+        page = cxs_search_page(payload, offset)
+        if page is None:
             self._fail("invalid_search_shape")
             return None
         self.last_board_state = "ok"
-        return total, jobs
+        return page
 
     def student_count(self) -> int | None:
         """Verify the public board with one intern search, without detail work."""

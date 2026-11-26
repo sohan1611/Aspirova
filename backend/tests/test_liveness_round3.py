@@ -42,7 +42,7 @@ def test_ready_tenants_finish_while_a_500_row_tenant_is_blocked():
         with lock:
             if host in active_hosts:
                 collisions.append(host)
-                return "inconclusive", None
+                return [(candidate, "inconclusive", None)]
             active_hosts.add(host)
         if candidate.id == 0:
             first_large_started.set()
@@ -54,7 +54,7 @@ def test_ready_tenants_finish_while_a_500_row_tenant_is_blocked():
             completed.append(candidate.id)
             if len(completed) == 24 and min(completed) == 500:
                 other_tenants_finished.set()
-        return "alive", None
+        return [(candidate, "alive", None)]
 
     with ThreadPoolExecutor(max_workers=1) as runner:
         scheduled = runner.submit(
@@ -87,10 +87,10 @@ def test_soft_budget_finishes_in_flight_work_and_leaves_other_rows_unattempted(m
     clock = 0
     candidates = [liveness.LivenessCandidate(i, f"https://example.org/jobs/{i}") for i in range(4)]
 
-    def check(_candidate):
+    def check(candidate):
         nonlocal clock
         clock = 1
-        return "alive", None
+        return [(candidate, "alive", None)]
 
     monkeypatch.setattr(liveness, "monotonic", lambda: clock)
     batches = list(
@@ -235,7 +235,7 @@ def test_shared_cluster_backoff_keeps_other_work_running(signal, monkeypatch, mo
             observation = liveness.fetch_destination_observation(
                 candidate.apply_url, client, workday_checker=checker
             )
-            return liveness.observation_liveness(observation), observation
+            return [(candidate, liveness.observation_liveness(observation), observation)]
 
         batches = liveness._checked_batches(
             candidates,
