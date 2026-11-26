@@ -20,6 +20,7 @@ export function buildJobPostingJsonLd(
     opportunity.status === "withdrawn" ||
     !!opportunity.safety ||
     opportunity.is_stale ||
+    opportunity.freshness === "stale" ||
     opportunity.is_hidden ||
     opportunity.is_remote === null
   ) {

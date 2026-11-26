@@ -39,7 +39,8 @@ def test_companies_returns_active_company_counts_ordered(
     client: TestClient, db_session: Session
 ) -> None:
     suffix = str(uuid.uuid4())
-    seen_at = datetime.now(UTC) - timedelta(days=30)
+    verified_at = datetime.now(UTC)
+    seen_at = verified_at - timedelta(days=30)
     high_count_company = models.Company(
         slug=f"company-list-high-count-{suffix}",
         name="Company List High Count",
@@ -61,7 +62,7 @@ def test_companies_returns_active_company_counts_ordered(
         apply_url=f"https://example.com/company-list/active-a/{suffix}",
         status="active",
         first_seen_at=seen_at,
-        last_seen_at=seen_at,
+        last_seen_at=verified_at,
     )
     active_b = models.Opportunity(
         slug=f"company-list-active-b-{suffix}",
@@ -70,7 +71,7 @@ def test_companies_returns_active_company_counts_ordered(
         apply_url=f"https://example.com/company-list/active-b/{suffix}",
         status="active",
         first_seen_at=seen_at,
-        last_seen_at=seen_at,
+        last_seen_at=verified_at,
     )
     active_c = models.Opportunity(
         slug=f"company-list-active-c-{suffix}",
@@ -79,7 +80,7 @@ def test_companies_returns_active_company_counts_ordered(
         apply_url=f"https://example.com/company-list/active-c/{suffix}",
         status="active",
         first_seen_at=seen_at,
-        last_seen_at=seen_at,
+        last_seen_at=verified_at,
     )
     inactive = models.Opportunity(
         slug=f"company-list-inactive-opp-{suffix}",
@@ -88,7 +89,7 @@ def test_companies_returns_active_company_counts_ordered(
         apply_url=f"https://example.com/company-list/inactive/{suffix}",
         status="expired",
         first_seen_at=seen_at,
-        last_seen_at=seen_at,
+        last_seen_at=verified_at,
     )
     db_session.add_all(
         [
@@ -148,7 +149,8 @@ def test_top_companies_returns_ranked_active_companies(
     client: TestClient, db_session: Session
 ) -> None:
     suffix = str(uuid.uuid4())
-    seen_at = datetime.now(UTC) - timedelta(days=30)
+    verified_at = datetime.now(UTC)
+    seen_at = verified_at - timedelta(days=30)
     best_company = models.Company(
         slug=f"top-company-best-{suffix}",
         name="Top Company Best",
@@ -196,7 +198,7 @@ def test_top_companies_returns_ranked_active_companies(
                 apply_url=f"https://example.com/top-company/best-a/{suffix}",
                 status="active",
                 first_seen_at=seen_at,
-                last_seen_at=seen_at,
+                last_seen_at=verified_at,
             ),
             models.Opportunity(
                 slug=f"top-company-best-active-b-{suffix}",
@@ -205,7 +207,7 @@ def test_top_companies_returns_ranked_active_companies(
                 apply_url=f"https://example.com/top-company/best-b/{suffix}",
                 status="active",
                 first_seen_at=seen_at,
-                last_seen_at=seen_at,
+                last_seen_at=verified_at,
             ),
             models.Opportunity(
                 slug=f"top-company-alpha-active-{suffix}",
@@ -214,7 +216,7 @@ def test_top_companies_returns_ranked_active_companies(
                 apply_url=f"https://example.com/top-company/alpha/{suffix}",
                 status="active",
                 first_seen_at=seen_at,
-                last_seen_at=seen_at,
+                last_seen_at=verified_at,
             ),
             models.Opportunity(
                 slug=f"top-company-beta-active-{suffix}",
@@ -223,7 +225,7 @@ def test_top_companies_returns_ranked_active_companies(
                 apply_url=f"https://example.com/top-company/beta/{suffix}",
                 status="active",
                 first_seen_at=seen_at,
-                last_seen_at=seen_at,
+                last_seen_at=verified_at,
             ),
             models.Opportunity(
                 slug=f"top-company-later-active-{suffix}",
@@ -232,7 +234,7 @@ def test_top_companies_returns_ranked_active_companies(
                 apply_url=f"https://example.com/top-company/later/{suffix}",
                 status="active",
                 first_seen_at=seen_at,
-                last_seen_at=seen_at,
+                last_seen_at=verified_at,
             ),
             models.Opportunity(
                 slug=f"top-company-unranked-active-{suffix}",
@@ -241,7 +243,7 @@ def test_top_companies_returns_ranked_active_companies(
                 apply_url=f"https://example.com/top-company/unranked/{suffix}",
                 status="active",
                 first_seen_at=seen_at,
-                last_seen_at=seen_at,
+                last_seen_at=verified_at,
             ),
             models.Opportunity(
                 slug=f"top-company-inactive-opp-{suffix}",
@@ -250,7 +252,7 @@ def test_top_companies_returns_ranked_active_companies(
                 apply_url=f"https://example.com/top-company/inactive/{suffix}",
                 status="expired",
                 first_seen_at=seen_at,
-                last_seen_at=seen_at,
+                last_seen_at=verified_at,
             ),
         ]
     )
@@ -303,7 +305,8 @@ def test_top_companies_returns_ranked_active_companies(
 
 def test_top_companies_honours_limit(client: TestClient, db_session: Session) -> None:
     suffix = str(uuid.uuid4())
-    seen_at = datetime.now(UTC) - timedelta(days=30)
+    verified_at = datetime.now(UTC)
+    seen_at = verified_at - timedelta(days=30)
     companies = [
         models.Company(
             slug=f"top-company-limit-{index}-{suffix}",
@@ -320,7 +323,7 @@ def test_top_companies_honours_limit(client: TestClient, db_session: Session) ->
             apply_url=f"https://example.com/top-company/limit/{index}/{suffix}",
             status="active",
             first_seen_at=seen_at,
-            last_seen_at=seen_at,
+            last_seen_at=verified_at,
         )
         for index, company in enumerate(companies)
     ]

@@ -214,7 +214,8 @@ def test_company_page_returns_company_and_only_active_opportunities(
     client: TestClient, db_session: Session
 ) -> None:
     suffix = str(uuid.uuid4())
-    old_seen_at = datetime.now(UTC) - timedelta(days=30)
+    verified_at = datetime.now(UTC)
+    old_seen_at = verified_at - timedelta(days=30)
     new_seen_at = old_seen_at + timedelta(days=1)
     company = models.Company(
         slug=f"company-page-test-{suffix}",
@@ -229,7 +230,7 @@ def test_company_page_returns_company_and_only_active_opportunities(
         apply_url=f"https://example.com/company/active-old/{suffix}",
         status="active",
         first_seen_at=old_seen_at,
-        last_seen_at=old_seen_at,
+        last_seen_at=verified_at - timedelta(days=1),
     )
     active_new = models.Opportunity(
         slug=f"company-page-active-new-{suffix}",
@@ -238,7 +239,7 @@ def test_company_page_returns_company_and_only_active_opportunities(
         apply_url=f"https://example.com/company/active-new/{suffix}",
         status="active",
         first_seen_at=new_seen_at,
-        last_seen_at=new_seen_at,
+        last_seen_at=verified_at,
     )
     inactive = models.Opportunity(
         slug=f"company-page-inactive-{suffix}",
@@ -247,7 +248,7 @@ def test_company_page_returns_company_and_only_active_opportunities(
         apply_url=f"https://example.com/company/inactive/{suffix}",
         status="expired",
         first_seen_at=new_seen_at,
-        last_seen_at=new_seen_at,
+        last_seen_at=verified_at,
     )
     db_session.add_all([company, active_old, active_new, inactive])
     db_session.flush()
@@ -282,7 +283,8 @@ def test_sitemap_companies_returns_only_companies_with_active_opportunities(
     client: TestClient, db_session: Session
 ) -> None:
     suffix = str(uuid.uuid4())
-    seen_at = datetime.now(UTC) - timedelta(days=30)
+    verified_at = datetime.now(UTC)
+    seen_at = verified_at - timedelta(days=30)
     active_company = models.Company(
         slug=f"sitemap-company-active-{suffix}",
         name="Sitemap Company Active",
@@ -310,7 +312,7 @@ def test_sitemap_companies_returns_only_companies_with_active_opportunities(
         apply_url=f"https://example.com/sitemap/company/active/{suffix}",
         status="active",
         first_seen_at=seen_at,
-        last_seen_at=seen_at,
+        last_seen_at=verified_at,
     )
     inactive = models.Opportunity(
         slug=f"sitemap-company-inactive-opp-{suffix}",
@@ -319,7 +321,7 @@ def test_sitemap_companies_returns_only_companies_with_active_opportunities(
         apply_url=f"https://example.com/sitemap/company/inactive/{suffix}",
         status="expired",
         first_seen_at=seen_at,
-        last_seen_at=seen_at,
+        last_seen_at=verified_at,
     )
     stale = models.Opportunity(
         slug=f"sitemap-company-stale-opp-{suffix}",
@@ -329,7 +331,7 @@ def test_sitemap_companies_returns_only_companies_with_active_opportunities(
         status="active",
         posted_at=datetime.now(UTC) - timedelta(days=STALE_AFTER_DAYS + 1),
         first_seen_at=seen_at,
-        last_seen_at=seen_at,
+        last_seen_at=verified_at,
     )
     unknown_posted_at = models.Opportunity(
         slug=f"sitemap-company-null-posted-at-opp-{suffix}",
@@ -339,7 +341,7 @@ def test_sitemap_companies_returns_only_companies_with_active_opportunities(
         status="active",
         posted_at=None,
         first_seen_at=seen_at,
-        last_seen_at=seen_at,
+        last_seen_at=verified_at,
     )
     db_session.add_all(
         [

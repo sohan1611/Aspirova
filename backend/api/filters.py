@@ -14,6 +14,8 @@ from sqlalchemy.dialects.postgresql import JSONB
 from core import models, role_level
 from core.eligibility import ELIGIBLE_EXPERIENCED_ONLY_META_KEY
 from core.eligibility_facts import regions_for_country
+from core.freshness import STALE_AFTER_DAYS as STALE_AFTER_DAYS
+from core.freshness import age_stale_expression, is_age_stale, stale_expression
 from core.organisers import ORGANISER_TYPE_LABELS, organiser_type_expression
 from core.role_level import (
     CLEARLY_SENIOR_TITLE_PATTERN,
@@ -49,8 +51,6 @@ SOURCE_GROUPS = {
     "devpost": ["devpost"],
 }
 
-# Founder ruling: "10 months" means 305 days for stale-listing promotion.
-STALE_AFTER_DAYS = 305
 COMP_TYPE_LABELS = {
     "online_coding_challenge": "Online coding challenge",
     "general_competition": "General competition",
@@ -250,25 +250,8 @@ def pay_rank_expression():
 
 
 def exclude_stale_opportunities(now: datetime | None = None):
-    """Exclude old promoted listings unless a future deadline keeps them current.
-
-    A listing with no ``posted_at`` falls back to ``first_seen_at`` (never
-    null) so a missing source date can't bypass the age check entirely.
-    """
-    current = now or func.now()
-    stale_cutoff = (
-        now - timedelta(days=STALE_AFTER_DAYS)
-        if now
-        else current - text(f"interval '{STALE_AFTER_DAYS} days'")
-    )
-    stale = and_(
-        effective_posted_at() < stale_cutoff,
-        or_(
-            models.Opportunity.deadline.is_(None),
-            models.Opportunity.deadline <= current,
-        ),
-    )
-    return stale.is_not(True)
+    """Retain Binding posting-age exclusion and add source verification aging."""
+    return ~stale_expression(now)
 
 
 def exclude_experienced_only_opportunities():
@@ -300,19 +283,8 @@ def _as_utc(value: datetime) -> datetime:
 
 
 def is_stale_opportunity(opportunity: models.Opportunity, now: datetime | None = None) -> bool:
-    """Return the Python equivalent of exclude_stale_opportunities for detail metadata."""
-    effective_posted_at = opportunity.posted_at or opportunity.first_seen_at
-    if effective_posted_at is None:
-        return False
-
-    current = _as_utc(now or datetime.now(UTC))
-    effective_posted_at = _as_utc(effective_posted_at)
-    if effective_posted_at >= current - timedelta(days=STALE_AFTER_DAYS):
-        return False
-
-    if opportunity.deadline is None:
-        return True
-    return _as_utc(opportunity.deadline) <= current
+    """Legacy detail age flag; `freshness` additionally covers verification aging."""
+    return is_age_stale(opportunity, _as_utc(now or datetime.now(UTC)))
 
 
 def exclude_closed_competitions():
@@ -345,11 +317,11 @@ def exclude_closed_now():
     return not_(listing_closed())
 
 
-def open_opportunity_filters() -> list:
+def open_opportunity_filters(*, require_recent_verification: bool = True) -> list:
     """Return the shared definition of an open, student-facing listing."""
     return [
         models.Opportunity.status == "active",
-        exclude_stale_opportunities(),
+        exclude_stale_opportunities() if require_recent_verification else ~age_stale_expression(),
         exclude_experienced_only_opportunities(),
         exclude_school_only_opportunities(),
         exclude_closed_now(),
@@ -816,7 +788,7 @@ def eligibility_filters(
     return filters
 
 
-def saved_search_base_filters(params: dict) -> list:
+def saved_search_base_filters(params: dict, *, now: datetime | None = None) -> list:
     """Build the feed/search filters represented by stored saved-search params.
 
     Saved searches persist only the shared, non-pagination filters. Full-text
@@ -833,7 +805,7 @@ def saved_search_base_filters(params: dict) -> list:
 
     base_filters = [
         models.Opportunity.status == "active",
-        exclude_stale_opportunities(),
+        exclude_stale_opportunities(now),
         exclude_experienced_only_opportunities(),
         exclude_school_only_opportunities(),
         exclude_closed_competitions() if params.get("status") == "closed" else exclude_closed_now(),

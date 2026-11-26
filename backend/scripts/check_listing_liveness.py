@@ -1,4 +1,4 @@
-"""Check stale undated listings and mark confirmed removed listings closed.
+"""Check destinations on source cadence and close confirmed removed listings.
 
 Usage:
     uv run python -m scripts.check_listing_liveness
@@ -8,10 +8,12 @@ Usage:
 import argparse
 
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from core.db import make_engine
 from pipeline.liveness import DEFAULT_LIMIT, DEFAULT_MAX_SECONDS, check_listing_liveness
+from pipeline.revalidate import notify_changed
 
 MAINTENANCE_STATEMENT_TIMEOUT = "120s"
 
@@ -25,11 +27,13 @@ def _positive_int(value: str) -> int:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Check stale undated listing URLs for conservative liveness."
+        description="Refresh listing verification on source cadence with conservative closure."
     )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--dry-run", action="store_true", help="Preview only (default).")
-    mode.add_argument("--apply", action="store_true", help="Mark confirmed closed rows.")
+    mode.add_argument(
+        "--apply", action="store_true", help="Record checks and apply proven closure/reopen."
+    )
     parser.add_argument(
         "--limit",
         type=_positive_int,
@@ -45,6 +49,7 @@ def main() -> None:
     args = parser.parse_args()
 
     engine = make_engine()
+    changed_slugs: set[str] = set()
     with Session(engine) as session:
         session.execute(text(f"SET statement_timeout = '{MAINTENANCE_STATEMENT_TIMEOUT}'"))
         result = check_listing_liveness(
@@ -52,12 +57,17 @@ def main() -> None:
             apply=args.apply,
             limit=args.limit,
             max_seconds=args.max_seconds,
+            freshness_mode=True,
+            changed_slugs=changed_slugs,
         )
 
+    if args.apply:
+        notify_changed(changed_slugs)
     print(f"mode: {'apply' if args.apply else 'dry-run'}", flush=True)
     print(f"listings scanned: {result.scanned}", flush=True)
     print(f"listings closed: {result.closed}", flush=True)
     print(f"listings alive: {result.alive}", flush=True)
+    print(f"listings reopened: {result.reopened}", flush=True)
     print(f"listings inconclusive: {result.inconclusive}", flush=True)
     print(f"time budget exhausted: {'yes' if result.timed_out else 'no'}", flush=True)
     if not args.apply:
@@ -65,4 +75,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SQLAlchemyError:
+        print("LIVENESS: unavailable errors=1", flush=True)
+        raise SystemExit(1) from None

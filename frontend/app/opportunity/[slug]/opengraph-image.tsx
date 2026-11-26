@@ -39,8 +39,9 @@ export default async function Image({ params }: { params: Promise<{ slug: string
   // The bundled OG font does not guarantee a rupee glyph.
   const pay = (isRole ? formatCompensation(opportunity.meta) : formatPrizePool(opportunity.meta))
     ?.replaceAll("₹", "INR ");
-  const open = !opportunity.is_stale && !opportunity.is_hidden &&
-    !opportunity.closed_at && (!opportunity.deadline || !isDeadlinePast(opportunity.deadline));
+  const open = !opportunity.is_stale && opportunity.freshness !== "stale" &&
+    !opportunity.is_hidden && !opportunity.closed_at &&
+    (!opportunity.deadline || !isDeadlinePast(opportunity.deadline));
   const title = opportunity.title.length > 150
     ? `${opportunity.title.slice(0, 147).trimEnd()}...`
     : opportunity.title;

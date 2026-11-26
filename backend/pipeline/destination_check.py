@@ -2,6 +2,7 @@
 
 import re
 import socket
+from html import unescape
 from datetime import datetime, timezone
 from ipaddress import ip_address
 from time import monotonic
@@ -73,6 +74,7 @@ def inspect_destination(
     request_url: str | None = None,
     request: Callable[[str], httpx.Response | None] | None = None,
     allowed_board: tuple[str, str] | None = None,
+    expected_title: str | None = None,
 ) -> dict:
     """Record terminal evidence; stop before fetching unsafe/unrelated redirects.
 
@@ -236,6 +238,32 @@ def inspect_destination(
                     result.update(status="gone")
                 else:
                     result.update(status="alive")
+                    if expected_title:
+                        words = set(re.findall(r"[a-z0-9]+", expected_title.casefold())) - {
+                            "a",
+                            "an",
+                            "and",
+                            "at",
+                            "for",
+                            "in",
+                            "of",
+                            "the",
+                            "to",
+                            "with",
+                        }
+                        title_text = " ".join(re.findall(r"\w+", expected_title.casefold()))
+                        body_text = " ".join(
+                            re.findall(r"\w+", unescape(re.sub(r"<[^>]+>", " ", body)).casefold())
+                        )
+                        # Require the exact posting path and its title. A redirect
+                        # to a careers index or recycled generic page is no rescue.
+                        result["same_posting"] = bool(
+                            len(words) >= 2
+                            and f" {title_text} " in f" {body_text} "
+                            and urlsplit(current).path.rstrip("/")
+                            == urlsplit(request_url or url).path.rstrip("/")
+                            and urlsplit(current).query == urlsplit(request_url or url).query
+                        )
             return result
         except (httpx.InvalidURL, httpx.UnsupportedProtocol, httpx.RemoteProtocolError):
             result["warnings"].append("invalid_redirect")

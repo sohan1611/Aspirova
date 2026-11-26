@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from core import models
+from core.freshness import is_stale
 from core.adapters import NormalizedListing, RawListing
 from crawlers import runner
 from pipeline.expire import expire_missing_opportunities
@@ -17,7 +18,7 @@ from tests.test_audit_retirement import db_session as db_session
 
 
 @pytest.mark.parametrize("slug", sorted(GOVERNMENT_NOTICE_SOURCES))
-def test_only_undated_stale_notices_use_ttl(db_session, board, slug):
+def test_stale_notices_soft_age_but_only_deadlines_close(db_session, board, slug):
     _, company, _ = board
     now = datetime.now(timezone.utc)
     source = models.Source(slug=uuid.uuid4().hex, adapter_key=slug, type="aggregator")
@@ -36,8 +37,10 @@ def test_only_undated_stale_notices_use_ttl(db_session, board, slug):
     retire_rolling_window_listings(db_session)
     expire_missing_opportunities(db_session)
     db_session.expire_all()
-    assert stale.closed_at is not None
-    assert stale.meta["closed_reason"] == "rolling_window_ttl"
+    assert stale.closed_at is None
+    assert is_stale(stale, now)
+    assert not is_stale(fresh, now)
+    assert is_stale(dated, now)
     assert fresh.closed_at is None
     assert dated.closed_at is None
     assert expired.closed_at is not None

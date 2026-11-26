@@ -23,6 +23,17 @@ class _ScalarResult:
         return self.values
 
 
+@pytest.fixture(autouse=True)
+def _offline_freshness_journal(monkeypatch, request):
+    if "seeded_boards" in request.fixturenames:
+        return
+    monkeypatch.setattr(runner, "_begin_ats_freshness_batch", lambda *_: {})
+    monkeypatch.setattr(runner, "_finish_ats_freshness_batch", lambda *_: None)
+    monkeypatch.setattr(runner, "_begin_freshness_run", lambda *_: None)
+    monkeypatch.setattr(runner, "_reopen_seen_inventory_listings", lambda *_: None)
+    monkeypatch.setattr(runner, "_note_freshness_recoveries", lambda *_: None)
+
+
 def _is_source_state_query(query) -> bool:
     try:
         return query.column_descriptions[0]["entity"].__name__ == "SourceState"

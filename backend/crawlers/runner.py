@@ -71,6 +71,7 @@ from pipeline.retirement import (
     reopen_government_extension,
 )
 from pipeline.revalidate import notify_changed
+from core.freshness import age_stale_expression, verification_stale_expression
 from scripts.match_prestige import match_prestige
 
 # adapter_key (sources.adapter_key, companies.ats_type - same string, Doc
@@ -359,7 +360,16 @@ def _record_crawl_run(
     new_opps: int,
     errors: int,
     log: dict[str, Any],
+    run: models.CrawlRun | None = None,
 ) -> None:
+    if run is not None:
+        run.finished_at = datetime.now(timezone.utc)
+        run.status = status
+        run.listings_found = listings_found
+        run.new_opps = new_opps
+        run.errors = errors
+        run.log = log
+        return
     session.add(
         models.CrawlRun(
             source_id=source_id,
@@ -373,6 +383,17 @@ def _record_crawl_run(
             log=log,
         )
     )
+
+
+def _begin_freshness_run(
+    session: Session, source_id: int, tier: int | None, started_at: datetime, log: dict
+) -> models.CrawlRun:
+    run = models.CrawlRun(
+        source_id=source_id, tier=tier, started_at=started_at, status="running", log=log
+    )
+    session.add(run)
+    session.commit()
+    return run
 
 
 def _merge_coverage(records: list[dict[str, Any]]) -> dict[str, Any]:
@@ -979,8 +1000,12 @@ def crawl_company_board(
     run_changed_slugs = changed_slugs if changed_slugs is not None else set()
     committed_changed_slugs: set[str] = set()
     outcome = {"board_state": "error", "http_status": None}
+    crawl_run = None
 
     try:
+        crawl_run = _begin_freshness_run(
+            session, source_id, tier, started_at, {"board_token": board_token}
+        )
         adapter = adapter_class(board_token=board_token, company_name=company_name)
         state = session.scalar(
             select(models.SourceState).where(
@@ -990,11 +1015,13 @@ def crawl_company_board(
         )
         empty_after_retry = False
         if prefetched is None:
+            had_listings = _state_has_previous_listings(state)
+            session.commit()
             watchdog.beat(f"{activity}:fetch-start")
             raw_listings, health, empty_after_retry = _fetch_with_zero_retry(
                 adapter,
                 activity=activity,
-                retry_empty_once=_state_has_previous_listings(state),
+                retry_empty_once=had_listings,
             )
             watchdog.beat(f"{activity}:fetched")
         else:
@@ -1042,6 +1069,11 @@ def crawl_company_board(
             # The skip must still advance both freshness signals, otherwise an
             # unchanged board looks indistinguishable from a vanished one and
             # the expiry sweep below would retire live listings.
+            seen = select(models.RawListing.opportunity_id).where(
+                models.RawListing.source_id == source_id,
+                models.RawListing.external_id.in_(board_external_ids),
+            )
+            _note_freshness_recoveries(session, seen, changed_slugs)
             session.execute(
                 update(models.Opportunity)
                 .where(
@@ -1059,6 +1091,7 @@ def crawl_company_board(
                 .values(last_seen_at=func.now())
             )
             state.last_crawled_at = datetime.now(timezone.utc)
+            _reopen_seen_inventory_listings(session, seen)
             session.commit()
             watchdog.beat(f"{activity}:unchanged-committed")
             try:
@@ -1067,6 +1100,7 @@ def crawl_company_board(
                     source_id=source_id,
                     tier=tier,
                     started_at=started_at,
+                    run=crawl_run,
                     status=result["status"],
                     listings_found=result["listings_found"],
                     new_opps=result["new_opps"],
@@ -1239,11 +1273,13 @@ def crawl_company_board(
             if seen_opportunity_ids:
                 ids = list(seen_opportunity_ids)
                 for i in range(0, len(ids), 5000):
+                    _note_freshness_recoveries(session, ids[i : i + 5000], changed_slugs)
                     session.execute(
                         update(models.Opportunity)
                         .where(models.Opportunity.id.in_(ids[i : i + 5000]))
                         .values(last_seen_at=func.now())
                     )
+                    _reopen_seen_inventory_listings(session, ids[i : i + 5000])
 
             if _is_stop_requested(should_stop):
                 stopped_early = True
@@ -1295,6 +1331,7 @@ def crawl_company_board(
             source_id=source_id,
             tier=tier,
             started_at=started_at,
+            run=crawl_run,
             status=result["status"],
             listings_found=result["listings_found"],
             new_opps=result["new_opps"],
@@ -1316,6 +1353,28 @@ def crawl_company_board(
     return result
 
 
+def _note_freshness_recoveries(
+    session: Session,
+    seen_ids: list[int] | Select,
+    changed_slugs: set[str] | None,
+) -> None:
+    """Invalidate only recovered pages; never write or lock a whole board."""
+    if changed_slugs is None:
+        return
+    changed_slugs.update(
+        session.scalars(
+            select(models.Opportunity.slug).where(
+                models.Opportunity.id.in_(seen_ids),
+                models.Opportunity.status == "active",
+                without_safety_flag(),
+                without_manual_override(),
+                models.Opportunity.closed_at.is_not(None)
+                | (~age_stale_expression() & verification_stale_expression()),
+            )
+        ).all()
+    )
+
+
 def _reopen_seen_rolling_listings(session: Session, seen_ids: list[int] | Select) -> None:
     """Feed presence reverses only an explicit rolling-window TTL closure."""
     session.execute(
@@ -1333,7 +1392,7 @@ def _reopen_seen_rolling_listings(session: Session, seen_ids: list[int] | Select
     )
 
 
-def _reopen_seen_inventory_listings(session: Session, seen_ids: list[int]) -> None:
+def _reopen_seen_inventory_listings(session: Session, seen_ids: list[int] | Select) -> None:
     """Full-inventory presence cannot override a founder's safety withdrawal."""
     session.execute(
         update(models.Opportunity)
@@ -1410,10 +1469,13 @@ def crawl_aggregator(
     if deadline_monotonic is None and max_seconds is not None:
         deadline_monotonic = crawl_started_monotonic + max_seconds
 
+    crawl_run = None
+
     def stop_now() -> bool:
         return _is_stop_requested(should_stop, deadline_monotonic)
 
     try:
+        crawl_run = _begin_freshness_run(session, source_id, tier, started_at, {"aggregator": True})
         adapter = adapter_class()
         # Nothing may hold a database transaction open across the fetch.
         # The caller opens a Session and reads `Source` before getting here,
@@ -1483,7 +1545,7 @@ def crawl_aggregator(
             and state is not None
             and state.last_content_hash == fingerprint
         ):
-            if source_label == "github_lists" or source_label in ROLLING_WINDOW_SOURCES:
+            if raw_listings:
                 # Match the ATS unchanged path, refreshing returned raw IDs only.
                 external_ids = [raw.external_id for raw in raw_listings]
                 for start in range(0, len(external_ids), 5000):
@@ -1491,6 +1553,7 @@ def crawl_aggregator(
                         models.RawListing.source_id == source_id,
                         models.RawListing.external_id.in_(external_ids[start : start + 5000]),
                     )
+                    _note_freshness_recoveries(session, seen, changed_slugs)
                     session.execute(
                         update(models.Opportunity)
                         .where(models.Opportunity.id.in_(seen))
@@ -1498,6 +1561,8 @@ def crawl_aggregator(
                     )
                     if source_label in ROLLING_WINDOW_SOURCES:
                         _reopen_seen_rolling_listings(session, seen)
+                    if source_label in FULL_INVENTORY_SOURCES:
+                        _reopen_seen_inventory_listings(session, seen)
             state.last_crawled_at = datetime.now(timezone.utc)
             session.commit()
             watchdog.beat(f"{activity}:unchanged-committed")
@@ -1507,6 +1572,7 @@ def crawl_aggregator(
                     source_id=source_id,
                     tier=tier,
                     started_at=started_at,
+                    run=crawl_run,
                     status=result["status"],
                     listings_found=result["listings_found"],
                     new_opps=result["new_opps"],
@@ -1637,6 +1703,7 @@ def crawl_aggregator(
         if seen_opportunity_ids:
             seen_ids = list(seen_opportunity_ids)
             for start in range(0, len(seen_ids), 5000):
+                _note_freshness_recoveries(session, seen_ids[start : start + 5000], changed_slugs)
                 session.execute(
                     update(models.Opportunity)
                     .where(models.Opportunity.id.in_(seen_ids[start : start + 5000]))
@@ -1714,6 +1781,7 @@ def crawl_aggregator(
             source_id=source_id,
             tier=tier,
             started_at=started_at,
+            run=crawl_run,
             status=result["status"],
             listings_found=result["listings_found"],
             new_opps=result["new_opps"],
@@ -1751,6 +1819,50 @@ def _refresh_prestige_matches(engine) -> dict[str, object] | None:
         f"unranked {result['unranked']}",
     )
     return result
+
+
+def _begin_ats_freshness_batch(engine, tier: int, ats_jobs: list[_AtsJob]) -> dict[int, int]:
+    batch_run_ids = {}
+    if ats_jobs:
+        with Session(engine) as guard_session:
+            for source_id in sorted({job.source_id for job in ats_jobs}):
+                marker = models.CrawlRun(
+                    source_id=source_id,
+                    tier=tier,
+                    started_at=datetime.now(timezone.utc),
+                    status="running",
+                    log={"freshness_batch": True},
+                )
+                guard_session.add(marker)
+                guard_session.flush()
+                batch_run_ids[source_id] = marker.id
+            guard_session.commit()
+
+    return batch_run_ids
+
+
+def _finish_ats_freshness_batch(
+    engine,
+    batch_run_ids: dict[int, int],
+    ats_jobs: list[_AtsJob],
+    ats_coverage: dict[int, dict[str, Any]],
+) -> None:
+    if batch_run_ids:
+        with Session(engine) as guard_session:
+            for source_id, marker_id in batch_run_ids.items():
+                positions = [p for p, job in enumerate(ats_jobs) if job.source_id == source_id]
+                complete = all(
+                    ats_coverage.get(p, {}).get("status") == "complete" for p in positions
+                )
+                guard_session.execute(
+                    update(models.CrawlRun)
+                    .where(models.CrawlRun.id == marker_id)
+                    .values(
+                        status="success" if complete else "partial",
+                        finished_at=datetime.now(timezone.utc),
+                    )
+                )
+            guard_session.commit()
 
 
 def run_tier(
@@ -1903,6 +2015,8 @@ def run_tier(
     ats_started_monotonic = time.monotonic() if ats_jobs else 0.0
     ats_deadline_monotonic = ats_started_monotonic + ats_max_seconds if ats_jobs else 0.0
 
+    batch_run_ids = _begin_ats_freshness_batch(engine, tier, ats_jobs)
+
     prefetched_boards = _prefetch_ats_boards(ats_jobs, should_stop=should_stop)
 
     groups = _ats_ingest_groups(ats_jobs, prefetched_boards)
@@ -2012,6 +2126,8 @@ def run_tier(
 
     for position, coverage in sorted(ats_coverage.items()):
         coverage_by_source.setdefault(ats_jobs[position].adapter_key, []).append(coverage)
+
+    _finish_ats_freshness_batch(engine, batch_run_ids, ats_jobs, ats_coverage)
 
     aggregator_started_monotonic = time.monotonic()
     aggregator_group_deadline_monotonic = (

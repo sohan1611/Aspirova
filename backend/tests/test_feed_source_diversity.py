@@ -37,7 +37,7 @@ def client(db_session: Session, monkeypatch):
 @pytest.fixture
 def source_feed_rows(db_session: Session):
     suffix = uuid.uuid4().hex
-    seen_at = datetime.now(UTC) - timedelta(days=30)
+    seen_at = datetime.now(UTC)
     location_token = f"SourceFilterville-{suffix}"
     company = models.Company(
         slug=f"source-filter-company-{suffix}",
@@ -123,6 +123,8 @@ def test_feed_recent_interleaves_sources_with_stable_pagination(
         name=f"Source Diversity Company {suffix}",
     )
     source_offsets = {"greenhouse": 0, "unstop": 10, "remoteok": 20}
+    # Preserve posting-day order while keeping every source recently verified.
+    verified_at = datetime.now(UTC)
     opportunities = []
     for source_slug, source_offset in source_offsets.items():
         for source_rank in range(3):
@@ -140,7 +142,7 @@ def test_feed_recent_interleaves_sources_with_stable_pagination(
                     primary_source=source_slug,
                     status="active",
                     posted_at=newest - timedelta(minutes=source_offset + source_rank),
-                    last_seen_at=newest - timedelta(minutes=source_offset + source_rank),
+                    last_seen_at=verified_at - timedelta(minutes=source_offset + source_rank),
                 )
             )
     db_session.add_all([company, *opportunities])

@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from core import models
+from core.freshness import is_stale
 from core.adapters import RawListing
 from crawlers import runner
 from crawlers.ashby import AshbyAdapter
@@ -144,7 +145,7 @@ def test_only_the_last_three_runs_count(db_session, board):
         (None, 0, False),
     ],
 )
-def test_rolling_feed_requires_recent_contact_and_preserves_fresh_rows(
+def test_rolling_feed_soft_ages_without_hard_closure_even_during_outage(
     db_session, board, status, age_days, close, source_key
 ):
     _, company, _ = board
@@ -178,9 +179,8 @@ def test_rolling_feed_requires_recent_contact_and_preserves_fresh_rows(
     expire_missing_opportunities(db_session)
     retire_rolling_window_listings(db_session)
     db_session.expire_all()
-    assert (stale.closed_at is not None) == close
-    if close:
-        assert stale.meta["closed_reason"] == "rolling_window_ttl"
+    assert stale.closed_at is None
+    assert is_stale(stale)
     assert fresh.closed_at is None
     assert merged.closed_at is None
     assert canonical_fresh.closed_at is None
@@ -205,12 +205,10 @@ def test_source_ttl_and_closure_metadata(db_session, board, source_key, days, cl
     db_session.flush()
     retire_rolling_window_listings(db_session)
     db_session.expire_all()
-    assert (row.closed_at is not None) == closes
+    assert row.closed_at is None
+    assert is_stale(row, now) == closes
     assert row.status == "active"
-    if closes:
-        assert row.meta == {**(metadata or {}), "closed_reason": "rolling_window_ttl"}
-    else:
-        assert row.meta == metadata
+    assert row.meta == metadata
 
 
 def test_relocated_old_rows_retire_only_after_complete_new_board_crawl(db_session, board):

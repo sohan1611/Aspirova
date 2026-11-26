@@ -1,10 +1,8 @@
-"""Bounded liveness checks for active undated listings.
+"""Bounded destination checks, verification refresh and recent-closure rescue.
 
-This covers the small slice of listings that cannot be refreshed by deadline
-logic and have not been confirmed by a real crawl in the last four days. Only
-404/410 responses and confirmed Greenhouse soft-404s
-mark a listing closed.
-Every completed check rotates out of the queue for three days.
+The scheduled worker uses source cadence, including dated and rolling feeds.
+Legacy callers keep the undated-only queue. Only 404/410 and the existing
+Greenhouse soft-404 rule close rows; unknown checks never reset verification.
 """
 
 from collections.abc import Callable, Iterable
@@ -34,12 +32,23 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session
 
 from core import models
+from core.freshness import (
+    cadence_value,
+    verified_expression,
+    RESCUE_WINDOW_DAYS,
+    RESCUE_RECHECK_HOURS,
+    RESCUE_DELAY_SECONDS,
+)
 from core.listing_safety import without_manual_override, without_safety_flag
 from crawlers.common import USER_AGENT, request_with_retries
 from crawlers.workday import REQUEST_DELAY_SECONDS, cxs_endpoints, tenant_lock
-from pipeline.retirement import ROLLING_WINDOW_SOURCES
+from pipeline.retirement import ROLLING_WINDOW_SOURCES, meta_without_closed_reason
 from pipeline.destination_check import inspect_destination, observation_liveness
-from core.destination_facts import classify_destination_facts, destination_input_key
+from core.destination_facts import (
+    classify_destination_facts,
+    destination_input_key,
+    retain_alive_verification,
+)
 
 DEFAULT_LIMIT = 1500
 DEFAULT_MAX_SECONDS = 600
@@ -56,6 +65,7 @@ class LivenessCandidate:
     apply_url: str
     ats_type: str | None = None
     ats_board_id: str | None = None
+    title: str | None = None
 
 
 @dataclass
@@ -65,6 +75,8 @@ class LivenessResult:
     alive: int = 0
     inconclusive: int = 0
     timed_out: bool = False
+    reopened: int = 0
+    gone: int = 0
 
 
 def _chunks(
@@ -108,7 +120,7 @@ class WorkdayLivenessChecker:
         with tenant_lock(base):
             return request_with_retries(once, max_retries=1, sleeper=sleep).response
 
-    def observe(self, url: str, client: httpx.Client) -> dict:
+    def observe(self, url: str, client: httpx.Client, *, expected_title: str | None = None) -> dict:
         endpoints = cxs_endpoints(url)
         if endpoints is None:
             from core.destination_facts import url_key
@@ -121,6 +133,7 @@ class WorkdayLivenessChecker:
             client,
             request_url=endpoints[1],
             request=lambda target: self._request(client, "GET", target),
+            expected_title=expected_title,
         )
 
     def check(self, url: str, client: httpx.Client) -> LivenessStatus:
@@ -133,14 +146,21 @@ def fetch_destination_observation(
     *,
     workday_checker: WorkdayLivenessChecker | None = None,
     allowed_board: tuple[str, str] | None = None,
+    expected_title: str | None = None,
 ) -> dict:
     try:
         host = urlsplit(url).hostname or ""
     except ValueError:
         host = ""
     if host.endswith(".myworkdayjobs.com"):
-        return (workday_checker or WorkdayLivenessChecker()).observe(url, client)
-    return inspect_destination(url, client, allowed_board=allowed_board)
+        observation = (workday_checker or WorkdayLivenessChecker()).observe(
+            url, client, expected_title=expected_title
+        )
+        # CXS has no HTML fallback; rescue needs positive same-posting evidence.
+        return observation
+    return inspect_destination(
+        url, client, allowed_board=allowed_board, expected_title=expected_title
+    )
 
 
 def fetch_url_liveness_status(
@@ -201,6 +221,124 @@ def _select_candidates(session: Session, *, limit: int) -> list[LivenessCandidat
         )
         for row in rows
     ]
+
+
+def _select_freshness_candidates(
+    session: Session, *, limit: int, rescue: bool = False, now: datetime
+) -> list[LivenessCandidate]:
+    """The scheduled service also checks dated listings and partial feeds.
+
+    Legacy callers retain their undated-only queue. The public worker opts in
+    to this cadence queue, with bounded recent-closure rescue as a separate run.
+    """
+    from datetime import timedelta
+    from pipeline.expire import FULL_INVENTORY_SOURCES
+
+    checked = cast(models.Opportunity.meta["liveness_checked_at"].astext, DateTime(timezone=True))
+    retry_due = or_(
+        checked.is_(None),
+        checked
+        < now
+        - func.make_interval(
+            0, 0, 0, 0, RESCUE_RECHECK_HOURS if rescue else cadence_value("check_hours")
+        ),
+    )
+    if rescue:
+        eligible = (
+            (models.Opportunity.closed_at >= now - timedelta(days=RESCUE_WINDOW_DAYS))
+            & (models.Opportunity.closed_at <= now)
+            & or_(
+                models.Opportunity.primary_source.in_(
+                    ROLLING_WINDOW_SOURCES | {"workday", "amazon", "hackerearth"}
+                ),
+                models.Opportunity.meta["closed_reason"].astext == "absence",
+                # Before TRUST-02, absence closure had no reason. Restrict unknown
+                # reasons to sources that actually support inventory retirement.
+                models.Opportunity.primary_source.in_(
+                    FULL_INVENTORY_SOURCES
+                    | {
+                        "greenhouse",
+                        "lever",
+                        "ashby",
+                        "smartrecruiters",
+                        "workable",
+                        "recruitee",
+                        "keka",
+                    }
+                )
+                & models.Opportunity.meta["closed_reason"].astext.is_(None),
+            )
+        )
+    else:
+        eligible = or_(
+            models.Opportunity.closed_at.is_(None),
+            models.Opportunity.meta["closed_reason"].astext == "rolling_window_ttl",
+        ) & (
+            verified_expression()
+            < now - func.make_interval(0, 0, 0, 0, cadence_value("check_hours"))
+        )
+    rows = session.execute(
+        select(
+            models.Opportunity.id,
+            models.Opportunity.apply_url,
+            models.Company.ats_type,
+            models.Company.ats_board_id,
+            models.Opportunity.title,
+        )
+        .outerjoin(models.Company, models.Company.id == models.Opportunity.company_id)
+        .where(
+            models.Opportunity.status == "active",
+            without_safety_flag(),
+            without_manual_override(),
+            or_(models.Opportunity.deadline.is_(None), models.Opportunity.deadline > now),
+            eligible,
+            retry_due,
+        )
+        .order_by(
+            cadence_value("priority"),
+            checked.asc().nulls_first(),
+            verified_expression().asc(),
+            models.Opportunity.id,
+        )
+        .limit(limit)
+    ).all()
+    return [LivenessCandidate(*row) for row in rows]
+
+
+def _reopen_verified(
+    session: Session,
+    checks: list[tuple[LivenessCandidate, LivenessStatus]],
+    observations: dict[str, dict],
+    checked_at: datetime,
+    *,
+    rescue: bool,
+) -> int:
+    expected = [
+        (c.id, c.apply_url)
+        for c, status in checks
+        if status == "alive" and observations.get(c.apply_url, {}).get("same_posting") is True
+    ]
+    if not expected:
+        return 0
+    result = session.execute(
+        update(models.Opportunity)
+        .where(
+            tuple_(models.Opportunity.id, models.Opportunity.apply_url).in_(expected),
+            models.Opportunity.status == "active",
+            without_safety_flag(),
+            without_manual_override(),
+            models.Opportunity.closed_at <= checked_at,
+            or_(models.Opportunity.deadline.is_(None), models.Opportunity.deadline > func.now()),
+            (
+                True
+                if rescue
+                else models.Opportunity.meta["closed_reason"].astext == "rolling_window_ttl"
+            ),
+        )
+        .values(closed_at=None, meta=meta_without_closed_reason())
+        .execution_options(synchronize_session=False)
+    )
+    return int(result.rowcount or 0)
 
 
 def _check_candidates(
@@ -264,6 +402,7 @@ def _mark_closed(
             without_safety_flag(),
             without_manual_override(),
             models.Opportunity.closed_at.is_(None),
+            models.Opportunity.last_seen_at <= detected_at,
         )
         .values(closed_at=detected_at)
         .execution_options(synchronize_session=False)
@@ -350,7 +489,7 @@ def _store_observations(
             computed_at=computed_at or checked_at.isoformat(),
             observation=observations[row.apply_url],
         )
-        updates.append((row.id, facts))
+        updates.append((row.id, retain_alive_verification(facts, previous)))
     if updates:
         parsed = values(
             column("id", BigInteger), column("facts", JSONB), name="destination_updates"
@@ -376,6 +515,9 @@ def check_listing_liveness(
     commit_each_batch: bool = True,
     now: datetime | None = None,
     checker: Callable[[str], LivenessStatus] | None = None,
+    freshness_mode: bool = False,
+    rescue: bool = False,
+    changed_slugs: set[str] | None = None,
 ) -> LivenessResult:
     """Check stale undated listings, rotating checks and closing proven dead URLs."""
     if limit < 1:
@@ -390,12 +532,24 @@ def check_listing_liveness(
     detected_at = now or datetime.now(timezone.utc)
     started_at = monotonic()
     # Freeze every value before a commit can expire ORM state supplied by a caller.
-    candidates = [
-        LivenessCandidate(row.id, row.apply_url, row.ats_type, row.ats_board_id)
-        for row in _select_candidates(session, limit=limit)
-    ]
+    candidates = (
+        _select_freshness_candidates(session, limit=limit, rescue=rescue, now=detected_at)
+        if freshness_mode or rescue
+        else _select_candidates(session, limit=limit)
+    )
     result = LivenessResult()
     workday_checker = WorkdayLivenessChecker()
+    slugs = (
+        dict(
+            session.execute(
+                select(models.Opportunity.id, models.Opportunity.slug).where(
+                    models.Opportunity.id.in_([c.id for c in candidates])
+                )
+            ).all()
+        )
+        if changed_slugs is not None
+        else {}
+    )
 
     for batch in _chunks(candidates, batch_size):
         elapsed_seconds = monotonic() - started_at
@@ -415,6 +569,7 @@ def check_listing_liveness(
             for candidate in batch
             if candidate.ats_type and candidate.ats_board_id
         }
+        titles = {candidate.apply_url: candidate.title for candidate in batch}
 
         # Nothing may hold a database transaction open across the network
         # checks. Selecting candidates (and the script's SET) starts a
@@ -425,12 +580,19 @@ def check_listing_liveness(
         # 44703841666). Later batches start clean because each batch commits;
         # this covers the first one. crawlers/runner.py does the same before
         # its fetch. A dry run never writes after the checks, so it is left be.
-        if apply and commit_each_batch:
+        if commit_each_batch:
             session.commit()
 
         def observe(url: str) -> LivenessStatus:
+            if rescue:
+                # Rescue is serial in the worker, at most one posting per second.
+                sleep(RESCUE_DELAY_SECONDS)
             observation = fetch_destination_observation(
-                url, client, workday_checker=workday_checker, allowed_board=boards.get(url)
+                url,
+                client,
+                workday_checker=workday_checker,
+                allowed_board=boards.get(url),
+                expected_title=titles.get(url),
             )
             with observation_lock:
                 observations[url] = observation
@@ -449,11 +611,14 @@ def check_listing_liveness(
                 )
         else:
             checks = _check_candidates(batch, checker=checker, concurrency=concurrency)
+            # Legacy injected statuses carry no HTTP evidence. Never invent a
+            # 2xx observation from "alive" (old checkers can include redirects).
 
         closed_ids: list[int] = []
         for candidate, status in checks:
             result.scanned += 1
             if status == "closed":
+                result.gone += 1
                 closed_ids.append(candidate.id)
             elif status == "alive":
                 result.alive += 1
@@ -463,6 +628,9 @@ def check_listing_liveness(
         if apply:
             _stamp_checked(session, [candidate.id for candidate, _ in checks], detected_at)
             _store_observations(session, checks, observations, detected_at)
+            result.reopened += _reopen_verified(
+                session, checks, observations, detected_at, rescue=rescue
+            )
             result.closed += _mark_closed(
                 session,
                 opportunity_ids=closed_ids,
@@ -471,7 +639,15 @@ def check_listing_liveness(
             )
             if checks and commit_each_batch:
                 session.commit()
+            if changed_slugs is not None:
+                changed_slugs.update(slugs[c.id] for c, _ in checks if c.id in slugs)
         else:
             result.closed += len(closed_ids)
+            if rescue:
+                result.reopened += sum(
+                    status == "alive"
+                    and observations.get(c.apply_url, {}).get("same_posting") is True
+                    for c, status in checks
+                )
 
     return result

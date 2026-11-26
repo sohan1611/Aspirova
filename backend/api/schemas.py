@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_valid
 
 from api.filters import ROLE_TERMS
 from core import models
+from core.freshness import is_stale as freshness_is_stale, last_verified, cadence, freshness_reason
 from core.destination import DestinationKind, classify_destination
 from core.listing_safety import safety_flag
 from core.listing_corrections import public_corrections, public_listing_meta
@@ -76,6 +77,10 @@ class OpportunityListItem(BaseModel):
     status: str = "active"
     eligibility: dict | None = None
     destination_facts: dict | None = None
+    last_verified_at: datetime | None = None
+    freshness: Literal["fresh", "stale"] | None = None
+    freshness_reason: Literal["age", "verification"] | None = None
+    stale_after_hours: int | None = None
     role_level: RoleLevelSchema
 
     @field_validator("location")
@@ -119,6 +124,10 @@ class OpportunityListItem(BaseModel):
             status=o.status or "active",
             eligibility=o.eligibility_facts,
             destination_facts=o.destination_facts,
+            last_verified_at=last_verified(o),
+            freshness="stale" if freshness_is_stale(o) else "fresh",
+            freshness_reason=freshness_reason(o),
+            stale_after_hours=cadence(o.primary_source).stale_hours,
             role_level=RoleLevelSchema.model_validate(
                 classify_role_level(o.title, o.category, o.meta, o.slug)
             ),
@@ -470,6 +479,10 @@ class OpportunityDetail(OpportunityListItem):
             status=o.status or "active",
             eligibility=o.eligibility_facts,
             destination_facts=o.destination_facts,
+            last_verified_at=last_verified(o),
+            freshness="stale" if freshness_is_stale(o) else "fresh",
+            freshness_reason=freshness_reason(o),
+            stale_after_hours=cadence(o.primary_source).stale_hours,
             role_level=RoleLevelSchema.model_validate(
                 classify_role_level(o.title, o.category, o.meta, o.slug)
             ),

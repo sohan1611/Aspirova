@@ -9,11 +9,21 @@ truncated crawls fail safe: weak source evidence closes nothing rather than
 mass-retiring the catalogue.
 """
 
-from sqlalchemy import func, or_, select, text, update
+from sqlalchemy import func, or_, select, text, tuple_, update
 from sqlalchemy.orm import Session
 
 from core import models
 from pipeline.retirement import aggregator_primary_provenance
+from pipeline.crawl_safety import blocked_absence_scopes
+from core.listing_safety import without_manual_override, without_safety_flag
+from core.freshness import verified_expression
+
+
+def _reason(reason: str):
+    return func.coalesce(
+        func.nullif(models.Opportunity.meta, text("'null'::jsonb")), text("'{}'::jsonb")
+    ).op("||")(func.jsonb_build_object("closed_reason", reason))
+
 
 # A source belongs here ONLY if one crawl enumerates its complete open inventory,
 # so a listing's absence is evidence it is gone. Production on 2026-09-04 proved
@@ -34,6 +44,9 @@ RETIRE_MIN_COVERAGE = 0.5
 
 def expire_missing_opportunities(session: Session) -> int:
     """Mark active opportunities closed when explicitly expired or absent."""
+    blocked_sources, blocked_boards = blocked_absence_scopes(
+        session, inventory_sources=FULL_INVENTORY_SOURCES
+    )
     deadline_result = session.execute(
         update(models.Opportunity)
         .where(
@@ -50,20 +63,23 @@ def expire_missing_opportunities(session: Session) -> int:
         .where(
             models.Opportunity.status == "active",
             models.Opportunity.closed_at.is_(None),
+            without_safety_flag(),
+            without_manual_override(),
             models.Opportunity.company_id == models.Company.id,
             ~aggregator_primary_provenance(),
             # Workday searches are bounded, even when every requested term finishes.
             # Missing search results are checked through the CXS liveness endpoint.
-            models.Source.adapter_key != "workday",
+            models.Source.adapter_key.not_in(("workday", "amazon")),
+            models.Source.id.not_in(blocked_sources),
+            ~tuple_(models.Source.id, models.SourceState.page_key).in_(blocked_boards),
             models.Source.adapter_key == models.Company.ats_type,
             models.SourceState.source_id == models.Source.id,
             models.SourceState.page_key == models.Company.ats_board_id,
             models.SourceState.last_crawled_at.is_not(None),
             models.SourceState.last_crawled_at > func.now() - text("interval '2 days'"),
-            models.Opportunity.last_seen_at
-            < models.SourceState.last_crawled_at - text("interval '6 hours'"),
+            verified_expression() < models.SourceState.last_crawled_at - text("interval '6 hours'"),
         )
-        .values(closed_at=func.now())
+        .values(closed_at=func.now(), meta=_reason("absence"))
         .execution_options(synchronize_session=False)
     )
     # Aggregator opportunities are source-wide, not company-board scoped: measured
@@ -87,6 +103,8 @@ def expire_missing_opportunities(session: Session) -> int:
             models.CrawlRun.source_id.label("source_id"),
             models.CrawlRun.started_at.label("started_at"),
             models.CrawlRun.listings_found.label("listings_found"),
+            models.CrawlRun.status.label("status"),
+            models.CrawlRun.finished_at.label("finished_at"),
             models.CrawlRun.log["coverage"]["status"].astext.label("coverage_status"),
             models.CrawlRun.log["coverage"].astext.label("coverage"),
             func.row_number()
@@ -113,6 +131,8 @@ def expire_missing_opportunities(session: Session) -> int:
         .where(
             models.Opportunity.status == "active",
             models.Opportunity.closed_at.is_(None),
+            without_safety_flag(),
+            without_manual_override(),
             models.Opportunity.primary_source.in_(FULL_INVENTORY_SOURCES),
         )
         .group_by(models.Opportunity.primary_source)
@@ -129,11 +149,14 @@ def expire_missing_opportunities(session: Session) -> int:
             models.Opportunity.primary_source.is_not(None),
             models.Opportunity.primary_source.in_(FULL_INVENTORY_SOURCES),
             models.Opportunity.primary_source == models.Source.adapter_key,
+            models.Source.id.not_in(blocked_sources),
             latest_source_crawl.c.source_id == models.Source.id,
             latest_source_crawl.c.last_crawled_at.is_not(None),
             latest_source_crawl.c.last_crawled_at > func.now() - text("interval '2 days'"),
             latest_crawl_run.c.source_id == models.Source.id,
             latest_crawl_run.c.run_rank == 1,
+            latest_crawl_run.c.status == "success",
+            latest_crawl_run.c.finished_at.is_not(None),
             latest_crawl_run.c.started_at > func.now() - text("interval '2 days'"),
             latest_crawl_run.c.listings_found.is_not(None),
             # Recorded incomplete coverage cannot prove source-wide absence.
@@ -144,10 +167,10 @@ def expire_missing_opportunities(session: Session) -> int:
             currently_open_by_source.c.primary_source == models.Opportunity.primary_source,
             latest_crawl_run.c.listings_found
             >= currently_open_by_source.c.currently_open * RETIRE_MIN_COVERAGE,
-            models.Opportunity.last_seen_at
+            verified_expression()
             < latest_source_crawl.c.last_crawled_at - text("interval '6 hours'"),
         )
-        .values(closed_at=func.now())
+        .values(closed_at=func.now(), meta=_reason("absence"))
         .execution_options(synchronize_session=False)
     )
     return (

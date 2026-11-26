@@ -16,6 +16,13 @@ from crawlers.watchdog import CrawlWatchdog
 from pipeline.ingest import RAW_LISTING_EXTERNAL_ID_CHUNK_SIZE, load_source_raw_listings
 
 
+@pytest.fixture(autouse=True)
+def _offline_freshness_batch(monkeypatch):
+    monkeypatch.setattr(runner, "_begin_ats_freshness_batch", lambda *_: {})
+    monkeypatch.setattr(runner, "_finish_ats_freshness_batch", lambda *_: None)
+    monkeypatch.setattr(runner, "_note_freshness_recoveries", lambda *_: None)
+
+
 def _raw_listing(external_id: str) -> RawListing:
     return RawListing(
         source_slug="greenhouse",

@@ -55,7 +55,8 @@ def _opportunity(
     age: int = 1,
     **overrides,
 ) -> models.Opportunity:
-    seen_at = datetime.now(timezone.utc) - timedelta(days=age)
+    verified_at = datetime.now(timezone.utc)
+    seen_at = verified_at - timedelta(days=age)
     values = {
         "slug": f"telegram-{uuid.uuid4().hex}",
         "company_id": company.id,
@@ -67,7 +68,8 @@ def _opportunity(
         "apply_url": "https://example.com/apply",
         "first_seen_at": seen_at,
         "posted_at": seen_at,
-        "last_seen_at": seen_at,
+        # Posting and discovery age can differ from the latest crawl confirmation.
+        "last_seen_at": verified_at,
     }
     values.update(overrides)
     opportunity = models.Opportunity(**values)
@@ -183,6 +185,18 @@ def test_excludes_ineligible_and_old_listings(db_session: Session, company):
         remote.id,
         blank_remote.id,
     }
+
+
+def test_excludes_verification_stale_listings(db_session: Session, company):
+    _opportunity(
+        db_session,
+        company,
+        age=8,
+        primary_source="greenhouse",
+        last_seen_at=datetime.now(timezone.utc) - timedelta(days=8),
+    )
+    fresh = _opportunity(db_session, company, age=8, primary_source="greenhouse")
+    assert [row.id for row in telegram.select_candidates(db_session)] == [fresh.id]
 
 
 def test_category_limits(db_session: Session, company):
