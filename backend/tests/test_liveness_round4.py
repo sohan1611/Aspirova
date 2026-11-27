@@ -1,6 +1,7 @@
 """Workday positive-list coverage, block skips and defensible reopens."""
 
 import json
+from contextlib import nullcontext
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from uuid import uuid4
@@ -13,7 +14,7 @@ from core import models
 from core.freshness import last_verified
 from pipeline import liveness
 from pipeline.ingest import _listing_meta
-from scripts import liveness_reopens
+from scripts import check_listing_liveness as cli, liveness_reopens
 
 
 @pytest.fixture
@@ -53,12 +54,12 @@ def mock_http(monkeypatch, respond):
     )
 
 
-def test_cxs_list_verifies_exact_paths_and_never_closes_unlisted_rows(session, monkeypatch):
+def test_cxs_list_and_exact_title_verify_only_matching_paths(session, monkeypatch):
     now = datetime.now(timezone.utc)
     base = "https://board.wd5.myworkdayjobs.com/en-US"
     rows = [
         listing("workday", f"{base}/Careers/job/{name}", now)
-        for name in ("first_R1", "second_R2", "absent_R3")
+        for name in ("first_R1", "second_R2", "title_only_R5", "absent_R3")
     ] + [listing("workday", f"{base}/OtherSite/job/{name}", now) for name in ("first_R1", "R4")]
     session.add_all(rows)
     session.flush()
@@ -68,15 +69,28 @@ def test_cxs_list_verifies_exact_paths_and_never_closes_unlisted_rows(session, m
     def respond(request):
         query = json.loads(request.content)
         offset = query["offset"]
+        term = query["searchText"]
         assert request.method == "POST" and query["limit"] == 20
-        assert query["searchText"] == "intern"
-        calls.append((request.url.path, offset))
+        calls.append((request.url.path, term, offset))
         if "/OtherSite/" in request.url.path:
+            assert term == "intern"
             return httpx.Response(404)
 
         def posting(path):
             return {"externalPath": f"/job/{path}", "title": "Software Engineer Intern"}
 
+        if term == "Software Engineer Intern":
+            assert offset == 0
+            jobs = [
+                posting("title_only_R5"),
+                {**posting("wrong-identity_R3"), "bulletFields": ["R3"]},
+            ]
+            jobs += [posting(f"other_title_result_{i}") for i in range(18)]
+            return httpx.Response(
+                200,
+                json={"total": 60, "jobPostings": jobs},
+            )
+        assert term == "intern"
         if offset == 0:
             jobs = [posting("first_R1"), posting("wrong-identity_R3")]
             jobs += [posting(f"irrelevant_{i}") for i in range(18)]
@@ -88,25 +102,122 @@ def test_cxs_list_verifies_exact_paths_and_never_closes_unlisted_rows(session, m
         session, apply=True, freshness_mode=True, now=now, commit_each_batch=False
     )
     session.expire_all()
-    assert sorted(calls) == [
-        ("/wday/cxs/board/Careers/jobs", 0),
-        ("/wday/cxs/board/Careers/jobs", 20),
-        ("/wday/cxs/board/OtherSite/jobs", 0),
+    assert calls == [
+        ("/wday/cxs/board/Careers/jobs", "intern", 0),
+        ("/wday/cxs/board/Careers/jobs", "intern", 20),
+        ("/wday/cxs/board/Careers/jobs", "Software Engineer Intern", 0),
+        ("/wday/cxs/board/OtherSite/jobs", "intern", 0),
     ]
     assert (result.scanned, result.alive, result.closed, result.reopened, result.skipped) == (
-        2,
-        2,
+        3,
+        3,
         0,
         0,
         3,
     )
-    assert result.workday_list == {"requests": 3, "pages": 2, "verified": 2, "404": 1}
-    for row in rows[:2]:
+    assert result.workday_list == {
+        "requests": 4,
+        "pages": 3,
+        "verified": 3,
+        "404": 1,
+        "exact_title_requests": 1,
+        "exact_title_verified": 1,
+        "list_absent": 1,
+    }
+    assert result.by_source["workday"].reasons == {"list_absent": 1, "list_unmatched": 2}
+    for row in rows[:3]:
         assert last_verified(row) >= now
         assert row.destination_facts["observation"]["evidence"] == "workday_cxs_list"
-    for row, initial in zip(rows[2:], original_facts[2:]):
+    for row, initial in zip(rows[3:], original_facts[3:]):
         assert last_verified(row) == row.last_seen_at
         assert row.destination_facts == initial and row.meta == {} and row.closed_at is None
+
+
+def test_exact_title_rate_limit_defers_centre_without_marking_absent(monkeypatch):
+    host = "title-board.wd5.myworkdayjobs.com"
+    endpoint = f"https://{host}/wday/cxs/title-board/Careers/jobs"
+    candidates = [
+        liveness.LivenessCandidate(
+            index, f"https://{host}/Careers/job/R{index}", title=f"Engineering Intern {index}"
+        )
+        for index in range(2)
+    ]
+    terms = []
+
+    def respond(request):
+        query = json.loads(request.content)
+        assert query["offset"] == 0
+        terms.append(query["searchText"])
+        if terms[-1] == "intern":
+            return httpx.Response(200, json={"total": 0, "jobPostings": []})
+        return httpx.Response(429, headers={"Retry-After": "81"})
+
+    monkeypatch.setattr(liveness, "public_dns", lambda *_: True)
+    monkeypatch.setattr(liveness, "sleep", lambda _: None)
+    monkeypatch.setattr(liveness, "monotonic", lambda: 0.0)
+    checker = liveness.WorkdayLivenessChecker()
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        checks, counts = checker.sweep(client, endpoint, candidates)
+    assert terms == ["intern", "Engineering Intern 0"]
+    assert checker.cooldown_until["wd5"] == 81.0
+    assert counts == {"requests": 2, "pages": 1, "exact_title_requests": 1, "429": 1, "verified": 0}
+    assert checks == [
+        (candidate, "skipped", {"failure_reason": "list_unmatched"}) for candidate in candidates
+    ]
+
+
+def test_exact_title_reuses_identical_first_page_and_does_not_search_blank_titles(monkeypatch):
+    host = "title-board.wd5.myworkdayjobs.com"
+    endpoint = f"https://{host}/wday/cxs/title-board/Careers/jobs"
+    candidates = [
+        liveness.LivenessCandidate(index, f"https://{host}/Careers/job/R{index}", title=title)
+        for index, title in enumerate(("intern", "", " "))
+    ]
+    queries = []
+
+    def respond(request):
+        queries.append(json.loads(request.content)["searchText"])
+        return httpx.Response(200, json={"total": 0, "jobPostings": []})
+
+    monkeypatch.setattr(liveness, "public_dns", lambda *_: True)
+    monkeypatch.setattr(liveness, "sleep", lambda _: None)
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        checks, counts = liveness.WorkdayLivenessChecker().sweep(client, endpoint, candidates)
+    assert queries == ["intern"]
+    assert counts == {"requests": 1, "pages": 1, "verified": 0, "list_absent": 1}
+    assert [observation["failure_reason"] for _, _, observation in checks] == [
+        "list_absent",
+        "list_unmatched",
+        "list_unmatched",
+    ]
+
+
+def test_cli_appends_exact_title_and_list_absent_counts(monkeypatch, capsys):
+    result = liveness.LivenessResult()
+    result.workday_list.update(
+        requests=4,
+        pages=3,
+        verified=2,
+        exact_title_requests=2,
+        exact_title_verified=1,
+        list_absent=1,
+    )
+    result.by_source["workday"].skipped = 2
+    result.by_source["workday"].reasons.update(list_unmatched=1, list_absent=1)
+    monkeypatch.setattr(cli, "make_engine", lambda: None)
+    monkeypatch.setattr(
+        cli, "Session", lambda _: nullcontext(SimpleNamespace(execute=lambda _: None))
+    )
+    monkeypatch.setattr(cli, "check_listing_liveness", lambda *a, **kw: result)
+    monkeypatch.setattr("sys.argv", ["check_listing_liveness", "--dry-run"])
+    cli.main()
+    lines = capsys.readouterr().out.splitlines()
+    assert "LIVENESS SKIPPED workday: total=2 skipped_403=0 list_unmatched=1 list_absent=1" in lines
+    summary = next(line for line in lines if line.startswith("LIVENESS WORKDAY LIST:"))
+    assert summary.startswith("LIVENESS WORKDAY LIST: requests=4 pages=3 verified=2 timeout=0")
+    assert summary.endswith(
+        "404=0 410=0 exact_title_requests=2 exact_title_verified=1 list_absent=1"
+    )
 
 
 def test_403_burst_skips_remaining_host_and_far_from_stale_rows(session, monkeypatch):

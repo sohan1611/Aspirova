@@ -89,7 +89,7 @@ PARTIAL_SOURCES = ROLLING_WINDOW_SOURCES | {"workday", "amazon", "hackerearth"}
 
 LivenessStatus = Literal["alive", "closed", "inconclusive"]
 CheckStatus = Literal["alive", "closed", "inconclusive", "skipped"]
-SKIP_REASONS = ("skipped_403", "list_unmatched")
+SKIP_REASONS = ("skipped_403", "list_unmatched", "list_absent")
 INCONCLUSIVE_REASONS = (
     "timeout",
     "403",
@@ -342,9 +342,6 @@ class WorkdayLivenessChecker:
             counts["other"] += 1
             return [_skip(candidate, "list_unmatched") for candidate in candidates], counts
 
-        def count_request() -> None:
-            counts["requests"] += 1
-
         by_detail: dict[str, list[LivenessCandidate]] = defaultdict(list)
         for candidate in candidates:
             endpoints = cxs_endpoints(candidate.apply_url)
@@ -359,10 +356,16 @@ class WorkdayLivenessChecker:
         matches: list[Check] = []
         board = endpoint.removesuffix("/jobs")
         cluster = _workday_cluster(endpoint) or host
-        for _ in range(WORKDAY_LIST_PAGE_CAP):
-            if not queue or not by_detail:
-                break
-            term, offset, total = queue.popleft()
+        domain = registrable_domain(host)
+
+        def read_page(
+            term: str, offset: int, *, exact_title: bool = False
+        ) -> tuple[int, int, list[dict[str, Any]]] | None:
+            def count_request() -> None:
+                counts["requests"] += 1
+                if exact_title:
+                    counts["exact_title_requests"] += 1
+
             try:
                 response = self._request(
                     client,
@@ -373,31 +376,32 @@ class WorkdayLivenessChecker:
                 )
             except httpx.TimeoutException:
                 counts["timeout"] += 1
-                break
+                return None
             except CheckBudgetExceeded:
                 counts["lock_or_budget"] += 1
-                break
+                return None
             except httpx.RequestError:
                 counts["other"] += 1
-                break
+                return None
             if response is None or not response.is_success:
                 code = response.status_code if response is not None else None
                 reason = (
                     str(code) if code in {404, 410} else _inconclusive_reason({"http_status": code})
                 )
                 counts[reason] += 1
-                break
+                return None
             try:
                 page = cxs_search_page(response.json(), offset)
             except ValueError:
                 page = None
             if page is None:
                 counts["parse_or_shape"] += 1
-                break
+                return None
             counts["pages"] += 1
-            page_total, postings = page
-            if offset == 0:
-                total = page_total
+            return response.status_code, *page
+
+        def record_matches(code: int, postings: list[dict[str, Any]]) -> int:
+            before = len(matches)
             checked_at = datetime.now(timezone.utc).isoformat()
             for posting in postings:
                 path = posting.get("externalPath")
@@ -415,24 +419,64 @@ class WorkdayLivenessChecker:
                             {
                                 "url_key": url_key(candidate.apply_url),
                                 "status": "alive",
-                                "http_status": response.status_code,
+                                "http_status": code,
                                 "checked_at": checked_at,
                                 "same_posting": True,
                                 "evidence": "workday_cxs_list",
                                 "terminal_host": host,
-                                "terminal_domain": registrable_domain(host),
+                                "terminal_domain": domain,
                                 "warnings": [],
                             },
                         )
                     )
+            return len(matches) - before
+
+        first_pages: set[str] = set()
+        term_sweep_failed = False
+        for _ in range(WORKDAY_LIST_PAGE_CAP):
+            if not queue or not by_detail:
+                break
+            term, offset, total = queue.popleft()
+            page = read_page(term, offset)
+            if page is None:
+                term_sweep_failed = True
+                break
+            code, page_total, postings = page
+            record_matches(code, postings)
+            if offset == 0:
+                first_pages.add(term)
+                total = page_total
             if len(postings) >= PAGE_SIZE and offset + PAGE_SIZE < total:
                 queue.append((term, offset + PAGE_SIZE, total))
 
+        if not term_sweep_failed:
+            by_title: dict[str, set[str]] = defaultdict(set)
+            for detail, rows in by_detail.items():
+                for candidate in rows:
+                    if candidate.title and candidate.title.strip():
+                        by_title[candidate.title].add(detail)
+            for title, details in by_title.items():
+                if title in first_pages or not any(detail in by_detail for detail in details):
+                    continue
+                page = read_page(title, 0, exact_title=True)
+                if page is None:
+                    break
+                first_pages.add(title)
+                code, _, postings = page
+                counts["exact_title_verified"] += record_matches(code, postings)
+
         counts["verified"] = len(matches)
-        reason = "skipped_403" if self.forbidden.blocked(cluster) else "list_unmatched"
-        matches.extend(
-            _skip(candidate, reason) for rows in by_detail.values() for candidate in rows
-        )
+        unmatched = "skipped_403" if self.forbidden.blocked(cluster) else "list_unmatched"
+        for rows in by_detail.values():
+            for candidate in rows:
+                reason = (
+                    "list_absent"
+                    if candidate.title and candidate.title in first_pages
+                    else unmatched
+                )
+                if reason == "list_absent":
+                    counts["list_absent"] += 1
+                matches.append(_skip(candidate, reason))
         return matches, counts
 
 

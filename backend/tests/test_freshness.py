@@ -675,7 +675,13 @@ def test_liveness_prioritizes_visible_partial_sources_by_stale_deadline(db_sessi
 
     old_inventory = candidate("greenhouse", 300)
     far_from_stale = candidate("workday", 100)
-    near_stale = candidate("workday", 150, deadline=NOW + timedelta(days=1))
+    # The open filter compares deadlines with the database clock, not NOW, so the
+    # deadline must stay in the future on the real clock too.
+    near_stale = candidate(
+        "workday",
+        150,
+        deadline=max(NOW, datetime.now(timezone.utc)) + timedelta(days=1),
+    )
     rolling_overdue = candidate("remoteok", 728)
     workday_overdue = candidate("workday", 196)
     retry = candidate("workday", 210, checked_hours=26)

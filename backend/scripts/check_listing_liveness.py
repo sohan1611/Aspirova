@@ -90,7 +90,17 @@ def main() -> None:
             skips = " ".join(f"{reason}={counts.reasons[reason]}" for reason in SKIP_REASONS)
             print(f"LIVENESS SKIPPED {source}: total={counts.skipped} {skips}", flush=True)
     if result.workday_list:
-        counters = ("requests", "pages", "verified", *INCONCLUSIVE_REASONS, "404", "410")
+        counters = (
+            "requests",
+            "pages",
+            "verified",
+            *INCONCLUSIVE_REASONS,
+            "404",
+            "410",
+            "exact_title_requests",
+            "exact_title_verified",
+            "list_absent",
+        )
         details = " ".join(f"{key}={result.workday_list[key]}" for key in counters)
         print(f"LIVENESS WORKDAY LIST: {details}", flush=True)
 

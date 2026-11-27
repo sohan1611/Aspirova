@@ -2,7 +2,7 @@
 
 Work order: launch audit TRUST-02, 2026-11-26. Base: `fee8290`, branch
 `feat/freshness-service`. Deterministic only. The founder supplied the
-Round 2 and Round 3 production measurements. Engineering validation uses
+Round 2 through Round 5 production measurements. Engineering validation uses
 disposable Postgres.
 
 ## Investigation: what existed
@@ -455,6 +455,74 @@ this covers the estimated daily demand. The 24-hour Workday retry interval
 still applies, so listings attempted in the previous day enter the sweep
 when that interval elapses.
 
+## Round 5 exact-title follow-up
+
+The founder's Nov. 27 run at about 17:00 IST used `1a4ee5b` and finished
+within the time budget. Workday supplied all 146 scanned rows. The worker
+confirmed 138 alive, closed and reopened zero, and recorded eight
+inconclusive detail checks (three 403s and five 429s). The CXS list sweep
+returned **214 valid pages in 214 requests**, with zero timeouts, 403s,
+429s or 5xx responses. It verified 135 of 252 grouped candidates. The
+other **117 (46.4%)** remained `list_unmatched`. The 11 detail checks
+verified three rows.
+
+The diagnosis showed **5,125 visible, 1,424 stale** in Workday. Of those,
+43 had never been checked and 1,381 were unknown with a stored check less
+than three days old. Those 1,381 listings were still inside the 24-hour
+retry interval when the worker ran and became due again from about
+02:45 IST on Nov. 28. No other tier-1 source was stale.
+
+After the term sweep finishes successfully, the worker searches the
+stored title on the same board's first CXS page for each remaining
+posting. Identical title queries share a page. A successful broad
+first page for the identical query can also be reused. A result
+confirms only its exact board and external path. A clean first page
+without a match records a `list_absent` skip and leaves the row's
+verification, attempt timestamp and closure state intact. Errors,
+missing titles and queries left unfinished by the budget retain
+`list_unmatched` or `skipped_403`. A one-page title miss provides
+no evidence about full inventory or closure.
+
+Both passes share the tenant lock, 0.5-second pacing, one in-flight
+request per data centre, Retry-After handling and the 403 burst stop.
+The 16-page cap still applies to the term sweep. The exact pass adds
+at most one page query per distinct remaining title per board, within
+the same overall deadline. The current production sample supports
+trying narrower queries first. It gives no measured yield for deeper
+term pages. The existing singleton detail path continues. The absent
+rows add zero detail requests, given the eight blocked or limited
+responses in the 11 detail checks in this run.
+
+### Request arithmetic
+
+- If the observed board mix scales to roughly 1,424 due candidates,
+  the term pass projects `ceil(1,424 × 214 / 252) = 1,210` requests.
+  The observed miss share projects `ceil(1,424 × 117 / 252) = 662`
+  additional requests at one per miss, before deduplication and
+  excluding new retries. That is about **1,872 requests** in total
+  under the sample ratios. Actual demand depends on the board mix,
+  the number of distinct titles, and backoff.
+- At 0.5 seconds of pacing per request, 1,872 requests need **936
+  seconds (15m 36s)** if all use one data centre. The 40-minute budget
+  would leave 1,464 seconds for latency, database work and cooldowns
+  in that case. It can support up to 1.28 seconds per request on
+  average at that volume. Work on separate data centres can overlap.
+- For steady state, keep the estimate of 372 Workday confirmations
+  per day. With the sample's 135 term confirmations and 117 misses
+  per 252 candidates, let `h` be the exact-title hit share among those
+  misses. A model with one request per miss needs
+  `ceil(372 × (214 + 117) / (135 + 117 × h))` total list requests.
+  At `h = 0%, 50%, 100%` that gives **913, 637, 489 requests/day**,
+  or about 7m 37s, 5m 19s and 4m 05s of single-centre pacing.
+  Real exact-title yield remains unmeasured.
+
+The next founder run can use the same apply and diagnosis commands.
+The WORKDAY LIST summary keeps its total request, page and verified
+counts and appends `exact_title_requests`, `exact_title_verified` and
+`list_absent`. The SKIPPED line appends `list_absent` to its reason
+counts. Compare exact matches per request and the remaining stale
+rows after the overnight cohort becomes due.
+
 ## Measurement and rollout
 
 `scripts.freshness_slo` uses one **REPEATABLE READ, READ ONLY** transaction and a
@@ -561,6 +629,11 @@ dry-run check for unchanged listing data. Ruff and Black passed.
 Round 4 passed **6,986 backend tests** on a fresh, migrated database on
 port 56432, including the unchanged #224 test. Ruff, Black and
 `git diff --check` passed.
+
+Round 5 passed 55 focused tests and a separate mocked exact-title hit and
+miss. Ruff, Black and `git diff --check` passed. The full suite stopped
+at the first database fixture because disposable Postgres on port 56432
+was unreachable. Database-backed Round 5 verification awaits that service.
 
 The source-diversity fixtures used 30-day-old crawl timestamps. Those breached
 the thresholds for Greenhouse and Unstop, while RemoteOK was near its cutoff.
@@ -670,3 +743,14 @@ next run, and stops probing a host after repeated 403s. A retained job
 board page can no longer reopen a rolling-feed listing by repeating its
 old title. Counts-only logs show Workday list yield and recent liveness
 reopens.
+
+### Round 5
+
+In the Nov. 27 run, every one of 214 Workday list requests succeeded.
+The term sweep verified 135 of 252 candidates and missed 117. The worker
+now searches one list page per remaining distinct title and verifies a
+posting only when its exact external path appears. A clean miss is
+reported as `list_absent` and leaves the listing state intact. The
+original pacing and term cap still apply. The new counts show whether
+the title pass makes enough additional confirmations to justify its
+requests.
