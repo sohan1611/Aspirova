@@ -7,6 +7,7 @@ import { addCacheTag } from "@vercel/functions";
 import { cache } from "react";
 import ApplyLink from "@/components/ApplyLink";
 import DestinationLabel from "@/components/DestinationLabel";
+import FreshnessLabel from "@/components/FreshnessLabel";
 import AddToCalendar from "@/components/AddToCalendar";
 import BookmarkButton from "@/components/BookmarkButton";
 import CompanyFavicon from "@/components/CompanyFavicon";
@@ -105,7 +106,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title,
     description,
     alternates: { canonical: canonicalUrl },
-    ...((opportunity.is_stale || opportunity.status === "withdrawn" || opportunity.safety) ? { robots: { index: false, follow: false } } : {}),
+    ...((opportunity.is_stale || opportunity.freshness === "stale" || opportunity.status === "withdrawn" || opportunity.safety) ? { robots: { index: false, follow: false } } : {}),
     // openGraph.title has no automatic template applied (unlike <title>),
     // so the "- Aspirova" suffix is added explicitly here for share
     // previews on Twitter/LinkedIn/etc.
@@ -153,10 +154,8 @@ export default async function OpportunityPage({ params }: PageProps) {
     closed,
     descriptionBlocks,
   );
-  // is_stale is a separate, older-than-10-months signal from the backend and
-  // can be true even when closed is false (no closed_at, no expiring
-  // deadline) - a job with no deadline never trips `closed` on its own.
-  const stale = opportunity.is_stale && !closed;
+  // Preserve the Binding age flag; newer APIs add verification staleness.
+  const stale = (opportunity.is_stale || opportunity.freshness === "stale") && !closed;
   const estimated =
     !opportunity.closed_at &&
     closedByDeadline &&
@@ -175,7 +174,9 @@ export default async function OpportunityPage({ params }: PageProps) {
       : `This deadline has passed. ${verification.closedCaption}`;
   // Never invents a posted date: when posted_at is missing, this says only
   // when we first found the listing, not when it went up.
-  const staleCaption = opportunity.posted_at
+  const staleCaption = !opportunity.is_stale
+    ? `Aspirova hasn't confirmed this listing within its source's check window. Check the source before applying. ${verification.statusCaption}`
+    : opportunity.posted_at
     ? `This was posted ${formatDate(opportunity.posted_at, "long")} — over 10 months ago — and Aspirova can't confirm it's still open. ${verification.statusCaption}`
     : `Aspirova first found this listing on ${formatDate(opportunity.first_seen_at, "long")}, over 10 months ago; its original posting date isn't available. We can't confirm it's still open. ${verification.statusCaption}`;
   const locationSummary = summarizeLocation(opportunity.location);
@@ -311,7 +312,7 @@ export default async function OpportunityPage({ params }: PageProps) {
                 role="status"
                 className="mt-8 max-w-3xl rounded-md border border-warning/25 bg-warning/15 px-4 py-3 text-sm leading-6 text-warning-foreground dark:text-warning"
               >
-                <p className="font-medium">This listing is old and likely closed.</p>
+                <p className="font-medium">{opportunity.is_stale ? "This listing is old and likely closed." : "This listing hasn't been verified recently."}</p>
                 <p className="mt-1 text-xs leading-5 opacity-90">{staleCaption}</p>
               </div>
             )}
@@ -346,6 +347,7 @@ export default async function OpportunityPage({ params }: PageProps) {
                   {opportunity.company?.slug && <div className="min-w-0 max-w-full [&>div]:mt-0 sm:ml-auto"><FollowCompanyButton slug={opportunity.company.slug} companyName={opportunity.company.name} /></div>}
                 </div>
                 <DestinationLabel facts={opportunity.destination_facts} destination={opportunity.destination} />
+                <FreshnessLabel item={opportunity} />
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                   <p className="max-w-lg text-xs leading-5 text-muted-foreground">{withdrawn ? "Review the safety warning above before taking any action." : closed ? closedCaption : stale ? verification.caption : apply.caption}</p>
                   <ReportIssueDialog opportunitySlug={opportunity.slug} />

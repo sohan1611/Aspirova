@@ -167,7 +167,7 @@ def send_saved_search_alerts(
             if saved_search is None or not saved_search.alerts_enabled:
                 continue
             params = saved_search.params
-            filters = saved_search_base_filters(params)
+            filters = saved_search_base_filters(params, now=now)
             new_since = saved_search.last_alerted_at or saved_search.created_at
             filters.append(listing_window(new_since, inclusive=False))
             filters.append(models.Opportunity.first_seen_at <= now)

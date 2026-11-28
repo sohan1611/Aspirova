@@ -90,6 +90,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--url", default=URL)
     parser.add_argument("--seed", action="store_true")
+    parser.add_argument(
+        "--current-only", action="store_true", help="Measure the current query only"
+    )
     parser.add_argument("--role-ranks", choices=("stored", "null", "mixed"))
     parser.add_argument("--limit", type=int, default=24, choices=range(1, 101))
     parser.add_argument("--output", default="_local/landing-perf.json")
@@ -98,10 +101,14 @@ def main():
     if (
         url.host not in {"localhost", "127.0.0.1"}
         or url.port != 56432
-        or url.database != "aspirova_perf"
+        or not (
+            url.database == "aspirova_perf" or (url.database or "").startswith("aspirova_perf_")
+        )
         or url.query
     ):
-        parser.error("Only localhost:56432/aspirova_perf without URL query options is permitted")
+        parser.error(
+            "Only localhost:56432/aspirova_perf[_suffix] without URL query options is permitted"
+        )
     os.environ["DATABASE_URL"] = args.url
     from api import feed
 
@@ -132,6 +139,9 @@ def main():
 
     results = []
     current = feed.landing_feed_rows
+    implementations = [("after", current)]
+    if not args.current_only:
+        implementations.insert(0, ("before", legacy_landing_feed_rows))
     defaults = {
         key: param.default.default
         for key, param in inspect.signature(feed.get_feed).parameters.items()
@@ -139,7 +149,7 @@ def main():
     }
     try:
         for prefer_country in (None, "IN"):
-            for name, implementation in (("before", legacy_landing_feed_rows), ("after", current)):
+            for name, implementation in implementations:
                 feed.landing_feed_rows = implementation
                 plans.clear()
                 with Session(engine) as session:
@@ -177,10 +187,11 @@ def main():
                         response.total,
                         flush=True,
                     )
-        for before, after in zip(results[::2], results[1::2]):
-            assert before["ids"] == after["ids"]
-            assert before["total"] == after["total"]
-            assert before["open_total"] == after["open_total"]
+        if not args.current_only:
+            for before, after in zip(results[::2], results[1::2]):
+                assert before["ids"] == after["ids"]
+                assert before["total"] == after["total"]
+                assert before["open_total"] == after["open_total"]
         output = Path(args.output)
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(json.dumps(results, indent=2), encoding="utf-8")

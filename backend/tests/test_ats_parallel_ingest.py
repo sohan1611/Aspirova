@@ -26,6 +26,17 @@ from crawlers.watchdog import CrawlWatchdog
 from pipeline.ingest import ingest_one as real_ingest_one
 
 
+@pytest.fixture(autouse=True)
+def _offline_freshness_journal(monkeypatch, request):
+    if "seeded_boards" in request.fixturenames:
+        return
+    monkeypatch.setattr(runner, "_begin_ats_freshness_batch", lambda *_: {})
+    monkeypatch.setattr(runner, "_finish_ats_freshness_batch", lambda *_: None)
+    monkeypatch.setattr(runner, "_begin_freshness_run", lambda *_: None)
+    monkeypatch.setattr(runner, "_reopen_seen_inventory_listings", lambda *_: None)
+    monkeypatch.setattr(runner, "_note_freshness_recoveries", lambda *_: None)
+
+
 def _raw(external_id, *, version=1):
     return RawListing(
         source_slug="parallel-test",
@@ -748,7 +759,10 @@ def _snapshot(seed):
             "crawl_runs": sorted(
                 (row.log["company_slug"], row.status, row.listings_found, row.new_opps, row.errors)
                 for row in session.scalars(
-                    select(models.CrawlRun).where(models.CrawlRun.source_id == seed.source_id)
+                    select(models.CrawlRun).where(
+                        models.CrawlRun.source_id == seed.source_id,
+                        models.CrawlRun.log["freshness_batch"].astext.is_(None),
+                    )
                 )
             ),
         }

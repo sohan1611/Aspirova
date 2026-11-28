@@ -51,6 +51,10 @@ export interface EligibilityFacts {
 }
 
 export interface OpportunityListItem {
+  last_verified_at?: string | null;
+  freshness?: "fresh" | "stale" | null;
+  freshness_reason?: "age" | "verification" | null;
+  stale_after_hours?: number | null;
   destination_facts?: DestinationFacts | null;
   eligibility?: EligibilityFacts | null;
   role_level?: RoleLevel;

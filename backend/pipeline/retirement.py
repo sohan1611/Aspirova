@@ -1,4 +1,4 @@
-"""Conservative retirement from repeated board death or rolling-feed age."""
+"""Conservative board retirement and soft aging of rolling feeds."""
 
 from collections import defaultdict
 from dataclasses import dataclass
@@ -25,15 +25,13 @@ ROLLING_WINDOW_TTL_DAYS = {
     "himalayas": 60,
     **{source: 45 for source in GOVERNMENT_NOTICE_SOURCES},
 }
-# These notice boards can replace intakes or retain archives. Absence proves
-# nothing; only an UNDATED notice unseen for 45 days ages out while its source
-# is reachable. Every confirmation refreshes last_seen_at, including unchanged
-# crawls. Dated notices instead use the existing deadline sweep exclusively.
+# Historical TTL values remain for repair scripts and the #162/#163 reopen
+# contract. TRUST-02 uses core.freshness for soft aging; none of these TTLs may
+# write closed_at. Every confirmation, including unchanged crawls, refreshes
+# last_seen_at. Dated notices still have independent deadline closure.
 ROLLING_WINDOW_SOURCES = frozenset(ROLLING_WINDOW_TTL_DAYS)
-# Rolling feeds expose only their newest window. A source outage freezes closure.
-# Himalayas expires jobs at pubDate + 60 days. We see only its newest window,
-# with last_seen_at within ~2.5 days of pubDate, so 60 days from last_seen_at
-# never closes a listing before Himalayas does.
+# Himalayas keeps its longer 60-day soft threshold; a 30-day presumption once
+# closed 1,679 still-live rows. Positive evidence, not age, now proves closure.
 
 
 @dataclass(frozen=True)
@@ -263,59 +261,22 @@ def retire_dead_board_listings(session: Session, *, now: datetime | None = None)
 
 
 def retire_rolling_window_listings(session: Session) -> dict[str, int]:
-    """Apply the age presumption only while the corresponding feed is running."""
-    counts = {}
-    for source in sorted(ROLLING_WINDOW_SOURCES):
-        cutoff = func.now() - text(f"interval '{ROLLING_WINDOW_TTL_DAYS[source]} days'")
-        recent_contact = (
-            select(models.CrawlRun.id)
-            .join(models.Source, models.Source.id == models.CrawlRun.source_id)
-            .where(
-                models.Source.adapter_key == source,
-                models.CrawlRun.status.in_(("success", "partial")),
-                models.CrawlRun.finished_at >= func.now() - text("interval '2 days'"),
-            )
-            .exists()
+    """Report soft-aged rows; TTL alone no longer writes closed_at (TRUST-02).
+
+    Keep the callable and historical TTL constants for maintenance compatibility
+    and re-seen rescue of closures written before TRUST-02.
+    """
+    from core.freshness import stale_expression
+
+    rows = session.execute(
+        select(models.Opportunity.primary_source, func.count())
+        .where(
+            models.Opportunity.primary_source.in_(ROLLING_WINDOW_SOURCES),
+            models.Opportunity.status == "active",
+            models.Opportunity.closed_at.is_(None),
+            stale_expression(),
         )
-        # seen_at is initial provenance creation in the current ingest path;
-        # canonical last_seen_at also advances on every source confirmation.
-        # Both signals protect a newer confirmation from another source.
-        fresher_link = (
-            select(models.OpportunitySource.id)
-            .join(models.Source, models.Source.id == models.OpportunitySource.source_id)
-            .where(
-                models.OpportunitySource.opportunity_id == models.Opportunity.id,
-                models.Source.adapter_key != source,
-                or_(
-                    models.OpportunitySource.seen_at >= cutoff,
-                    models.OpportunitySource.seen_at > models.Opportunity.last_seen_at,
-                ),
-            )
-            .exists()
-        )
-        result = session.execute(
-            update(models.Opportunity)
-            .where(
-                models.Opportunity.status == "active",
-                models.Opportunity.closed_at.is_(None),
-                models.Opportunity.primary_source == source,
-                models.Opportunity.last_seen_at < cutoff,
-                (
-                    models.Opportunity.deadline.is_(None)
-                    if source in GOVERNMENT_NOTICE_SOURCES
-                    else True
-                ),
-                recent_contact,
-                ~fresher_link,
-            )
-            .values(
-                closed_at=func.now(),
-                meta=func.coalesce(
-                    func.nullif(models.Opportunity.meta, text("'null'::jsonb")),
-                    text("'{}'::jsonb"),
-                ).op("||")(func.jsonb_build_object("closed_reason", "rolling_window_ttl")),
-            )
-            .execution_options(synchronize_session=False)
-        )
-        counts[source] = int(result.rowcount or 0)
-    return counts
+        .group_by(models.Opportunity.primary_source)
+    ).all()
+    counts = dict(rows)
+    return {source: counts.get(source, 0) for source in sorted(ROLLING_WINDOW_SOURCES)}

@@ -115,7 +115,8 @@ def test_unchanged_github_inventory_refreshes_only_returned_external_ids(monkeyp
     )
     assert result["status"] == "success"
     assert state.last_crawled_at is not None
-    assert len(session.executed) == 1
+    # Returned-ID verification plus reopening positively re-seen closed rows.
+    assert len(session.executed) == 2
     query = session.executed[0]
     sql = str(query)
     assert "raw_listings" in sql and "external_id" in sql and "last_seen_at" in sql

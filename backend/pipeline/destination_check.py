@@ -2,6 +2,7 @@
 
 import re
 import socket
+from html import unescape
 from datetime import datetime, timezone
 from ipaddress import ip_address
 from time import monotonic
@@ -30,6 +31,18 @@ _PARKED = re.compile(
     r"sedoparking\.com|parkingcrew\.net)",
     re.I,
 )
+_EXPIRED_POSTING = re.compile(
+    r"\b(?:"
+    r"(?:this|the) (?:job(?: posting| listing)?|position|vacancy|opportunity) "
+    r"(?:has expired|is (?:closed|expired|no longer (?:open|available|active|accepting applications)))"
+    r"|we are no longer accepting applications|applications (?:are|have) closed"
+    r")\b",
+    re.I,
+)
+
+
+class CheckBudgetExceeded(Exception):
+    """The check could not start a request within its time budget."""
 
 
 def public_dns(host: str, port: int) -> bool:
@@ -73,6 +86,10 @@ def inspect_destination(
     request_url: str | None = None,
     request: Callable[[str], httpx.Response | None] | None = None,
     allowed_board: tuple[str, str] | None = None,
+    expected_title: str | None = None,
+    valid_response: Callable[[httpx.Response], bool] | None = None,
+    host_blocked: Callable[[str], bool] | None = None,
+    record_response: Callable[[str, int], None] | None = None,
 ) -> dict:
     """Record terminal evidence; stop before fetching unsafe/unrelated redirects.
 
@@ -107,12 +124,22 @@ def inspect_destination(
             return result
         visited.add(current)
         parts = urlsplit(current)
-        if monotonic() - started >= MAX_CHECK_SECONDS or not resolve(
+        if host_blocked is not None and host_blocked(host):
+            result["failure_reason"] = "skipped_403"
+            return result
+        if monotonic() - started >= MAX_CHECK_SECONDS:
+            result["failure_reason"] = "lock_or_budget"
+            result["warnings"].append("unreachable_or_private")
+            return result
+        if not resolve(
             parts.hostname or host, parts.port or (443 if parts.scheme == "https" else 80)
         ):
             result["warnings"].append("unreachable_or_private")
             return result
         try:
+            if host_blocked is not None and host_blocked(host):
+                result["failure_reason"] = "skipped_403"
+                return result
             if request is not None:
                 response = request(current)
                 if response is None:
@@ -135,6 +162,8 @@ def inspect_destination(
             result["hops"].append(
                 {"host": host, "domain": registrable_domain(host), "status": code}
             )
+            if record_response is not None:
+                record_response(host, code)
             if code == 401:
                 result.update(status="sign_in_required")
                 return result
@@ -235,10 +264,48 @@ def inspect_destination(
                 } and ("true" in parse_qs(parts.query).get("error", [])):
                     result.update(status="gone")
                 else:
+                    if valid_response is not None and not valid_response(response):
+                        result["failure_reason"] = "parse_or_shape"
+                        return result
                     result.update(status="alive")
+                    if expected_title:
+                        words = set(re.findall(r"[a-z0-9]+", expected_title.casefold())) - {
+                            "a",
+                            "an",
+                            "and",
+                            "at",
+                            "for",
+                            "in",
+                            "of",
+                            "the",
+                            "to",
+                            "with",
+                        }
+                        title_text = " ".join(re.findall(r"\w+", expected_title.casefold()))
+                        body_text = " ".join(
+                            re.findall(r"\w+", unescape(re.sub(r"<[^>]+>", " ", body)).casefold())
+                        )
+                        if _EXPIRED_POSTING.search(body_text):
+                            result.update(status="unknown", warnings=["expired_copy"])
+                            return result
+                        # Require the exact posting path and its title. A redirect
+                        # to a careers index or recycled generic page is no rescue.
+                        result["same_posting"] = bool(
+                            len(words) >= 2
+                            and f" {title_text} " in f" {body_text} "
+                            and urlsplit(current).path.rstrip("/")
+                            == urlsplit(request_url or url).path.rstrip("/")
+                            and urlsplit(current).query == urlsplit(request_url or url).query
+                        )
             return result
         except (httpx.InvalidURL, httpx.UnsupportedProtocol, httpx.RemoteProtocolError):
             result["warnings"].append("invalid_redirect")
+            return result
+        except httpx.TimeoutException:
+            result["failure_reason"] = "timeout"
+            return result
+        except CheckBudgetExceeded:
+            result["failure_reason"] = "lock_or_budget"
             return result
         except httpx.RequestError:
             return result

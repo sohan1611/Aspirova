@@ -15,10 +15,11 @@ def main() -> None:
         rolling_counts = retire_rolling_window_listings(session)
         session.commit()
         print(f"opportunities marked closed: {closed_count}", flush=True)
-        for board, count in dead_counts.items():
-            print(f"dead board {board}: closed={count}", flush=True)
+        print(
+            f"dead boards checked={len(dead_counts)} closed={sum(dead_counts.values())}", flush=True
+        )
         for source, count in rolling_counts.items():
-            print(f"rolling-window TTL {source}: closed={count}", flush=True)
+            print(f"freshness {source}: soft_stale={count}", flush=True)
 
 
 if __name__ == "__main__":

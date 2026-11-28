@@ -39,7 +39,8 @@ def test_facets_return_distinct_active_companies_and_locations(
     client: TestClient, db_session: Session
 ) -> None:
     suffix = str(uuid.uuid4())
-    seen_at = datetime.now(UTC) - timedelta(days=30)
+    verified_at = datetime.now(UTC)
+    seen_at = verified_at - timedelta(days=30)
     high_location = f"Facet Zulu Location {suffix}"
     low_location = f"facet Alpha Location {suffix}"
     inactive_location = f"Facet Inactive Location {suffix}"
@@ -80,7 +81,7 @@ def test_facets_return_distinct_active_companies_and_locations(
                 location=high_location,
                 status="active",
                 first_seen_at=seen_at,
-                last_seen_at=seen_at,
+                last_seen_at=verified_at,
             ),
             models.Opportunity(
                 slug=f"facet-active-b-{suffix}",
@@ -90,7 +91,7 @@ def test_facets_return_distinct_active_companies_and_locations(
                 location=high_location,
                 status="active",
                 first_seen_at=seen_at,
-                last_seen_at=seen_at,
+                last_seen_at=verified_at,
             ),
             models.Opportunity(
                 slug=f"facet-active-c-{suffix}",
@@ -100,7 +101,7 @@ def test_facets_return_distinct_active_companies_and_locations(
                 location=low_location,
                 status="active",
                 first_seen_at=seen_at,
-                last_seen_at=seen_at,
+                last_seen_at=verified_at,
             ),
             models.Opportunity(
                 slug=f"facet-active-blank-location-{suffix}",
@@ -110,7 +111,7 @@ def test_facets_return_distinct_active_companies_and_locations(
                 location="",
                 status="active",
                 first_seen_at=seen_at,
-                last_seen_at=seen_at,
+                last_seen_at=verified_at,
             ),
             models.Opportunity(
                 slug=f"facet-inactive-opp-{suffix}",
@@ -120,7 +121,7 @@ def test_facets_return_distinct_active_companies_and_locations(
                 location=inactive_location,
                 status="expired",
                 first_seen_at=seen_at,
-                last_seen_at=seen_at,
+                last_seen_at=verified_at,
             ),
             models.Opportunity(
                 slug=f"facet-stale-opp-{suffix}",
@@ -131,7 +132,7 @@ def test_facets_return_distinct_active_companies_and_locations(
                 status="active",
                 posted_at=datetime.now(UTC) - timedelta(days=STALE_AFTER_DAYS + 1),
                 first_seen_at=seen_at,
-                last_seen_at=seen_at,
+                last_seen_at=verified_at,
             ),
         ]
     )

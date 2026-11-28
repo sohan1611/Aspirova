@@ -25,6 +25,7 @@ OPPORTUNITY_LIST_COLUMNS = (
     models.Opportunity.deadline_confidence,
     models.Opportunity.is_hidden,
     models.Opportunity.last_seen_at,
+    models.Opportunity.first_seen_at,
 )
 
 
